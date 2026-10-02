@@ -58,7 +58,7 @@ fn transport_env(values: &[(&str, &str)]) -> TransportEnvInputs {
 #[test]
 fn credential_failures_have_no_command_context_or_suggestion() {
     let empty = credentials("");
-    let bad_policy = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let bad_policy = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     for (config, workspace, expected) in [
         (
             options(&[]),
@@ -89,7 +89,7 @@ fn credential_failures_have_no_command_context_or_suggestion() {
 #[test]
 fn selected_key_failures_keep_shape_order_and_redaction() {
     let store = credentials("");
-    let bad_policy = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let bad_policy = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     let key = "lin_api_fake";
     let config = options(&[("LINEAR_API_KEY", key)]);
     let policy = prepare_transport(&config, &store, None, &bad_policy)
@@ -98,14 +98,9 @@ fn selected_key_failures_keep_shape_order_and_redaction() {
     assert_eq!(policy.context, None);
     assert_eq!(
         policy.message,
-        "HTTP_PROXY is not supported by this transport mode"
+        "SSL_CERT_FILE: CA bundle /nonexistent/linear-test-ca.pem could not be read"
     );
-    assert_eq!(
-        policy.suggestion.as_deref(),
-        Some(
-            "Use direct public roots, an absolute SSL_CERT_FILE, or the documented loopback HTTPS proxy mode."
-        )
-    );
+    assert_eq!(policy.suggestion, None);
     assert!(!format!("{policy:?}").contains(key));
 
     let invalid = "lin_api_fake\nsecret";
@@ -142,7 +137,10 @@ fn ca_bundle_failure_has_no_context_and_keeps_selected_key_private() {
     assert_eq!(error.context, None);
     assert_eq!(
         error.message,
-        format!("SSL_CERT_FILE: CA bundle {} is empty", ca_file.display())
+        format!(
+            "SSL_CERT_FILE: CA bundle {} contains no certificates",
+            ca_file.display()
+        )
     );
     assert_eq!(error.suggestion, None);
     assert!(!format!("{error:?}").contains(key));

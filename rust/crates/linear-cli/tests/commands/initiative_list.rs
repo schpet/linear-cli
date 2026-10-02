@@ -14,8 +14,7 @@ use linear_cli::graphql::operations::initiatives::{
     LookupUserVariables,
 };
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use serde_json::{Value, json};
 
@@ -278,8 +277,7 @@ fn fake_transport(endpoint: &str) -> GraphQlTransport {
         EndpointUrl::parse(endpoint).unwrap(),
         ApiKey::new("lin_api_fake".to_owned()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(5)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

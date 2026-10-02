@@ -221,7 +221,7 @@ pub async fn execute<T: DeserializeOwned, V: Serialize>(
         .map_err(|e| BulkExchangeFailure::Ordinary(AppError::from(e).to_string()))?;
     let source = super::source_response::SourceResponse::classify(&response);
     let message = source_error_classified(&response, request, &source)?;
-    let result = super::transport::classify_typed_classified(response, source);
+    let result = super::transport::classify_typed(response);
     if let Some(message) = message {
         return Err(BulkExchangeFailure::Ordinary(message));
     }
@@ -353,7 +353,7 @@ pub async fn execute_observed<T: DeserializeOwned, V: Serialize>(
     if let Some(error) = observation {
         return Err(ObservedExchangeFailure::Ordinary(error));
     }
-    super::transport::classify_typed_classified(response, source).map_err(|error| match error {
+    super::transport::classify_typed(response).map_err(|error| match error {
         TransportFailure::Response(_) | TransportFailure::RequestBody(_) => {
             ObservedExchangeFailure::Strict(AppError::from(error))
         }

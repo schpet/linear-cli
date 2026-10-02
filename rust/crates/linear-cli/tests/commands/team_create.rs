@@ -8,8 +8,7 @@ use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::team_create::CreateTeam;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use linear_cli::platform::prompt::PromptSession;
 use serde_json::{Value, json};
@@ -286,8 +285,7 @@ fn transport(endpoint: &str) -> GraphQlTransport {
         EndpointUrl::parse(endpoint).unwrap(),
         ApiKey::new("lin_api_fake".to_owned()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(5)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

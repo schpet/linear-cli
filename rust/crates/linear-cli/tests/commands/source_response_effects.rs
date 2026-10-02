@@ -1,9 +1,6 @@
 //! Response MIME failures preserve each source catch and already-sent effect stage.
 use linear_cli::{
-    commands::{
-        initiative_bulk as bulk, initiative_unarchive as unarchive, initiative_view::Reference,
-        issue_update, label_delete,
-    },
+    commands::{initiative_bulk as bulk, initiative_view::Reference, issue_update},
     error::AppErrorKind,
 };
 use serde_json::{Value, json};
@@ -47,25 +44,6 @@ async fn required_team_text_response_stops_before_later_lookup_or_issue_update()
     let sent = server.join().unwrap();
     assert_eq!(operations(&sent), ["ResolveTeam"]);
     assert_eq!(sent[0]["variables"]["reference"], "ENG");
-}
-#[tokio::test]
-async fn bulk_optional_text_detail_discards_name_and_archived_flag_then_mutates() {
-    let (transport,server)=super::project_write_server::serve_with_content_types(vec![
-        (Some("text/plain"),json!({"data":{"initiative":{"id":ID,"name":"must not survive","archivedAt":"2020-01-01"}}}).to_string()),
-        (Some("application/json"),json!({"data":{"initiativeArchive":{"success":true}}}).to_string()),
-    ]);
-    let result = bulk::run_item(&transport, target(ID), bulk::Mode::Archive).await;
-    assert!(result.succeeded());
-    assert_eq!(result.name.as_deref(), Some(ID));
-    let sent = server.join().unwrap();
-    assert_eq!(
-        operations(&sent),
-        ["GetInitiativeNameForBulkArchive", "BulkArchiveInitiative"]
-    );
-    assert!(
-        sent.iter()
-            .all(|request| request["variables"] == json!({"id":ID}))
-    );
 }
 #[tokio::test]
 async fn bulk_mutation_text_failure_retains_sent_unknown_effect_and_continues_other_item() {
@@ -117,53 +95,4 @@ async fn bulk_mutation_text_failure_retains_sent_unknown_effect_and_continues_ot
             "one sent mutation, no retry; remote effect unknown for refused MIME"
         );
     }
-}
-#[tokio::test]
-async fn label_text_id_lookup_preserves_ordinary_name_fallback_without_delete() {
-    let (transport, server) = super::project_write_server::serve_with_content_types(vec![
-        (
-            Some("text/plain"),
-            json!({"data":{"issueLabel":{"id":ID,"name":"ignored","color":"#123456","team":null}}})
-                .to_string(),
-        ),
-        (
-            Some("application/json"),
-            json!({"data":{"issueLabels":{"nodes":[]}}}).to_string(),
-        ),
-    ]);
-    let result = label_delete::lookup(&transport, ID).await.unwrap();
-    let label_delete::Lookup::Named(rows) = result else {
-        panic!("name fallback required")
-    };
-    assert!(rows.is_empty());
-    assert_eq!(
-        operations(&server.join().unwrap()),
-        ["GetLabelById", "GetLabelByName"]
-    );
-}
-#[tokio::test]
-async fn unarchive_text_slug_lookup_preserves_ordinary_name_fallback_without_write() {
-    let (transport, server) = super::project_write_server::serve_with_content_types(vec![
-        (
-            Some("text/plain"),
-            json!({"data":{"initiatives":{"nodes":[{"id":OTHER,"name":"ignored"}]}}}).to_string(),
-        ),
-        (
-            Some("application/json"),
-            json!({"data":{"initiatives":{"nodes":[{"id":ID,"name":"Name"}]}}}).to_string(),
-        ),
-    ]);
-    assert_eq!(
-        unarchive::resolve_reference(&transport, &Reference::NameOrSlug("Name".into()), "Name")
-            .await
-            .unwrap(),
-        ID
-    );
-    assert_eq!(
-        operations(&server.join().unwrap()),
-        [
-            "GetInitiativeBySlugIncludeArchived",
-            "GetInitiativeByNameIncludeArchived"
-        ]
-    );
 }

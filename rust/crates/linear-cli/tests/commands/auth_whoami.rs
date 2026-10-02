@@ -8,8 +8,7 @@ use linear_cli::config::{
 use linear_cli::error::{AppError, AppErrorKind};
 use linear_cli::graphql::operations::auth_whoami::AuthStatus;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -188,7 +187,8 @@ async fn injected_handler_calls_one_auth_status_and_contextualizes_failure() {
 
 #[test]
 fn credential_failures_precede_transport_policy_and_have_one_exact_line() {
-    let unsupported_transport = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let unsupported_transport =
+        transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     let empty = credentials("");
     let no_key = prepare_transport(&options(&[], None), &empty, None, &unsupported_transport)
         .expect_err("no key");
@@ -226,13 +226,13 @@ fn credential_failures_precede_transport_policy_and_have_one_exact_line() {
 fn sourced_api_key_wins_explicit_workspace_and_transport_policy_is_lazy() {
     let store = credentials("default='acme'\nacme='lin_api_fake_acme'\n");
     let config = options(&[], Some("api_key='lin_api_fake_project'"));
-    let invalid_transport = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let invalid_transport = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     let error = prepare_transport(&config, &store, Some("missing"), &invalid_transport)
         .expect_err("credential selected before transport policy");
     assert!(
         error
             .display_message()
-            .starts_with("Failed to get user info: HTTP_PROXY")
+            .starts_with("Failed to get user info: SSL_CERT_FILE")
     );
     let direct = transport_env(&[]);
     let transport = prepare_transport(&config, &store, Some("missing"), &direct)
@@ -243,7 +243,7 @@ fn sourced_api_key_wins_explicit_workspace_and_transport_policy_is_lazy() {
 #[test]
 fn selected_key_header_failure_precedes_transport_policy_without_leaking_key() {
     let config = options(&[("LINEAR_API_KEY", "lin_api_fake\nsecret")], None);
-    let invalid_transport = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let invalid_transport = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     let error = prepare_transport(&config, &credentials(""), None, &invalid_transport)
         .expect_err("invalid selected key cannot reach transport");
     assert_eq!(error.kind, AppErrorKind::Validation);
@@ -315,8 +315,7 @@ fn transport_for(endpoint: &str, deadline: Duration, cap: usize) -> GraphQlTrans
         EndpointUrl::parse(endpoint).expect("endpoint"),
         ApiKey::new("lin_api_fake".to_owned()).expect("fake key"),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(deadline).expect("bounded test deadline"),
             max_response_bytes: ResponseCap::new(cap).expect("bounded test cap"),
         },

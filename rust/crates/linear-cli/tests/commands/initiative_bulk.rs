@@ -5,8 +5,7 @@ use linear_cli::{
         initiative_view::Reference,
     },
     graphql::transport::{
-        ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-        TransportConfig,
+        ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
     },
     refs::WorkspaceScope,
 };
@@ -81,8 +80,7 @@ fn transport(endpoint: &str, deadline: Duration, cap: usize) -> GraphQlTransport
         EndpointUrl::parse(endpoint).unwrap(),
         ApiKey::new("lin_api_fake".into()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(deadline).unwrap(),
             max_response_bytes: ResponseCap::new(cap).unwrap(),
         },

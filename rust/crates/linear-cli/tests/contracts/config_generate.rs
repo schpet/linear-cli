@@ -328,8 +328,7 @@ fn destination_normalization_and_direct_overwrite_preserve_source_local_effects(
 }
 
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use std::{
     io::{Read, Write},
@@ -408,8 +407,7 @@ fn server(replies: Vec<Reply>) -> (GraphQlTransport, thread::JoinHandle<Vec<Valu
         EndpointUrl::parse(&endpoint).unwrap(),
         ApiKey::new("fixture-key".into()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(2)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

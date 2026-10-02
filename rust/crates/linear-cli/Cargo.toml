@@ -31,10 +31,6 @@ tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time
 markdown = { version = "=1.0.0", default-features = false }
 mdast_util_to_markdown = { version = "=0.0.2", path = "../../vendor/mdast_util_to_markdown" }
 sha2 = { version = "=0.11.0", default-features = false }
-hyper = { version = "=1.11.1", default-features = false }
-data-url = { version = "=0.3.2", default-features = false, features = ["std"] }
-flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
-brotli-decompressor = { version = "=6.0.1", default-features = false, features = ["std"] }
 
 futures-util = { version = "=0.3.34", default-features = false, features = ["std"] }
 
@@ -54,11 +50,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "linear"
 path = "src/main.rs"
-
-[[example]]
-name = "f02b_fixed_host_probe"
-path = "examples/f02b_fixed_host_probe.rs"
-test = true
 
 [build-dependencies]
 cynic-codegen = { version = "=3.14.0", features = ["rkyv"] }

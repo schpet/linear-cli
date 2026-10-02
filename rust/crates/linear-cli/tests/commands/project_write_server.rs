@@ -1,7 +1,6 @@
 //! Bounded loopback fixture shared by public command tests.
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use serde_json::Value;
 use std::{
@@ -92,8 +91,7 @@ pub fn serve_responses(
         EndpointUrl::parse(&format!("http://{address}/graphql")).unwrap(),
         ApiKey::new("fixture-key".to_owned()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(2)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

@@ -13,7 +13,7 @@ use crate::{
         bulk_error::{ObservedExchangeFailure, execute_observed},
         envelope::GraphQlRequest,
         operations::auth_login_viewer::AuthLoginViewer,
-        transport::{GraphQlTransport, LoginCredentialCandidate},
+        transport::{ApiKey, GraphQlTransport},
     },
     text::js_trim,
 };
@@ -32,36 +32,32 @@ pub fn supplied_key(input: Option<&str>) -> Option<ConfigSecret> {
         .map(|key| ConfigSecret::new(key.to_owned()))
 }
 pub fn clean_key(key: ConfigSecret) -> Result<ConfigSecret, AppError> {
-    let trimmed = js_trim(key.expose());
+    let trimmed =
+        js_trim(key.expose()).trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_');
     if trimmed.is_empty() {
         return Err(
             AppError::new(AppErrorKind::Validation, "No API key provided")
                 .with_suggestion(SECRET_HINT),
         );
     }
-    // No second empty check: punctuation-only becomes empty Authorization.
-    Ok(ConfigSecret::new(
-        trimmed
-            .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_')
-            .to_owned(),
-    ))
+    Ok(ConfigSecret::new(trimmed.to_owned()))
 }
 pub fn prepare_transport(
     options: &ConfigOptions,
     env: &TransportEnvInputs,
     key: &ConfigSecret,
 ) -> Result<GraphQlTransport, AppError> {
-    let candidate = LoginCredentialCandidate::new(key.expose()).map_err(|error| {
+    let api_key = ApiKey::new(key.expose().to_owned()).map_err(|error| {
         AppError::new(
             AppErrorKind::Validation,
             "API key cannot be used as an HTTP header",
         )
         .with_source(error)
     })?;
-    GraphQlTransport::new_login(
+    GraphQlTransport::new(
         options.endpoint().value().clone(),
-        candidate,
-        env.production().map_err(AppError::from)?,
+        api_key,
+        env.production(),
     )
     .map_err(AppError::from)
 }

@@ -328,7 +328,7 @@ fn prepare_rejects_bad_team_before_credentials_with_one_context() {
     let no_key = config_options(&[]);
     let store = empty_credentials();
     // Unusable if reached: a team failure must win over it and credentials.
-    let bad_policy = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let bad_policy = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
 
     let without_team = prepare(&no_key, &store, None, &bad_policy, None)
         .err()

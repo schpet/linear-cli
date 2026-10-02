@@ -1,8 +1,10 @@
-//! Network adapter checks with private process inputs, files, and listeners.
+//! Client construction, TLS, proxy and error-rendering checks against
+//! private listeners and files.
 use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -12,12 +14,11 @@ use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::UnsupportedKeyringReader;
 use linear_cli::config::{
     FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-    TransportEnvInputs,
 };
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, RawHttpResponse,
-    ResponseCap, TransportBuildError, TransportConfig, classify_typed,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, RawHttpResponse, ResponseCap, TransportConfig,
+    classify_typed,
 };
 use linear_cli::startup::{AppStartupReport, load};
 use reqwest::StatusCode;
@@ -39,15 +40,11 @@ impl PrivateDir {
             .as_nanos();
         let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "linear-r02b4-{}-{tick}-{sequence}",
+            "linear-network-{}-{tick}-{sequence}",
             std::process::id()
         ));
         std::fs::create_dir(&path).expect("private test dir");
         Self(path)
-    }
-
-    fn path(&self, name: &str) -> PathBuf {
-        self.0.join(name)
     }
 }
 
@@ -59,156 +56,23 @@ impl Drop for PrivateDir {
 
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../parity/runner/certs")
+        .join("tests/fixtures/tls")
         .join(name)
 }
 
 fn fake_key() -> ApiKey {
-    ApiKey::new("lin_api_fake_r02b4".to_owned()).expect("key")
+    ApiKey::new("lin_api_fake_network".to_owned()).expect("key")
 }
 
-fn config(ca: CaMode, deadline: Duration) -> TransportConfig {
+fn config(deadline: Duration) -> TransportConfig {
     TransportConfig {
-        proxy: ProxyMode::Direct,
-        ca,
+        ca_bundle: None,
         deadline: Deadline::new(deadline).expect("deadline"),
         max_response_bytes: ResponseCap::DEFAULT,
     }
 }
 
-fn loopback_config(proxy: &str, ca: PathBuf) -> TransportConfig {
-    let path = ca.to_str().expect("private test path UTF-8");
-    let snapshot = ProcessEnvSnapshot::from_vars_os(
-        PathBuf::from("/work"),
-        OsFamily::Unix,
-        [
-            (OsString::from("HTTPS_PROXY"), OsString::from(proxy)),
-            (
-                OsString::from("NO_PROXY"),
-                OsString::from("127.0.0.1,localhost"),
-            ),
-            (OsString::from("SSL_CERT_FILE"), OsString::from(path)),
-            (OsString::from("DENO_CERT"), OsString::from(path)),
-        ],
-    )
-    .expect("synthetic process snapshot");
-    TransportEnvInputs::from_process(&snapshot)
-        .resolve(
-            Deadline::new(Duration::from_secs(2)).expect("deadline"),
-            ResponseCap::DEFAULT,
-        )
-        .expect("production policy")
-}
-
-fn build(config: TransportConfig) -> Result<GraphQlTransport, TransportBuildError> {
-    GraphQlTransport::new(
-        EndpointUrl::parse("https://uploads.linear.app/graphql").expect("endpoint"),
-        fake_key(),
-        config,
-    )
-}
-
-#[test]
-fn pem_is_checked_once_at_client_build_after_key_selection() {
-    let dir = PrivateDir::new();
-    let good = dir.path("good.pem");
-    std::fs::copy(fixture("test-ca.pem"), &good).expect("copy CA fixture");
-    assert!(
-        build(config(
-            CaMode::PublicRootsPlusPem(good),
-            Duration::from_secs(1)
-        ))
-        .is_ok()
-    );
-
-    let empty = dir.path("empty.pem");
-    std::fs::write(&empty, "").expect("empty CA");
-    assert!(matches!(
-        build(config(
-            CaMode::PublicRootsPlusPem(empty),
-            Duration::from_secs(1)
-        )),
-        Err(TransportBuildError::CaEmpty { .. })
-    ));
-    let empty = dir.path("empty.pem");
-    let mapped = AppError::from(
-        build(config(
-            CaMode::PublicRootsPlusPem(empty),
-            Duration::from_secs(1),
-        ))
-        .expect_err("empty CA must fail at construction"),
-    );
-    assert_eq!(mapped.kind, AppErrorKind::Validation);
-    assert!(
-        mapped
-            .display_message()
-            .starts_with("SSL_CERT_FILE: CA bundle ")
-    );
-
-    let huge = dir.path("huge.pem");
-    let file = std::fs::File::create(&huge).expect("create large CA");
-    file.set_len(4 * 1024 * 1024 + 1).expect("extend CA");
-    assert!(matches!(
-        build(config(
-            CaMode::PublicRootsPlusPem(huge),
-            Duration::from_secs(1)
-        )),
-        Err(TransportBuildError::CaTooLarge { .. })
-    ));
-}
-
-#[cfg(unix)]
-#[test]
-fn symlinked_regular_bundle_is_accepted_but_nonfiles_are_refused() {
-    use std::os::unix::fs::symlink;
-    let dir = PrivateDir::new();
-    let good = dir.path("good.pem");
-    std::fs::copy(fixture("test-ca.pem"), &good).expect("copy CA fixture");
-    let link = dir.path("ca-link.pem");
-    symlink(&good, &link).expect("file symlink");
-    assert!(
-        build(config(
-            CaMode::PublicRootsPlusPem(link),
-            Duration::from_secs(1)
-        ))
-        .is_ok()
-    );
-
-    for (name, target) in [
-        ("dir-link", dir.0.clone()),
-        ("dangling-link", dir.path("missing")),
-    ] {
-        let link = dir.path(name);
-        symlink(target, &link).expect("symlink");
-        let result = build(config(
-            CaMode::PublicRootsPlusPem(link),
-            Duration::from_secs(1),
-        ));
-        match name {
-            "dir-link" => assert!(matches!(
-                result,
-                Err(TransportBuildError::CaNotRegularFile { .. })
-            )),
-            "dangling-link" => assert!(matches!(result, Err(TransportBuildError::CaRead { .. }))),
-            _ => unreachable!("fixed test cases"),
-        }
-    }
-    let fifo = dir.path("fifo");
-    let status = std::process::Command::new("mkfifo")
-        .arg(&fifo)
-        .status()
-        .expect("mkfifo present");
-    assert!(status.success());
-    let link = dir.path("fifo-link");
-    symlink(&fifo, &link).expect("FIFO symlink");
-    assert!(matches!(
-        build(config(
-            CaMode::PublicRootsPlusPem(link),
-            Duration::from_secs(1)
-        )),
-        Err(TransportBuildError::CaNotRegularFile { .. })
-    ));
-}
+const OK_BODY: &[u8] = b"{\"data\":{\"ok\":true}}";
 
 fn serve_once(delay: Duration) -> (String, thread::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("private listener");
@@ -221,13 +85,12 @@ fn serve_once(delay: Duration) -> (String, thread::JoinHandle<()>) {
         let mut request = [0_u8; 2048];
         let _ = stream.read(&mut request);
         thread::sleep(delay);
-        let body = b"{\"data\":{\"ok\":true}}";
         let response = format!(
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n",
-            body.len()
+            OK_BODY.len()
         );
         let _ = stream.write_all(response.as_bytes());
-        let _ = stream.write_all(body);
+        let _ = stream.write_all(OK_BODY);
     });
     (url, handle)
 }
@@ -238,7 +101,7 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
     let transport = GraphQlTransport::new(
         EndpointUrl::parse(&url).expect("endpoint"),
         fake_key(),
-        config(CaMode::PublicRoots, Duration::from_secs(2)),
+        config(Duration::from_secs(2)),
     )
     .expect("client");
     let response = block_on_network(async move {
@@ -248,14 +111,14 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
             .map_err(AppError::from)
     })
     .expect("loopback response");
-    assert_eq!(response.body, b"{\"data\":{\"ok\":true}}");
+    assert_eq!(response.body, OK_BODY);
     server.join().expect("server");
 
     let (url, server) = serve_once(Duration::from_millis(350));
     let transport = GraphQlTransport::new(
         EndpointUrl::parse(&url).expect("endpoint"),
         fake_key(),
-        config(CaMode::PublicRoots, Duration::from_millis(150)),
+        config(Duration::from_millis(150)),
     )
     .expect("client");
     let started = Instant::now();
@@ -272,29 +135,44 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
     server.join().expect("server");
 }
 
-fn tls_proxy() -> (String, thread::JoinHandle<String>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("private CONNECT listener");
-    let proxy = format!("http://{}", listener.local_addr().expect("address"));
+/// What a TLS listener saw: the proxy `CONNECT` head, if it acted as a
+/// proxy, and whether the TLS handshake completed.
+struct TlsObserved {
+    connect: Option<String>,
+    handshake: bool,
+}
+
+/// Accepts one connection and answers one HTTPS request with the leaf
+/// certificate (valid for `uploads.linear.app`, `localhost` and
+/// `127.0.0.1`). As a proxy, it first accepts a `CONNECT` request.
+fn tls_listener(proxy: bool) -> (u16, thread::JoinHandle<TlsObserved>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("private TLS listener");
+    let port = listener.local_addr().expect("address").port();
     let handle = thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("test TLS runtime");
         runtime.block_on(async move {
-            let (stream, _) = listener.accept().expect("CONNECT");
+            let (stream, _) = listener.accept().expect("connection");
             stream.set_nonblocking(true).expect("nonblocking stream");
             let mut stream = tokio::net::TcpStream::from_std(stream).expect("Tokio stream");
-            let mut head = Vec::new();
-            loop {
-                let mut byte = [0_u8; 1];
-                let count = stream.read(&mut byte).await.expect("CONNECT read");
-                assert_eq!(count, 1, "CONNECT head closed");
-                head.push(byte[0]);
-                if head.ends_with(b"\r\n\r\n") { break; }
-                assert!(head.len() < 4096, "CONNECT head bounded");
+            let mut connect = None;
+            if proxy {
+                let mut head = Vec::new();
+                while !head.ends_with(b"\r\n\r\n") {
+                    let mut byte = [0_u8; 1];
+                    let count = stream.read(&mut byte).await.expect("CONNECT read");
+                    assert_eq!(count, 1, "CONNECT head closed");
+                    head.push(byte[0]);
+                    assert!(head.len() < 4096, "CONNECT head bounded");
+                }
+                stream
+                    .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
+                    .await
+                    .expect("CONNECT reply");
+                connect = Some(String::from_utf8(head).expect("CONNECT text"));
             }
-            stream.write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
-                .await.expect("CONNECT reply");
             let cert = CertificateDer::from_pem_file(fixture("leaf.pem")).expect("leaf certificate");
             let key = PrivateKeyDer::from_pem_file(fixture("leaf.key")).expect("leaf private key");
             let server = ServerConfig::builder()
@@ -302,82 +180,142 @@ fn tls_proxy() -> (String, thread::JoinHandle<String>) {
                 .with_single_cert(vec![cert], key)
                 .expect("server certificate");
             let acceptor = TlsAcceptor::from(std::sync::Arc::new(server));
-            let mut tls = match acceptor.accept(stream).await {
-                Ok(tls) => tls,
-                Err(_) => return String::from_utf8(head).expect("CONNECT text"),
+            let Ok(mut tls) = acceptor.accept(stream).await else {
+                return TlsObserved {
+                    connect,
+                    handshake: false,
+                };
             };
             let mut request = [0_u8; 4096];
             let count = tls.read(&mut request).await.expect("TLS request");
             assert!(count > 0);
-            let body = b"{\"data\":{\"ok\":true}}";
-            let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n", body.len());
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n",
+                OK_BODY.len()
+            );
             tls.write_all(response.as_bytes()).await.expect("TLS response headers");
-            tls.write_all(body).await.expect("TLS response body");
-            String::from_utf8(head).expect("CONNECT text")
+            tls.write_all(OK_BODY).await.expect("TLS response body");
+            tls.shutdown().await.expect("TLS close");
+            TlsObserved {
+                connect,
+                handshake: true,
+            }
         })
     });
-    (proxy, handle)
+    (port, handle)
 }
 
-#[test]
-fn exact_loopback_proxy_and_matching_ca_complete_a_tls_request() {
-    let dir = PrivateDir::new();
-    let ca = dir.path("test-ca.pem");
-    std::fs::copy(fixture("test-ca.pem"), &ca).expect("copy CA");
-    let (proxy, server) = tls_proxy();
-    let transport = build(loopback_config(&proxy, ca)).expect("transport");
-    let response = block_on_network(async move {
-        transport
-            .send_raw("query { ok }", None, None)
-            .await
-            .map_err(AppError::from)
-    })
-    .expect("TLS response");
-    assert_eq!(response.body, b"{\"data\":{\"ok\":true}}");
-    let connect = server.join().expect("TLS proxy");
-    assert!(connect.starts_with("CONNECT uploads.linear.app:443 HTTP/1.1\r\n"));
-}
-
-#[test]
-fn wrong_ca_fails_at_tls_handshake_and_closed_port_fails_at_connect() {
-    let dir = PrivateDir::new();
-    let wrong = dir.path("wrong.pem");
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/graphql/fixtures/r02b4-wrong-ca.pem"),
-        &wrong,
+fn tls_request(port: u16, ca_bundle: PathBuf) -> Result<RawHttpResponse, AppError> {
+    let transport = GraphQlTransport::new(
+        EndpointUrl::parse(&format!("https://localhost:{port}/graphql")).expect("endpoint"),
+        fake_key(),
+        TransportConfig {
+            ca_bundle: Some(ca_bundle),
+            ..config(Duration::from_secs(5))
+        },
     )
-    .expect("copy wrong CA");
-    let (proxy, server) = tls_proxy();
-    let transport = build(loopback_config(&proxy, wrong.clone())).expect("valid wrong CA parses");
-    let error = block_on_network(async move {
+    .expect("transport");
+    block_on_network(async move {
         transport
             .send_raw("query { ok }", None, None)
             .await
             .map_err(AppError::from)
     })
-    .expect_err("wrong CA");
-    assert_eq!(error.kind, AppErrorKind::Transport);
-    assert!(error.display_message().contains("failed"), "{error}");
-    assert!(format!("{error:?}").contains("UnknownIssuer"), "{error:?}");
-    let connect = server.join().expect("TLS proxy");
-    assert!(connect.starts_with("CONNECT uploads.linear.app:443 HTTP/1.1\r\n"));
+}
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("reserve closed port");
-    let closed_proxy = format!("http://{}", listener.local_addr().expect("address"));
-    drop(listener);
-    let transport = build(loopback_config(&closed_proxy, wrong)).expect("transport builds");
-    let started = Instant::now();
-    let error = block_on_network(async move {
-        transport
-            .send_raw("query { ok }", None, None)
-            .await
-            .map_err(AppError::from)
-    })
-    .expect_err("closed proxy port");
+#[test]
+fn ca_bundle_roots_verify_a_private_certificate() {
+    let (port, server) = tls_listener(false);
+    let response = tls_request(port, fixture("test-ca.pem")).expect("TLS response");
+    assert_eq!(response.body, OK_BODY);
+    assert!(server.join().expect("TLS server").handshake);
+}
+
+#[test]
+fn an_unrelated_ca_bundle_fails_the_handshake() {
+    let (port, server) = tls_listener(false);
+    let error = tls_request(port, fixture("wrong-ca.pem")).expect_err("wrong CA");
     assert_eq!(error.kind, AppErrorKind::Transport);
-    assert!(error.display_message().contains("failed"), "{error}");
-    assert!(!format!("{error:?}").contains("UnknownIssuer"));
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(format!("{error:?}").contains("UnknownIssuer"), "{error:?}");
+    assert!(!server.join().expect("TLS server").handshake);
+}
+
+/// Runs `linear api` against `endpoint` with only the given environment.
+fn run_api(endpoint: &str, env: &[(&str, &Path)]) -> Output {
+    let home = PrivateDir::new();
+    let mut command = Command::new(env!("CARGO_BIN_EXE_linear"));
+    command
+        .args(["api", "query { ok }"])
+        .current_dir(&home.0)
+        .env_clear()
+        .env("HOME", &home.0)
+        .env("XDG_CONFIG_HOME", &home.0)
+        .env("APPDATA", &home.0)
+        .env("NO_COLOR", "1")
+        .env("LINEAR_IGNORE_ENV_FILE", "1")
+        .env("LINEAR_API_KEY", "lin_api_fake_network")
+        .env("LINEAR_GRAPHQL_ENDPOINT", endpoint)
+        .stdin(Stdio::null());
+    for (name, value) in env {
+        command.env(name, value);
+    }
+    command.output().expect("run linear")
+}
+
+#[test]
+fn https_proxy_variables_route_requests_through_connect() {
+    for (proxy_var, cert_var) in [
+        ("HTTPS_PROXY", "SSL_CERT_FILE"),
+        ("https_proxy", "DENO_CERT"),
+    ] {
+        let (port, server) = tls_listener(true);
+        let proxy = PathBuf::from(format!("http://127.0.0.1:{port}"));
+        let ca = fixture("test-ca.pem");
+        let output = run_api(
+            "https://uploads.linear.app/graphql",
+            &[(proxy_var, &proxy), (cert_var, &ca)],
+        );
+        assert!(
+            output.status.success(),
+            "{proxy_var}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.stdout, OK_BODY);
+        let observed = server.join().expect("TLS proxy");
+        assert!(
+            observed
+                .connect
+                .as_deref()
+                .is_some_and(|head| head.starts_with("CONNECT uploads.linear.app:443 HTTP/1.1\r\n")),
+            "{proxy_var}"
+        );
+    }
+}
+
+#[test]
+fn no_proxy_bypasses_the_proxy_for_listed_hosts() {
+    let closed = TcpListener::bind("127.0.0.1:0").expect("reserve closed port");
+    let proxy = PathBuf::from(format!("http://{}", closed.local_addr().expect("address")));
+    drop(closed);
+    let (url, server) = serve_once(Duration::ZERO);
+    let output = run_api(
+        &url,
+        &[("HTTP_PROXY", &proxy), ("NO_PROXY", Path::new("127.0.0.1"))],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout, OK_BODY);
+    server.join().expect("server");
+
+    let output = run_api(&url, &[("HTTP_PROXY", &proxy)]);
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "unlisted host uses the dead proxy"
+    );
 }
 
 struct EmptyFiles;
@@ -508,7 +446,7 @@ fn real_network_failure_debug_omits_endpoint_query_and_api_key() {
     let transport = GraphQlTransport::new(
         EndpointUrl::parse(&endpoint).expect("endpoint"),
         fake_key(),
-        config(CaMode::PublicRoots, Duration::from_millis(200)),
+        config(Duration::from_millis(200)),
     )
     .expect("client");
     let error = block_on_network(async move {

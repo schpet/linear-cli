@@ -14,8 +14,7 @@ use linear_cli::config::{
 use linear_cli::error::{AppError, AppErrorKind};
 use linear_cli::graphql::operations::auth_list::AuthListViewer;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig, TransportFailure,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig, TransportFailure,
 };
 use serde_json::json;
 use std::cell::Cell;
@@ -221,7 +220,7 @@ fn keyring_miss_and_failure_become_missing_credentials_rows() {
 
 #[test]
 fn transport_policy_is_resolved_only_when_some_key_is_usable() {
-    let strict = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let strict = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     let endpoint = EndpointUrl::parse("http://127.0.0.1:1/graphql").expect("endpoint");
     let unusable = classify(&store("empty=''\nlatin='lin_api_fak\u{e9}'\n"));
     let prepared = prepare_transports(unusable, &endpoint, &strict)
@@ -235,7 +234,7 @@ fn transport_policy_is_resolved_only_when_some_key_is_usable() {
     let error =
         prepare_transports(mixed, &endpoint, &strict).expect_err("strict proxy policy is fatal");
     assert_eq!(error.kind, AppErrorKind::Validation);
-    assert!(error.display_message().starts_with("HTTP_PROXY"));
+    assert!(error.display_message().starts_with("SSL_CERT_FILE"));
 }
 
 #[test]
@@ -425,8 +424,7 @@ fn transport(endpoint: &str, key: &str, cap: usize) -> GraphQlTransport {
         EndpointUrl::parse(endpoint).expect("endpoint"),
         ApiKey::new(key.to_owned()).expect("fake key"),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(5)).expect("deadline"),
             max_response_bytes: ResponseCap::new(cap).expect("cap"),
         },
@@ -436,7 +434,7 @@ fn transport(endpoint: &str, key: &str, cap: usize) -> GraphQlTransport {
 
 #[test]
 fn loopback_failures_stay_row_local_with_short_stable_cells() {
-    let (endpoint, server) = serve(9, |request| {
+    let (endpoint, server) = serve(8, |request| {
         match authorization(request).as_str() {
         "lin_api_fake_ok" => ("200 OK", "Content-Type: application/json\r\n", VIEWER.into()),
         "lin_api_fake_401_text" => ("401 Unauthorized", "", b"nope".to_vec()),
@@ -458,11 +456,6 @@ fn loopback_failures_stay_row_local_with_short_stable_cells() {
             br#"{"data":{"viewer":null}}"#.to_vec(),
         ),
         "lin_api_fake_500" => ("500 Internal Server Error", "", b"{}".to_vec()),
-        "lin_api_fake_redirect" => (
-            "307 Temporary Redirect",
-            "Location: http://127.0.0.1:1/graphql\r\n",
-            Vec::new(),
-        ),
         other => panic!("unexpected key {other}"),
     }
     });
@@ -475,7 +468,6 @@ fn loopback_failures_stay_row_local_with_short_stable_cells() {
         "malformed",
         "null",
         "500",
-        "redirect",
     ];
     let rows = names
         .iter()
@@ -515,10 +507,9 @@ fn loopback_failures_stay_row_local_with_short_stable_cells() {
             "InvalidCredentials",
             "InvalidCredentials",
             "Too many requests",
-            "Invalid execution result: result is not object or array. \nGot:\nnot json",
+            "Linear returned a non-JSON response (HTTP 200 OK, content type not set)",
             "response did not match the expected viewer shape",
             "unexpected HTTP status 500 Internal Server Error",
-            "unexpected HTTP status 307 Temporary Redirect",
         ]
     );
 }
@@ -667,7 +658,7 @@ fn public_binary_empty_store_prints_guidance_without_network_or_policy() {
     let output = sandbox.run(
         &["auth", "list"],
         &[
-            ("HTTP_PROXY", "http://127.0.0.1:9000"),
+            ("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem"),
             ("LINEAR_API_KEY", "lin_api_fake_raw"),
             ("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql"),
         ],
@@ -747,16 +738,10 @@ fn public_binary_policy_failure_is_fatal_before_any_request() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     listener.set_nonblocking(true).expect("nonblocking");
     let endpoint = format!("http://{}/graphql", listener.local_addr().expect("addr"));
-    for (vars, stderr) in [
-        (
-            vec![("HTTP_PROXY", "http://127.0.0.1:9000")],
-            "✗ Failed to list workspaces: HTTP_PROXY is not supported by this transport mode\n  Use direct public roots, an absolute SSL_CERT_FILE, or the documented loopback HTTPS proxy mode.\n",
-        ),
-        (
-            vec![("SSL_CERT_FILE", "/nonexistent/c002-ca.pem")],
-            "✗ Failed to list workspaces: SSL_CERT_FILE: CA bundle /nonexistent/c002-ca.pem could not be read\n",
-        ),
-    ] {
+    for (vars, stderr) in [(
+        vec![("SSL_CERT_FILE", "/nonexistent/c002-ca.pem")],
+        "✗ Failed to list workspaces: SSL_CERT_FILE: CA bundle /nonexistent/c002-ca.pem could not be read\n",
+    )] {
         let mut all = vars.clone();
         all.push(("LINEAR_GRAPHQL_ENDPOINT", &endpoint));
         let output = sandbox.run(&["auth", "list"], &all);
@@ -780,7 +765,10 @@ fn public_binary_unusable_keys_are_rows_even_under_strict_policy() {
     let sandbox = Sandbox::new(Some("empty=''\nlatin='lin_api_fak\u{e9}'\n".as_bytes()));
     let output = sandbox.run(
         &["auth", "list"],
-        &[("HTTP_PROXY", "http://127.0.0.1:9000"), ("NO_COLOR", "1")],
+        &[
+            ("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem"),
+            ("NO_COLOR", "1"),
+        ],
     );
     assert_eq!(output.status.code(), Some(0));
     assert!(output.stderr.is_empty());

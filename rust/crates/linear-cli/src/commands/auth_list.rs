@@ -126,7 +126,7 @@ pub fn prepare_transports(
         .iter()
         .any(|row| matches!(row.state, StoredKey::Usable(_)));
     let config: Option<TransportConfig> = if usable {
-        Some(transport_env.production().map_err(AppError::from)?)
+        Some(transport_env.production())
     } else {
         None
     };
@@ -242,7 +242,7 @@ pub fn row_error(failure: &TransportFailure) -> RowError {
             RowError::Failure("response did not match the expected viewer shape".to_owned())
         }
         TransportFailure::Response(
-            error @ (ResponseError::NonJsonExecution(_)
+            error @ (ResponseError::NotJson { .. }
             | ResponseError::GraphQl { .. }
             | ResponseError::MissingData
             | ResponseError::MutationRejected

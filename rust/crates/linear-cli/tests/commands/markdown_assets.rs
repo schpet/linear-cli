@@ -68,50 +68,6 @@ fn contracts() -> Vec<Contract> {
     corpus
 }
 #[test]
-fn explicit_gzip_brotli_and_zlib_deflate_decode_exact_binary_bytes() {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Codec {
-        encoding: String,
-        encoded: Vec<u8>,
-        decoded: Vec<u8>,
-    }
-    let rows: Vec<Codec> = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../parity/runner/c050-c051-helper-contracts/codec-byte-fixtures.json"
-    )))
-    .unwrap();
-    assert_eq!(rows.len(), 3);
-    for row in rows {
-        assert_eq!(
-            linear_cli::graphql::transport::decode_markdown_image(Some(&row.encoding), row.encoded)
-                .unwrap(),
-            row.decoded,
-            "{}",
-            row.encoding
-        );
-    }
-    let body = vec![0, 255, 10];
-    assert_eq!(
-        linear_cli::graphql::transport::decode_markdown_image(None, body.clone()).unwrap(),
-        body
-    );
-    assert_eq!(
-        linear_cli::graphql::transport::decode_markdown_image(Some("identity"), body.clone())
-            .unwrap(),
-        body
-    );
-    assert_eq!(
-        linear_cli::graphql::transport::decode_markdown_image(Some("unknown"), body)
-            .unwrap_err()
-            .message,
-        "Unsupported image Content-Encoding: unknown"
-    );
-    assert!(
-        linear_cli::graphql::transport::decode_markdown_image(Some("gzip"), vec![1, 2, 3]).is_err()
-    );
-}
-#[test]
 fn complete_gfm_extraction_distinguishes_inline_reference_and_definition_nodes() {
     let corpus = contracts();
     assert_eq!(corpus.len(), 25);

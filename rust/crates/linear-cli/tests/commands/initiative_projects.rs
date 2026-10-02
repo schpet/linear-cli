@@ -3,8 +3,7 @@ use linear_cli::commands::initiative_projects::{self as command, Entity, Mode};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_projects::*;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use linear_cli::refs::WorkspaceScope;
 use serde_json::{Value, json};
@@ -58,8 +57,7 @@ fn server(replies: Vec<(u16, String)>) -> (GraphQlTransport, thread::JoinHandle<
         EndpointUrl::parse(&endpoint).unwrap(),
         ApiKey::new("lin_api_fake".into()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(2)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

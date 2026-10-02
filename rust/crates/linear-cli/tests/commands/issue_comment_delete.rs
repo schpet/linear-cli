@@ -3,8 +3,7 @@ use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::comment_delete::DeleteComment;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use linear_cli::refs::{reject_comment_url, reject_linear_url};
 use serde_json::{Value, json};
@@ -187,8 +186,7 @@ fn transport(endpoint: &str, deadline: Duration) -> GraphQlTransport {
         EndpointUrl::parse(endpoint).unwrap(),
         ApiKey::new("lin_api_fake".to_owned()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(deadline).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

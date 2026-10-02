@@ -8,10 +8,9 @@
 mod auth_list;
 mod auth_whoami;
 mod envelope;
-mod fixed_host;
+mod network;
 mod output;
 mod pagination;
-mod production_adapter;
 mod scalars;
 mod transport;
 mod union;

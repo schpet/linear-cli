@@ -209,8 +209,7 @@ fn minimal_lookup_and_first_page_requests_have_no_extra_selections() {
 }
 
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use std::{
     io::{Read, Write},
@@ -263,8 +262,7 @@ pub(super) fn sequence(replies: Vec<Value>) -> (GraphQlTransport, thread::JoinHa
         EndpointUrl::parse(&endpoint).unwrap(),
         ApiKey::new("lin_api_fake".into()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_secs(2)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

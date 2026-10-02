@@ -265,11 +265,9 @@ async fn metadata_logout_clear_precedes_write_failure_and_force_never_bypasses_p
     assert_eq!(store.default(), Some("a"));
 }
 #[test]
-fn login_cleaned_empty_is_candidate_not_startup_api_key_and_whole_inner_401_custom_bypass() {
-    let key = auth_login::clean_key(secret(" \u{feff}!!!\u{feff} ")).unwrap();
-    assert_eq!(key.expose(), "");
-    assert!(linear_cli::graphql::transport::LoginCredentialCandidate::new(key.expose()).is_ok());
-    assert!(linear_cli::graphql::transport::ApiKey::new(String::new()).is_err());
+fn login_rejects_keys_that_clean_to_empty_and_whole_inner_401_custom_bypass() {
+    let error = auth_login::clean_key(secret(" \u{feff}!!!\u{feff} ")).unwrap_err();
+    assert_eq!(error.message, "No API key provided");
     let error = MutationFailure::Ordinary("post-save backend401".into()).login();
     assert_eq!(error.kind, AppErrorKind::Auth);
     let error =

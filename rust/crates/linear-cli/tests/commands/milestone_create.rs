@@ -12,8 +12,7 @@ use linear_cli::graphql::operations::milestone_create::{
 };
 use linear_cli::graphql::scalars::TimelessDate;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use serde_json::{Value, json};
 
@@ -190,8 +189,7 @@ fn transport(endpoint: &str, deadline: Duration) -> GraphQlTransport {
         EndpointUrl::parse(endpoint).unwrap(),
         ApiKey::new("lin_api_fake".to_owned()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(deadline).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

@@ -13,8 +13,7 @@ use linear_cli::graphql::operations::initiative_create::{
 use linear_cli::graphql::operations::initiatives::InitiativeStatus;
 use linear_cli::graphql::scalars::TimelessDate;
 use linear_cli::graphql::transport::{
-    ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
-    TransportConfig,
+    ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
 };
 use linear_cli::platform::prompt::PromptSession;
 use serde_json::{Value, json};
@@ -194,8 +193,7 @@ async fn timed_out_create_warns_about_ambiguous_write_without_retrying() {
         EndpointUrl::parse(&endpoint).unwrap(),
         ApiKey::new("lin_api_fake".to_owned()).unwrap(),
         TransportConfig {
-            proxy: ProxyMode::Direct,
-            ca: CaMode::PublicRoots,
+            ca_bundle: None,
             deadline: Deadline::new(Duration::from_millis(50)).unwrap(),
             max_response_bytes: ResponseCap::new(65536).unwrap(),
         },

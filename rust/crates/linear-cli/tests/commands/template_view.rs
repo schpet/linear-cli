@@ -278,7 +278,7 @@ fn prepare_refuses_a_linear_url_before_credentials_with_one_context() {
     let url = "https://linear.app/acme/issue/ENG-1";
     let store = empty_credentials();
     // Unusable if reached: the URL failure must win over it and credentials.
-    let bad_policy = transport_env(&[("HTTP_PROXY", "http://127.0.0.1:9000")]);
+    let bad_policy = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     for (env, workspace) in [
         (vec![], None),
         (vec![("LINEAR_API_KEY", "lin_api_fake")], Some("beta")),

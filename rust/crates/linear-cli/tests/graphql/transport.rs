@@ -1,22 +1,16 @@
-//! Loopback transport contracts (F02B Gate 1).
+//! Loopback transport tests.
 //!
 //! Two kinds of server stand in for Linear:
-//! - the P03B GraphQL fixture server, driven as a strict Deno child through
-//!   `rust/parity/runner/serve-case.ts` ([`FixtureDriver`]); its final report
-//!   (consumed/unexpected counts, issues and mismatches) is asserted for
-//!   every case, so a fixture-generated HTTP 500 can never pass silently;
-//! - a raw `std::net` listener ([`LocalServer`]) for stalls, oversized and
-//!   chunked bodies, cancellation and the ambient-proxy control.
-//!
-//! Deno-driven tests hold [`SERIAL`] so only one fixture child runs at a time.
-//! They fail, not skip, when `deno` is unavailable.
+//! - [`ScriptedServer`] answers a fixed list of GraphQL exchanges, checks each
+//!   request's operation, variables and identity headers, and reports any
+//!   mismatch or unexpected extra request;
+//! - [`LocalServer`] is a raw listener for stalls, oversized and chunked
+//!   bodies and cancellation.
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::sync::{Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -32,41 +26,20 @@ use linear_cli::graphql::operations::issue_update::{
 use linear_cli::graphql::operations::teams::{GetTeams, GetTeamsVariables};
 use linear_cli::graphql::pagination::{Page, paginate};
 use linear_cli::graphql::transport::{
-    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, CaMode, ConfigError, Deadline, EndpointUrl,
-    EndpointUrlError, GraphQlTransport, HttpBodyShape, NetworkPhase, ProxyMode, ProxyUrl,
-    ProxyUrlError, RawHttpResponse, ResponseCap, TransportBuildError, TransportConfig,
-    TransportFailure, USER_AGENT_VALUE, classify_typed,
+    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, ConfigError, Deadline, EndpointUrl, EndpointUrlError,
+    GraphQlTransport, HttpBodyShape, NetworkPhase, RawHttpResponse, ResponseCap,
+    TransportBuildError, TransportConfig, TransportFailure, USER_AGENT_VALUE, classify_typed,
 };
 use reqwest::StatusCode;
 use reqwest::header::{HeaderMap, HeaderValue};
-use serde::Deserialize;
 use serde_json::{Map, Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 const FAKE_KEY: &str = "lin_api_fake";
-const READY_DEADLINE: Duration = Duration::from_secs(30);
-const FINAL_DEADLINE: Duration = Duration::from_secs(30);
 
-static SERIAL: Mutex<()> = Mutex::new(());
-
-/// Runs one Deno-driven test body on its own current-thread runtime while
-/// holding the process-wide serial lock (taken outside the runtime, so no
-/// guard lives across an await).
-fn run_serial(body: impl Future<Output = ()>) {
-    let _guard = SERIAL.lock().unwrap_or_else(PoisonError::into_inner);
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("runtime")
-        .block_on(body);
-}
-
-fn repo_root() -> PathBuf {
+fn tls_fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../..")
-        .canonicalize()
-        .expect("repository root")
+        .join("tests/fixtures/tls")
+        .join(name)
 }
 
 fn fake_key() -> ApiKey {
@@ -75,8 +48,7 @@ fn fake_key() -> ApiKey {
 
 fn config(deadline: Duration, cap: usize) -> TransportConfig {
     TransportConfig {
-        proxy: ProxyMode::Direct,
-        ca: CaMode::PublicRoots,
+        ca_bundle: None,
         deadline: Deadline::new(deadline).expect("deadline"),
         max_response_bytes: ResponseCap::new(cap).expect("cap"),
     }
@@ -110,272 +82,7 @@ fn update_request(title: &str) -> GraphQlRequest<UpdateIssueVariables> {
 }
 
 // ---------------------------------------------------------------------------
-// Deno fixture driver
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct ReadyLine {
-    event: String,
-    port: u16,
-    path: String,
-    expected_requests: usize,
-    #[serde(rename = "expectedGraphQL")]
-    expected_graph_ql: usize,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct RequestSummary {
-    kind: String,
-    authorization_matched: bool,
-    user_agent: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Mismatch {
-    surface: String,
-    detail: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct FinalLine {
-    event: String,
-    requests: Vec<RequestSummary>,
-    consumed: usize,
-    expected: usize,
-    unexpected: usize,
-    issues: Vec<String>,
-    mismatches: Vec<Mismatch>,
-}
-
-#[derive(Debug)]
-struct Outcome {
-    report: FinalLine,
-    exit_code: Option<i32>,
-    stderr: String,
-}
-
-impl Outcome {
-    fn assert_clean(&self) {
-        assert_eq!(self.exit_code, Some(0), "driver stderr: {}", self.stderr);
-        assert!(
-            self.report.mismatches.is_empty(),
-            "{:?}",
-            self.report.mismatches
-        );
-        assert!(self.report.issues.is_empty(), "{:?}", self.report.issues);
-        assert_eq!(self.report.unexpected, 0);
-        assert_eq!(self.report.consumed, self.report.expected);
-        assert_eq!(self.report.requests.len(), self.report.expected);
-        for request in &self.report.requests {
-            assert_eq!(request.kind, "graphql");
-            assert!(request.authorization_matched, "{request:?}");
-            assert_eq!(request.user_agent.as_deref(), Some(USER_AGENT_VALUE));
-        }
-    }
-
-    fn assert_mismatch(&self, fragment: &str) {
-        assert_eq!(self.exit_code, Some(1), "driver stderr: {}", self.stderr);
-        assert!(
-            self.report
-                .mismatches
-                .iter()
-                .any(|mismatch| mismatch.surface == "fixture" && mismatch.detail.contains(fragment)),
-            "no fixture mismatch containing {fragment:?} in {:?}",
-            self.report.mismatches
-        );
-    }
-}
-
-#[derive(Debug)]
-enum StartFailure {
-    /// The child exited (or closed stdout) before a ready line.
-    ExitedBeforeReady {
-        exit_code: Option<i32>,
-        stderr: String,
-    },
-    /// No ready line within the deadline; the child was killed and reaped.
-    ReadyTimeout { stderr: String },
-}
-
-fn expect_start_failure(result: Result<FixtureDriver, StartFailure>) -> StartFailure {
-    match result {
-        Ok(_) => panic!("driver unexpectedly became ready"),
-        Err(failure) => failure,
-    }
-}
-
-/// A running `serve-case.ts` (or a stand-in program) with its protocol state.
-struct FixtureDriver {
-    child: Child,
-    stdin: Option<ChildStdin>,
-    stdout: BufReader<ChildStdout>,
-    stderr: tokio::task::JoinHandle<String>,
-    ready: ReadyLine,
-}
-
-fn driver_command(case: &str) -> Command {
-    let root = repo_root();
-    let parity = root.join("rust/parity");
-    let mut command = Command::new("deno");
-    command
-        .arg("run")
-        .arg("--frozen")
-        .arg("--cached-only")
-        .arg("--no-prompt")
-        .arg("--config")
-        .arg(parity.join("deno.json"))
-        .arg(format!(
-            "--allow-read={},{}",
-            parity.display(),
-            root.join("graphql/schema.graphql").display()
-        ))
-        .arg("--allow-net=127.0.0.1")
-        .arg("--allow-env=NODE_ENV")
-        .arg(parity.join("runner/serve-case.ts"))
-        .arg(parity.join(format!("runner/transport-cases/{case}.json")));
-    command
-}
-
-/// A stand-in driver: `deno eval` of an inline script.
-fn eval_command(script: &str) -> Command {
-    let mut command = Command::new("deno");
-    command.arg("eval").arg(script);
-    command
-}
-
-impl FixtureDriver {
-    async fn start(case: &str) -> FixtureDriver {
-        match Self::spawn(driver_command(case)).await {
-            Ok(driver) => driver,
-            Err(failure) => panic!("serve-case.ts did not become ready: {failure:?}"),
-        }
-    }
-
-    async fn spawn(command: Command) -> Result<FixtureDriver, StartFailure> {
-        Self::spawn_with(command, READY_DEADLINE).await
-    }
-
-    async fn spawn_with(
-        mut command: Command,
-        ready_deadline: Duration,
-    ) -> Result<FixtureDriver, StartFailure> {
-        command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-        let mut child = command
-            .spawn()
-            .expect("deno must be installed and on PATH for the transport tests");
-        let stdin = child.stdin.take().expect("piped stdin");
-        let mut stdout = BufReader::new(child.stdout.take().expect("piped stdout"));
-        let mut stderr_pipe = child.stderr.take().expect("piped stderr");
-        let stderr = tokio::spawn(async move {
-            let mut text = String::new();
-            let _ = stderr_pipe.read_to_string(&mut text).await;
-            text
-        });
-        let mut line = String::new();
-        match tokio::time::timeout(ready_deadline, stdout.read_line(&mut line)).await {
-            Ok(Ok(0)) | Ok(Err(_)) => {
-                let exit_code = tokio::time::timeout(FINAL_DEADLINE, child.wait())
-                    .await
-                    .expect("child exits after closing stdout")
-                    .expect("wait")
-                    .code();
-                let stderr = stderr.await.expect("stderr task");
-                Err(StartFailure::ExitedBeforeReady { exit_code, stderr })
-            }
-            Ok(Ok(_)) => {
-                let ready: ReadyLine =
-                    serde_json::from_str(line.trim_end()).expect("ready line is strict JSON");
-                assert_eq!(ready.event, "ready");
-                Ok(FixtureDriver {
-                    child,
-                    stdin: Some(stdin),
-                    stdout,
-                    stderr,
-                    ready,
-                })
-            }
-            Err(_elapsed) => {
-                child.kill().await.expect("kill");
-                let status = child.wait().await.expect("reap");
-                assert!(!status.success(), "killed child cannot report success");
-                let stderr = stderr.await.expect("stderr task");
-                Err(StartFailure::ReadyTimeout { stderr })
-            }
-        }
-    }
-
-    fn endpoint(&self) -> String {
-        format!("http://127.0.0.1:{}{}", self.ready.port, self.ready.path)
-    }
-
-    fn transport(&self) -> GraphQlTransport {
-        transport_for(
-            &self.endpoint(),
-            config(Duration::from_secs(10), ResponseCap::DEFAULT_BYTES),
-        )
-    }
-
-    /// Signals completion (stdin EOF), reads the final line and reaps the child.
-    async fn finish(mut self) -> Outcome {
-        drop(self.stdin.take());
-        let mut line = String::new();
-        let read = tokio::time::timeout(FINAL_DEADLINE, self.stdout.read_line(&mut line)).await;
-        let exit = match read {
-            Ok(Ok(n)) if n > 0 => tokio::time::timeout(FINAL_DEADLINE, self.child.wait()).await,
-            _ => {
-                self.child.kill().await.expect("kill");
-                let _ = self.child.wait().await;
-                let stderr = self.stderr.await.expect("stderr task");
-                panic!("driver produced no final line; stderr: {stderr}");
-            }
-        };
-        let status = exit
-            .expect("child exits after its final line")
-            .expect("wait");
-        let stderr = self.stderr.await.expect("stderr task");
-        let report: FinalLine =
-            serde_json::from_str(line.trim_end()).expect("final line is strict JSON");
-        assert_eq!(report.event, "final");
-        let mut trailing = String::new();
-        let extra = tokio::time::timeout(
-            Duration::from_secs(5),
-            self.stdout.read_to_string(&mut trailing),
-        )
-        .await
-        .expect("stdout closes")
-        .expect("read");
-        assert_eq!(
-            extra, 0,
-            "exactly one final line, got trailing {trailing:?}"
-        );
-        Outcome {
-            report,
-            exit_code: status.code(),
-            stderr,
-        }
-    }
-
-    /// Kills and reaps the child, returning the exit status observed.
-    async fn abort(mut self) -> std::process::ExitStatus {
-        self.child.kill().await.expect("kill");
-        let status = self.child.wait().await.expect("reap");
-        assert!(
-            self.child.try_wait().expect("try_wait").is_some(),
-            "child is reaped"
-        );
-        status
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Raw local server for stalls, caps and cancellation
+// Raw local server
 
 #[derive(Clone, Copy)]
 enum Behavior {
@@ -617,82 +324,23 @@ fn api_key_accepts_visible_ascii_with_spaces_and_redacts_itself() {
 }
 
 #[test]
-fn config_values_are_finite_and_nonzero() {
+fn config_values_are_nonzero() {
     assert_eq!(
         Deadline::new(Duration::ZERO).expect_err("zero"),
         ConfigError::ZeroDeadline
     );
     assert_eq!(Deadline::DEFAULT.duration(), Duration::from_secs(30));
-    assert_eq!(ResponseCap::DEFAULT.bytes(), 8 * 1024 * 1024);
+    assert_eq!(ResponseCap::DEFAULT.bytes(), 64 * 1024 * 1024);
     assert_eq!(
         ResponseCap::new(0).expect_err("zero"),
         ConfigError::ZeroResponseCap
     );
-    assert_eq!(
-        ResponseCap::new(ResponseCap::MAX_BYTES)
-            .expect("ceiling")
-            .bytes(),
-        64 * 1024 * 1024
-    );
-    assert_eq!(
-        ResponseCap::new(ResponseCap::MAX_BYTES + 1).expect_err("above ceiling"),
-        ConfigError::ResponseCapAboveCeiling {
-            requested: ResponseCap::MAX_BYTES + 1,
-            ceiling: ResponseCap::MAX_BYTES,
-        }
-    );
-    let direct = TransportConfig::direct();
-    assert!(matches!(direct.proxy, ProxyMode::Direct));
-    assert!(matches!(direct.ca, CaMode::PublicRoots));
+    assert_eq!(TransportConfig::default().ca_bundle, None);
 }
 
 #[test]
-fn proxy_url_is_loopback_http_without_credentials_path_or_query() {
-    for text in [
-        "http://127.0.0.1:8080",
-        "http://localhost:8080/",
-        "http://[::1]:8080",
-    ] {
-        ProxyUrl::parse(text).expect(text);
-    }
-    assert_eq!(
-        ProxyUrl::parse("http://127.0.0.1:8080")
-            .expect("ok")
-            .origin(),
-        "http://127.0.0.1:8080"
-    );
-    let cases = [
-        ("https://127.0.0.1:8080", ProxyUrlError::Scheme),
-        ("http://proxy.example:8080", ProxyUrlError::NotLoopback),
-        ("http://10.0.0.1:8080", ProxyUrlError::NotLoopback),
-        ("http://user:pw@127.0.0.1:8080", ProxyUrlError::Credentials),
-        ("http://127.0.0.1:8080/path", ProxyUrlError::Path),
-        ("http://127.0.0.1:8080/?q=1", ProxyUrlError::Query),
-        ("http://127.0.0.1:8080/#f", ProxyUrlError::Fragment),
-    ];
-    for (text, expected) in cases {
-        assert_eq!(ProxyUrl::parse(text).expect_err(text), expected, "{text}");
-    }
-}
-
-#[test]
-fn proxy_mode_builds_with_and_without_loopback_bypass() {
-    let endpoint = EndpointUrl::parse("https://uploads.linear.app/x").expect("endpoint");
-    for bypass_loopback in [true, false] {
-        let config = TransportConfig {
-            proxy: ProxyMode::HttpsConnect {
-                url: ProxyUrl::parse("http://127.0.0.1:1").expect("proxy"),
-                bypass_loopback,
-            },
-            ..TransportConfig::direct()
-        };
-        GraphQlTransport::new(endpoint.clone(), fake_key(), config).expect("client builds");
-    }
-}
-
-#[test]
-fn ca_bundle_must_be_a_nonempty_regular_pem_file() {
-    let dir = std::env::temp_dir().join(format!("f02b-ca-{}", std::process::id()));
+fn ca_bundle_must_be_a_readable_pem_file_with_certificates() {
+    let dir = std::env::temp_dir().join(format!("linear-ca-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let endpoint = EndpointUrl::parse("https://uploads.linear.app/x").expect("endpoint");
     let build = |path: PathBuf| {
@@ -700,46 +348,45 @@ fn ca_bundle_must_be_a_nonempty_regular_pem_file() {
             endpoint.clone(),
             fake_key(),
             TransportConfig {
-                ca: CaMode::PublicRootsPlusPem(path),
-                ..TransportConfig::direct()
+                ca_bundle: Some(path),
+                ..TransportConfig::default()
             },
         )
-        .expect_err("rejected")
     };
+    build(tls_fixture("test-ca.pem")).expect("valid bundle");
     assert!(matches!(
-        build(dir.join("missing.pem")),
+        build(dir.join("missing.pem")).expect_err("missing"),
         TransportBuildError::CaRead { .. }
     ));
     assert!(matches!(
-        build(dir.clone()),
-        TransportBuildError::CaNotRegularFile { .. }
+        build(dir.clone()).expect_err("directory"),
+        TransportBuildError::CaRead { .. }
     ));
-    let empty = dir.join("empty.pem");
-    std::fs::write(&empty, " \n").expect("write");
-    assert!(matches!(build(empty), TransportBuildError::CaEmpty { .. }));
-    let garbage = dir.join("garbage.pem");
-    std::fs::write(&garbage, "not a certificate").expect("write");
-    let error = build(garbage);
-    assert!(
-        matches!(
-            error,
-            TransportBuildError::CaPem { .. } | TransportBuildError::CaNoCertificates { .. }
-        ),
-        "{error:?}"
-    );
+    for (name, contents) in [("empty.pem", " \n"), ("garbage.pem", "not a certificate")] {
+        let path = dir.join(name);
+        std::fs::write(&path, contents).expect("write");
+        assert!(matches!(
+            build(path).expect_err(name),
+            TransportBuildError::CaEmpty { .. }
+        ));
+    }
     let bogus = dir.join("bogus.pem");
     std::fs::write(
         &bogus,
         "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n",
     )
     .expect("write");
-    let error = build(bogus);
+    let error = build(bogus).expect_err("bad DER");
     assert!(
-        matches!(
-            error,
-            TransportBuildError::CaPem { .. } | TransportBuildError::CaNoCertificates { .. }
-        ),
+        matches!(error, TransportBuildError::CaInvalid { .. }),
         "{error:?}"
+    );
+    let app = linear_cli::error::AppError::from(error);
+    assert_eq!(app.kind, AppErrorKind::Validation);
+    assert!(
+        app.display_message()
+            .starts_with("SSL_CERT_FILE: CA bundle "),
+        "{app}"
     );
     std::fs::remove_dir_all(&dir).expect("cleanup");
 }
@@ -804,71 +451,6 @@ async fn failures_never_expose_query_tokens_or_the_api_key() {
     let app: linear_cli::error::AppError = failure.into();
     assert_eq!(app.kind, AppErrorKind::Transport);
     assert!(std::error::Error::source(&app).is_some());
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn direct_mode_ignores_ambient_proxy_variables() {
-    // Reqwest reads proxy variables (when it does at all) at client build
-    // time, so this test re-executes itself with poisoned proxy variables and
-    // proves the configured direct transport still reaches loopback.
-    if std::env::var_os("F02B_AMBIENT_PROXY_INNER").is_some() {
-        for name in [
-            "HTTPS_PROXY",
-            "HTTP_PROXY",
-            "ALL_PROXY",
-            "https_proxy",
-            "http_proxy",
-            "all_proxy",
-        ] {
-            assert_eq!(
-                std::env::var(name).expect("poisoned"),
-                "http://127.0.0.1:1",
-                "{name}"
-            );
-        }
-        let server = LocalServer::start(Behavior::Respond {
-            status: "200 OK",
-            body_len: 16,
-        });
-        let transport = transport_for(&server.endpoint(), config(Duration::from_secs(5), 1024));
-        let response = transport
-            .send_raw("{ viewer { id } }", None, None)
-            .await
-            .expect("direct loopback request succeeds despite ambient proxies");
-        assert_eq!(response.status.as_u16(), 200);
-        assert_eq!(response.body, vec![b'x'; 16]);
-        let observed = server.stop();
-        assert!(
-            observed
-                .request_head
-                .starts_with("POST /graphql HTTP/1.1\r\n")
-        );
-        return;
-    }
-    let mut command = std::process::Command::new(std::env::current_exe().expect("test binary"));
-    command
-        .arg("transport::direct_mode_ignores_ambient_proxy_variables")
-        .arg("--exact")
-        .arg("--test-threads=1")
-        .env("F02B_AMBIENT_PROXY_INNER", "1");
-    for name in [
-        "HTTPS_PROXY",
-        "HTTP_PROXY",
-        "ALL_PROXY",
-        "https_proxy",
-        "http_proxy",
-        "all_proxy",
-    ] {
-        command.env(name, "http://127.0.0.1:1");
-    }
-    command.env_remove("NO_PROXY").env_remove("no_proxy");
-    let output = command.output().expect("re-exec");
-    assert!(
-        output.status.success(),
-        "inner run failed:\n{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -1165,575 +747,762 @@ fn wait_until(limit: Duration, mut condition: impl FnMut() -> bool) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// P03B fixture-driver contracts
+// Scripted GraphQL server
 
-#[test]
-fn two_pages_paginate_with_exact_identity_and_counts() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-teams-two-pages").await;
-        assert_eq!(driver.ready.expected_requests, 2);
-        assert_eq!(driver.ready.expected_graph_ql, 2);
-        let transport = driver.transport();
-        let result = paginate(|after| {
-            let transport = &transport;
-            async move {
-                let request = teams_request(Some(100), after.as_deref());
-                let data: GetTeams = transport.execute(&request).await?;
-                Ok::<_, TransportFailure>(Page {
-                    nodes: data.teams.nodes,
-                    page_info: data.teams.page_info.into(),
-                })
+/// One scripted exchange: the request it expects and the response it sends.
+struct Step {
+    path: &'static str,
+    operation: Option<&'static str>,
+    variables: Option<Value>,
+    status: u16,
+    headers: Vec<(&'static str, String)>,
+    body: String,
+}
+
+impl Step {
+    /// A JSON response to a `GetTeams` request with these variables.
+    fn teams(variables: Value, status: u16, body: Value) -> Self {
+        Self::json(Some("GetTeams"), Some(variables), status, body)
+    }
+
+    fn json(
+        operation: Option<&'static str>,
+        variables: Option<Value>,
+        status: u16,
+        body: Value,
+    ) -> Self {
+        Self {
+            path: "/graphql",
+            operation,
+            variables,
+            status,
+            headers: vec![("content-type", "application/json".to_owned())],
+            body: body.to_string(),
+        }
+    }
+
+    /// A `GetTeams` exchange whose response body is sent verbatim.
+    fn teams_raw(status: u16, content_type: &str, body: &str) -> Self {
+        Self {
+            path: "/graphql",
+            operation: Some("GetTeams"),
+            variables: Some(json!({"first": 100})),
+            status,
+            headers: vec![("content-type", content_type.to_owned())],
+            body: body.to_owned(),
+        }
+    }
+
+    fn with_header(mut self, name: &'static str, value: &str) -> Self {
+        self.headers.push((name, value.to_owned()));
+        self
+    }
+
+    fn at(mut self, path: &'static str) -> Self {
+        self.path = path;
+        self
+    }
+
+    fn problems(&self, request: &RecordedRequest) -> Vec<String> {
+        let mut problems = Vec::new();
+        let mut expect = |what: &str, ok: bool| {
+            if !ok {
+                problems.push(format!("{what} differs"));
             }
+        };
+        expect("method", request.method == "POST");
+        expect("path", request.path == self.path);
+        expect(
+            "authorization",
+            request.header("authorization") == Some(FAKE_KEY),
+        );
+        expect(
+            "user-agent",
+            request.header("user-agent") == Some(USER_AGENT_VALUE),
+        );
+        expect(
+            "content-type",
+            request.header("content-type") == Some(CONTENT_TYPE_VALUE),
+        );
+        let body = request.body.as_ref();
+        expect(
+            "operation name",
+            body.and_then(|body| body.get("operationName"))
+                .and_then(Value::as_str)
+                == self.operation,
+        );
+        expect(
+            "variables",
+            body.and_then(|body| body.get("variables")) == self.variables.as_ref(),
+        );
+        problems
+    }
+}
+
+#[derive(Debug)]
+struct RecordedRequest {
+    method: String,
+    path: String,
+    headers: Vec<(String, String)>,
+    body: Option<Value>,
+}
+
+impl RecordedRequest {
+    fn parse(raw: &str) -> Self {
+        let (head, body) = raw.split_once("\r\n\r\n").expect("request head");
+        let mut lines = head.lines();
+        let mut start = lines.next().expect("request line").split(' ');
+        let method = start.next().expect("method").to_owned();
+        let path = start.next().expect("path").to_owned();
+        let headers = lines
+            .map(|line| {
+                let (name, value) = line.split_once(':').expect("header line");
+                (name.to_ascii_lowercase(), value.trim().to_owned())
+            })
+            .collect();
+        let body = (!body.is_empty()).then(|| serde_json::from_str(body).expect("JSON body"));
+        Self {
+            method,
+            path,
+            headers,
+            body,
+        }
+    }
+
+    fn header(&self, name: &str) -> Option<&str> {
+        self.headers
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.as_str())
+    }
+}
+
+#[derive(Debug, Default)]
+struct Report {
+    requests: Vec<RecordedRequest>,
+    consumed: usize,
+    remaining: usize,
+    unexpected: usize,
+    mismatches: Vec<String>,
+}
+
+impl Report {
+    fn assert_clean(&self) {
+        assert!(
+            self.mismatches.is_empty() && self.unexpected == 0 && self.remaining == 0,
+            "{self:#?}"
+        );
+    }
+}
+
+struct ScriptedServer {
+    port: u16,
+    stop: mpsc::Sender<()>,
+    handle: JoinHandle<Report>,
+}
+
+impl ScriptedServer {
+    fn start(steps: Vec<Step>) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        listener.set_nonblocking(true).expect("nonblocking");
+        let port = listener.local_addr().expect("addr").port();
+        let (stop, stopped) = mpsc::channel::<()>();
+        let handle = thread::spawn(move || serve_script(&listener, steps, &stopped));
+        Self { port, stop, handle }
+    }
+
+    fn transport(&self) -> GraphQlTransport {
+        transport_for(
+            &format!("http://127.0.0.1:{}/graphql", self.port),
+            config(Duration::from_secs(10), 1024 * 1024),
+        )
+    }
+
+    fn finish(self) -> Report {
+        let _ = self.stop.send(());
+        self.handle.join().expect("scripted server thread")
+    }
+}
+
+fn serve_script(listener: &TcpListener, steps: Vec<Step>, stopped: &mpsc::Receiver<()>) -> Report {
+    let mut steps = std::collections::VecDeque::from(steps);
+    let mut report = Report::default();
+    loop {
+        let stream = match listener.accept() {
+            Ok((stream, _)) => stream,
+            Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                if should_stop(stopped) {
+                    report.remaining = steps.len();
+                    return report;
+                }
+                continue;
+            }
+            Err(error) => panic!("accept: {error}"),
+        };
+        stream.set_nonblocking(false).expect("blocking stream");
+        stream
+            .set_read_timeout(Some(Duration::from_millis(20)))
+            .expect("read timeout");
+        let request = RecordedRequest::parse(&read_request(&stream));
+        let refusal = |message: &str| {
+            (
+                500,
+                vec![("content-type", "application/json".to_owned())],
+                json!({"errors": [{"message": message}]}).to_string(),
+            )
+        };
+        let (status, headers, body) = match steps.front() {
+            None => {
+                report.unexpected += 1;
+                refusal("unexpected request")
+            }
+            Some(step) => {
+                let problems = step.problems(&request);
+                if problems.is_empty() {
+                    let step = steps.pop_front().expect("front step");
+                    report.consumed += 1;
+                    (step.status, step.headers, step.body)
+                } else {
+                    report.mismatches.extend(problems);
+                    refusal("fixture mismatch")
+                }
+            }
+        };
+        report.requests.push(request);
+        let mut stream = &stream;
+        let reason = StatusCode::from_u16(status)
+            .ok()
+            .and_then(|status| status.canonical_reason())
+            .unwrap_or("Unknown");
+        write!(stream, "HTTP/1.1 {status} {reason}\r\n").expect("status line");
+        for (name, value) in &headers {
+            write!(stream, "{name}: {value}\r\n").expect("header");
+        }
+        write!(
+            stream,
+            "Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .expect("body");
+        stream.flush().expect("flush");
+    }
+}
+
+fn team(id: &str, name: &str, key: &str, description: Option<&str>, archived: bool) -> Value {
+    json!({
+        "id": id,
+        "name": name,
+        "key": key,
+        "description": description,
+        "icon": null,
+        "color": "#0000ff",
+        "cyclesEnabled": false,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-02T00:00:00.000Z",
+        "archivedAt": archived.then_some("2026-02-01T00:00:00.000Z"),
+        "organization": {"id": "org-1", "name": "Acme"}
+    })
+}
+
+fn teams_page(nodes: Vec<Value>, end_cursor: Option<&str>, has_next_page: bool) -> Value {
+    json!({"teams": {
+        "nodes": nodes,
+        "pageInfo": {"hasNextPage": has_next_page, "endCursor": end_cursor}
+    }})
+}
+
+fn two_team_pages() -> Vec<Step> {
+    vec![
+        Step::teams(
+            json!({"first": 100}),
+            200,
+            json!({"data": teams_page(
+                vec![
+                    team("team-1", "Engineering", "ENG", None, false),
+                    team("team-2", "Design", "DES", Some("Product design"), false),
+                ],
+                Some("cursor-a"),
+                true,
+            )}),
+        ),
+        Step::teams(
+            json!({"first": 100, "after": "cursor-a"}),
+            200,
+            json!({"data": teams_page(
+                vec![team("team-3", "Archived", "ARC", None, true)],
+                Some("cursor-b"),
+                false,
+            )}),
+        ),
+    ]
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn two_pages_paginate_with_cursor_variables() {
+    let server = ScriptedServer::start(two_team_pages());
+    let transport = server.transport();
+    let result = paginate(|after| {
+        let transport = &transport;
+        async move {
+            let request = teams_request(Some(100), after.as_deref());
+            let data: GetTeams = transport.execute(&request).await?;
+            Ok::<_, TransportFailure>(Page {
+                nodes: data.teams.nodes,
+                page_info: data.teams.page_info.into(),
+            })
+        }
+    })
+    .await
+    .expect("two pages");
+    let names: Vec<&str> = result.nodes.iter().map(|team| team.name.as_str()).collect();
+    assert_eq!(names, ["Engineering", "Design", "Archived"]);
+    assert_eq!(
+        result.nodes[1].description.as_deref(),
+        Some("Product design")
+    );
+    assert!(result.nodes[2].archived_at.is_some());
+    assert!(!result.page_info.has_next_page);
+    assert_eq!(result.page_info.end_cursor.as_deref(), Some("cursor-b"));
+    let report = server.finish();
+    report.assert_clean();
+    assert_eq!(report.consumed, 2);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn wrong_variables_are_reported_by_the_server() {
+    let server = ScriptedServer::start(two_team_pages());
+    let failure = server
+        .transport()
+        .execute::<GetTeams, _>(&teams_request(Some(50), None))
+        .await
+        .expect_err("mismatch");
+    match &failure {
+        TransportFailure::GraphQl {
+            status,
+            errors,
+            partial_data,
+            ..
+        } => {
+            assert_eq!(status.as_u16(), 500);
+            assert_eq!(graphql_message(errors).as_deref(), Some("fixture mismatch"));
+            assert!(!partial_data);
+        }
+        other => panic!("expected GraphQl, got {other:?}"),
+    }
+    let report = server.finish();
+    assert_eq!(report.mismatches, ["variables differs"]);
+    assert_eq!(report.consumed, 0);
+    assert_eq!(report.remaining, 2);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn graphql_errors_classify_ahead_of_http_status() {
+    let internal = json!({
+        "message": "Something went wrong",
+        "extensions": {
+            "type": "internal error",
+            "code": "INTERNAL_ERROR",
+            "userPresentableMessage": "Something went wrong. Please try again."
+        }
+    });
+    let partial = teams_page(
+        vec![team("team-1", "Engineering", "ENG", None, false)],
+        None,
+        false,
+    );
+    let unauthenticated = r#"{"errors":[{"message":"Authentication required, not authenticated","extensions":{"type":"authentication error","code":"AUTHENTICATION_ERROR"}}]}"#;
+    let server = ScriptedServer::start(vec![
+        Step::teams(
+            json!({"first": 100}),
+            200,
+            json!({"data": null, "errors": [internal]}),
+        ),
+        Step::teams(
+            json!({"first": 100}),
+            200,
+            json!({"data": partial, "errors": [internal]}),
+        ),
+        Step::teams(
+            json!({"first": 100}),
+            400,
+            json!({"data": null, "errors": [{
+                "message": "Argument Validation Error",
+                "path": ["teams"],
+                "locations": [{"line": 2, "column": 3}],
+                "extensions": {
+                    "type": "invalid input",
+                    "code": "INVALID_INPUT",
+                    "userPresentableMessage": "The request was invalid."
+                }
+            }]}),
+        ),
+        Step::teams_raw(401, "application/json", unauthenticated),
+        Step::json(
+            None,
+            None,
+            400,
+            json!({"errors": [{
+                "message": "Cannot query field \"definitelyMissing\" on type \"User\".",
+                "extensions": {"code": "GRAPHQL_VALIDATION_FAILED"}
+            }]}),
+        ),
+    ]);
+    let transport = server.transport();
+    let page_one = teams_request(Some(100), None);
+
+    let failure = transport
+        .execute::<GetTeams, _>(&page_one)
+        .await
+        .expect_err("errors only");
+    let TransportFailure::GraphQl {
+        status,
+        errors,
+        partial_data,
+        ..
+    } = &failure
+    else {
+        panic!("{failure:?}");
+    };
+    assert_eq!(status.as_u16(), 200);
+    assert!(!partial_data);
+    assert_eq!(errors[0].message, "Something went wrong");
+    assert_eq!(
+        failure.to_string(),
+        "Something went wrong. Please try again."
+    );
+    let app: linear_cli::error::AppError = failure.into();
+    assert_eq!(app.kind, AppErrorKind::GraphQl);
+
+    let failure = transport
+        .execute::<GetTeams, _>(&page_one)
+        .await
+        .expect_err("partial data");
+    assert!(
+        matches!(
+            &failure,
+            TransportFailure::GraphQl { status, partial_data: true, .. } if status.as_u16() == 200
+        ),
+        "partial data is never returned as success: {failure:?}"
+    );
+
+    let failure = transport
+        .execute::<GetTeams, _>(&page_one)
+        .await
+        .expect_err("400 errors");
+    let TransportFailure::GraphQl {
+        status,
+        errors,
+        headers,
+        ..
+    } = &failure
+    else {
+        panic!("{failure:?}");
+    };
+    assert_eq!(status.as_u16(), 400);
+    assert_eq!(
+        headers.get("content-type").and_then(|v| v.to_str().ok()),
+        Some("application/json")
+    );
+    assert_eq!(errors[0].path.as_ref().map(|path| path.len()), Some(1));
+    assert!(errors[0].locations.is_some());
+    assert_eq!(failure.to_string(), "The request was invalid.");
+
+    let raw = transport
+        .send_request(&page_one)
+        .await
+        .expect("401 bytes captured");
+    assert_eq!(raw.status.as_u16(), 401);
+    assert_eq!(raw.body, unauthenticated.as_bytes());
+    let failure = classify_typed::<GetTeams>(raw).expect_err("401 with errors");
+    let TransportFailure::GraphQl { status, errors, .. } = &failure else {
+        panic!("{failure:?}");
+    };
+    assert_eq!(status.as_u16(), 401);
+    assert_eq!(
+        errors[0].message,
+        "Authentication required, not authenticated"
+    );
+
+    let raw = transport
+        .send_raw("{ viewer { definitelyMissing } }", None, None)
+        .await
+        .expect("400 validation bytes");
+    let failure = classify_typed::<Value>(raw).expect_err("validation errors");
+    let TransportFailure::GraphQl { status, errors, .. } = &failure else {
+        panic!("{failure:?}");
+    };
+    assert_eq!(status.as_u16(), 400);
+    assert_eq!(
+        errors[0].extensions.as_ref().and_then(|e| e.get("code")),
+        Some(&Value::from("GRAPHQL_VALIDATION_FAILED"))
+    );
+
+    let report = server.finish();
+    report.assert_clean();
+    assert_eq!(report.consumed, 5);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
+    let data = json!({"data": teams_page(
+        vec![team("team-1", "Engineering", "ENG", None, false)],
+        None,
+        false,
+    )})
+    .to_string();
+    let server = ScriptedServer::start(vec![
+        Step::teams_raw(429, "text/plain", "Too Many Requests\n").with_header("retry-after", "7"),
+        Step::teams_raw(502, "text/html", "<html><body>bad gateway</body></html>"),
+        Step::teams_raw(500, "application/json", &data),
+        Step::teams_raw(200, "text/html", "<html>maintenance</html>"),
+        Step::teams_raw(200, "application/json", r#"{"data":"#),
+        Step::teams_raw(200, "application/json", ""),
+        Step::teams_raw(200, "application/json", r#"{"data":null}"#),
+        Step::teams_raw(200, "application/json", r#"{"data":{"teams":"nope"}}"#),
+    ]);
+    let transport = server.transport();
+    let page_one = teams_request(Some(100), None);
+    let next = || transport.execute::<GetTeams, _>(&page_one);
+
+    let failure = next().await.expect_err("429");
+    let TransportFailure::Http { response, body } = &failure else {
+        panic!("{failure:?}");
+    };
+    assert_eq!(response.status.as_u16(), 429);
+    assert_eq!(response.body, b"Too Many Requests\n");
+    assert_eq!(
+        response
+            .headers
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok()),
+        Some("7")
+    );
+    assert!(
+        matches!(body, HttpBodyShape::Unusable(ResponseError::NotJson { .. })),
+        "{body:?}"
+    );
+    assert_eq!(
+        failure.to_string(),
+        "unexpected HTTP status 429 Too Many Requests"
+    );
+    let debug = format!("{failure:?}");
+    assert!(
+        !debug.contains("Too Many Requests\\n"),
+        "body bytes stay out of Debug: {debug}"
+    );
+    let app: linear_cli::error::AppError = failure.into();
+    assert_eq!(app.kind, AppErrorKind::Transport);
+
+    let failure = next().await.expect_err("502");
+    let TransportFailure::Http { response, body } = &failure else {
+        panic!("{failure:?}");
+    };
+    assert_eq!(response.status.as_u16(), 502);
+    assert_eq!(response.body, b"<html><body>bad gateway</body></html>");
+    assert!(matches!(
+        body,
+        HttpBodyShape::Unusable(ResponseError::NotJson { .. })
+    ));
+
+    let failure = next().await.expect_err("500 with data");
+    assert!(
+        matches!(
+            &failure,
+            TransportFailure::Http { response, body: HttpBodyShape::Data }
+                if response.status.as_u16() == 500
+        ),
+        "valid data under 500 is still an HTTP failure: {failure:?}"
+    );
+
+    let failure = next().await.expect_err("HTML under 200");
+    assert!(
+        matches!(
+            &failure,
+            TransportFailure::Response(ResponseError::NotJson { .. })
+        ),
+        "{failure:?}"
+    );
+    assert_eq!(
+        failure.to_string(),
+        "Linear returned a non-JSON response (HTTP 200 OK, content type text/html)"
+    );
+
+    for case in ["truncated", "empty"] {
+        let failure = next().await.expect_err(case);
+        assert!(
+            matches!(
+                &failure,
+                TransportFailure::Response(ResponseError::MalformedJson(_))
+            ),
+            "{case}: {failure:?}"
+        );
+    }
+
+    let failure = next().await.expect_err("data null");
+    assert!(
+        matches!(
+            &failure,
+            TransportFailure::Response(ResponseError::MissingData)
+        ),
+        "{failure:?}"
+    );
+    let app: linear_cli::error::AppError = failure.into();
+    assert_eq!(app.kind, AppErrorKind::GraphQl);
+
+    let failure = next().await.expect_err("wrong shape");
+    assert!(
+        matches!(
+            &failure,
+            TransportFailure::Response(ResponseError::UnexpectedShape(_))
+        ),
+        "{failure:?}"
+    );
+    let app: linear_cli::error::AppError = failure.into();
+    assert_eq!(app.kind, AppErrorKind::Invariant);
+
+    let report = server.finish();
+    report.assert_clean();
+    assert_eq!(report.requests.len(), 8, "no retries");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn temporary_redirect_replays_the_request_at_the_new_location() {
+    let data = json!({"data": teams_page(vec![], None, false)}).to_string();
+    let server = ScriptedServer::start(vec![
+        Step::teams_raw(307, "text/plain", "").with_header("location", "/moved"),
+        Step::teams_raw(200, "application/json", &data).at("/moved"),
+    ]);
+    let teams: GetTeams = server
+        .transport()
+        .execute(&teams_request(Some(100), None))
+        .await
+        .expect("redirect followed");
+    assert!(teams.teams.nodes.is_empty());
+    let report = server.finish();
+    report.assert_clean();
+    assert_eq!(report.requests[1].path, "/moved");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn mutation_payload_failures_are_typed() {
+    let issue = |title: &str| {
+        json!({
+            "id": "issue-1",
+            "identifier": "ENG-1",
+            "url": "https://linear.app/acme/issue/ENG-1",
+            "title": title
+        })
+    };
+    let update = |title: &str, success: bool, issue: Value| {
+        Step::json(
+            Some("UpdateIssue"),
+            Some(json!({"id": "issue-1", "input": {"title": title}})),
+            200,
+            json!({"data": {"issueUpdate": {"success": success, "issue": issue}}}),
+        )
+    };
+    let server = ScriptedServer::start(vec![
+        update("Declined title", false, issue("Old title")),
+        update("New title", true, issue("New title")),
+        update("Ghost", true, Value::Null),
+    ]);
+    let transport = server.transport();
+
+    let declined: UpdateIssue = transport
+        .execute(&update_request("Declined title"))
+        .await
+        .expect("success:false is not a transport failure");
+    assert!(matches!(
+        require_success(declined.issue_update.success),
+        Err(ResponseError::MutationRejected)
+    ));
+
+    let accepted: UpdateIssue = transport
+        .execute(&update_request("New title"))
+        .await
+        .expect("success");
+    require_success(accepted.issue_update.success).expect("success");
+    let issue = require_entity(accepted.issue_update.issue).expect("issue");
+    assert_eq!(issue.title, "New title");
+
+    let ghost: UpdateIssue = transport
+        .execute(&update_request("Ghost"))
+        .await
+        .expect("success with null issue is a payload failure, not a transport one");
+    assert!(matches!(
+        require_entity(ghost.issue_update.issue),
+        Err(ResponseError::MissingPayloadEntity)
+    ));
+
+    let report = server.finish();
+    report.assert_clean();
+    assert_eq!(report.consumed, 3);
+}
+
+fn viewer_step() -> Step {
+    Step::json(
+        None,
+        None,
+        200,
+        json!({"data": {"viewer": {"id": "user-1"}}}),
+    )
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn raw_document_without_variables_returns_exact_bytes() {
+    let server = ScriptedServer::start(vec![viewer_step()]);
+    let response = server
+        .transport()
+        .send_raw("{ viewer { id } }", None, None)
+        .await
+        .expect("200");
+    assert_eq!(response.status.as_u16(), 200);
+    assert_eq!(response.body, br#"{"data":{"viewer":{"id":"user-1"}}}"#);
+    let value: Value = classify_typed(response).expect("typed as Value");
+    assert_eq!(value, json!({"viewer": {"id": "user-1"}}));
+    let report = server.finish();
+    report.assert_clean();
+    assert!(report.requests[0].body.as_ref().is_some_and(|body| {
+        body.get("variables").is_none() && body.get("operationName").is_none()
+    }));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn extra_request_after_the_final_step_is_unexpected() {
+    let server = ScriptedServer::start(vec![viewer_step()]);
+    let transport = server.transport();
+    transport
+        .send_raw("{ viewer { id } }", None, None)
+        .await
+        .expect("first");
+    let failure = transport
+        .execute::<Value, ()>(&GraphQlRequest {
+            query: "{ viewer { id } }".to_owned(),
+            variables: None,
+            operation_name: None,
         })
         .await
-        .expect("two pages");
-        let names: Vec<&str> = result.nodes.iter().map(|team| team.name.as_str()).collect();
-        assert_eq!(names, ["Engineering", "Design", "Archived"]);
-        assert_eq!(
-            result.nodes[1].description.as_deref(),
-            Some("Product design")
-        );
-        assert!(result.nodes[2].archived_at.is_some());
-        assert!(!result.page_info.has_next_page);
-        assert_eq!(result.page_info.end_cursor.as_deref(), Some("cursor-b"));
-        let outcome = driver.finish().await;
-        outcome.assert_clean();
-        assert_eq!(outcome.report.consumed, 2);
-    })
+        .expect_err("second request is unscripted");
+    assert!(matches!(&failure, TransportFailure::GraphQl { status, .. } if status.as_u16() == 500));
+    let report = server.finish();
+    assert_eq!(report.unexpected, 1);
+    assert_eq!(report.consumed, 1);
+    assert_eq!(report.requests.len(), 2);
 }
 
-#[test]
-fn wrong_variable_is_a_fixture_mismatch_in_the_driver_report() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-teams-two-pages").await;
-        let transport = driver.transport();
-        let failure = transport
-            .execute::<GetTeams, _>(&teams_request(Some(50), None))
-            .await
-            .expect_err("fixture mismatch");
-        match &failure {
-            TransportFailure::GraphQl {
-                status,
-                errors,
-                partial_data,
-                ..
-            } => {
-                assert_eq!(status.as_u16(), 500);
-                assert_eq!(graphql_message(errors).as_deref(), Some("fixture mismatch"));
-                assert!(!partial_data);
-            }
-            other => panic!("expected GraphQl, got {other:?}"),
-        }
-        // The Rust side sees a GraphQL error; only the driver report proves the
-        // request itself was wrong, so the test asserts that report.
-        let outcome = driver.finish().await;
-        // This operation-specific mismatch is reached only after the server's
-        // authorization and User-Agent checks have passed.
-        outcome.assert_mismatch("operation fields, arguments, directives, or value origin differ");
-        outcome.assert_mismatch("expected 2 interactions");
-        assert_eq!(outcome.report.consumed, 0);
-        assert_eq!(outcome.report.requests.len(), 1);
-        // The current matcher marks authorization only after claiming a step;
-        // this wrong-variable request claims none, so the summary is false.
-        assert!(!outcome.report.requests[0].authorization_matched);
-    })
-}
-
-#[test]
-fn graphql_errors_classify_ahead_of_http_status() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-graphql-errors").await;
-        let transport = driver.transport();
-        let page_one = teams_request(Some(100), None);
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("errors only");
-        let TransportFailure::GraphQl {
-            status,
-            errors,
-            partial_data,
-            ..
-        } = &failure
-        else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(status.as_u16(), 200);
-        assert!(!partial_data);
-        assert_eq!(errors[0].message, "Something went wrong");
-        assert_eq!(
-            failure.to_string(),
-            "Something went wrong. Please try again."
-        );
-        let app: linear_cli::error::AppError = failure.into();
-        assert_eq!(app.kind, AppErrorKind::GraphQl);
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("partial data");
-        let TransportFailure::GraphQl {
-            status,
-            partial_data,
-            ..
-        } = &failure
-        else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(status.as_u16(), 200);
-        assert!(partial_data, "partial data is never returned as success");
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("400 errors");
-        let TransportFailure::GraphQl {
-            status,
-            errors,
-            headers,
-            ..
-        } = &failure
-        else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(status.as_u16(), 400);
-        assert_eq!(
-            headers.get("content-type").and_then(|v| v.to_str().ok()),
-            Some("application/json")
-        );
-        assert_eq!(errors[0].path.as_ref().map(|path| path.len()), Some(1));
-        assert!(errors[0].locations.is_some());
-        assert_eq!(
-            errors[0]
-                .extensions
-                .as_ref()
-                .and_then(|e| e.get("userPresentableMessage")),
-            Some(&Value::from("The request was invalid."))
-        );
-        assert_eq!(failure.to_string(), "The request was invalid.");
-
-        let raw = transport
-            .send_request(&page_one)
-            .await
-            .expect("401 bytes captured");
-        assert_eq!(raw.status.as_u16(), 401);
-        assert_eq!(
-        raw.body,
-        br#"{"errors":[{"message":"Authentication required, not authenticated","extensions":{"type":"authentication error","code":"AUTHENTICATION_ERROR"}}]}"#
-    );
-        let failure = classify_typed::<GetTeams>(raw).expect_err("401 with errors");
-        let TransportFailure::GraphQl { status, errors, .. } = &failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(status.as_u16(), 401);
-        assert_eq!(
-            errors[0].message,
-            "Authentication required, not authenticated"
-        );
-
-        let raw = transport
-            .send_raw("{ viewer { definitelyMissing } }", None, None)
-            .await
-            .expect("400 validation bytes");
-        assert_eq!(raw.status.as_u16(), 400);
-        let failure = classify_typed::<Value>(raw).expect_err("validation errors");
-        let TransportFailure::GraphQl { status, errors, .. } = &failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(status.as_u16(), 400);
-        assert_eq!(
-            errors[0].message,
-            "Cannot query field \"definitelyMissing\" on type \"User\"."
-        );
-        assert_eq!(
-            errors[0].extensions.as_ref().and_then(|e| e.get("code")),
-            Some(&Value::from("GRAPHQL_VALIDATION_FAILED"))
-        );
-
-        let outcome = driver.finish().await;
-        outcome.assert_clean();
-        assert_eq!(outcome.report.consumed, 5);
-    })
-}
-
-#[test]
-fn http_failures_keep_raw_bytes_and_redirects_are_never_followed() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-http-statuses").await;
-        let transport = driver.transport();
-        let page_one = teams_request(Some(100), None);
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("429");
-        let TransportFailure::Http { response, body } = &failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(response.status.as_u16(), 429);
-        assert_eq!(response.body, b"Too Many Requests\n");
-        assert_eq!(
-            response
-                .headers
-                .get("retry-after")
-                .and_then(|v| v.to_str().ok()),
-            Some("7")
-        );
-        assert!(
-            matches!(
-                body,
-                HttpBodyShape::Unusable(ResponseError::NonJsonExecution(_))
-            ),
-            "{body:?}"
-        );
-        assert_eq!(
-            failure.to_string(),
-            "unexpected HTTP status 429 Too Many Requests"
-        );
-        let debug = format!("{failure:?}");
-        assert!(
-            !debug.contains("Too Many Requests\\n"),
-            "body bytes stay out of Debug: {debug}"
-        );
-        let app: linear_cli::error::AppError = failure.into();
-        assert_eq!(app.kind, AppErrorKind::Transport);
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("502");
-        let TransportFailure::Http { response, body } = &failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(response.status.as_u16(), 502);
-        assert_eq!(response.body, b"<html><body>bad gateway</body></html>");
-        assert!(matches!(
-            body,
-            HttpBodyShape::Unusable(ResponseError::NonJsonExecution(_))
-        ));
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("500 with data");
-        let TransportFailure::Http { response, body } = &failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(response.status.as_u16(), 500);
-        assert!(
-            matches!(body, HttpBodyShape::Data),
-            "valid data under 500 is still an HTTP failure"
-        );
-        assert!(
-            response
-                .body
-                .starts_with(br#"{"data":{"teams":{"nodes":[{"id":"team-1""#)
-        );
-
-        let raw = transport
-            .send_request(&page_one)
-            .await
-            .expect("302 captured");
-        assert_eq!(raw.status.as_u16(), 302);
-        assert_eq!(
-            raw.headers.get("location").and_then(|v| v.to_str().ok()),
-            Some(format!("http://127.0.0.1:{}/elsewhere", driver.ready.port).as_str())
-        );
-        assert!(raw.body.is_empty());
-        let failure = classify_typed::<GetTeams>(raw).expect_err("3xx is a status failure");
-        assert!(
-            matches!(&failure, TransportFailure::Http { response, .. } if response.status.as_u16() == 302)
-        );
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("truncated");
-        assert!(
-            matches!(
-                &failure,
-                TransportFailure::Response(ResponseError::MalformedJson(_))
-            ),
-            "{failure:?}"
-        );
-        let app: linear_cli::error::AppError = failure.into();
-        assert_eq!(app.kind, AppErrorKind::Transport);
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("empty");
-        assert!(
-            matches!(
-                &failure,
-                TransportFailure::Response(ResponseError::MalformedJson(_))
-            ),
-            "{failure:?}"
-        );
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("data null");
-        assert!(
-            matches!(
-                &failure,
-                TransportFailure::Response(ResponseError::MissingData)
-            ),
-            "{failure:?}"
-        );
-        let app: linear_cli::error::AppError = failure.into();
-        assert_eq!(app.kind, AppErrorKind::GraphQl);
-
-        let failure = transport
-            .execute::<GetTeams, _>(&page_one)
-            .await
-            .expect_err("wrong shape");
-        assert!(
-            matches!(
-                &failure,
-                TransportFailure::Response(ResponseError::UnexpectedShape(_))
-            ),
-            "{failure:?}"
-        );
-        let app: linear_cli::error::AppError = failure.into();
-        assert_eq!(app.kind, AppErrorKind::Invariant);
-
-        let outcome = driver.finish().await;
-        outcome.assert_clean();
-        assert_eq!(outcome.report.consumed, 8);
-        assert_eq!(
-            outcome.report.requests.len(),
-            8,
-            "no retry and no redirect follow"
-        );
-    })
-}
-
-#[test]
-fn mutation_payload_failures_are_typed_and_effects_are_counted() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-issue-update-effects").await;
-        let transport = driver.transport();
-
-        let declined: UpdateIssue = transport
-            .execute(&update_request("Declined title"))
-            .await
-            .expect("success:false is not a transport failure");
-        assert!(!declined.issue_update.success);
-        assert!(matches!(
-            require_success(declined.issue_update.success),
-            Err(ResponseError::MutationRejected)
-        ));
-        assert_eq!(
-            declined
-                .issue_update
-                .issue
-                .as_ref()
-                .map(|issue| issue.title.as_str()),
-            Some("Old title")
-        );
-
-        let accepted: UpdateIssue = transport
-            .execute(&update_request("New title"))
-            .await
-            .expect("success");
-        require_success(accepted.issue_update.success).expect("success");
-        let issue = require_entity(accepted.issue_update.issue).expect("issue");
-        assert_eq!(issue.title, "New title");
-
-        let ghost: UpdateIssue = transport
-            .execute(&update_request("Ghost"))
-            .await
-            .expect("success with null issue is a payload failure, not a transport one");
-        require_success(ghost.issue_update.success).expect("success");
-        assert!(matches!(
-            require_entity(ghost.issue_update.issue),
-            Err(ResponseError::MissingPayloadEntity)
-        ));
-
-        // A clean report means expectedRecords matched: the declined effect was
-        // suppressed and the accepted effect applied exactly once.
-        let outcome = driver.finish().await;
-        outcome.assert_clean();
-        assert_eq!(outcome.report.consumed, 3);
-    })
-}
-
-#[test]
-fn raw_document_without_variables_returns_exact_bytes() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-raw-viewer").await;
-        let transport = driver.transport();
-        let response = transport
-            .send_raw("{ viewer { id } }", None, None)
-            .await
-            .expect("200");
-        assert_eq!(response.status.as_u16(), 200);
-        assert_eq!(response.body, br#"{"data":{"viewer":{"id":"user-1"}}}"#);
-        assert_eq!(
-            response
-                .headers
-                .get("content-type")
-                .and_then(|v| v.to_str().ok()),
-            Some("application/json")
-        );
-        let value: Value = classify_typed(response).expect("typed as Value");
-        assert_eq!(value, json!({"viewer": {"id": "user-1"}}));
-        let outcome = driver.finish().await;
-        outcome.assert_clean();
-        assert_eq!(outcome.report.consumed, 1);
-    })
-}
-
-#[test]
-fn extra_request_after_the_final_step_is_unexpected() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-raw-viewer").await;
-        let transport = driver.transport();
-        transport
-            .send_raw("{ viewer { id } }", None, None)
-            .await
-            .expect("first");
-        let failure = transport
-            .execute::<Value, ()>(&GraphQlRequest {
-                query: "{ viewer { id } }".to_owned(),
-                variables: None,
-                operation_name: None,
-            })
-            .await
-            .expect_err("second request is unscripted");
-        assert!(
-            matches!(&failure, TransportFailure::GraphQl { status, .. } if status.as_u16() == 500)
-        );
-        let outcome = driver.finish().await;
-        outcome.assert_mismatch("unexpected request after final interaction");
-        outcome.assert_mismatch("expected 1 interactions");
-        assert_eq!(outcome.report.unexpected, 1);
-        assert_eq!(outcome.report.consumed, 1);
-        assert_eq!(outcome.report.requests.len(), 2);
-    })
-}
-
-#[test]
-fn extra_variables_key_is_rejected_by_the_fixture() {
-    run_serial(async {
-        let driver = FixtureDriver::start("f02b-raw-viewer").await;
-        let transport = driver.transport();
-        let mut variables = Map::new();
-        variables.insert("unexpected".to_owned(), Value::from(1));
-        let raw = transport
-            .send_raw("{ viewer { id } }", Some(variables), None)
-            .await
-            .expect("500 captured");
-        assert_eq!(raw.status.as_u16(), 500);
-        assert_eq!(raw.body, br#"{"errors":[{"message":"fixture mismatch"}]}"#);
-        let outcome = driver.finish().await;
-        outcome.assert_mismatch("variables presence differs");
-        assert_eq!(outcome.report.consumed, 0);
-    })
-}
-
-#[test]
-fn driver_rejects_a_case_without_a_graphql_fixture() {
-    run_serial(async {
-        let failure = expect_start_failure(
-            FixtureDriver::spawn(driver_command("f02b-control-no-graphql-fixture")).await,
-        );
-        let StartFailure::ExitedBeforeReady { exit_code, stderr } = failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(exit_code, Some(2));
-        assert!(stderr.contains("has no GraphQL fixture"), "{stderr}");
-    })
-}
-
-#[test]
-fn driver_rejects_extra_arguments_and_paths_outside_its_directory() {
-    run_serial(async {
-        let mut extra = driver_command("f02b-raw-viewer");
-        extra.arg("second");
-        let failure = expect_start_failure(FixtureDriver::spawn(extra).await);
-        let StartFailure::ExitedBeforeReady { exit_code, stderr } = failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(exit_code, Some(2));
-        assert!(stderr.contains("expected exactly one argument"), "{stderr}");
-
-        let outside = driver_command("f02b-raw-viewer");
-        let root = repo_root();
-        let mut args: Vec<std::ffi::OsString> =
-            outside.as_std().get_args().map(|a| a.to_owned()).collect();
-        args.pop();
-        args.push(
-            root.join("rust/parity/runner/cases/api-loopback-viewer-200.json")
-                .into(),
-        );
-        let mut outside = Command::new("deno");
-        outside.args(args);
-        let failure = expect_start_failure(FixtureDriver::spawn(outside).await);
-        let StartFailure::ExitedBeforeReady { exit_code, stderr } = failure else {
-            panic!("{failure:?}");
-        };
-        assert_eq!(exit_code, Some(2));
-        assert!(stderr.contains("directly under"), "{stderr}");
-    })
-}
-
-#[test]
-fn wrong_port_ready_line_fails_bounded_and_the_child_is_reaped() {
-    run_serial(async {
-        let closed = TcpListener::bind("127.0.0.1:0").expect("bind");
-        let port = closed.local_addr().expect("addr").port();
-        drop(closed);
-        let script = format!(
-            "console.log(JSON.stringify({{event:'ready',port:{port},path:'/graphql',expectedRequests:1,expectedGraphQL:1}})); await new Promise((resolve) => setTimeout(resolve, 60_000))"
-        );
-        let driver = FixtureDriver::spawn(eval_command(&script))
-            .await
-            .expect("fake driver announces readiness");
-        assert_eq!(driver.ready.port, port);
-        let transport = transport_for(&driver.endpoint(), config(Duration::from_secs(2), 1024));
-        let started = Instant::now();
-        let failure = transport
-            .send_raw("{ x }", None, None)
-            .await
-            .expect_err("nothing listens on the announced port");
-        assert!(started.elapsed() < Duration::from_secs(5));
-        assert!(
-            matches!(
-                &failure,
-                TransportFailure::Network {
-                    phase: NetworkPhase::Connect,
-                    ..
-                }
-            ),
-            "{failure:?}"
-        );
-        let status = driver.abort().await;
-        assert!(!status.success(), "killed child: {status:?}");
-    })
-}
-
-#[test]
-fn driver_that_never_becomes_ready_is_killed_and_reaped() {
-    run_serial(async {
-        let started = Instant::now();
-        let failure = expect_start_failure(
-            FixtureDriver::spawn_with(
-                eval_command("await new Promise((resolve) => setTimeout(resolve, 60_000))"),
-                Duration::from_secs(3),
-            )
-            .await,
-        );
-        let StartFailure::ReadyTimeout { stderr } = failure else {
-            panic!("{failure:?}");
-        };
-        assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "bounded by the ready deadline"
-        );
-        assert_eq!(stderr, "", "a stand-in that only waits prints nothing");
-    })
+#[tokio::test(flavor = "current_thread")]
+async fn extra_variables_key_is_a_mismatch() {
+    let server = ScriptedServer::start(vec![viewer_step()]);
+    let mut variables = Map::new();
+    variables.insert("unexpected".to_owned(), Value::from(1));
+    let raw = server
+        .transport()
+        .send_raw("{ viewer { id } }", Some(variables), None)
+        .await
+        .expect("500 captured");
+    assert_eq!(raw.status.as_u16(), 500);
+    assert_eq!(raw.body, br#"{"errors":[{"message":"fixture mismatch"}]}"#);
+    let report = server.finish();
+    assert_eq!(report.mismatches, ["variables differs"]);
+    assert_eq!(report.consumed, 0);
 }

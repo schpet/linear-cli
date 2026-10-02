@@ -1,5 +1,4 @@
 //! Actual CLI raw wire, response stages and runtime/file effects; all synthetic.
-use serde_json::json;
 use std::{
     io::{Read, Write},
     net::TcpListener,
@@ -137,10 +136,6 @@ impl Drop for Home {
         std::fs::remove_dir_all(&self.0).unwrap();
     }
 }
-fn body(wire: &str) -> &str {
-    wire.split_once("\r\n\r\n").unwrap().1
-}
-
 fn viewer() -> Reply {
     Reply {status:200,headers:"Content-Type: application/json\r\n".into(),
  bytes:br#"{"data":{"viewer":{"name":"DUMMY User","email":"dummy@example.invalid","organization":{"name":"DUMMY Organization","urlKey":"dummy"}}}}"#.to_vec()}
@@ -149,40 +144,22 @@ fn file(home: &Home) -> std::path::PathBuf {
     home.0.join("linear/credentials.toml")
 }
 #[test]
-fn cleaned_empty_login_header_reads_once_then_writes_exact_inline_bytes() {
+fn login_rejects_a_key_that_cleans_to_empty_before_any_request() {
     let home = Home::new();
-    let server = Server::new(vec![viewer()]);
+    let server = Server::new(vec![]);
     let out = home.run(
         &server.url,
         &["auth", "login", "--key", " !!! ", "--plaintext"],
         "",
     );
+    assert_eq!(out.status.code(), Some(1));
     assert!(
-        out.status.success(),
+        String::from_utf8_lossy(&out.stderr).contains("No API key provided"),
         "{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    assert!(out.stderr.is_empty());
-    assert_eq!(
-        std::fs::read(file(&home)).unwrap(),
-        b"default = \"dummy\"\ndummy = \"\"\n"
-    );
-    assert_eq!(
-        String::from_utf8(out.stdout).unwrap(),
-        "Logged in to workspace: DUMMY Organization (dummy)\n  User: DUMMY User <dummy@example.invalid>\n  Set as default workspace\n"
-    );
-    let requests = server.finish();
-    assert_eq!(requests.len(), 1);
-    assert!(
-        requests[0]
-            .lines()
-            .any(|line| line.eq_ignore_ascii_case("authorization: "))
-    );
-    let request: serde_json::Value = serde_json::from_str(body(&requests[0])).unwrap();
-    assert_eq!(
-        request,
-        json!({"query":"query AuthLoginViewer {\n  viewer {\n    name\n    email\n    organization {\n      name\n      urlKey\n    }\n  }\n}","operationName":"AuthLoginViewer"})
-    );
+    assert!(!file(&home).exists());
+    assert!(server.finish().is_empty());
 }
 #[test]
 fn full_login_decode_refuses_corrupt_fields_before_any_local_write() {

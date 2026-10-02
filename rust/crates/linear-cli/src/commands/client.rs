@@ -69,7 +69,7 @@ pub(crate) fn prepare_transport_with_inputs(
         )
         .with_source(error)
     })?;
-    let config = transport_env.production().map_err(AppError::from)?;
+    let config = transport_env.production();
     GraphQlTransport::new(options.endpoint().value().clone(), key, config).map_err(AppError::from)
 }
 
