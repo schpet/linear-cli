@@ -157,17 +157,14 @@ impl Ui for Prompt {
     fn text(
         &mut self,
         message: &str,
-        minimum: usize,
+        required: bool,
         default: Option<&str>,
     ) -> Result<String, AppError> {
         self.messages.push(message.into());
         let raw = self.answers.pop_front().expect("missing answer");
-        linear_cli::platform::prompt_text::TextOptions {
-            minimum_utf16_length: minimum,
-            default,
-        }
-        .answer(&raw)
-        .map_err(shared::validation)
+        linear_cli::platform::prompt_text::TextOptions { required, default }
+            .answer(&raw)
+            .map_err(shared::validation)
     }
     fn choose(
         &mut self,
@@ -773,9 +770,9 @@ fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_q
     );
 }
 #[test]
-fn title_raw_minimum_then_ecmascript_trim_and_default_template_false_remain_explicit() {
+fn blank_title_is_rejected_and_default_template_false_remains_explicit() {
     let mut ui = Prompt {
-        answers: VecDeque::from([" \t ".into(), "".into(), "submit".into(), "no".into()]),
+        answers: VecDeque::from([" Title ".into(), "".into(), "submit".into(), "no".into()]),
         messages: Vec::new(),
         ..Default::default()
     };
@@ -789,14 +786,14 @@ fn title_raw_minimum_then_ecmascript_trim_and_default_template_false_remain_expl
     )
     .unwrap();
     let json = serde_json::to_value(output.input).unwrap();
-    assert_eq!(json["title"], "");
+    assert_eq!(json["title"], "Title");
     assert_eq!(json["useDefaultTemplate"], false);
     assert!(
         linear_cli::platform::prompt_text::TextOptions {
-            minimum_utf16_length: 1,
+            required: true,
             default: None
         }
-        .answer("")
+        .answer(" \t ")
         .is_err()
     );
 }

@@ -6,7 +6,7 @@ use std::future::Future;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{display_width, pad, truncate_js};
+use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::table::underlined_header;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -214,7 +214,7 @@ pub fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> S
         .map(|milestone| display_width(&milestone.name))
         .max()
         .unwrap_or(0);
-    let name_width = max_name_width.min(columns.saturating_sub(PADDING + fixed));
+    let name_width = flexible_width(max_name_width, columns.saturating_sub(PADDING + fixed));
     let mut output = underlined_header(
         &[
             pad("NAME", name_width),
@@ -227,13 +227,13 @@ pub fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> S
     for milestone in nodes {
         output.push_str(&format!(
             "{} {} {} {}\n",
-            truncate_js(&milestone.name, name_width),
+            fit(&milestone.name, name_width),
             pad(milestone.id.inner(), ID_WIDTH),
             pad(
                 target_date(milestone).unwrap_or("No date"),
                 TARGET_DATE_WIDTH
             ),
-            truncate_js(&milestone.project.name, project_width),
+            fit(&milestone.project.name, project_width),
         ));
     }
     output

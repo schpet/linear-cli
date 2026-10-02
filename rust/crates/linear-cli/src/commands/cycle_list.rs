@@ -4,7 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 use std::future::Future;
 
-use crate::commands::display::{display_width, pad, truncate_js};
+use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycles::{self, GetTeamCycles, GetTeamCyclesVariables};
@@ -189,7 +189,7 @@ pub fn render_text(
         .max()
         .unwrap_or(0)
         .max(4);
-    let name_width = max_name_width.min(available);
+    let name_width = flexible_width(max_name_width, available);
     let header = [
         pad("#", number_width),
         pad("NAME", name_width),
@@ -217,7 +217,7 @@ pub fn render_text(
         output.push_str(&format!(
             "{} {} {} {} {styled}\n",
             pad(number, number_width),
-            truncate_js(name, name_width),
+            fit(name, name_width),
             pad(&date_prefix(&cycle.starts_at.0), 10),
             pad(&date_prefix(&cycle.ends_at.0), 10),
         ));

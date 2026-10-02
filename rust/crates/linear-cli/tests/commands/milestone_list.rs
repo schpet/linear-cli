@@ -132,8 +132,11 @@ fn request_matches_the_source_document_and_omits_the_first_cursor() {
     );
 }
 
+/// Wide and emoji names are truncated by display width without splitting characters.
+const LONG_WIDE_TEXT: &str = "NAME                                  ID                                   TARGET DATE  PROJECT                       \nA very long milestone name that ke... 00000000-0000-4000-8000-000000000101 2026-01-01   Mobile App                    \n日本語のマイルストーン名前は幅が広... 00000000-0000-4000-8000-000000000102 2026-01-02   Mobile App                    \nx🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀...  00000000-0000-4000-8000-000000000103 2026-01-03   Mobile App                    \nShort                                 00000000-0000-4000-8000-000000000104 2026-01-04   An Extremely Long Project N...\nWide project                          00000000-0000-4000-8000-000000000105 2026-01-05   プロジェクト名前テスト        \n";
+
 #[tokio::test]
-async fn frozen_success_cases_render_exact_bytes_with_exact_page_variables() {
+async fn success_cases_render_text_and_json_with_page_variables() {
     for id in [
         "c030-one-page-text",
         "c030-two-pages-json",
@@ -162,14 +165,11 @@ async fn frozen_success_cases_render_exact_bytes_with_exact_page_variables() {
         let output = run_with(PROJECT, PROJECT, fetch, json, 120, false)
             .await
             .unwrap_or_else(|error| panic!("{id}: {error}"));
-        assert_eq!(
-            String::from_utf8(output).expect("UTF-8"),
-            case["expected"]["stdout"]["utf8"]
-                .as_str()
-                .expect("stdout")
-                .to_owned(),
-            "{id}"
-        );
+        let expected = match id {
+            "c030-long-wide-text" => LONG_WIDE_TEXT,
+            _ => case["expected"]["stdout"]["utf8"].as_str().expect("stdout"),
+        };
+        assert_eq!(String::from_utf8(output).expect("UTF-8"), expected, "{id}");
         let expected: Vec<Value> = steps
             .iter()
             .map(|step| step["operation"]["variables"].clone())
@@ -281,7 +281,7 @@ async fn page_errors_keep_their_message_and_gain_the_context_once() {
 }
 
 #[test]
-fn narrow_tables_follow_the_source_width_rules_and_header_style() {
+fn narrow_tables_keep_a_minimum_name_width_and_header_style() {
     let data = page(
         json!([
             milestone("m-1", "Launch readiness", json!("2026-01-01")),
@@ -292,14 +292,13 @@ fn narrow_tables_follow_the_source_width_rules_and_header_style() {
     );
     let nodes = data.project.expect("project").project_milestones.nodes;
 
-    // 40 columns leave no name width. The header is not truncated, and the
-    // source slices each name to `length - 3` code units before `...`.
+    // 40 columns leave no room, so names keep the minimum column width.
     let narrow = render_text(&nodes, 40, false);
     let tail = |id: &str, date: &str| format!("{id:<36} {date:<12} Mobile App");
     assert_eq!(
         narrow,
         format!(
-            "NAME {:<36} {:<12} PROJECT   \nLaunch readin... {}\nB... {}\n",
+            "NAME             {:<36} {:<12} PROJECT   \nLaunch readiness {}\nBeta             {}\n",
             "ID",
             "TARGET DATE",
             tail("m-1", "2026-01-01"),

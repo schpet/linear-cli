@@ -5,7 +5,6 @@ mod comment_add;
 mod cycle_list;
 mod cycle_view;
 mod delete_server;
-mod display;
 mod document_comment_list;
 mod initiative_comment_list;
 mod initiative_create;

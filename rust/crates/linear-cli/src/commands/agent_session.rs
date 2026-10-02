@@ -291,18 +291,16 @@ pub fn text(comments: &SessionComments, columns: usize, color: bool) -> Vec<u8> 
         output.push_str(&format!(
             "{status} {} {} {summary}\n",
             pad(&session.app_user.name, agent_width),
-            pad(
-                &String::from_utf16_lossy(
-                    &session
-                        .created_at
-                        .0
-                        .encode_utf16()
-                        .take(10)
-                        .collect::<Vec<_>>()
-                ),
-                10
-            )
+            pad(&created_date(&session.created_at.0), 10)
         ));
     }
     output.into_bytes()
+}
+
+/// The UTC calendar date of a timestamp, or the raw text when it does not parse.
+fn created_date(timestamp: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(timestamp).map_or_else(
+        |_| timestamp.to_owned(),
+        |date| date.to_utc().format("%Y-%m-%d").to_string(),
+    )
 }

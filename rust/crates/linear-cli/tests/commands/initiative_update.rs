@@ -81,7 +81,7 @@ fn escaped_default_is_display_only_and_changed_blank_nonname_fields_are_omitted(
             .text_with_options(
                 "Description:",
                 TextOptions {
-                    minimum_utf16_length: 0,
+                    required: false,
                     default: current.description.as_deref()
                 }
             )

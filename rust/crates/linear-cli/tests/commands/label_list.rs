@@ -360,7 +360,7 @@ async fn missing_or_repeated_cursor_aborts_without_third_request() {
 }
 
 #[test]
-fn text_uses_utf16_truncation_and_terminal_header_cells() {
+fn text_truncates_by_display_width_and_underlines_header_cells() {
     let labels = [
         IssueLabel {
             id: cynic::Id::new("id"),
@@ -378,8 +378,8 @@ fn text_uses_utf16_truncation_and_terminal_header_cells() {
         },
     ];
     let plain = render_text(&labels, 0, false);
-    assert!(plain.contains("abcdefghijklmnop�..."));
-    assert!(plain.contains(&"漢".repeat(11)));
+    assert!(plain.contains("abcdefghijklmnop..."));
+    assert!(plain.contains(&format!("{}...", "漢".repeat(8))));
     assert!(plain.ends_with("\n2 labels found.\n"));
     assert!(!plain.contains("\x1b["));
     let styled = render_text(&labels, 0, true);

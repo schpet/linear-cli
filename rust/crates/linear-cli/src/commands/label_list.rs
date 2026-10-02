@@ -4,7 +4,7 @@ use std::future::Future;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{display_width, pad, truncate_js};
+use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_labels::{
@@ -276,7 +276,7 @@ pub fn render_text(labels: &[issue_labels::IssueLabel], columns: usize, color: b
         .max()
         .unwrap_or(0);
     let available_width = columns.saturating_sub(PADDING + fixed);
-    let name_width = max_name_width.min(available_width.max(20));
+    let name_width = flexible_width(max_name_width, available_width);
 
     let header = [
         pad("ID", ID_WIDTH),
@@ -306,7 +306,7 @@ pub fn render_text(labels: &[issue_labels::IssueLabel], columns: usize, color: b
 
     for label in labels {
         let id = pad(label.id.inner(), ID_WIDTH);
-        let name = truncate_js(&label.name, name_width);
+        let name = fit(&label.name, name_width);
         let label_color = pad(&label.color, COLOR_WIDTH);
         let team = pad(team_display(label), team_width);
         output.push_str(&format!("{id} {name} {label_color} {team}\n"));

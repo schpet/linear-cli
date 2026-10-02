@@ -136,7 +136,7 @@ async fn additional<B: Backend, U: Ui>(
             "estimate" => {
                 more.estimate = shared::menu_estimate(&ui.text(
                     "Estimate (leave blank for none)",
-                    0,
+                    false,
                     Some(""),
                 )?)?
             }
@@ -223,7 +223,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
             parent.identifier, parent.title
         ))?
     }
-    let title = ui.text("What's the title of your issue?", 1, None)?;
+    let title = ui.text("What's the title of your issue?", true, None)?;
     ui.suspend()?;
     // Exact SOURCE await order. Background tasks already live during title.
     let team = team.take()?;
@@ -275,7 +275,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
     let message = editor_label
         .map(|label| format!("Description [(e) to launch {label}]"))
         .unwrap_or_else(|| "Description".to_owned());
-    let raw = ui.text(&message, 0, Some(""))?;
+    let raw = ui.text(&message, false, Some(""))?;
     let description = if raw == "e" {
         ui.suspend()?;
         if let Some(editor) = editor_label {
@@ -285,7 +285,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
             if let Some(text) = text.filter(|text| !text.is_empty()) {
                 ui.output(&format!(
                     "Description entered ({} characters)\n",
-                    text.encode_utf16().count()
+                    text.chars().count()
                 ))?;
                 Some(text)
             } else {

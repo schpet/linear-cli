@@ -262,13 +262,10 @@ pub fn prompt<R: Read, W: Write>(
             }
         };
     }
-    let options = |min, default| TextOptions {
-        minimum_utf16_length: min,
-        default,
-    };
+    let options = |required, default| TextOptions { required, default };
     let mut fields = Fields {
         title: Some(answer!(
-            session.text_with_options("Document title", options(1, None))
+            session.text_with_options("Document title", options(true, None))
         )),
         ..Default::default()
     };
@@ -293,12 +290,12 @@ pub fn prompt<R: Read, W: Write>(
         "skip" => (),
         "inline" => {
             fields.content = text_input::edited_body(&answer!(
-                session.text_with_options("Content (markdown)", options(0, Some("")))
+                session.text_with_options("Content (markdown)", options(false, Some("")))
             ))
         }
         "file" => {
             fields.content = Some(file(
-                &answer!(session.text_with_options("File path", options(0, None))),
+                &answer!(session.text_with_options("File path", options(false, None))),
                 true,
             )?)
         }
@@ -317,7 +314,7 @@ pub fn prompt<R: Read, W: Write>(
             if let Some(content) = &fields.content {
                 session.print_line(&format!(
                     "Content entered ({} characters)",
-                    content.encode_utf16().count()
+                    content.chars().count()
                 ))?;
             }
         }
@@ -328,9 +325,10 @@ pub fn prompt<R: Read, W: Write>(
             ));
         }
     }
-    fields.icon = text_input::edited_body(&answer!(
-        session.text_with_options("Icon (emoji, leave blank for none)", options(0, Some("")))
-    ));
+    fields.icon = text_input::edited_body(&answer!(session.text_with_options(
+        "Icon (emoji, leave blank for none)",
+        options(false, Some(""))
+    )));
     let targets = [
         choice("Project", "project"),
         choice("Issue", "issue"),
@@ -348,38 +346,39 @@ pub fn prompt<R: Read, W: Write>(
     match target.as_str() {
         "project" => {
             fields.project = Some(answer!(
-                session.text_with_options("Project (UUID, slug ID, or name)", options(0, None))
+                session.text_with_options("Project (UUID, slug ID, or name)", options(false, None))
             ))
         }
         "issue" => {
             fields.issue = Some(answer!(
-                session.text_with_options("Issue identifier (e.g., TC-123)", options(0, None))
+                session.text_with_options("Issue identifier (e.g., TC-123)", options(false, None))
             ))
         }
         "team" => {
             fields.team = Some(answer!(session.text_with_options(
                 "Team key (e.g., ENG)",
-                options(0, settings.default_team)
+                options(false, settings.default_team)
             )))
         }
         "initiative" => {
             fields.initiative = Some(answer!(
-                session.text_with_options("Initiative (UUID, slug ID, or name)", options(0, None))
+                session
+                    .text_with_options("Initiative (UUID, slug ID, or name)", options(false, None))
             ))
         }
         "cycle" => {
             fields.team = Some(answer!(session.text_with_options(
                 "Team key for the cycle (e.g., ENG)",
-                options(0, settings.default_team)
+                options(false, settings.default_team)
             )));
             fields.cycle = Some(answer!(session.text_with_options(
                 "Cycle (name, number, 'active', 'next', or 'previous')",
-                options(0, None)
+                options(false, None)
             )));
         }
         "release" => {
             fields.release = Some(answer!(
-                session.text_with_options("Release (UUID, name, or version)", options(0, None))
+                session.text_with_options("Release (UUID, name, or version)", options(false, None))
             ))
         }
         _ => {

@@ -254,23 +254,20 @@ fn prompt_text_options_apply_defaults_and_trim_answers() {
         Vec::new(),
     );
     let opt = TextOptions {
-        minimum_utf16_length: 1,
+        required: true,
         default: Some("ENG"),
     };
     assert_eq!(
         session.text_with_options("Team", opt).unwrap(),
         PromptOutcome::Submitted("ENG".into())
     );
-    assert_eq!(
-        session.text_with_options("Team", opt).unwrap(),
-        PromptOutcome::Submitted("".into())
-    );
+    assert!(session.text_with_options("Team", opt).is_err());
     assert_eq!(
         session
             .text_with_options(
                 "Title",
                 TextOptions {
-                    minimum_utf16_length: 0,
+                    required: false,
                     default: None
                 }
             )
@@ -282,7 +279,7 @@ fn prompt_text_options_apply_defaults_and_trim_answers() {
             .text_with_options(
                 "Title",
                 TextOptions {
-                    minimum_utf16_length: 0,
+                    required: false,
                     default: None
                 }
             )
@@ -295,7 +292,7 @@ fn prompt_text_options_apply_defaults_and_trim_answers() {
     );
     assert!(
         TextOptions {
-            minimum_utf16_length: 0,
+            required: false,
             default: Some("bad\n")
         }
         .preflight()
@@ -303,19 +300,19 @@ fn prompt_text_options_apply_defaults_and_trim_answers() {
     );
     assert_eq!(
         TextOptions {
-            minimum_utf16_length: 2,
+            required: true,
             default: None
         }
-        .answer("😀")
+        .answer(" 😀 ")
         .unwrap(),
         "😀"
     );
     assert!(
         TextOptions {
-            minimum_utf16_length: 2,
+            required: true,
             default: None
         }
-        .answer("x")
+        .answer("  ")
         .is_err()
     );
 }
@@ -335,7 +332,7 @@ fn public_prompt_optin_keys_share_editing_and_existing_confirmation_selection() 
             .text_with_options(
                 "Team",
                 TextOptions {
-                    minimum_utf16_length: 1,
+                    required: true,
                     default: Some("ENG")
                 }
             )
@@ -347,7 +344,7 @@ fn public_prompt_optin_keys_share_editing_and_existing_confirmation_selection() 
             .text_with_options(
                 "Title",
                 TextOptions {
-                    minimum_utf16_length: 1,
+                    required: true,
                     default: None
                 }
             )

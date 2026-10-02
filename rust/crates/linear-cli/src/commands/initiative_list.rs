@@ -4,7 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
-use crate::commands::table::{underlined_header, utf16_len};
+use crate::commands::table::underlined_header;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
@@ -312,26 +312,26 @@ pub fn render_text(initiatives: &[Initiative], columns: usize, color: bool) -> S
     }
     let slug_width = initiatives
         .iter()
-        .map(|item| utf16_len(&item.slug_id))
+        .map(|item| display_width(&item.slug_id))
         .max()
         .unwrap_or(0)
         .max(4);
     let status_width = initiatives
         .iter()
-        .map(|item| utf16_len(item.status.as_str()))
+        .map(|item| display_width(item.status.as_str()))
         .max()
         .unwrap_or(0)
         .max(6);
     let health_width = initiatives
         .iter()
-        .map(|item| utf16_len(item.health.as_ref().map_or("-", |health| health.as_str())))
+        .map(|item| display_width(item.health.as_ref().map_or("-", |health| health.as_str())))
         .max()
         .unwrap_or(0)
         .max(6);
     let owner_width = initiatives
         .iter()
         .map(|item| {
-            utf16_len(item.owner.as_ref().map_or("-", |owner| {
+            display_width(item.owner.as_ref().map_or("-", |owner| {
                 if owner.initials.is_empty() {
                     "-"
                 } else {
@@ -344,13 +344,13 @@ pub fn render_text(initiatives: &[Initiative], columns: usize, color: bool) -> S
         .max(5);
     let projects_width = initiatives
         .iter()
-        .map(|item| utf16_len(&item.projects.nodes.len().to_string()))
+        .map(|item| display_width(&item.projects.nodes.len().to_string()))
         .max()
         .unwrap_or(0)
         .max(4);
     let target_width = initiatives
         .iter()
-        .map(|item| utf16_len(item.target_date.as_ref().map_or("-", |date| &date.0)))
+        .map(|item| display_width(item.target_date.as_ref().map_or("-", |date| &date.0)))
         .max()
         .unwrap_or(0)
         .max(10);

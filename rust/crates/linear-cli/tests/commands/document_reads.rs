@@ -81,12 +81,12 @@ fn list_json_preserves_every_attachment_shape_and_first_page_info() {
     );
 }
 #[test]
-fn list_human_long_titles_and_stable_updated_text_match_source() {
+fn list_human_truncates_long_titles_by_display_width() {
     let case = frozen("c050-alias-table-limit");
     let page: ListDocuments = parse_response(response(&case, 0).to_string().as_bytes()).unwrap();
     assert_eq!(
         document_list::text(&page.documents.unwrap(), 120, false, SystemTime::now()),
-        case["expected"]["stdout"]["utf8"]
+        "SLUG   TITLE                                                                          ATTACHMENT               UPDATED \nslug-0 A very long title 界 color: gray detail detail detail detail detail detail detail de... Cycle: ENG #7 — Sprint   just now%c\nslug-1 A very long title 界 color: gray detail detail detail detail detail detail detail de... Release: Summer (2026.8) just now%c\n"
     );
 }
 #[test]

@@ -1,7 +1,7 @@
 //! One requested document page with exact connection and source table output.
 use crate::commands::{
-    display::{pad, truncate_js},
-    table::{time_ago, underlined_header, utf16_len},
+    display::{display_width, fit, pad},
+    table::{time_ago, underlined_header},
 };
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::{
@@ -100,19 +100,19 @@ pub fn text(
     let slug_width = documents
         .nodes
         .iter()
-        .map(|doc| utf16_len(&doc.slug_id))
+        .map(|doc| display_width(&doc.slug_id))
         .max()
         .unwrap_or(0)
         .max(4);
     let attachment_width = labels
         .iter()
-        .map(|label| utf16_len(label))
+        .map(|label| display_width(label))
         .max()
         .unwrap_or(0)
         .max(10);
     let updated_width = ages
         .iter()
-        .map(|age| utf16_len(age))
+        .map(|age| display_width(age))
         .max()
         .unwrap_or(0)
         .max(7);
@@ -122,7 +122,7 @@ pub fn text(
     let title_width = documents
         .nodes
         .iter()
-        .map(|doc| utf16_len(&doc.title))
+        .map(|doc| display_width(&doc.title))
         .max()
         .unwrap_or(0)
         .min(available);
@@ -139,7 +139,7 @@ pub fn text(
         let row = format!(
             "{} {} {} %c{}%c",
             pad(&doc.slug_id, slug_width),
-            truncate_js(&doc.title, title_width),
+            fit(&doc.title, title_width),
             pad(&label, attachment_width),
             pad(&age, updated_width)
         );

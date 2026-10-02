@@ -430,7 +430,7 @@ pub fn prompt<R: Read, W: Write>(
                 Mode::Initiative => "Content (markdown)",
             },
             TextOptions {
-                minimum_utf16_length: 0,
+                required: false,
                 default: Some("")
             }
         ))),
@@ -438,7 +438,7 @@ pub fn prompt<R: Read, W: Write>(
             &answer!(session.text_with_options(
                 "File path",
                 TextOptions {
-                    minimum_utf16_length: 0,
+                    required: false,
                     default: None
                 }
             )),
@@ -457,7 +457,7 @@ pub fn prompt<R: Read, W: Write>(
             if let Some(body) = &body {
                 session.print_line(&format!(
                     "Content entered ({} characters)",
-                    body.encode_utf16().count()
+                    body.chars().count()
                 ))?
             }
             body

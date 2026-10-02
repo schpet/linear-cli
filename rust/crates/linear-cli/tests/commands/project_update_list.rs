@@ -102,6 +102,9 @@ fn pipe_without_no_color_uses_plain_deno_bytes() {
     );
 }
 
+/// The author column is as wide as the widest name in terminal columns.
+const AUTHOR_WIDE: &str = "Status updates for: Mobile App\n\nID       HEALTH  DATE     AUTHOR        \n00000000 onTrack just now 宽宽宽宽宽宽宽\n   Wide author shifts body width xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...\n00000000 onTrack just now e\u{301}             \n   Combining mark\n";
+
 #[test]
 fn text_handles_health_author_body_and_unicode_width() {
     let now = UNIX_EPOCH + Duration::from_secs(1_800_000_000);
@@ -116,11 +119,11 @@ fn text_handles_health_author_body_and_unicode_width() {
     ] {
         let case = frozen(id);
         let project = page(id).project.expect("project");
-        assert_eq!(
-            render_text(&project, 120, false, now),
-            case["expected"]["stdout"]["utf8"].as_str().expect("stdout"),
-            "{id}"
-        );
+        let expected = match id {
+            "c035-author-wide" => AUTHOR_WIDE,
+            _ => case["expected"]["stdout"]["utf8"].as_str().expect("stdout"),
+        };
+        assert_eq!(render_text(&project, 120, false, now), expected, "{id}");
     }
 }
 

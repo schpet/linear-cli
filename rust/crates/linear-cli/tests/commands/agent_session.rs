@@ -339,11 +339,10 @@ fn required_shapes_status_types_and_actions_decode_strictly() {
 }
 
 #[test]
-fn list_date_slice_preserves_javascript_utf16_and_invalid_scalar_text() {
+fn list_dates_show_the_utc_day_or_unparseable_text() {
     for (input, expected) in [
         ("bad-date", "bad-date"),
-        ("123456789🤖extra", "123456789�"),
-        ("12345678🤖extra", "12345678🤖"),
+        ("2026-03-04T23:30:00-02:00", "2026-03-05"),
         ("", ""),
     ] {
         let mut value = comments().issue.comments;

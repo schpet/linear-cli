@@ -225,7 +225,7 @@ pub trait Ui {
     fn text(
         &mut self,
         message: &str,
-        minimum: usize,
+        required: bool,
         default: Option<&str>,
     ) -> Result<String, AppError>;
     fn choose(

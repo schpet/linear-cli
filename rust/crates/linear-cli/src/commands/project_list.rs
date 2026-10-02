@@ -7,8 +7,8 @@ use std::time::SystemTime;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{display_width, pad, truncate_js};
-use crate::commands::table::{time_ago, underlined_header, utf16_len};
+use crate::commands::display::{display_width, fit, flexible_width, pad};
+use crate::commands::table::{time_ago, underlined_header};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::number::Float;
@@ -320,43 +320,43 @@ pub fn render_text(
         .collect::<Result<Vec<_>, _>>()?;
     let slug_width = projects
         .iter()
-        .map(|project| utf16_len(&project.slug_id))
+        .map(|project| display_width(&project.slug_id))
         .max()
         .unwrap_or(0)
         .max(4);
     let status_width = projects
         .iter()
-        .map(|project| utf16_len(&project.status.name))
+        .map(|project| display_width(&project.status.name))
         .max()
         .unwrap_or(0)
         .max(6);
     let priority_width = projects
         .iter()
-        .map(|project| utf16_len(&priority_label(project.priority)))
+        .map(|project| display_width(&priority_label(project.priority)))
         .max()
         .unwrap_or(0)
         .max(8);
     let health_width = projects
         .iter()
-        .map(|project| utf16_len(health(project)))
+        .map(|project| display_width(health(project)))
         .max()
         .unwrap_or(0)
         .max(6);
     let lead_width = projects
         .iter()
-        .map(|project| utf16_len(lead(project)))
+        .map(|project| display_width(lead(project)))
         .max()
         .unwrap_or(0)
         .max(4);
     let team_width = projects
         .iter()
-        .map(|project| utf16_len(&teams(project)))
+        .map(|project| display_width(&teams(project)))
         .max()
         .unwrap_or(0)
         .max(5);
     let date_width = dates
         .iter()
-        .map(|date| utf16_len(date))
+        .map(|date| display_width(date))
         .max()
         .unwrap_or(0)
         .max(4);
@@ -373,7 +373,10 @@ pub fn render_text(
         .map(|project| display_width(&project.name))
         .max()
         .unwrap_or(0);
-    let name_width = max_name_width.min(columns.saturating_sub(1).saturating_sub(fixed));
+    let name_width = flexible_width(
+        max_name_width,
+        columns.saturating_sub(1).saturating_sub(fixed),
+    );
     let headers = [
         pad("SLUG", slug_width),
         pad("NAME", name_width),
@@ -387,7 +390,7 @@ pub fn render_text(
     let mut output = underlined_header(&headers, color);
     for (project, date) in projects.iter().zip(dates) {
         let slug = pad(&project.slug_id, slug_width);
-        let name = truncate_js(&project.name, name_width);
+        let name = fit(&project.name, name_width);
         let status = pad(&project.status.name, status_width);
         let priority = pad(&priority_label(project.priority), priority_width);
         let health = pad(health(project), health_width);

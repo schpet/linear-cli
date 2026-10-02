@@ -1037,7 +1037,7 @@ pub fn table(
     }
     let id = rows
         .iter()
-        .map(|r| r.identifier.encode_utf16().count())
+        .map(|r| display_width(&r.identifier))
         .max()
         .unwrap_or(2)
         .max(2);
@@ -1199,8 +1199,7 @@ pub fn table(
                 .as_deref()
                 .filter(|s| !s.is_empty())
                 .unwrap_or("-");
-            let initial =
-                String::from_utf16_lossy(&initials.encode_utf16().take(2).collect::<Vec<_>>());
+            let initial = initials.chars().take(2).collect::<String>();
             cells.push(pad(&initial, aw));
         }
         let state = truncate_text(&r.state_name, sw);

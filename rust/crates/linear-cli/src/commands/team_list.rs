@@ -5,8 +5,8 @@ use std::time::SystemTime;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{display_width, pad, truncate_js};
-use crate::commands::table::{terminal_color, time_ago, underlined_header, utf16_len};
+use crate::commands::display::{display_width, fit, flexible_width, pad};
+use crate::commands::table::{terminal_color, time_ago, underlined_header};
 use crate::config::ConfigOptions;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -166,13 +166,13 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
     }
     let id_width = teams
         .iter()
-        .map(|team| utf16_len(team.id.inner()))
+        .map(|team| display_width(team.id.inner()))
         .max()
         .unwrap_or(0)
         .max(2);
     let key_width = teams
         .iter()
-        .map(|team| utf16_len(&team.key))
+        .map(|team| display_width(&team.key))
         .max()
         .unwrap_or(0)
         .max(3);
@@ -182,7 +182,7 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
         .collect();
     let updated_width = updated
         .iter()
-        .map(|value| utf16_len(value))
+        .map(|value| display_width(value))
         .max()
         .unwrap_or(0)
         .max(7);
@@ -194,7 +194,7 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
         .map(|team| display_width(&team.name))
         .max()
         .unwrap_or(0);
-    let name_width = available_width.min(max_name_width);
+    let name_width = flexible_width(max_name_width, available_width);
     let header = [
         pad("KEY", key_width),
         pad("NAME", name_width),
@@ -206,7 +206,7 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
     for (team, updated) in teams.iter().zip(updated) {
         let cycles = if team.cycles_enabled { "Yes" } else { "No" };
         let key = pad(&team.key, key_width);
-        let name = truncate_js(&team.name, name_width);
+        let name = fit(&team.name, name_width);
         let cycles = pad(cycles, cycles_width);
         let updated = pad(&updated, updated_width);
         let id = pad(team.id.inner(), id_width);

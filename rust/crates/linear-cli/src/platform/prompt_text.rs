@@ -1,11 +1,12 @@
-//! Opt-in document text parsing; existing PromptSession::text stays unchanged.
+//! Answer rules for free-text prompts that may offer a default.
 #[derive(Clone, Copy, Debug)]
 pub struct TextOptions<'a> {
-    pub minimum_utf16_length: usize,
+    /// Reject answers that are blank after trimming.
+    pub required: bool,
     pub default: Option<&'a str>,
 }
 impl TextOptions<'_> {
-    /// Called by the document command BEFORE entering raw PromptSession mode.
+    /// Checked before the prompt switches the terminal into raw mode.
     pub fn preflight(self) -> Result<(), String> {
         if self
             .default
@@ -15,20 +16,18 @@ impl TextOptions<'_> {
         }
         Ok(())
     }
-    /// Cliffy minLength inspects raw UTF16 units, then Input.transform trims JS
-    /// whitespace. Exact empty alone accepts default, bypassing minLength.
+    /// An empty answer takes the default when there is one; otherwise the
+    /// answer is trimmed.
     pub fn answer(self, raw: &str) -> Result<String, String> {
         if raw.is_empty()
             && let Some(default) = self.default
         {
             return Ok(default.to_owned());
         }
-        if raw.encode_utf16().count() < self.minimum_utf16_length {
-            return Err(format!(
-                "answer must contain at least {} UTF16 unit(s)",
-                self.minimum_utf16_length
-            ));
+        let answer = raw.trim();
+        if self.required && answer.is_empty() {
+            return Err("an answer is required".to_owned());
         }
-        Ok(raw.trim().to_owned())
+        Ok(answer.to_owned())
     }
 }

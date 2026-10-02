@@ -114,7 +114,7 @@ async fn missing_cursor_discards_nodes_and_returns_specific_guidance() {
 }
 
 #[tokio::test]
-async fn text_handles_invalid_dates_and_zero_name_width_without_clock_flakiness() {
+async fn text_handles_invalid_dates_and_narrow_terminals_without_clock_flakiness() {
     let value = page(
         vec![team("t-raw", "Raw Date", json!(""), "not-a-date")],
         false,
@@ -146,7 +146,7 @@ async fn text_handles_invalid_dates_and_zero_name_width_without_clock_flakiness(
     )
     .await
     .expect("narrow table");
-    assert!(String::from_utf8_lossy(&output).contains("A long team n..."));
+    assert!(String::from_utf8_lossy(&output).contains("A long team name"));
 }
 
 #[tokio::test]

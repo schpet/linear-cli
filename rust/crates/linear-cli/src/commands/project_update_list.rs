@@ -7,8 +7,8 @@ use std::time::SystemTime;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{pad, truncate_text};
-use crate::commands::table::{time_ago, underlined_header, utf16_len};
+use crate::commands::display::{display_width, pad, truncate_text};
+use crate::commands::table::{time_ago, underlined_header};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_updates::{
@@ -182,7 +182,7 @@ fn author(node: &UpdateNode) -> &str {
 }
 
 fn short_id(id: &str) -> String {
-    String::from_utf16_lossy(&id.encode_utf16().take(8).collect::<Vec<_>>())
+    id.chars().take(8).collect()
 }
 
 /// Deno's console formatter sees the body inside `%c   {body}%c` with two
@@ -258,7 +258,7 @@ pub fn render_text(
     let health_width = updates
         .iter()
         .map(|node| {
-            utf16_len(node.health.as_ref().map_or("-", |health| {
+            display_width(node.health.as_ref().map_or("-", |health| {
                 let value = health.as_str();
                 if value.is_empty() { "-" } else { value }
             }))
@@ -268,13 +268,13 @@ pub fn render_text(
         .max(6);
     let date_width = updates
         .iter()
-        .map(|node| utf16_len(&time_ago(&node.created_at.0, now)))
+        .map(|node| display_width(&time_ago(&node.created_at.0, now)))
         .max()
         .unwrap_or(0)
         .max(4);
     let author_width = updates
         .iter()
-        .map(|node| utf16_len(author(node)))
+        .map(|node| display_width(author(node)))
         .max()
         .unwrap_or(0)
         .max(6);

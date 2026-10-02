@@ -5507,7 +5507,7 @@ fn dispatch_document_create(
             let env = config.child_env.clone();
             let default_team = configured_team_key(&config.options);
             crate::platform::prompt_text::TextOptions {
-                minimum_utf16_length: 0,
+                required: false,
                 default: default_team.as_deref(),
             }
             .preflight()

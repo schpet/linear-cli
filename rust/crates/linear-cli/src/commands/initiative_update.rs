@@ -287,7 +287,7 @@ pub fn prompt<R: Read, W: Write>(
             match session.text_with_display_default(
                 $message,
                 TextOptions {
-                    minimum_utf16_length: 0,
+                    required: false,
                     default: Some($default),
                 },
             )? {

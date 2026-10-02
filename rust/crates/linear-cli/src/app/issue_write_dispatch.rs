@@ -27,17 +27,14 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
     fn text(
         &mut self,
         message: &str,
-        minimum: usize,
+        required: bool,
         default: Option<&str>,
     ) -> Result<String, AppError> {
         self.stop_spinner()?;
         let message = crate::platform::prompt::escaped_display(message);
         let answer = self.output.prompt()?.text_with_display_default(
             &message,
-            crate::platform::prompt_text::TextOptions {
-                minimum_utf16_length: minimum,
-                default,
-            },
+            crate::platform::prompt_text::TextOptions { required, default },
         )?;
         self.output.suspend()?;
         let value = create_answer(answer)?;

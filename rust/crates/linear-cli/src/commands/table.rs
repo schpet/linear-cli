@@ -4,10 +4,6 @@ use std::time::SystemTime;
 
 use chrono::{DateTime, NaiveDate, Utc};
 
-pub fn utf16_len(text: &str) -> usize {
-    text.encode_utf16().count()
-}
-
 /// The source `team list` relative-time wording, distinct from template dates.
 pub fn time_ago(value: &str, now: SystemTime) -> String {
     let updated = DateTime::parse_from_rfc3339(value)
@@ -95,13 +91,8 @@ pub fn stdout_columns(is_terminal: bool) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{stdout_columns, terminal_color, time_ago, underlined_header, utf16_len};
+    use super::{stdout_columns, terminal_color, time_ago, underlined_header};
     use std::time::{Duration, UNIX_EPOCH};
-
-    #[test]
-    fn utf16_counts_code_units() {
-        assert_eq!(utf16_len("A👩‍💻"), 6);
-    }
 
     #[test]
     fn source_relative_time_thresholds_and_invalid_input() {

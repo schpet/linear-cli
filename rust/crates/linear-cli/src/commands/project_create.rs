@@ -82,16 +82,18 @@ pub async fn prompt<R: Read, W: Write>(
             }
         };
     }
-    let text = |min| TextOptions {
-        minimum_utf16_length: min,
+    let text = |required| TextOptions {
+        required,
         default: None,
     };
     if shared::truthy(fields.name.as_deref()).is_none() {
-        fields.name = Some(answer!(session.text_with_options("Project name:", text(1))));
+        fields.name = Some(answer!(
+            session.text_with_options("Project name:", text(true))
+        ));
     }
     if shared::truthy(fields.description.as_deref()).is_none() && fields.description_file.is_none()
     {
-        let value = answer!(session.text_with_options("Description (optional):", text(0)));
+        let value = answer!(session.text_with_options("Description (optional):", text(false)));
         fields.description = (!value.is_empty()).then_some(value);
     }
     if fields.teams.is_empty() {
@@ -176,7 +178,7 @@ pub async fn prompt<R: Read, W: Write>(
         ),
     ] {
         if shared::truthy(field.as_deref()).is_none() {
-            let value = answer!(session.text_with_options(message, text(0)));
+            let value = answer!(session.text_with_options(message, text(false)));
             *field = (!value.is_empty()).then_some(value);
         }
     }
