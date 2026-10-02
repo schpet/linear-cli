@@ -252,9 +252,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         ))
     }
 
-    /// C082 owned searchable opt-in. It uses the existing Selector state/match/rank,
-    /// with source-valid value refusals preflighted by the command before raw mode.
-    /// Old selector::run gating and old plain/text callers are unchanged.
+    /// A searchable team picker; see [`Self::searchable_select_with_no_match`].
     pub fn searchable_select(
         &mut self,
         message: &str,
@@ -265,11 +263,12 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             message,
             search_label,
             options,
-            "C082-SEARCH-PROTOCOL: no teams match submitted search query",
+            "no teams match submitted search query",
         )
     }
 
-    /// Command-specific message; existing matching and ranking remain unchanged.
+    /// A select list filtered by typed search text. `no_match` is the error
+    /// when a submitted search matches nothing.
     pub fn searchable_select_with_no_match(
         &mut self,
         message: &str,

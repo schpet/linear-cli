@@ -2,7 +2,6 @@
 
 use std::future::Future;
 
-use chrono::{DateTime, Local};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
@@ -118,14 +117,6 @@ fn truthy(value: Option<&str>) -> Option<&str> {
     value.filter(|text| !text.is_empty())
 }
 
-fn local_date(value: &str) -> String {
-    let Ok(parsed) = DateTime::parse_from_rfc3339(value) else {
-        return "Invalid Date".to_owned();
-    };
-    let local = parsed.with_timezone(&Local);
-    local.format("%-m/%-d/%Y, %-I:%M:%S %p").to_string()
-}
-
 pub fn render_text(members: &[organization_members::User], raw_count: usize) -> String {
     if raw_count == 0 {
         return "No members found in this workspace.\n".to_owned();
@@ -179,7 +170,10 @@ pub fn render_text(members: &[organization_members::User], raw_count: usize) -> 
             .as_ref()
             .and_then(|date| truthy(Some(&date.0)))
         {
-            output.push_str(&format!("  Last seen: {}\n", local_date(last_seen)));
+            output.push_str(&format!(
+                "  Last seen: {}\n",
+                crate::commands::relative_time::format_local_timestamp(last_seen)
+            ));
         }
         output.push('\n');
     }

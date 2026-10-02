@@ -1,8 +1,9 @@
 //! One requested document page with exact connection and source table output.
 use crate::commands::{
     display::{display_width, fit, pad},
+    relative_time::format_relative_time,
     style,
-    table::{time_ago, underlined_header},
+    table::underlined_header,
 };
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::{
@@ -96,7 +97,7 @@ pub fn text(
     let ages: Vec<_> = documents
         .nodes
         .iter()
-        .map(|doc| time_ago(&doc.updated_at.0, now))
+        .map(|doc| format_relative_time(&doc.updated_at.0, now.into(), &chrono::Local))
         .collect();
     let slug_width = documents
         .nodes

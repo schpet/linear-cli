@@ -8,7 +8,8 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::commands::table::{time_ago, underlined_header};
+use crate::commands::relative_time::format_relative_time;
+use crate::commands::table::underlined_header;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::number::Float;
@@ -266,8 +267,18 @@ fn priority_label(priority: i32) -> String {
 }
 
 fn display_date(project: &Project, now: SystemTime) -> Result<String, AppError> {
-    let updated = || format!("Updated {}", time_ago(&project.updated_at.0, now));
-    let created = || format!("Created {}", time_ago(&project.created_at.0, now));
+    let updated = || {
+        format!(
+            "Updated {}",
+            format_relative_time(&project.updated_at.0, now.into(), &chrono::Local)
+        )
+    };
+    let created = || {
+        format!(
+            "Created {}",
+            format_relative_time(&project.created_at.0, now.into(), &chrono::Local)
+        )
+    };
     match &project.status.status_type {
         ProjectStatusType::Started => Ok(project.started_at.as_ref().map_or_else(
             || {
@@ -276,15 +287,27 @@ fn display_date(project: &Project, now: SystemTime) -> Result<String, AppError> 
                     .as_ref()
                     .map_or_else(created, |date| format!("Start: {}", date.0))
             },
-            |date| format!("Started {}", time_ago(&date.0, now)),
+            |date| {
+                format!(
+                    "Started {}",
+                    format_relative_time(&date.0, now.into(), &chrono::Local)
+                )
+            },
         )),
-        ProjectStatusType::Completed => Ok(project
-            .completed_at
-            .as_ref()
-            .map_or_else(updated, |date| format!("Done {}", time_ago(&date.0, now)))),
+        ProjectStatusType::Completed => {
+            Ok(project.completed_at.as_ref().map_or_else(updated, |date| {
+                format!(
+                    "Done {}",
+                    format_relative_time(&date.0, now.into(), &chrono::Local)
+                )
+            }))
+        }
         ProjectStatusType::Canceled => {
             Ok(project.canceled_at.as_ref().map_or_else(updated, |date| {
-                format!("Canceled {}", time_ago(&date.0, now))
+                format!(
+                    "Canceled {}",
+                    format_relative_time(&date.0, now.into(), &chrono::Local)
+                )
             }))
         }
         ProjectStatusType::Planned => Ok(project.start_date.as_ref().map_or_else(

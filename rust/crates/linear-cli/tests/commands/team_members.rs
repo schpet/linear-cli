@@ -206,7 +206,7 @@ async fn all_keeps_inactive_and_renders_independent_markers() {
 }
 
 #[tokio::test]
-async fn date_only_last_seen_keeps_raw_json_but_has_invalid_text_date() {
+async fn date_only_last_seen_keeps_raw_json_and_shows_a_local_time() {
     let mut dated = member("Ada", true);
     dated["lastSeen"] = json!("2026-01-02");
     let text = run_with(
@@ -222,7 +222,7 @@ async fn date_only_last_seen_keeps_raw_json_but_has_invalid_text_date() {
     assert!(
         String::from_utf8(text)
             .expect("UTF-8")
-            .contains("  Last seen: Invalid Date\n")
+            .contains("  Last seen: 1/")
     );
 
     let json_output = run_with(

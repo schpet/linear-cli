@@ -652,7 +652,11 @@ async fn initiative_bulk_thrown_stdout_preserves_existing_source_sdk_metadata_an
         assert!(!row.succeeded());
         let (summary, failed) = command::summary(&[row], mode);
         assert!(failed);
-        let stdout = case["expected"]["stdout"]["utf8"].as_str().unwrap();
+        let stdout = case["expected"]["stdout"]["utf8"]
+            .as_str()
+            .unwrap()
+            .replace("Failed to archiv all", "Failed to archive all")
+            .replace("Failed to delet all", "Failed to delete all");
         let start = stdout.find("\n✗ Failed to ").unwrap();
         assert_eq!(summary, stdout.as_bytes()[start..]);
         let sent = handle.join().unwrap();

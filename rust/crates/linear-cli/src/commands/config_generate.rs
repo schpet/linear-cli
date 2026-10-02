@@ -63,7 +63,7 @@ pub fn workspace_choice(
                 if name.trim().is_empty() || name.chars().any(char::is_control) {
                     return Err(AppError::new(
                         AppErrorKind::Validation,
-                        "C082-SOURCE-VALID-MENU-REFUSAL: Workspace names containing control characters or only whitespace cannot be selected interactively",
+                        "Workspace names containing control characters or only whitespace cannot be selected interactively",
                     ));
                 }
             }
@@ -108,7 +108,7 @@ pub async fn fetch(transport: &GraphQlTransport) -> Result<Config, AppError> {
             crate::graphql::envelope::ResponseError::UnexpectedShape(source),
         ) => AppError::new(
             AppErrorKind::Invariant,
-            format!("C082-UNEXPECTED-SHAPE: {source}; no configuration written"),
+            format!("Linear returned an unexpected response: {source}; no configuration written"),
         )
         .with_source(source),
         error => AppError::from(error),
@@ -118,14 +118,14 @@ pub fn prepare_teams(mut teams: Vec<ConfigTeam>) -> Result<Vec<ConfigTeam>, AppE
     if teams.is_empty() {
         return Err(AppError::new(
             AppErrorKind::NotFound,
-            "C082-EMPTY-TEAMS: No teams available to select",
+            "No teams available to select",
         ));
     }
     for team in &teams {
         if team.id.inner().trim().is_empty() || team.id.inner().chars().any(char::is_control) {
             return Err(AppError::new(
                 AppErrorKind::Validation,
-                "C082-SOURCE-VALID-MENU-REFUSAL: Team IDs containing control characters or only whitespace cannot be selected interactively",
+                "Team IDs containing control characters or only whitespace cannot be selected interactively",
             ));
         }
     }
@@ -237,7 +237,7 @@ enum ProbeFailure {
 fn git_bound(message: impl Into<String>) -> AppError {
     AppError::new(
         AppErrorKind::IoProcess,
-        format!("C082-GIT-BOUNDS: {}", message.into()),
+        format!("Could not find the repository root: {}", message.into()),
     )
 }
 pub async fn late_root(

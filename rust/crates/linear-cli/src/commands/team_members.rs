@@ -1,7 +1,6 @@
 //! `team members`: typed pages, local active filter, and member display.
 use std::future::Future;
 
-use chrono::{DateTime, Local};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
@@ -113,16 +112,6 @@ pub async fn run(
     .await
 }
 
-fn last_seen_text(raw: &str) -> String {
-    match DateTime::parse_from_rfc3339(raw) {
-        Ok(value) => value
-            .with_timezone(&Local)
-            .format("%-m/%-d/%Y, %-I:%M:%S %p")
-            .to_string(),
-        Err(_) => "Invalid Date".to_owned(),
-    }
-}
-
 pub fn render_text(members: &[team_members::Member], source_count: usize) -> String {
     if source_count == 0 {
         return "No members found for this team.\n".to_owned();
@@ -178,7 +167,10 @@ pub fn render_text(members: &[team_members::Member], source_count: usize) -> Str
             output.push_str(&format!("  Status: {emoji} {label}\n"));
         }
         if let Some(last_seen) = member.last_seen.as_ref().filter(|date| !date.0.is_empty()) {
-            output.push_str(&format!("  Last seen: {}\n", last_seen_text(&last_seen.0)));
+            output.push_str(&format!(
+                "  Last seen: {}\n",
+                crate::commands::relative_time::format_local_timestamp(&last_seen.0)
+            ));
         }
         output.push('\n');
     }

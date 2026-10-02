@@ -6,7 +6,8 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::commands::table::{terminal_color, time_ago, underlined_header};
+use crate::commands::relative_time::format_relative_time;
+use crate::commands::table::{terminal_color, underlined_header};
 use crate::config::ConfigOptions;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -178,7 +179,7 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
         .max(3);
     let updated: Vec<_> = teams
         .iter()
-        .map(|team| time_ago(&team.updated_at.0, now))
+        .map(|team| format_relative_time(&team.updated_at.0, now.into(), &chrono::Local))
         .collect();
     let updated_width = updated
         .iter()

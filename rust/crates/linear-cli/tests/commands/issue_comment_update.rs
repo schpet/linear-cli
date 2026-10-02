@@ -191,7 +191,11 @@ async fn false_precedes_optional_null_business_error_but_corrupt_required_fields
         let error = command::submit(&transport, "id", "raw".to_owned())
             .await
             .unwrap_err();
-        assert!(error.message.contains("C073-UNEXPECTED-SHAPE"));
+        assert!(
+            error
+                .message
+                .contains("Linear returned an unexpected response")
+        );
         assert!(error.message.contains("update outcome unknown"));
         assert!(!error.message.contains("confirmed"));
         assert_eq!(worker.join().unwrap().len(), 1);

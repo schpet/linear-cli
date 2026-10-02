@@ -239,7 +239,7 @@ fn next_cursor(
     if !seen.insert(cursor.clone()) {
         return Err(AppError::new(
             AppErrorKind::GraphQl,
-            "C025-C026-PAGINATION-CYCLE: Linear returned a cursor seen earlier in this pagination walk",
+            "Linear returned a pagination cursor seen earlier in this pagination walk",
         ));
     }
     Ok(Some(cursor.clone()))

@@ -105,7 +105,7 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
         TransportFailure::Response(ResponseError::UnexpectedShape(source)) => AppError::new(
             AppErrorKind::Invariant,
             format!(
-                "C073-UNEXPECTED-SHAPE: {source}{}",
+                "Linear returned an unexpected response: {source}{}",
                 if mutation {
                     "; update outcome unknown; do not retry automatically"
                 } else {

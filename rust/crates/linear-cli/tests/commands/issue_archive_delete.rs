@@ -437,7 +437,7 @@ fn failed_summary_preserves_multiline_raw_messages_and_source_verbs() {
         name: None,
         outcome: BulkOutcome::Failed("raw\r\nSDK metadata".to_owned()),
     };
-    for (mode, verb) in [(Mode::Archive, "archiv"), (Mode::Delete, "delet")] {
+    for (mode, verb) in [(Mode::Archive, "archive"), (Mode::Delete, "delete")] {
         let (bytes, failed) = command::summary(std::slice::from_ref(&row), mode);
         assert!(failed);
         assert_eq!(bytes,format!("\n✗ Failed to {verb} all 1 issue\n\nFailed operations:\n  - Original: raw\r\nSDK metadata\n").as_bytes());

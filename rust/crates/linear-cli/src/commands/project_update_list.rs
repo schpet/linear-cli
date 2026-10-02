@@ -8,8 +8,9 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
+use crate::commands::relative_time::format_relative_time;
 use crate::commands::style;
-use crate::commands::table::{time_ago, underlined_header};
+use crate::commands::table::underlined_header;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_updates::{
@@ -209,7 +210,13 @@ pub fn render_text(
         .max(6);
     let date_width = updates
         .iter()
-        .map(|node| display_width(&time_ago(&node.created_at.0, now)))
+        .map(|node| {
+            display_width(&format_relative_time(
+                &node.created_at.0,
+                now.into(),
+                &chrono::Local,
+            ))
+        })
         .max()
         .unwrap_or(0)
         .max(4);
@@ -254,7 +261,10 @@ pub fn render_text(
             output.push_str("\x1b[39m");
         }
         output.push(' ');
-        output.push_str(&pad(&time_ago(&node.created_at.0, now), date_width));
+        output.push_str(&pad(
+            &format_relative_time(&node.created_at.0, now.into(), &chrono::Local),
+            date_width,
+        ));
         output.push(' ');
         output.push_str(&pad(author(node), author_width));
         output.push('\n');

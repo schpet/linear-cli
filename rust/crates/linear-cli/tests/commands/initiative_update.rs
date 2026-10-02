@@ -283,7 +283,11 @@ async fn full_decode_before_false_and_only_boolean_true_confirms_mutation() {
         )
         .await
         .unwrap_err();
-        assert!(error.message.contains("C040-UNEXPECTED-SHAPE"));
+        assert!(
+            error
+                .message
+                .contains("Linear returned an unexpected response")
+        );
         assert!(error.message.contains(if success == json!(true) {
             "update confirmed"
         } else {
@@ -363,6 +367,10 @@ async fn shared_owner_list_and_create_keep_selection_and_friendly_error_policy()
     assert_eq!(worker.join().unwrap().len(), 2);
     let (transport,worker)=super::project_write_server::serve(vec![json!({"data":{"users":{"nodes":[{"id":"first","email":null,"displayName":"Owner","name":"First"}]}}}).to_string()]);
     let error = command::owner(&transport, Some("Owner")).await.unwrap_err();
-    assert!(error.message.contains("C040-UNEXPECTED-SHAPE"));
+    assert!(
+        error
+            .message
+            .contains("Linear returned an unexpected response")
+    );
     assert_eq!(worker.join().unwrap().len(), 1);
 }

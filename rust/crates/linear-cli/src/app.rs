@@ -8020,21 +8020,12 @@ fn dispatch_issue_start(
                     if stdin_tty {
                         command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
                     }
-                    let picked = output
-                        .prompt()?
-                        .searchable_select("Select an issue to start:", "Search issues", &options)
-                        .map_err(|error| {
-                            if error.message
-                                == "C082-SEARCH-PROTOCOL: no teams match submitted search query"
-                            {
-                                AppError::new(
-                                    AppErrorKind::Validation,
-                                    "no issues match submitted search query",
-                                )
-                            } else {
-                                error
-                            }
-                        });
+                    let picked = output.prompt()?.searchable_select_with_no_match(
+                        "Select an issue to start:",
+                        "Search issues",
+                        &options,
+                        "no issues match submitted search query",
+                    );
                     let picked = command::stage(picked?, "issue to start")?;
                     output.suspend()?;
                     match picked {

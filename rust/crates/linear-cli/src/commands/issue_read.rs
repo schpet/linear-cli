@@ -1088,7 +1088,13 @@ pub fn table(
         .clamp(5, 20);
     let times = rows
         .iter()
-        .map(|r| crate::commands::table::time_ago(&r.updated, now))
+        .map(|r| {
+            crate::commands::relative_time::format_relative_time(
+                &r.updated,
+                now.into(),
+                &chrono::Local,
+            )
+        })
         .collect::<Vec<_>>();
     let uw = times
         .iter()

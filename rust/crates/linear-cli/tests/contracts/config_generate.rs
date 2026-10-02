@@ -132,7 +132,7 @@ fn native_unselectable_values_are_typed_before_each_prompt_but_single_auto_stays
         ));
         let error = command::workspace_choice(&config_options, &multi, None).unwrap_err();
         assert_eq!(error.kind, AppErrorKind::Validation);
-        assert!(error.message.contains("C082-SOURCE-VALID-MENU-REFUSAL"));
+        assert!(error.message.contains("cannot be selected interactively"));
     }
     let single = store("\" \" = \"lin_api_fake\"\n");
     assert!(matches!(
@@ -143,7 +143,7 @@ fn native_unselectable_values_are_typed_before_each_prompt_but_single_auto_stays
         let decoded = response(vec![team(id, "K", "Name")], "wire-workspace");
         let error = command::prepare_teams(decoded.teams.nodes).unwrap_err();
         assert_eq!(error.kind, AppErrorKind::Validation);
-        assert!(error.message.contains("C082-SOURCE-VALID-MENU-REFUSAL"));
+        assert!(error.message.contains("cannot be selected interactively"));
     }
 }
 #[test]
@@ -167,7 +167,7 @@ fn stable_lowercase_names_and_duplicate_ids_choose_first_sorted_key() {
         command::prepare_teams(empty)
             .unwrap_err()
             .message
-            .contains("C082-EMPTY-TEAMS")
+            .contains("No teams available to select")
     );
     let wire = serde_json::to_value(command::request()).unwrap();
     assert_eq!(wire["operationName"], "Config");
@@ -235,7 +235,7 @@ fn owned_search_no_match_enter_stays_editable_and_recovers_with_backspace() {
             .searchable_select("Select a team:", "Search teams", &choices)
             .unwrap_err()
             .message
-            .contains("C082-SEARCH-PROTOCOL")
+            .contains("no teams match submitted search query")
     );
 }
 #[test]
@@ -448,7 +448,9 @@ async fn config_fetch_preserves_handled_raw_fallback_and_full_required_decode_wi
         let (transport, worker) = server(vec![Reply::raw(200, "application/json", &body)]);
         let error = command::fetch(&transport).await.unwrap_err();
         assert!(
-            error.message.contains("C082-UNEXPECTED-SHAPE")
+            error
+                .message
+                .contains("Linear returned an unexpected response")
                 && error.message.contains("no configuration written")
         );
         assert_eq!(worker.join().unwrap().len(), 1);
@@ -530,7 +532,7 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_trim_ignored_exit_and_bounded_
             .await
             .unwrap_err()
             .message
-            .contains("C082-GIT-BOUNDS")
+            .contains("Could not find the repository root")
     );
     script("time.sleep(10)");
     let timed = command::GitLimits {
@@ -571,6 +573,5 @@ fn config_mixed_output_refusal_is_only_terminal_stdin_actual_fifo_and_has_helpfu
         .with_context(command::CONTEXT);
     assert_eq!(error.kind, AppErrorKind::Validation);
     assert!(error.display_message().starts_with("Failed to generate configuration: Configuration prompts require terminal or regular-file stdout"));
-    assert!(!error.message.contains("C082"));
     assert!(error.suggestion.unwrap().contains("piped prompt answers"));
 }

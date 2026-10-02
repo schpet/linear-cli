@@ -125,7 +125,7 @@ async fn text_handles_invalid_dates_and_narrow_terminals_without_clock_flakiness
         .expect("table");
     assert_eq!(
         output,
-        b"KEY   NAME     CYCLES UPDATED      ID   \nt-raw Raw Date Yes    NaN days ago t-raw\n"
+        b"KEY   NAME     CYCLES UPDATED    ID   \nt-raw Raw Date Yes    not-a-date t-raw\n"
     );
 
     let future = page(

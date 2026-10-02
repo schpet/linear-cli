@@ -409,8 +409,8 @@ pub fn summary(results: &[BulkResult], mode: Mode) -> (Vec<u8>, bool) {
         out.push_str(&format!(
             "✗ Failed to {} all {total} issue{plural}\n",
             match mode {
-                Mode::Archive => "archiv",
-                Mode::Delete => "delet",
+                Mode::Archive => "archive",
+                Mode::Delete => "delete",
             }
         ));
     } else {

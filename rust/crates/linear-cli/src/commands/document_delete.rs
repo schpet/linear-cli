@@ -36,7 +36,9 @@ pub fn summary(results: &[BulkResult]) -> (Vec<u8>, bool) {
             if succeeded == 1 { "" } else { "s" }
         ));
     } else if succeeded == 0 {
-        out.push_str(&format!("✗ Failed to delet all {total} document{plural}\n"));
+        out.push_str(&format!(
+            "✗ Failed to delete all {total} document{plural}\n"
+        ));
     } else {
         out.push_str(&format!("Completed: {succeeded}/{total} document{plural} deleted\n  ✓ Succeeded: {succeeded}\n  ✗ Failed: {failed}\n"));
     }

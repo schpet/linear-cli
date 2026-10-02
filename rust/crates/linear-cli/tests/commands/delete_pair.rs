@@ -295,7 +295,7 @@ fn document_summary_keeps_source_names_multiline_and_delete_typo() {
     assert!(failed);
     assert_eq!(
         String::from_utf8(text).unwrap(),
-        "\n✗ Failed to delet all 1 document\n\nFailed operations:\n  - id: raw\nerror\n"
+        "\n✗ Failed to delete all 1 document\n\nFailed operations:\n  - id: raw\nerror\n"
     );
     let rows = [
         BulkResult {

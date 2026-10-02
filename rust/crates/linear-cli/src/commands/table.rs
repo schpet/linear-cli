@@ -1,40 +1,5 @@
 //! Shared table presentation primitives for list commands.
 
-use std::time::SystemTime;
-
-use chrono::{DateTime, NaiveDate, Utc};
-
-/// The source `team list` relative-time wording, distinct from template dates.
-pub fn time_ago(value: &str, now: SystemTime) -> String {
-    let updated = DateTime::parse_from_rfc3339(value)
-        .ok()
-        .map(|date| date.to_utc())
-        .or_else(|| {
-            NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                .ok()
-                .and_then(|date| date.and_hms_opt(0, 0, 0))
-                .map(|date| DateTime::<Utc>::from_naive_utc_and_offset(date, Utc))
-        });
-    let Some(updated) = updated else {
-        return "NaN days ago".to_owned();
-    };
-    let now: DateTime<Utc> = now.into();
-    let diff = now.signed_duration_since(updated);
-    let minutes = diff.num_milliseconds().div_euclid(60_000);
-    if minutes < 1 {
-        return "just now".to_owned();
-    }
-    if minutes < 60 {
-        return format!("{minutes} minutes ago");
-    }
-    let hours = minutes.div_euclid(60);
-    if hours < 24 {
-        return format!("{hours} hour{} ago", if hours == 1 { "" } else { "s" });
-    }
-    let days = hours.div_euclid(24);
-    format!("{days} day{} ago", if days == 1 { "" } else { "s" })
-}
-
 pub fn terminal_color(color: &str) -> Option<String> {
     let hex = color.strip_prefix('#')?;
     let rgb = match hex.len() {
@@ -91,25 +56,7 @@ pub fn stdout_columns(is_terminal: bool) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{stdout_columns, terminal_color, time_ago, underlined_header};
-    use std::time::{Duration, UNIX_EPOCH};
-
-    #[test]
-    fn source_relative_time_thresholds_and_invalid_input() {
-        let now = UNIX_EPOCH + Duration::from_secs(86_400);
-        assert_eq!(time_ago("1970-01-02T00:00:00Z", now), "just now");
-        assert_eq!(time_ago("1970-01-03T00:00:00Z", now), "just now");
-        assert_eq!(time_ago("1970-01-01T23:59:00Z", now), "1 minutes ago");
-        assert_eq!(time_ago("1970-01-01T23:01:00Z", now), "59 minutes ago");
-        assert_eq!(time_ago("1970-01-01T23:00:00Z", now), "1 hour ago");
-        assert_eq!(time_ago("1970-01-01T22:00:00Z", now), "2 hours ago");
-        assert_eq!(time_ago("1970-01-01", now), "1 day ago");
-        assert_eq!(
-            time_ago("1970-01-01", now + Duration::from_secs(86_400)),
-            "2 days ago"
-        );
-        assert_eq!(time_ago("invalid", now), "NaN days ago");
-    }
+    use super::{stdout_columns, terminal_color, underlined_header};
 
     #[test]
     fn rgb_color_and_underlined_header_preserve_control_bytes() {

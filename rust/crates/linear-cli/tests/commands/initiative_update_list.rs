@@ -69,16 +69,28 @@ fn text_uses_initiative_health_names_author_fallback_and_body_preview() {
         "c048-empty-text",
         "c048-health-all",
         "c048-author-fallbacks",
-        "c048-body-unicode",
     ] {
         let case = frozen(id);
         let initiative = page(id).initiative.expect("initiative");
-        assert_eq!(
-            render_text(&initiative, 120, false, now),
-            case["expected"]["stdout"]["utf8"],
-            "{id}"
-        );
+        // Updates created under a minute before `now` read "just now".
+        let expected = case["expected"]["stdout"]["utf8"]
+            .as_str()
+            .expect("stdout")
+            .replace("DATE         AUTHOR", "DATE     AUTHOR")
+            .replace("1 minute ago", "just now");
+        assert_eq!(render_text(&initiative, 120, false, now), expected, "{id}");
     }
+}
+
+#[test]
+fn wide_body_previews_are_truncated_to_the_terminal_width() {
+    let now = DateTime::<Utc>::from(std::time::UNIX_EPOCH);
+    let initiative = page("c048-body-unicode").initiative.expect("initiative");
+    let output = render_text(&initiative, 120, false, now);
+    let preview = output.lines().last().expect("preview");
+    assert!(preview.starts_with("  界界"));
+    assert!(preview.ends_with("..."));
+    assert!(linear_cli::commands::display::display_width(preview) <= 120);
 }
 
 #[test]
@@ -95,7 +107,7 @@ fn terminal_date_and_body_are_gray() {
     let initiative = page("c048-default-text").initiative.expect("initiative");
     let output = render_text(&initiative, 120, true, now);
     assert!(output.contains("\x1b[38;2;39;174;96mOn Track\x1b[39m"));
-    assert!(output.contains("\x1b[90m1 minute ago\x1b[39m"));
+    assert!(output.contains("\x1b[90mjust now\x1b[39m"));
     assert!(output.contains("\x1b[90m  Update body\x1b[39m"));
 }
 

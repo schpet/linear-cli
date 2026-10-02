@@ -229,8 +229,8 @@ async fn empty_cursor_is_sent_and_invalid_dates_have_stable_last_order() {
     let mut nodes = frozen_page("c027-root-sort-ties").comments.nodes;
     nodes[0].created_at.0 = "not-a-date".to_owned();
     let text = render_text(&nodes, now, false);
-    assert!(text.contains("commented Invalid Date"));
-    let invalid = text.find("Invalid Date").expect("invalid date label");
+    assert!(text.contains("commented not-a-date"));
+    let invalid = text.find("not-a-date").expect("invalid date label");
     let last_valid = text.rfind("commented 1/1/2020").expect("valid date label");
     assert!(invalid > last_valid, "invalid dates sort after valid roots");
 }

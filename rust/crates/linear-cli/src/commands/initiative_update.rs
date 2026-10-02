@@ -126,7 +126,7 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
             AppError::new(
                 AppErrorKind::GraphQl,
                 format!(
-                    "C040-UNEXPECTED-SHAPE: {e}{}",
+                    "Linear returned an unexpected response: {e}{}",
                     if !mutation {
                         ""
                     } else if confirmed {
@@ -167,7 +167,7 @@ pub async fn resolve(
             } else {
                 Err(AppError::new(
                     AppErrorKind::GraphQl,
-                    "C040-UNEXPECTED-SHAPE: URL resolver returned a non-UUID initiative ID; no update attempted",
+                    "Linear returned a non-UUID initiative ID for the URL; no update attempted",
                 ))
             }
         }
