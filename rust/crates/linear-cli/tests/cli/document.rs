@@ -532,3 +532,68 @@ fn comment_list_text_shows_threads() {
         .stdout_has("Root comment")
         .stdout_has("Reply comment");
 }
+
+fn for_edit(content: &str) -> Value {
+    json!({ "document": { "id": DOC_ID, "title": "Design notes", "content": content } })
+}
+
+/// A sandbox whose `$EDITOR` is the stub `editor` running `script` on the file it is given.
+fn with_editor(api: &MockLinear, script: &str) -> Cli {
+    let cli = Cli::for_api(api).stub_bin("editor", script);
+    let editor = cli.path("bin/editor").display().to_string();
+    cli.env("EDITOR", &editor)
+}
+
+#[test]
+fn update_edit_sends_the_edited_content() {
+    let api = MockLinear::start();
+    api.on("GetDocumentForEdit", for_edit("# Old\n"))
+        .on("UpdateDocument", written("UpdateDocument"));
+    let cli = with_editor(&api, "printf 'Added\\n' >> \"$1\"");
+    cli.run(&["document", "update", SLUG, "--edit", "--force"])
+        .success()
+        .stdout_has("Design notes");
+    assert_eq!(api.variables("GetDocumentForEdit"), json!({ "id": SLUG }));
+    let content = api.variables("UpdateDocument")["input"]["content"].clone();
+    assert_eq!(
+        content.as_str().map(str::trim_end),
+        Some("# Old\nAdded"),
+        "{content}"
+    );
+    let calls = cli.calls("editor");
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].len(), 1, "{calls:?}");
+}
+
+#[test]
+fn update_edit_without_changes_does_not_update() {
+    let api = MockLinear::start();
+    api.on("GetDocumentForEdit", for_edit("# Old"));
+    with_editor(&api, "exit 0")
+        .run(&["document", "update", SLUG, "--edit", "--force"])
+        .success()
+        .stdout_has("No changes");
+    assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+}
+
+#[test]
+fn update_edit_fails_when_the_editor_fails() {
+    let api = MockLinear::start();
+    api.on("GetDocumentForEdit", for_edit("# Old\n"));
+    with_editor(&api, "exit 1")
+        .run(&["document", "update", SLUG, "--edit", "--force"])
+        .failure()
+        .stderr_has("ditor");
+    assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+}
+
+#[test]
+fn update_edit_without_an_editor_fails() {
+    let api = MockLinear::start();
+    api.on("GetDocumentForEdit", for_edit("# Old\n"));
+    Cli::for_api(&api)
+        .run(&["document", "update", SLUG, "--edit", "--force"])
+        .failure()
+        .stderr_has("EDITOR");
+    assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+}
