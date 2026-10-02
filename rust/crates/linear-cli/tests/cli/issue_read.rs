@@ -631,3 +631,91 @@ fn query_reports_api_errors() {
         .run(&["issue", "query", "--all-teams", "--json"])
         .failure();
 }
+
+/// An issue whose description embeds an image served by `api`.
+fn with_image(api: &MockLinear) -> (Value, String) {
+    let url = format!("{}/img/diagram.png", api.base_url());
+    let mut issue = issue(false);
+    issue["description"] = json!(format!("See ![diagram]({url}) for details."));
+    (details(issue), url)
+}
+
+/// Every file under `dir`, recursively.
+fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut files = Vec::new();
+    for entry in entries {
+        let path = entry.expect("directory entry").path();
+        if path.is_dir() {
+            files.extend(files_under(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}
+
+#[test]
+fn view_downloads_images_into_the_temp_cache() {
+    let api = MockLinear::start();
+    let (reply, url) = with_image(&api);
+    api.on("GetIssueDetails", reply)
+        .on_http("GET", "/img/diagram.png", 200, b"PNGDATA");
+    let cli = Cli::for_api(&api);
+    let tmp = cli.path("tmp");
+    let cli = cli.env("TMPDIR", &tmp.display().to_string());
+    let run = cli.run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"]);
+    run.success();
+    let cache = tmp.join("linear-cli-images");
+    let files = files_under(&cache);
+    assert_eq!(files.len(), 1, "{files:?}");
+    assert_eq!(std::fs::read(&files[0]).expect("cached image"), b"PNGDATA");
+    assert!(
+        run.stdout.contains(&files[0].display().to_string()),
+        "{run}"
+    );
+    assert!(!run.stdout.contains(&url), "{run}");
+    let download = api
+        .requests()
+        .into_iter()
+        .find(|r| r.method == "GET")
+        .expect("image request");
+    assert_eq!(download.header("authorization"), None);
+}
+
+#[test]
+fn view_no_download_keeps_remote_image_urls() {
+    let api = MockLinear::start();
+    let (reply, url) = with_image(&api);
+    api.on("GetIssueDetails", reply);
+    let cli = Cli::for_api(&api);
+    let tmp = cli.path("tmp");
+    let run = cli.env("TMPDIR", &tmp.display().to_string()).run(&[
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ]);
+    run.success().stdout_has(&url);
+    assert!(files_under(&tmp).is_empty());
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
+}
+
+#[test]
+fn view_reports_failed_image_downloads_and_keeps_the_url() {
+    let api = MockLinear::start();
+    let (reply, url) = with_image(&api);
+    api.on("GetIssueDetails", reply)
+        .on_http("GET", "/img/diagram.png", 404, b"missing");
+    let cli = Cli::for_api(&api);
+    let tmp = cli.path("tmp");
+    cli.env("TMPDIR", &tmp.display().to_string())
+        .run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
+        .success()
+        .stdout_has(&url)
+        .stderr_has(&url);
+}
