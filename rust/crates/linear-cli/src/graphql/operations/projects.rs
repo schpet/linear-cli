@@ -1,5 +1,5 @@
-//! Typed documents for `project list`. The project selection follows the
-//! frozen Deno `GetProjects` document in field order.
+//! Typed documents for `project list`. Selection order is the `--json`
+//! output order.
 
 use serde::Serialize;
 

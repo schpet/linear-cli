@@ -1,4 +1,5 @@
-//! Source-ordered credential transitions and explicit backend/file effects.
+//! Adding, removing and migrating stored credentials: keyring writes plus
+//! rewriting the credentials file.
 use crate::{
     auth::{CredentialFormat, CredentialStore},
     config::ConfigSecret,
@@ -7,9 +8,9 @@ use crate::{
 use std::{collections::BTreeMap, future::Future, io, path::Path};
 
 pub enum MutationFailure {
-    /// Source ordinary Error.message: the login inner catch must inspect all phases.
+    /// A failure whose message `login` inspects (a 401 means an invalid key).
     Ordinary(String),
-    /// Source custom errors and named native boundaries bypass that catch.
+    /// A failure reported as is.
     Typed(AppError),
 }
 impl MutationFailure {
@@ -42,8 +43,7 @@ pub trait CredentialMutationBackend {
     ) -> impl Future<Output = Result<(), MutationFailure>>;
     fn delete(&self, workspace: &str) -> impl Future<Output = Result<(), MutationFailure>>;
 }
-/// Separate directory preparation is observable before a missing cached key.
-/// Existing auth-default's file-writer/public contract remains unchanged.
+/// Writes the credentials file, creating its directory first.
 pub trait CredentialMutationFileWriter {
     fn prepare_directory(&self, path: &Path) -> io::Result<()>;
     fn write_file(&self, path: &Path, contents: &[u8]) -> io::Result<()>;
@@ -161,7 +161,7 @@ impl CredentialMutationState {
     ) -> Result<(), MutationFailure> {
         let use_inline = plaintext.unwrap_or(self.format == CredentialFormat::Inline);
         if plaintext == Some(false) && self.format == CredentialFormat::Inline {
-            // Internal explicit-false transition: CLI bool=false is NEVER mapped here.
+            // Moving an inline store to the keyring stores every key first.
             self.remember(workspace, secret);
             for name in &self.workspaces {
                 let Some(key) = self.keys.get(name) else {
@@ -182,7 +182,7 @@ impl CredentialMutationState {
                 .map_err(|failure| store_failure(workspace, failure))?;
         }
         self.remember(workspace, secret);
-        // Deliberately do NOT mutate original format for metadata -> plaintext.
+        // A plaintext key added to a keyring store does not convert the store.
         self.save(use_inline, path, writer)
     }
     pub async fn remove(
@@ -222,8 +222,8 @@ impl CredentialMutationState {
             };
             if let Err(failure) = backend.store(name, key).await {
                 for written in &migrated {
-                    // Exact source best-effort rollback: forward order, every entry,
-                    // including preexisting overwritten entries; never restores old keys.
+                    // Best effort: remove what this migration stored. Keys that
+                    // existed before and were overwritten are not restored.
                     let _cleanup_result = backend.delete(written).await;
                 }
                 return Err(match store_failure(name, failure) {
@@ -237,8 +237,7 @@ impl CredentialMutationState {
             migrated.push(name.clone());
         }
         self.format = CredentialFormat::Metadata;
-        // No default membership check; stale inline default survives migration.
-        // Save failure retains all completed backend stores without rollback.
+        // If saving fails, the keys already stored in the keyring stay there.
         self.save(false, path, writer)?;
         Ok(migrated)
     }

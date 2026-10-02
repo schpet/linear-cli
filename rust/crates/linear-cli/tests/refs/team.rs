@@ -13,30 +13,11 @@ use serde_json::{Value, json};
 
 use super::{argument, case, expected_error};
 
-const MANIFEST: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../parity/runner/f06-teamref-frozen-cases.sha256"
-));
-
-fn pinned_case(raw: &str, hash: &str) -> Value {
-    let spec = case(raw);
-    let id = spec["id"].as_str().unwrap_or_else(|| panic!("E0 id"));
-    let line = format!("{hash}  rust/parity/runner/f06-teamref-frozen-cases/{id}.json");
-    assert!(MANIFEST.lines().any(|entry| entry == line), "{id} pin");
-    spec
-}
-
 fn scope_for<'a>(spec: &'a Value, key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
-    let argv = spec["argv"].as_array().unwrap_or_else(|| panic!("E0 argv"));
-    let cli = argv
-        .windows(2)
-        .find(|pair| pair[0].as_str() == Some("--workspace"))
-        .and_then(|pair| pair[1].as_str());
     WorkspaceScope {
-        cli_workspace: cli,
-        sourced_workspace: spec["env"]["LINEAR_WORKSPACE"].as_str(),
-        default_workspace: (spec["configFixture"].as_str() == Some("default-acme"))
-            .then_some("acme"),
+        cli_workspace: spec["cli_workspace"].as_str(),
+        sourced_workspace: spec["workspace_env"].as_str(),
+        default_workspace: spec["default_workspace"].as_str(),
         api_key: key,
     }
 }
@@ -50,16 +31,16 @@ fn prepared_for<'a>(
 }
 
 fn resolve_response(spec: &Value) -> ResolveTeam {
-    let step = &spec["graphql"]["groups"][0]["steps"][0];
-    let mut data = step["response"]["data"].clone();
-    if step["operation"]["variables"]["isUuid"] == true {
+    let step = &spec["steps"][0];
+    let mut data = step["data"].clone();
+    if step["variables"]["isUuid"] == true {
         data["teamById"] = data["teams"].clone();
     }
     serde_json::from_value(data).unwrap_or_else(|error| panic!("{}: {error}", spec["id"]))
 }
 
 fn expected_variables(spec: &Value) -> Value {
-    spec["graphql"]["groups"][0]["steps"][0]["operation"]["variables"].clone()
+    spec["steps"][0]["variables"].clone()
 }
 
 fn request_variables<V: serde::Serialize>(request: &GraphQlRequest<V>) -> Value {
@@ -86,50 +67,18 @@ fn unexpected_all(
 }
 
 #[tokio::test]
-async fn e0_hits_keep_request_variables_and_winning_keys() {
-    // Full pins: name 7f57a8e5ae28e9ce370deba531c2b70c1df99de45f6bd03b4a6e46cb044c9ea8,
-    // key-before-name 277b55b9b80147871109805ae27e7c519fd1c68b88564c7a4b12de4f487a21d2,
-    // nonuuid-name-over-first 46d17e7b700f419089551f6688aa4e5262958350674d614ea23223bd0ecd3fb7,
-    // direct-uuid 638b403675c03d9562bb09855fb02f9a42a824c2278e1b315c5395b792a3cba7,
-    // uuid-key-precedence 34b1b857b064b26ad0ed2d7aec1f6814d50fc6c565c70b1a4f08ad1ad02b3f64,
-    // url-uuid c07c2bdfd0159a3f419327a09bbcaf71faee7faa952e9147498b9d947a2842bd,
-    // url-segment-name a4a7ad04d7e0011325cc02633cfc043dedeb559ed295e370981fb0acbc8e4af3,
-    // nonascii-name bc2f8d6e4c1cd812f5f88fbab75f10e73f1494c8ac665785fc0bc96c0753b03c.
-    for (raw, hash) in [
-        (
-            e0_case!("f06e0-name"),
-            "7f57a8e5ae28e9ce370deba531c2b70c1df99de45f6bd03b4a6e46cb044c9ea8",
-        ),
-        (
-            e0_case!("f06e0-key-before-name"),
-            "277b55b9b80147871109805ae27e7c519fd1c68b88564c7a4b12de4f487a21d2",
-        ),
-        (
-            e0_case!("f06e0-nonuuid-name-over-first"),
-            "46d17e7b700f419089551f6688aa4e5262958350674d614ea23223bd0ecd3fb7",
-        ),
-        (
-            e0_case!("f06e0-direct-uuid"),
-            "638b403675c03d9562bb09855fb02f9a42a824c2278e1b315c5395b792a3cba7",
-        ),
-        (
-            e0_case!("f06e0-uuid-key-precedence"),
-            "34b1b857b064b26ad0ed2d7aec1f6814d50fc6c565c70b1a4f08ad1ad02b3f64",
-        ),
-        (
-            e0_case!("f06e0-url-uuid"),
-            "c07c2bdfd0159a3f419327a09bbcaf71faee7faa952e9147498b9d947a2842bd",
-        ),
-        (
-            e0_case!("f06e0-url-segment-name"),
-            "a4a7ad04d7e0011325cc02633cfc043dedeb559ed295e370981fb0acbc8e4af3",
-        ),
-        (
-            e0_case!("f06e0-nonascii-name"),
-            "bc2f8d6e4c1cd812f5f88fbab75f10e73f1494c8ac665785fc0bc96c0753b03c",
-        ),
+async fn hits_keep_request_variables_and_winning_keys() {
+    for name in [
+        "name",
+        "key-before-name",
+        "nonuuid-name-over-first",
+        "direct-uuid",
+        "uuid-key-precedence",
+        "url-uuid",
+        "url-segment-name",
+        "nonascii-name",
     ] {
-        let spec = pinned_case(raw, hash);
+        let spec = case(name);
         let absent = ApiKeyInput::Absent;
         let prepared = prepared_for(&spec, &absent);
         let response = resolve_response(&spec);
@@ -145,33 +94,22 @@ async fn e0_hits_keep_request_variables_and_winning_keys() {
         )
         .await
         .unwrap_or_else(|error| panic!("{}: {error}", spec["id"]));
-        let steps = spec["graphql"]["groups"][0]["steps"]
+        let steps = spec["steps"]
             .as_array()
-            .unwrap_or_else(|| panic!("E0 steps"));
+            .unwrap_or_else(|| panic!("{} steps", spec["id"]));
         let team_key = steps
             .iter()
-            .find(|step| step["id"] == "empty-members")
-            .and_then(|step| step["operation"]["variables"]["teamKey"].as_str())
-            .unwrap_or_else(|| panic!("{} E0 teamKey", spec["id"]));
+            .find(|step| step["name"] == "empty-members")
+            .and_then(|step| step["variables"]["teamKey"].as_str())
+            .unwrap_or_else(|| panic!("{} teamKey", spec["id"]));
         assert_eq!(found.key, team_key, "{}", spec["id"]);
     }
 }
 
 #[tokio::test]
-async fn e0_blank_and_ambiguous_errors_are_exact() {
-    // blank-FEFF 15e8963687341507ee292a3184b771cd57692149d3173803a1f9a40140c806dc,
-    // blank-space 3597349cbf9a8800da190f607824f302027d823f59d52872e4f1ecbfb7f4517c.
-    for (raw, hash) in [
-        (
-            e0_case!("f06e0-blank-feff-before-key"),
-            "15e8963687341507ee292a3184b771cd57692149d3173803a1f9a40140c806dc",
-        ),
-        (
-            e0_case!("f06e0-blank-space-before-key"),
-            "3597349cbf9a8800da190f607824f302027d823f59d52872e4f1ecbfb7f4517c",
-        ),
-    ] {
-        let spec = pinned_case(raw, hash);
+async fn blank_and_ambiguous_errors_are_exact() {
+    for name in ["blank-feff-before-key", "blank-space-before-key"] {
+        let spec = case(name);
         let absent = ApiKeyInput::Absent;
         let error = prepare_team_lookup(argument(&spec), &scope_for(&spec, &absent))
             .err()
@@ -179,19 +117,8 @@ async fn e0_blank_and_ambiguous_errors_are_exact() {
         assert_error(&spec, &error, AppErrorKind::Validation);
     }
 
-    // ambiguity 0051c1c40d681c0a83c62f1aae195c0530a9bcbf93177b95a44f66cfd713baea,
-    // URL ambiguity 532e642da580033f234bb94a87a5a9f83d29b2c2872d7a4ba97f8010a5b5441c.
-    for (raw, hash) in [
-        (
-            e0_case!("f06e0-ambiguous-name"),
-            "0051c1c40d681c0a83c62f1aae195c0530a9bcbf93177b95a44f66cfd713baea",
-        ),
-        (
-            e0_case!("f06e0-url-ambiguity-key"),
-            "532e642da580033f234bb94a87a5a9f83d29b2c2872d7a4ba97f8010a5b5441c",
-        ),
-    ] {
-        let spec = pinned_case(raw, hash);
+    for name in ["ambiguous-name", "url-ambiguity-key"] {
+        let spec = case(name);
         let absent = ApiKeyInput::Absent;
         let prepared = prepared_for(&spec, &absent);
         let expected = expected_variables(&spec);
@@ -207,21 +134,21 @@ async fn e0_blank_and_ambiguous_errors_are_exact() {
     }
 }
 
-async fn assert_e0_miss(raw: &str, hash: &str) {
-    let spec = pinned_case(raw, hash);
+async fn assert_miss(name: &str) {
+    let spec = case(name);
     let absent = ApiKeyInput::Absent;
     let prepared = prepared_for(&spec, &absent);
     let resolve_response = resolve_response(&spec);
     let mut pages = VecDeque::new();
-    for step in spec["graphql"]["groups"][0]["steps"]
+    for step in spec["steps"]
         .as_array()
-        .unwrap_or_else(|| panic!("E0 steps"))
+        .unwrap_or_else(|| panic!("{} steps", spec["id"]))
         .iter()
         .skip(1)
     {
         pages.push_back((
-            step["operation"]["variables"].clone(),
-            serde_json::from_value::<GetAllTeams>(step["response"]["data"].clone())
+            step["variables"].clone(),
+            serde_json::from_value::<GetAllTeams>(step["data"].clone())
                 .unwrap_or_else(|error| panic!("{}: {error}", spec["id"])),
         ));
     }
@@ -258,51 +185,22 @@ async fn assert_e0_miss(raw: &str, hash: &str) {
 }
 
 #[tokio::test]
-async fn e0_misses_fetch_every_page_and_keep_original_errors() {
-    // empty 62881fed7499d2b91f9e878e701167ca3c73b3c8b7a912eee43ffe6b46f35bff,
-    // two pages 86b3a176a885973a0660a1312588487941d08cf3f0a69e2408b6aa29d1455c32,
-    // explicit null 7516ac7322c69e1d030c34c7c67a6c142c3bf2bd594d331efb57170062ddcb0a,
-    // original URL c126a5d46ca6d0f0255a2b327de9be542acc4007fa586147b3d06b10918017ae,
-    // untrimmed 629ec76174d75be4378d79dca34c537f14f7b6e2733e08b0a8f239b48bfd0248,
-    // NEL 5c905770c84da5ad816c2730a19ebe7e0250b75473b31d8db11147d110c21539.
-    for (raw, hash) in [
-        (
-            e0_case!("f06e0-miss-empty"),
-            "62881fed7499d2b91f9e878e701167ca3c73b3c8b7a912eee43ffe6b46f35bff",
-        ),
-        (
-            e0_case!("f06e0-miss-two-pages"),
-            "86b3a176a885973a0660a1312588487941d08cf3f0a69e2408b6aa29d1455c32",
-        ),
-        (
-            e0_case!("f06e0-miss-null-cursor"),
-            "7516ac7322c69e1d030c34c7c67a6c142c3bf2bd594d331efb57170062ddcb0a",
-        ),
-        (
-            e0_case!("f06e0-url-miss-original"),
-            "c126a5d46ca6d0f0255a2b327de9be542acc4007fa586147b3d06b10918017ae",
-        ),
-        (
-            e0_case!("f06e0-untrimmed-text"),
-            "629ec76174d75be4378d79dca34c537f14f7b6e2733e08b0a8f239b48bfd0248",
-        ),
-        (
-            e0_case!("f06e0-nel-nonblank"),
-            "5c905770c84da5ad816c2730a19ebe7e0250b75473b31d8db11147d110c21539",
-        ),
+async fn misses_fetch_every_page_and_keep_original_errors() {
+    for name in [
+        "miss-empty",
+        "miss-two-pages",
+        "miss-null-cursor",
+        "url-miss-original",
+        "untrimmed-text",
+        "nel-nonblank",
     ] {
-        assert_e0_miss(raw, hash).await;
+        assert_miss(name).await;
     }
 }
 
 #[tokio::test]
-async fn e0_graphql_failures_pass_through_without_context() {
-    // ResolveTeam 85cb22d88bab5e7263f0a6423f5a495c64b6f5e000c1b739829a88c326940dc9,
-    // GetAllTeams c7398fac85f9c848403c510b8362ee962181c6daab5de2cd7928e8c8df141961.
-    let spec = pinned_case(
-        e0_case!("f06e0-resolve-error"),
-        "85cb22d88bab5e7263f0a6423f5a495c64b6f5e000c1b739829a88c326940dc9",
-    );
+async fn graphql_failures_pass_through_without_context() {
+    let spec = case("resolve-error");
     let absent = ApiKeyInput::Absent;
     let prepared = prepared_for(&spec, &absent);
     let (message, _) = expected_error(&spec);
@@ -316,10 +214,7 @@ async fn e0_graphql_failures_pass_through_without_context() {
     .unwrap_or_else(|| panic!("ResolveTeam failure"));
     assert_error(&spec, &error, AppErrorKind::GraphQl);
 
-    let spec = pinned_case(
-        e0_case!("f06e0-all-teams-error"),
-        "c7398fac85f9c848403c510b8362ee962181c6daab5de2cd7928e8c8df141961",
-    );
+    let spec = case("all-teams-error");
     let prepared = prepared_for(&spec, &absent);
     let response = resolve_response(&spec);
     let (message, _) = expected_error(&spec);
@@ -502,9 +397,8 @@ async fn later_page_failure_passes_through_without_partial_result() {
 }
 
 #[tokio::test]
-async fn strict_malformed_team_decode_is_an_uncontextualized_difference() {
-    // C016E0 c016-team-malformed binds Deno's resolver-level malformed-team
-    // text; B deliberately keeps Cynic's strict typed decode instead.
+async fn malformed_team_decode_fails_strictly_without_context() {
+    // A team with a null key fails the typed decode rather than being skipped.
     let body =
         br#"{"data":{"teams":{"nodes":[{"id":"team-eng","key":null,"name":"Engineering"}]}}}"#;
     let failure = parse_response::<ResolveTeam>(body)

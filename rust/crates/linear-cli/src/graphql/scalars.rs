@@ -1,8 +1,8 @@
 //! Custom scalar newtypes for the eight Linear scalars.
 //!
 //! Every newtype preserves the original wire form. Date, duration and UUID
-//! scalars stay strings: no parsing or normalization happens here, matching the
-//! Deno oracle, which passes these values through and formats only for display.
+//! scalars stay strings: no parsing or normalization happens here; values are
+//! passed through and formatted only for display.
 //! `JSON` is *stringified* JSON (a JSON string on the wire) while `JSONObject`
 //! is *embedded* JSON (an object on the wire); the two are deliberately distinct
 //! types so one cannot be used where the schema expects the other.

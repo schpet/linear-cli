@@ -1,12 +1,12 @@
-//! The exact `GetProjectMilestones` selection used by `milestone list`.
+//! The `GetProjectMilestones` selection used by `milestone list`.
 
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;
 
 use super::teams::PageInfo;
 
-/// Deno declares `$first` and `$after` as nullable and omits `after` on the
-/// first page, so both are skipped from the variables object when `None`.
+/// `$first` and `$after` are nullable; both are skipped from the variables
+/// object when `None`, including `after` on the first page.
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetProjectMilestonesVariables {
     pub project_id: String,
@@ -16,9 +16,8 @@ pub struct GetProjectMilestonesVariables {
     pub after: Option<String>,
 }
 
-/// `Query.project` is non-null in the schema, but the source checks for a
-/// null root and reports the project as not found, so only the root is
-/// optional here. Every nested non-null field stays strict.
+/// `Query.project` is non-null in the schema, but a null root is reported as
+/// "project not found", so only the root is optional here. Every nested non-null field stays strict.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
 #[cynic(
     schema = "linear",

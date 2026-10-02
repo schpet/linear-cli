@@ -1,4 +1,4 @@
-/// Match Linear's UUID-shaped reference predicate without version or variant restrictions.
+/// Whether a reference is UUID-shaped; version and variant bits are not checked.
 pub fn is_linear_uuid(value: &str) -> bool {
     let bytes = value.as_bytes();
     bytes.len() == 36

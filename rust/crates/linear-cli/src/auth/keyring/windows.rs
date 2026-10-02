@@ -1,4 +1,4 @@
-//! Safe direct Windows credential adapter; no extra attribute read before writes.
+//! Windows Credential Manager access through the `keyring` crate.
 use super::windows_spec::{WindowsCredentialSpec, WindowsReadFailure, classify_windows_lookup};
 use crate::{
     auth::{
@@ -10,9 +10,9 @@ use crate::{
 };
 use keyring::{credential::CredentialApi, windows::WinCredential};
 
-/// Factory must construct DIRECT WinCredential (not generic Entry::new), exact
-/// target linear-cli:WS/userWS/empty comment+alias. The approved pinned library
-/// owns GENERIC/Enterprise3 and UTF16LE/no terminator/one CredWrite/zero attrs.
+/// Stores generic credentials with target `linear-cli:<workspace>` and user
+/// `<workspace>`, built directly with `WinCredential` so no other attributes
+/// are read or written.
 pub struct WindowsMutationBackend {
     pub overlay: crate::config::ChildEnvOverlay,
 }

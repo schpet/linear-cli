@@ -1,4 +1,4 @@
-//! The frozen `AuthListViewer` document for `auth list`.
+//! The `AuthListViewer` document for `auth list`.
 
 use crate::graphql::schema;
 

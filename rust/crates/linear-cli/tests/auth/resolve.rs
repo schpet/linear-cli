@@ -259,7 +259,7 @@ fn empty_default_cache_yields_no_key_and_empty_explicit_cache_is_missing() {
 }
 
 #[test]
-fn merged_b2_secret_maps_to_raw_or_sourced_without_copying() {
+fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     let make_env = |pairs: &[(&str, &str)]| ConfigInputs {
         cwd: PathBuf::from("/repo"),
         os: OsFamily::Unix,

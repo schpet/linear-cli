@@ -210,7 +210,7 @@ fn edit_helpers_map_option_and_default_to_unchanged() {
 }
 
 #[test]
-fn update_issue_document_matches_the_oracle_selection() {
+fn update_issue_document_matches_the_expected_selection() {
     let operation = UpdateIssue::build(UpdateIssueVariables {
         id: "issue-1".to_owned(),
         input: IssueUpdateInput::default(),
@@ -281,7 +281,7 @@ fn get_teams_filter_omits_unset_nested_keys() {
 }
 
 #[test]
-fn get_teams_document_matches_the_oracle_selection() {
+fn get_teams_document_matches_the_expected_selection() {
     let operation = GetTeams::build(GetTeamsVariables {
         filter: None,
         first: Some(100),

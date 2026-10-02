@@ -1,4 +1,4 @@
-//! Typed source selections for issue mine/query/view.
+//! Typed selections for issue mine/query/view.
 use crate::graphql::{
     scalars::{DateTime, DateTimeOrDuration, JsonObject},
     schema,

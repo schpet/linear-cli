@@ -1,4 +1,4 @@
-//! Source-ordered auth transition effects.
+//! Credential add, remove and migrate effects.
 use linear_cli::{
     auth::{
         CredentialFormat, LookupReply, LookupResult, hydrate,

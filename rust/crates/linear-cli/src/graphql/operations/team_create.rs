@@ -1,4 +1,4 @@
-//! The source `CreateTeam` mutation and the four input fields it can send.
+//! The `CreateTeam` mutation and the four input fields it can send.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -6,8 +6,7 @@ pub struct CreateTeamVariables {
     pub input: TeamCreateInput,
 }
 
-/// Deno builds `{ name, description, key, private }` with `|| undefined`, so
-/// absent optionals are omitted and `private` is sent only as `true`.
+/// Absent optionals are omitted and `private` is sent only as `true`.
 #[derive(cynic::InputObject, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "TeamCreateInput")]
 pub struct TeamCreateInput {

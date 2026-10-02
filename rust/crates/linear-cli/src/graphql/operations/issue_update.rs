@@ -1,9 +1,8 @@
 //! `UpdateIssue`: the `issueUpdate` mutation with a three-state input.
 //!
-//! Mirrors `src/commands/issue/issue-update.ts`, which inserts keys only for
-//! provided fields and sends explicit `null` for the clear flags. Nullable
-//! scalar fields use [`Edit<T>`]; list fields use `Option<Vec<T>>` (omit or
-//! set), the only two list states the oracle sends. See the `edit` module
+//! Only provided fields are sent, and clear flags send an explicit `null`.
+//! Nullable scalar fields use [`Edit<T>`]; list fields use `Option<Vec<T>>`
+//! (omit or set). See the `edit` module
 //! for why lists cannot be `Edit<Vec<T>>` under Cynic's derive check.
 
 use serde::Serialize;
@@ -18,7 +17,7 @@ pub struct UpdateIssueVariables {
     pub input: IssueUpdateInput,
 }
 
-/// The `IssueUpdateInput` fields the oracle can send, plus `trashed`.
+/// The `IssueUpdateInput` fields `issue update` can send, plus `trashed`.
 ///
 /// `trashed` is documented by Linear as "true to trash, or null to restore",
 /// so `Edit::Clear` is a meaningful restore, not an absence of intent.
@@ -59,7 +58,7 @@ pub struct IssueUpdateInput {
     pub state_id: Edit<String>,
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub trashed: Edit<bool>,
-    /// Not sent by the oracle; proves `Edit<Enum>` passes the derive's check.
+    /// Not sent by any command yet; an `Edit<Enum>` field.
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub sla_type: Edit<SlaDayCountType>,
 }

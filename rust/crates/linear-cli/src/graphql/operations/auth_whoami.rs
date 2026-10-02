@@ -1,4 +1,4 @@
-//! The frozen `AuthStatus` document for `auth whoami`.
+//! The `AuthStatus` document for `auth whoami`.
 
 use crate::graphql::schema;
 

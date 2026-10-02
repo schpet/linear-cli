@@ -1,4 +1,4 @@
-//! source operation names and field order are binding.
+//! Team delete and the lookups it needs.
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::{edit::Edit, schema};
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

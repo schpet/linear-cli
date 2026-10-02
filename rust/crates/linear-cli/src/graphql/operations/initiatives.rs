@@ -1,4 +1,4 @@
-//! Source-shaped, typed documents for `initiative list`.
+//! Typed documents for `initiative list`.
 
 use serde::Serialize;
 
@@ -52,8 +52,8 @@ pub struct IDComparator {
     variables = "GetInitiativesVariables"
 )]
 pub struct GetInitiatives {
-    // The schema requires this field, but the source CLI has an explicit null
-    // fallback. Keep the exception at this one response boundary.
+    // The schema declares this non-null, but a null response is handled
+    // rather than treated as a decode failure.
     #[arguments(filter: $filter, includeArchived: $include_archived)]
     pub initiatives: Option<InitiativeConnection>,
 }

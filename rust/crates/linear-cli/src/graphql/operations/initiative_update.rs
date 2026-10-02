@@ -1,4 +1,4 @@
-//! Source-shaped, typed C040 operations; raw status strings are an explicit update opt-in.
+//! Typed initiative update operations; raw status strings are an explicit update opt-in.
 use super::initiative_view::{
     DetailVariablesFields, InitiativeNameResults, InitiativeSlugResults, NameVariablesFields,
     SlugVariablesFields,

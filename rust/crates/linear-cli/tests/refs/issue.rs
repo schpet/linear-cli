@@ -66,7 +66,7 @@ fn references_preserve_presence_numbers_and_workspace_order() {
     assert!(error.message.contains("this is the \"acme\" workspace"));
 }
 #[test]
-fn ascii_boundaries_match_js_including_non_ascii_neighbors() {
+fn word_boundaries_are_ascii_only_including_non_ascii_neighbors() {
     for (text, expected) in [
         ("eng-123_x", None),
         ("éENG-5", Some("ENG-5")),
@@ -83,7 +83,7 @@ fn ascii_boundaries_match_js_including_non_ascii_neighbors() {
     }
 }
 #[test]
-fn raw_jj_joining_and_newline_parser_remain_source_compatible() {
+fn raw_jj_joining_and_newline_parsing() {
     for (text, expected) in [
         ("Fixes ABC-123Fixes DEF-456", Some("DEF-456")),
         ("Fixes ABC-123 References DEF-456", Some("ABC-123")),
@@ -99,7 +99,7 @@ fn raw_jj_joining_and_newline_parser_remain_source_compatible() {
     }
 }
 #[test]
-fn git_nonzero_is_detached_only_for_the_source_substring() {
+fn git_nonzero_is_detached_only_for_the_detached_head_message() {
     assert_eq!(
         parse_git_branch(false, "ENG-7", "fatal: not a symbolic ref\n").expect("detached"),
         None

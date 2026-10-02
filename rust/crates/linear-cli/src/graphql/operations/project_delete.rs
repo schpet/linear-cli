@@ -1,4 +1,4 @@
-//! The source project-delete mutation, including nullable entity fallback.
+//! The project-delete mutation, including nullable entity fallback.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

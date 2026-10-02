@@ -179,7 +179,7 @@ pub async fn resolve_team_with_transport(
     .await
 }
 
-/// Fetch all teams in source order: stable root collation of lowercased names.
+/// Fetches every team, sorted by lowercased name.
 pub async fn fetch_all_teams<F, Fut>(mut all_fetch: F) -> Result<Vec<ResolvedTeam>, AppError>
 where
     F: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> Fut,

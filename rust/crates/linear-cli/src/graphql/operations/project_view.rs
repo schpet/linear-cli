@@ -1,4 +1,4 @@
-//! Project view and reference queries, matching the Deno selections.
+//! Project view and reference queries.
 
 use serde::Serialize;
 

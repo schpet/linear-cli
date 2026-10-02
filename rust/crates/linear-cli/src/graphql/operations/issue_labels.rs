@@ -1,8 +1,6 @@
 //! `GetIssueLabels`: the paginated connection used by `label list`.
 //!
-//! Mirrors `src/commands/label/label-list.ts`. The oracle sends
-//! `{ filter, first: 100, after }` where an empty filter object and the
-//! first-page cursor are `undefined`, so both are omitted from the variables
+//! An empty filter and the first-page cursor are omitted from the variables
 //! object when `None` rather than sent as `null`.
 
 use serde::Serialize;
@@ -10,8 +8,8 @@ use serde::Serialize;
 use crate::graphql::operations::teams::{PageInfo, StringComparator};
 use crate::graphql::schema;
 
-/// Variables for [`GetIssueLabels`]. `first` mirrors the document's nullable
-/// `Int`; the oracle always sends `100`.
+/// Variables for [`GetIssueLabels`]. `first` is the document's nullable
+/// `Int`; `label list` sends `100`.
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetIssueLabelsVariables {
     #[cynic(skip_serializing_if = "Option::is_none")]

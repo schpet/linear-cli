@@ -1,4 +1,4 @@
-//! The source `DeleteComment` mutation and its `success`-only selection.
+//! The `DeleteComment` mutation and its `success`-only selection.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -18,8 +18,7 @@ pub struct DeleteComment {
 }
 
 /// `commentDelete` and `success` are non-null in the schema. A null payload
-/// or missing `success` is a decode failure, where the source throws a
-/// `TypeError` or treats the missing flag as false.
+/// or missing `success` is a decode failure.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "DeletePayload")]
 pub struct DeleteCommentPayload {

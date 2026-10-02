@@ -1,5 +1,6 @@
-//! GraphQL value literals only: graphql-js16.13.2 parseValue/valueFromAST/astFromValue.
-//! MIT GraphQL Contributors; rust/licenses/graphql-js-MIT.txt.
+//! GraphQL value literals for default values in `linear schema` output:
+//! parsing, coercion and printing. Adapted from graphql-js 16.13.2
+//! (MIT, GraphQL Contributors; see rust/licenses/graphql-js-MIT.txt).
 use crate::{
     error::AppError,
     graphql::schema_introspection::{Kind, Model, TypeRef, name, print_string, shape},

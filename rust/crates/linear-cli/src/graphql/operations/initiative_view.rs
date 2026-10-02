@@ -1,4 +1,4 @@
-//! Typed, source-shaped selections for `initiative view`.
+//! Typed selections for `initiative view`.
 
 use crate::graphql::operations::initiatives::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::projects::ProjectStatusType;
@@ -17,7 +17,7 @@ pub struct DetailVariables {
     variables = "DetailVariables"
 )]
 pub struct GetInitiativeDetails {
-    // The source explicitly handles null even though the schema declares non-null.
+    // Handled as nullable even though the schema declares non-null.
     #[arguments(id: $id)]
     pub initiative: Option<InitiativeDetails>,
 }

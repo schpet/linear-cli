@@ -1,4 +1,4 @@
-//! Owned Windows credential layout and strict decoder, independently testable.
+//! Windows credential names and secret decoding.
 use crate::{
     config::ConfigSecret,
     error::{AppError, AppErrorKind},
@@ -18,7 +18,7 @@ impl WindowsCredentialSpec {
             target_alias: String::new(),
             comment: String::new(),
         };
-        // Match the pinned safe library's byte prechecks; no arbitrary slug rule.
+        // The same length and NUL checks the `keyring` crate applies.
         for (name, value, limit) in [
             ("username", &spec.username, 513),
             ("target", &spec.target_name, 32767),
@@ -64,8 +64,8 @@ pub enum WindowsReadFailure {
     NoEntry,
     NativeFailure,
 }
-/// Only a genuine NoEntry or empty blob is a miss. Broken encoding stays visible
-/// through startup's existing LookupFailed(Other) warning, never a silent miss.
+/// Only a missing entry or an empty secret is a miss; a badly encoded secret
+/// is a lookup failure, so it is reported rather than silently ignored.
 pub fn classify_windows_lookup(
     result: Result<Vec<u8>, WindowsReadFailure>,
 ) -> crate::auth::LookupResult {

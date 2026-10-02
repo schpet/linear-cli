@@ -1,11 +1,10 @@
 //! Forward cursor pagination for built-in connections.
 //!
-//! The oracle loops `after = pageInfo.endCursor` while `hasNextPage` and
-//! fails when `hasNextPage` is true without a cursor. The default rejects an
-//! empty cursor too; opt-in `Allow` sends it like any concrete cursor. Both
-//! policies add one reviewed strictness delta recorded in
-//! `rust/compatibility.md`: a cursor equal to the one just sent, or to any
-//! cursor seen earlier in the walk, aborts instead of looping. No page count
+//! Requests continue with `after = pageInfo.endCursor` while `hasNextPage`,
+//! and fail when `hasNextPage` is true without a cursor. The default rejects
+//! an empty cursor too; opt-in `Allow` sends it like any concrete cursor. A
+//! cursor equal to the one just sent, or to any cursor seen earlier in the
+//! walk, aborts instead of looping. No page count
 //! limit is imposed. A failure on any page discards every page: partial
 //! results never become a completed result.
 

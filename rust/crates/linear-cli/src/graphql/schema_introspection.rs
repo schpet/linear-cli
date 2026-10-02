@@ -1,5 +1,6 @@
-//! Runtime introspection build/sort/print rules ported from graphql-js16.13.2.
-//! MIT GraphQL Contributors; rust/licenses/graphql-js-MIT.txt.
+//! Builds, sorts and prints a schema from an introspection result for
+//! `linear schema`. Adapted from graphql-js 16.13.2 (MIT, GraphQL
+//! Contributors; see rust/licenses/graphql-js-MIT.txt).
 use crate::{
     error::{AppError, AppErrorKind},
     graphql::schema_defaults,
@@ -194,8 +195,8 @@ impl Model {
             }
             types.insert(t.name.clone(), t.clone());
         }
-        // graphql-js replaces supplied standard types with its canonical builtins.
-        // This is the standard meta-schema only, never a returned application SDL.
+        // Standard types from the response are replaced with the canonical
+        // builtins. This is the standard meta-schema only, never application SDL.
         let builtins: Vec<TypeDef> =
             serde_json::from_str(include_str!("schema_builtin_types.json")).map_err(|e| {
                 AppError::new(

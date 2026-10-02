@@ -167,7 +167,7 @@ fn full_session_document_parses_and_renders_in_document_order() {
 }
 
 #[test]
-fn session_document_matches_the_oracle_selection_plus_typename() {
+fn session_document_matches_the_expected_selection_plus_typename() {
     let operation = GetAgentSessionDetails::build(GetAgentSessionDetailsVariables {
         id: "s1".to_owned(),
     });

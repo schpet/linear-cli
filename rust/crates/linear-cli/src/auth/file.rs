@@ -1,4 +1,4 @@
-//! Strict bounded credentials-file input, separate from lenient config discovery.
+//! Reading the credentials file, with a size limit.
 use std::fs::OpenOptions;
 use std::io::{self, Read};
 use std::path::Path;

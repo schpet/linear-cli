@@ -7,7 +7,7 @@ use crate::graphql::schema;
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct LookupVariables {
     pub team_id: String,
-    // The source explicitly sends null on page one.
+    // Sent as an explicit null on the first page.
     pub after: Option<String>,
 }
 

@@ -17,7 +17,8 @@ pub enum ApiKeyInput<'a> {
 }
 
 impl<'a> ApiKeyInput<'a> {
-    /// Classify the already merged B2 value without comparing or copying secrets.
+    /// Classifies the configured API key by where it came from, without
+    /// copying the secret.
     pub fn from_options(options: &'a ConfigOptions) -> Result<Self, CredentialInvariantError> {
         let Some(selected) = options.api_key() else {
             return Ok(Self::Absent);

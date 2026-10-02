@@ -1,18 +1,16 @@
 //! `GetTeams`: the paginated connection used by `team list`.
 //!
-//! Mirrors `src/commands/team/team-list.ts`. The oracle sends
-//! `{ filter: undefined, first: 100, after }` with `after` undefined on the
-//! first page, so `filter` and `after` are omitted from the variables object
-//! when `None`. Only the raw `api --paginate` path sends `after: null`.
+//! `filter` and `after` are omitted from the variables object when `None`,
+//! including `after` on the first page. Only the raw `api --paginate` path sends `after: null`.
 
 use serde::Serialize;
 
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
-/// Variables for [`GetTeams`]. `first` mirrors the document's nullable `Int`;
-/// the oracle always sends `100`, and an unset `first` is omitted like any
-/// other `undefined` key rather than sent as `null`.
+/// Variables for [`GetTeams`]. `first` is the document's nullable `Int`;
+/// `team list` sends `100`, and an unset `first` is omitted rather than sent
+/// as `null`.
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetTeamsVariables {
     #[cynic(skip_serializing_if = "Option::is_none")]
@@ -25,8 +23,8 @@ pub struct GetTeamsVariables {
 
 /// A subset of the schema's `TeamFilter` input object.
 ///
-/// The oracle never sends a team filter today; this proves nested input
-/// objects omit unset keys. Extend field by field as commands need them.
+/// No command sends a team filter yet; unset keys are omitted. Extend field
+/// by field as commands need them.
 #[derive(cynic::InputObject, Clone, Debug, Default, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "TeamFilter")]
 pub struct TeamFilter {
@@ -89,7 +87,7 @@ pub struct Organization {
     pub name: String,
 }
 
-/// The forward-pagination fields the oracle selects.
+/// The forward-pagination fields of a connection.
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear")]
 #[serde(rename_all = "camelCase")]

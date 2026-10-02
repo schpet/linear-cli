@@ -138,7 +138,7 @@ fn hex_value(byte: u8) -> Option<u8> {
     }
 }
 
-/// `decodeURIComponent` per path segment: invalid escapes and invalid UTF-8 fail.
+/// Percent-decodes one path segment; invalid escapes and invalid UTF-8 fail.
 fn decode_segment(segment: &str) -> Option<String> {
     let bytes = segment.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());

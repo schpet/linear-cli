@@ -19,8 +19,7 @@
 //! derive treats `Edit<T>` as a leaf value, so a nullable list field such as
 //! `labelIds: [String!]` is not representable as `Edit<Vec<T>>`; list fields
 //! use `Option<Vec<T>>` with `skip_serializing_if = "Option::is_none"` (omit
-//! or set), which is the only pair of states the Deno oracle ever sends for
-//! lists. Nullable input-object fields are not covered yet; add a forwarding
+//! or set), which are the only two states this program sends for lists. Nullable input-object fields are not covered yet; add a forwarding
 //! `cynic::InputObject` impl together with a derive that uses it.
 //!
 //! `Edit<T>` is serialization-only. It carries a `Deserialize` impl solely because

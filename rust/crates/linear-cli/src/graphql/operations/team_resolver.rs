@@ -1,5 +1,5 @@
-//! Minimal typed team-reference queries. These are separate from C008's
-//! broader `GetTeams` projection and retain the frozen resolver's request shape.
+//! Minimal typed team-reference queries, separate from the broader `GetTeams`
+//! projection used by `team list`.
 
 use crate::graphql::edit::Edit;
 use crate::graphql::operations::teams::PageInfo;

@@ -1,4 +1,4 @@
-//! Typed project create/update and membership operations in source selection order.
+//! Typed project create/update and membership operations.
 use crate::graphql::{
     edit::Edit,
     scalars::{DateTime, TimelessDate},

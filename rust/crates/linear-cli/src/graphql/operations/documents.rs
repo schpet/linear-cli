@@ -1,4 +1,4 @@
-//! Typed document list/view selections: exact source fields and explicit JSON order.
+//! Typed document list/view selections in `--json` output order.
 use crate::graphql::operations::{initiatives::IDComparator, teams::PageInfo};
 use crate::graphql::{scalars::DateTime, schema};
 use serde::{Serialize, Serializer};

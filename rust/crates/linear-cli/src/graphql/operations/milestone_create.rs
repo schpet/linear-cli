@@ -1,4 +1,4 @@
-//! The source `CreateProjectMilestone` mutation and its create-only selection.
+//! The `CreateProjectMilestone` mutation and its create-only selection.
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;
 
@@ -7,9 +7,8 @@ pub struct CreateProjectMilestoneVariables {
     pub input: ProjectMilestoneCreateInput,
 }
 
-/// Deno builds `{ projectId, name, description, targetDate }` and drops
-/// undefined keys, so absent optionals are omitted while supplied strings,
-/// including empty ones, are sent verbatim.
+/// Absent optionals are omitted; supplied strings, including empty ones, are
+/// sent verbatim.
 #[derive(cynic::InputObject, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ProjectMilestoneCreateInput")]
 pub struct ProjectMilestoneCreateInput {
@@ -33,7 +32,7 @@ pub struct CreateProjectMilestone {
 }
 
 /// `projectMilestone` is non-null in the schema; a null or missing entity is
-/// a decode failure rather than the source's silent success.
+/// a decode failure.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ProjectMilestonePayload")]
 pub struct CreateProjectMilestonePayload {

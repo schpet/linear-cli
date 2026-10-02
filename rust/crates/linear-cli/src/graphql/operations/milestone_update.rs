@@ -1,4 +1,4 @@
-//! The source `UpdateProjectMilestone` mutation and its exact selection.
+//! The `UpdateProjectMilestone` mutation and its selection.
 use super::milestone_create::CreatedMilestoneProject;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;

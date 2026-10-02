@@ -1,0 +1,1343 @@
+{
+  "all-teams-error": {
+    "reference": "MISS",
+    "error": {
+      "message": "Fake GetAllTeams failure"
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "MISS",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": true,
+              "endCursor": "page-2"
+            }
+          }
+        }
+      },
+      {
+        "name": "all-teams-page-2",
+        "variables": {
+          "first": 100,
+          "after": "page-2"
+        }
+      }
+    ]
+  },
+  "ambiguous-name": {
+    "reference": "Design",
+    "error": {
+      "message": "Team name \"Design\" is ambiguous: Z (Design), A (Design)",
+      "suggestion": "Use the team key instead of the name."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "Design",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "1",
+                "key": "Z",
+                "name": "Design"
+              },
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              },
+              {
+                "id": "2",
+                "key": "A",
+                "name": "Design"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "blank-feff-before-key": {
+    "reference": "﻿",
+    "error": {
+      "message": "Team reference is empty",
+      "suggestion": "Pass a team key, name, or ID, e.g. --team ENG."
+    }
+  },
+  "blank-space-before-key": {
+    "reference": " ",
+    "error": {
+      "message": "Team reference is empty",
+      "suggestion": "Pass a team key, name, or ID, e.g. --team ENG."
+    }
+  },
+  "default-port": {
+    "reference": "https://linear.app:443/acme/team/eng",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "direct-uuid": {
+    "reference": "01234567-89Ab-4CdE-8f01-23456789aBcD",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "01234567-89Ab-4CdE-8f01-23456789aBcD",
+          "id": "01234567-89Ab-4CdE-8f01-23456789aBcD",
+          "isUuid": true
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              },
+              {
+                "id": "x",
+                "key": "ALT",
+                "name": "01234567-89Ab-4CdE-8f01-23456789aBcD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "dot-parent": {
+    "reference": "https://linear.app/acme/team/ENG/..",
+    "cli_workspace": "acme",
+    "error": {
+      "message": "\"https://linear.app/acme/team/ENG/..\" is a Linear URL, but it does not name a team.",
+      "suggestion": "Pass a team URL, key, name, or ID."
+    }
+  },
+  "dot-percent": {
+    "reference": "https://linear.app/acme/team/ENG/%2E%2e",
+    "cli_workspace": "acme",
+    "error": {
+      "message": "\"https://linear.app/acme/team/ENG/%2E%2e\" is a Linear URL, but it does not name a team.",
+      "suggestion": "Pass a team URL, key, name, or ID."
+    }
+  },
+  "dot-segment": {
+    "reference": "https://linear.app/other/../acme/team/eng",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "escaped-segment": {
+    "reference": "https://linear.app/acme/team/%45ng",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "foreign-before-key": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "cli_workspace": "acme",
+    "error": {
+      "message": "That URL is for the \"foreign\" workspace, but this is the \"acme\" workspace.",
+      "suggestion": "LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace foreign, or use a URL from \"acme\"."
+    }
+  },
+  "key-before-name": {
+    "reference": "eng",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "eng",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-name",
+                "key": "NME",
+                "name": "ENG"
+              },
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "lookalike-fallthrough": {
+    "reference": "https://linear.app.example.com/acme/team/eng",
+    "error": {
+      "message": "Team not found: https://linear.app.example.com/acme/team/eng",
+      "suggestion": "This workspace has no teams you can access."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "https://linear.app.example.com/acme/team/eng",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "malformed-escape": {
+    "reference": "https://linear.app/acme/team/%ZZ",
+    "cli_workspace": "acme",
+    "error": {
+      "message": "\"https://linear.app/acme/team/%ZZ\" is a Linear URL, but its path could not be decoded.",
+      "suggestion": "Pass a team URL, key, name, or ID."
+    }
+  },
+  "miss-empty": {
+    "reference": "Unknown",
+    "error": {
+      "message": "Team not found: Unknown",
+      "suggestion": "This workspace has no teams you can access."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "Unknown",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "miss-null-cursor": {
+    "reference": "Unknown",
+    "error": {
+      "message": "Team not found: Unknown",
+      "suggestion": "Valid team keys: DES (Design), ENG (Engineering). Run `linear team list` to see all teams."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "Unknown",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-des",
+                "key": "DES",
+                "name": "Design"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": true,
+              "endCursor": null
+            }
+          }
+        }
+      },
+      {
+        "name": "all-teams-null-after",
+        "variables": {
+          "first": 100,
+          "after": null
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": "final"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "miss-two-pages": {
+    "reference": "Unknown",
+    "error": {
+      "message": "Team not found: Unknown",
+      "suggestion": "Valid team keys: ABC (Zeta), ZED (Alpha). Run `linear team list` to see all teams."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "Unknown",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "x",
+                "key": "ZED",
+                "name": "Alpha"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": true,
+              "endCursor": "page-2"
+            }
+          }
+        }
+      },
+      {
+        "name": "all-teams-page-2",
+        "variables": {
+          "first": 100,
+          "after": "page-2"
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "y",
+                "key": "ABC",
+                "name": "Zeta"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": "final"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "name": {
+    "reference": "Engineering",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "Engineering",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "nel-nonblank": {
+    "reference": "",
+    "error": {
+      "message": "Team not found: ",
+      "suggestion": "This workspace has no teams you can access."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "nonascii-name": {
+    "reference": "ÉQUIPE",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ÉQUIPE",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "e",
+                "key": "EQU",
+                "name": "équipe"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "EQU",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "nonuuid-name-over-first": {
+    "reference": "Platform",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "Platform",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              },
+              {
+                "id": "x",
+                "key": "PLT",
+                "name": "Platform"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "PLT",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "port-fallthrough": {
+    "reference": "https://linear.app:123/acme/team/eng",
+    "error": {
+      "message": "Team not found: https://linear.app:123/acme/team/eng",
+      "suggestion": "This workspace has no teams you can access."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "https://linear.app:123/acme/team/eng",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "resolve-error": {
+    "reference": "ENG",
+    "error": {
+      "message": "Fake ResolveTeam failure"
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        }
+      }
+    ]
+  },
+  "schemeless": {
+    "reference": "linear.app/acme/team/eng",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "suggest-config-empty-key": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "workspace_env": "acme",
+    "default_workspace": "acme",
+    "error": {
+      "message": "That URL is for the \"foreign\" workspace, but this is the \"acme\" workspace.",
+      "suggestion": "The api_key in your config outranks --workspace. Remove it to pass --workspace foreign, or use a URL from \"acme\"."
+    }
+  },
+  "suggest-config-key": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "error": {
+      "message": "That URL is for the \"foreign\" workspace, but this is the \"project\" workspace.",
+      "suggestion": "The api_key in your config outranks --workspace. Remove it to pass --workspace foreign, or use a URL from \"project\"."
+    }
+  },
+  "suggest-plain": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "workspace_env": "acme",
+    "default_workspace": "acme",
+    "error": {
+      "message": "That URL is for the \"foreign\" workspace, but this is the \"acme\" workspace.",
+      "suggestion": "Pass --workspace foreign, or use a URL from \"acme\"."
+    }
+  },
+  "suggest-raw-empty": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "workspace_env": "acme",
+    "error": {
+      "message": "That URL is for the \"foreign\" workspace, but this is the \"acme\" workspace.",
+      "suggestion": "LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace foreign, or use a URL from \"acme\"."
+    }
+  },
+  "unsupported-foreign": {
+    "reference": "https://linear.app/foreign/team/ENG/unrecognized",
+    "cli_workspace": "acme",
+    "error": {
+      "message": "\"https://linear.app/foreign/team/ENG/unrecognized\" is a Linear URL, but \"unrecognized\" is not a team page this command can use.",
+      "suggestion": "Pass a team URL, key, name, or ID."
+    }
+  },
+  "untrimmed-text": {
+    "reference": "  eng  ",
+    "error": {
+      "message": "Team not found:   eng  ",
+      "suggestion": "Valid team keys: ENG (Engineering). Run `linear team list` to see all teams."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "  eng  ",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "unvalidated-default": {
+    "reference": "https://linear.app/acme/team/ENG",
+    "error": {
+      "message": "That URL is for the \"acme\" workspace, but this is the \"ghost\" workspace.",
+      "suggestion": "The api_key in your config outranks --workspace. Remove it to pass --workspace acme, or use a URL from \"ghost\"."
+    }
+  },
+  "url-accepted": {
+    "reference": "https://linear.app/acme/team/eng/overview",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "url-ambiguity-key": {
+    "reference": "https://linear.app/acme/team/design",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "error": {
+      "message": "Team name \"DESIGN\" is ambiguous: Z (DESIGN), A (DESIGN)",
+      "suggestion": "Use the team key instead of the name."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "DESIGN",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "1",
+                "key": "Z",
+                "name": "DESIGN"
+              },
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              },
+              {
+                "id": "2",
+                "key": "A",
+                "name": "DESIGN"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "url-miss-original": {
+    "reference": "https://linear.app/acme/team/missing",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "error": {
+      "message": "Team not found: https://linear.app/acme/team/missing",
+      "suggestion": "Valid team keys: ENG (Engineering). Run `linear team list` to see all teams."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "MISSING",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "url-segment-name": {
+    "reference": "https://linear.app/acme/team/engineering",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENGINEERING",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "url-uuid": {
+    "reference": "https://linear.app/acme/team/01234567-89ab-4cde-8f01-23456789abcd",
+    "cli_workspace": "acme",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "01234567-89AB-4CDE-8F01-23456789ABCD",
+          "id": "01234567-89AB-4CDE-8F01-23456789ABCD",
+          "isUuid": true
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "userinfo-fallthrough": {
+    "reference": "https://name@linear.app/acme/team/eng",
+    "error": {
+      "message": "Team not found: https://name@linear.app/acme/team/eng",
+      "suggestion": "This workspace has no teams you can access."
+    },
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "https://name@linear.app/acme/team/eng",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": []
+          }
+        }
+      },
+      {
+        "name": "all-teams-first",
+        "variables": {
+          "first": 100
+        },
+        "data": {
+          "teams": {
+            "nodes": [],
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            }
+          }
+        }
+      }
+    ]
+  },
+  "uuid-key-precedence": {
+    "reference": "01234567-89ab-4cde-8f01-23456789abcd",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "01234567-89ab-4cde-8f01-23456789abcd",
+          "id": "01234567-89ab-4cde-8f01-23456789abcd",
+          "isUuid": true
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              },
+              {
+                "id": "x",
+                "key": "01234567-89ab-4cde-8f01-23456789abcd",
+                "name": "Other"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "01234567-89ab-4cde-8f01-23456789abcd",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-cli-over-env": {
+    "reference": "https://linear.app/acme/team/ENG",
+    "cli_workspace": "acme",
+    "workspace_env": "beta",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-cli-precedes-config": {
+    "reference": "https://linear.app/cli/team/ENG",
+    "cli_workspace": "cli",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-config": {
+    "reference": "https://linear.app/project/team/ENG",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-empty-config": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-env-empty": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "workspace_env": "",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-env-mismatch-case": {
+    "reference": "https://linear.app/FoReIgN/team/ENG",
+    "workspace_env": " Acme ",
+    "error": {
+      "message": "That URL is for the \"FoReIgN\" workspace, but this is the \"Acme\" workspace.",
+      "suggestion": "LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace FoReIgN, or use a URL from \"Acme\"."
+    }
+  },
+  "workspace-env-trim-case": {
+    "reference": "https://linear.app/BETA/team/eng",
+    "workspace_env": " Beta ",
+    "default_workspace": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "workspace-whitespace-cli": {
+    "reference": "https://linear.app/foreign/team/ENG",
+    "cli_workspace": "   ",
+    "workspace_env": "acme",
+    "steps": [
+      {
+        "name": "resolve-team",
+        "variables": {
+          "reference": "ENG",
+          "id": null,
+          "isUuid": false
+        },
+        "data": {
+          "teams": {
+            "nodes": [
+              {
+                "id": "team-eng",
+                "key": "ENG",
+                "name": "Engineering"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "empty-members",
+        "variables": {
+          "teamKey": "ENG",
+          "includeDisabled": false,
+          "first": 100
+        }
+      }
+    ]
+  },
+  "wrong-kind-foreign": {
+    "reference": "https://linear.app/foreign/issue/ENG-1",
+    "cli_workspace": "acme",
+    "error": {
+      "message": "That URL is for the \"foreign\" workspace, but this is the \"acme\" workspace.",
+      "suggestion": "LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace foreign, or use a URL from \"acme\"."
+    }
+  }
+}

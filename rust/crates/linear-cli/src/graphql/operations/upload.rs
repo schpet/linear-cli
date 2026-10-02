@@ -1,4 +1,4 @@
-//! Exact source upload, issue lookup and sidebar attachment documents.
+//! Upload, issue lookup and sidebar attachment documents.
 use crate::graphql::schema;
 #[derive(cynic::QueryVariables, Clone, Debug, Eq, PartialEq)]
 pub struct FileUploadVariables {

@@ -1,4 +1,4 @@
-//! Exact first-page source selections. Response types remain arbitrary strings.
+//! First-page issue relation selections. Relation types remain arbitrary strings.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

@@ -1,4 +1,4 @@
-//! Exact source selections for issue comment update; no issue resolver or extra user fields.
+//! Selections for issue comment update; no issue resolver or extra user fields.
 use crate::graphql::{scalars::DateTime, schema};
 
 #[derive(cynic::QueryVariables, Clone, Debug)]
@@ -18,7 +18,7 @@ pub struct GetComment {
 #[derive(cynic::QueryFragment, serde::Deserialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Comment", no_deserialize)]
 pub struct ExistingComment {
-    // Source uses `commentData.comment?.body || ""`, including a missing nullable body.
+    // A missing or null body is treated as empty.
     #[serde(default)]
     pub body: Option<String>,
 }

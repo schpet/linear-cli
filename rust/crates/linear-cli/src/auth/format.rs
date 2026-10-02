@@ -237,7 +237,6 @@ impl fmt::Debug for CredentialStore {
     }
 }
 impl CredentialStore {
-    // Insert inside impl CredentialStore. Owned handoff; no new parse/reload.
     pub(crate) fn mutation_parts(
         &self,
     ) -> (
@@ -271,7 +270,8 @@ impl CredentialStore {
     }
 }
 
-/// Convert a complete fake lookup table into cache state. No backend is called.
+/// Combines a parsed credentials file with keyring lookup results. Every
+/// metadata workspace must have exactly one reply.
 pub fn hydrate(
     manifest: CredentialManifest,
     replies: Vec<LookupReply>,

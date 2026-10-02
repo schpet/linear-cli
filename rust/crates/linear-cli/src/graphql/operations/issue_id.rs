@@ -1,4 +1,4 @@
-//! Minimal source lookup shared by relation mutations and URL links.
+//! Minimal issue lookup shared by relation mutations and URL links.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

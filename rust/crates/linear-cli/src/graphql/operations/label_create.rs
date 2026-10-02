@@ -1,4 +1,4 @@
-//! Only fields selected and sent by the source `CreateIssueLabel` mutation.
+//! The `CreateIssueLabel` mutation and the fields `label create` sends.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

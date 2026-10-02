@@ -2,13 +2,11 @@
 //! `template list` and `template view`'s name lookup, and `GetTemplate`: one
 //! template by ID. Both select the shared `Template` fragment.
 //!
-//! Mirrors the `GetTemplates` and `GetTemplate` documents in
-//! `src/utils/templates.ts` field-for-field and in selection order.
 //! `GetTemplates` sends no variables; `GetTemplate` sends the reference as
 //! typed, case preserved.
 //! `sortOrder` is a `Float!`, so [`Template`] deliberately does not implement
-//! `Serialize`: the shared JSON module projects it through the JS number formatter
-//! instead of Serde's `f64` spelling.
+//! `Serialize`: the shared JSON module formats it so integral values print
+//! without a fractional part.
 
 use serde::Serialize;
 

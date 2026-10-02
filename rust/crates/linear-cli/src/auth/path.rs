@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::config::{OsFamily, lexical_config_path};
 
-/// Pure Deno-compatible credential location calculation; no file is read.
+/// Where the credentials file lives; no file is read.
 pub fn credentials_path(
     os: OsFamily,
     xdg: Option<&str>,

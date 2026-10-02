@@ -1,4 +1,4 @@
-//! The source `AddComment` mutation shared by every `comment add` command, and
+//! The `AddComment` mutation shared by every `comment add` command, and
 //! the document command's `GetDocumentCommentTarget` content-record lookup.
 use crate::graphql::schema;
 
@@ -7,8 +7,7 @@ pub struct AddCommentVariables {
     pub input: CommentCreateInput,
 }
 
-/// Deno builds `{ body, parentId?, id?, <one target> }` and drops undefined
-/// keys. Callers construct this only through `comment_add::build_input`, which
+/// Absent optional keys are omitted. Callers construct this only through `comment_add::build_input`, which
 /// sets exactly one target field.
 #[derive(cynic::InputObject, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "CommentCreateInput")]
@@ -40,7 +39,7 @@ pub struct AddComment {
 }
 
 /// `comment` is non-null in the schema; a null or missing comment is a decode
-/// failure rather than the source's "no comment returned" branch.
+/// failure.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "CommentPayload")]
 pub struct AddCommentPayload {

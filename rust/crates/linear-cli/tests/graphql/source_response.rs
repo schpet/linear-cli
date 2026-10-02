@@ -1,4 +1,4 @@
-//! Public source-compatible response admission, class and metadata contracts.
+//! Response classification shared by typed operations and bulk error reporting.
 use linear_cli::graphql::{
     bulk_error::{self, BulkExchangeFailure, SourceExceptionKind},
     envelope::{GraphQlRequest, ResponseError},

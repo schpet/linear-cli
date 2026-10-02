@@ -200,7 +200,7 @@ fn default_warning_precedes_lookup_warnings_and_hydration_checks_reply_table() {
 }
 
 #[test]
-fn defaults_and_inline_reply_rules_match_frozen_shape() {
+fn defaults_and_inline_reply_rules() {
     let inline = parse_manifest("a='lin_api_fake'\ndefault='missing'").expect("inline");
     assert_eq!(inline.default(), Some("missing"));
     assert!(inline.warnings().is_empty());

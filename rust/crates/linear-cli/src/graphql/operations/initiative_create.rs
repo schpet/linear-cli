@@ -1,4 +1,4 @@
-//! The source `CreateInitiative` mutation and its optional input fields.
+//! The `CreateInitiative` mutation and its optional input fields.
 use crate::graphql::operations::initiatives::InitiativeStatus;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;

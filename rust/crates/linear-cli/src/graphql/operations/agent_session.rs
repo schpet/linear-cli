@@ -1,11 +1,8 @@
 //! `GetAgentSessionDetails`: the agent session document with the
 //! `AgentActivityContent` union.
 //!
-//! Mirrors `src/commands/issue/issue-agent-session-view.ts`, including the
-//! inline fragment order. Cynic adds `__typename` to the union selection so
-//! it can dispatch variants; the Deno document does not select it. That
-//! request-level difference is recorded for the command's parity review, and
-//! the `--json` shape below never emits it.
+//! Cynic adds `__typename` to the union selection so it can dispatch
+//! variants; the `--json` shape below never emits it.
 
 use std::error::Error;
 use std::fmt;
@@ -129,7 +126,7 @@ pub enum AgentSessionType {
     CommentThread,
 }
 
-/// All six `AgentActivityContent` members in the oracle's fragment order.
+/// All six `AgentActivityContent` members.
 ///
 /// Cynic matches each variant to a union member by the variant's name, so
 /// variants carry the schema type names verbatim.
@@ -266,10 +263,10 @@ pub struct ElicitationContent {
     pub body: String,
 }
 
-/// Schema-check probe for the embedded `JSONObject` scalar.
+/// Schema check for the embedded `JSONObject` scalar.
 ///
-/// Not part of the oracle's document; it proves `resultData: JSONObject`
-/// aligns with [`JsonObject`] and exercises an embedded-object fixture.
+/// Not selected by any command; checks that `resultData: JSONObject` aligns
+/// with [`JsonObject`].
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "AgentActivityActionContent")]
 #[serde(rename_all = "camelCase")]

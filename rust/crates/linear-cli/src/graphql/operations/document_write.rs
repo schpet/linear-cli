@@ -1,4 +1,4 @@
-//! Complete document write operations derived from the frozen source schema.
+//! Document create, update and attachment-target operations.
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::{scalars::DateTime, schema};
 #[derive(cynic::InputObject, Clone, Debug, PartialEq, Eq)]

@@ -1,4 +1,4 @@
-//! Exact source single/bulk operation names and selected fields.
+//! Single and bulk issue archive and delete operations.
 use crate::graphql::{scalars::DateTime, schema};
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct IdVariables {

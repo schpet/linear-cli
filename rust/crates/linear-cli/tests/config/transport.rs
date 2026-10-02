@@ -43,7 +43,7 @@ fn ssl_cert_file_adds_a_ca_bundle() {
 }
 
 #[test]
-fn deno_cert_is_a_fallback_for_ssl_cert_file() {
+fn legacy_cert_variable_is_a_fallback_for_ssl_cert_file() {
     let config = unix(&[("DENO_CERT", "/legacy/ca.pem")]).production();
     assert_eq!(
         config.ca_bundle.as_deref(),

@@ -59,7 +59,8 @@ pub fn prepare_issue_reference(
     Ok(IssueReference::Unresolved)
 }
 
-/// JavaScript's ASCII-only word boundaries, including '_' as a word byte.
+/// Finds the first `TEAM-123` identifier that starts and ends on a word
+/// boundary, where word bytes are ASCII letters, digits and `_`.
 pub fn find_issue_identifier(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
     let word = |b: u8| b.is_ascii_alphanumeric() || b == b'_';

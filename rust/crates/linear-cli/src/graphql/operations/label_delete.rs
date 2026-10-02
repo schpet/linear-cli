@@ -1,4 +1,4 @@
-//! Exact label-delete selections, without the source's unused teamKey variable.
+//! Label lookup and delete selections.
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
