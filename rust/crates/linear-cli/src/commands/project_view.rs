@@ -217,9 +217,6 @@ fn joined(values: Vec<String>, info: &PageInfo) -> String {
         joined
     }
 }
-fn trim_end_js(value: &str) -> &str {
-    value.trim_end_matches(|c: char| c.is_whitespace() || c == '\u{feff}')
-}
 fn sorted_by<T>(items: &[T], key: impl Fn(&T) -> f64) -> Vec<&T> {
     let mut ordered: Vec<_> = items.iter().collect();
     ordered.sort_by(|a, b| key(a).total_cmp(&key(b)));
@@ -382,7 +379,7 @@ pub fn markdown<Tz: TimeZone>(
             }
         }
         out.push_str(note(&project.project_milestones.page_info));
-        out = trim_end_js(&out).to_owned();
+        out = out.trim_end().to_owned();
     }
     if !project.external_links.nodes.is_empty() {
         out.push_str("\n\n## Resources\n\n");
@@ -390,7 +387,7 @@ pub fn markdown<Tz: TimeZone>(
             out.push_str(&format!("- **{}**: {}\n", link.label, link.url));
         }
         out.push_str(note(&project.external_links.page_info));
-        out = trim_end_js(&out).to_owned();
+        out = out.trim_end().to_owned();
     }
     if !project.documents.nodes.is_empty() {
         out.push_str("\n\n## Documents\n\n");
@@ -398,7 +395,7 @@ pub fn markdown<Tz: TimeZone>(
             out.push_str(&format!("- **{}**: {}\n", doc.title, doc.url));
         }
         out.push_str(note(&project.documents.page_info));
-        out = trim_end_js(&out).to_owned();
+        out = out.trim_end().to_owned();
     }
     if !project.attachments.nodes.is_empty() {
         out.push_str("\n\n## Attachments\n\n");
@@ -419,7 +416,7 @@ pub fn markdown<Tz: TimeZone>(
             }
         }
         out.push_str(note(&project.attachments.page_info));
-        out = trim_end_js(&out).to_owned();
+        out = out.trim_end().to_owned();
     }
     if !project.relations.nodes.is_empty() || !project.inverse_relations.nodes.is_empty() {
         out.push_str("\n\n## Related projects\n\n");
@@ -431,7 +428,7 @@ pub fn markdown<Tz: TimeZone>(
         }
         out.push_str(note(&project.relations.page_info));
         out.push_str(note(&project.inverse_relations.page_info));
-        out = trim_end_js(&out).to_owned();
+        out = out.trim_end().to_owned();
     }
     if let Some(update) = &project.last_update {
         out.push_str("\n\n## Latest Update\n\n");
