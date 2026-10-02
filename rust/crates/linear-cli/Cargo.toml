@@ -91,6 +91,10 @@ path = "tests/startup/main.rs"
 name = "refs"
 path = "tests/refs/main.rs"
 
+[[test]]
+name = "cli"
+path = "tests/cli/main.rs"
+
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "=3.6.3", default-features = false, features = ["windows-native"] }
 
