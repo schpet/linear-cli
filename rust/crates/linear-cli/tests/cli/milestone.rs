@@ -67,6 +67,45 @@ fn list_resolves_a_project_name() {
 }
 
 #[test]
+fn list_follows_pages_and_puts_undated_milestones_last() {
+    let api = MockLinear::start();
+    let undated = json!({ "id": "m-3", "name": "Someday", "targetDate": null, "sortOrder": 3, "project": project() });
+    let late = json!({ "id": "m-2", "name": "Late", "targetDate": "2026-12-01", "sortOrder": 2.5, "project": project() });
+    let early = json!({ "id": "m-1", "name": "Early", "targetDate": "2026-01-01", "sortOrder": 1, "project": project() });
+    api.on(
+        "GetProjectMilestones",
+        json!({ "project": { "id": PROJECT_ID, "name": "Mobile App", "projectMilestones": {
+            "nodes": [undated.clone(), late.clone()],
+            "pageInfo": { "hasNextPage": true, "endCursor": "cursor-1" }
+        } } }),
+    )
+    .on("GetProjectMilestones", milestones(vec![early.clone()]));
+    let listed = Cli::for_api(&api)
+        .run(&["milestone", "list", "--project", PROJECT_ID, "--json"])
+        .success()
+        .json_nodes();
+    assert_eq!(listed, [early, late, undated]);
+    let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
+    assert_eq!(
+        variables,
+        [
+            json!({ "projectId": PROJECT_ID, "first": 100 }),
+            json!({ "projectId": PROJECT_ID, "first": 100, "after": "cursor-1" })
+        ]
+    );
+}
+
+#[test]
+fn list_of_a_missing_project_is_not_found() {
+    let api = MockLinear::start();
+    api.on("GetProjectMilestones", json!({ "project": null }));
+    Cli::for_api(&api)
+        .run(&["milestone", "list", "--project", PROJECT_ID])
+        .failure()
+        .stderr_has("Failed to list milestones: Project not found");
+}
+
+#[test]
 fn list_requires_a_project() {
     Cli::new()
         .env("LINEAR_API_KEY", "key")
@@ -178,6 +217,16 @@ fn view_by_name_resolves_within_the_project() {
     assert_eq!(api.variables("GetMilestoneDetails")["id"], MILESTONE_ID);
 }
 
+#[test]
+fn view_by_name_needs_a_project() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["milestone", "view", "Launch"])
+        .failure()
+        .stderr_has("--project");
+    assert!(api.requests().is_empty());
+}
+
 fn created(target_date: Value) -> Value {
     json!({ "projectMilestoneCreate": { "success": true, "projectMilestone": {
         "id": "m-new", "name": "Launch", "targetDate": target_date, "project": project()
@@ -238,6 +287,24 @@ fn create_resolves_a_project_url_by_slug() {
 }
 
 #[test]
+fn create_warns_that_an_unreadable_reply_may_have_created_it() {
+    let api = MockLinear::start();
+    api.on_raw("CreateProjectMilestone", 200, "not json");
+    Cli::for_api(&api)
+        .run(&[
+            "milestone",
+            "create",
+            "--project",
+            PROJECT_ID,
+            "--name",
+            "Beta",
+        ])
+        .failure()
+        .stderr_has("milestone may already exist");
+    assert_eq!(api.operations(), ["CreateProjectMilestone"]);
+}
+
+#[test]
 fn create_requires_a_name() {
     let api = MockLinear::start();
     Cli::for_api(&api)
@@ -283,20 +350,72 @@ fn update_sends_the_changed_fields() {
         ])
         .success()
         .stdout_has("Launch");
-    let mut variables = api.variables("UpdateProjectMilestone");
-    // Only the numeric value matters, not whether it is spelled 2 or 2.0.
-    let sort_order = variables["input"]
-        .as_object_mut()
-        .expect("input object")
-        .remove("sortOrder");
-    assert_eq!(sort_order.as_ref().and_then(Value::as_f64), Some(2.0));
     assert_eq!(
-        variables,
+        api.variables("UpdateProjectMilestone"),
         json!({ "id": MILESTONE_ID, "input": {
             "name": "Launch", "description": "Ship", "targetDate": "2026-12-01",
-            "projectId": PROJECT_ID
+            "sortOrder": 2, "projectId": PROJECT_ID
         } })
     );
+    // A whole sort order is sent as an integer, not 2.0.
+    let body = api.request("UpdateProjectMilestone").body;
+    assert!(String::from_utf8_lossy(&body).contains(r#""sortOrder":2,"#));
+}
+
+#[test]
+fn update_sends_a_fractional_sort_order() {
+    let api = MockLinear::start();
+    api.on(
+        "UpdateProjectMilestone",
+        json!({ "projectMilestoneUpdate": { "success": true, "projectMilestone": {
+            "id": MILESTONE_ID, "name": "Launch", "targetDate": null, "sortOrder": -1.5,
+            "project": project()
+        } } }),
+    );
+    Cli::for_api(&api)
+        .run(&["milestone", "update", MILESTONE_ID, "--sort-order", "-1.5"])
+        .success()
+        .stdout_has("Sort Order: -1.5");
+    assert_eq!(
+        api.variables("UpdateProjectMilestone"),
+        json!({ "id": MILESTONE_ID, "input": { "sortOrder": -1.5 } })
+    );
+}
+
+#[test]
+fn update_without_changes_is_a_usage_error() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["milestone", "update", MILESTONE_ID])
+        .usage_error();
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_and_create_reject_malformed_dates_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "milestone",
+            "update",
+            MILESTONE_ID,
+            "--target-date",
+            "tomorrow",
+        ])
+        .usage_error();
+    Cli::for_api(&api)
+        .run(&[
+            "milestone",
+            "create",
+            "--project",
+            PROJECT_ID,
+            "--name",
+            "Beta",
+            "--target-date",
+            "2026-02-30",
+        ])
+        .usage_error();
+    assert!(api.requests().is_empty());
 }
 
 #[test]

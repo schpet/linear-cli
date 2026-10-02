@@ -1,5 +1,6 @@
 //! The `UpdateProjectMilestone` mutation and its selection.
 use super::milestone_create::CreatedMilestoneProject;
+use crate::graphql::operations::number::Float;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;
 
@@ -20,7 +21,7 @@ pub struct ProjectMilestoneUpdateInput {
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub target_date: Option<TimelessDate>,
     #[cynic(skip_serializing_if = "Option::is_none")]
-    pub sort_order: Option<f64>,
+    pub sort_order: Option<Float>,
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub project_id: Option<String>,
 }
@@ -50,6 +51,6 @@ pub struct UpdatedMilestone {
     pub id: cynic::Id,
     pub name: String,
     pub target_date: Option<TimelessDate>,
-    pub sort_order: crate::graphql::operations::number::Float,
+    pub sort_order: Float,
     pub project: CreatedMilestoneProject,
 }

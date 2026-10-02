@@ -1,7 +1,9 @@
-//! `milestone create`: one typed mutation after shared project resolution.
+//! `milestone create`: one mutation after resolving the project.
 use cynic::MutationBuilder;
 
-use crate::error::Error;
+use crate::cli::milestone::MilestoneCreate;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_create::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, CreatedMilestone,
@@ -9,61 +11,52 @@ use crate::graphql::operations::milestone_create::{
 };
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::{GraphQlTransport, NetworkPhase, TransportFailure};
+use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
-/// Prefix for every `milestone create` failure.
-pub const CONTEXT: &str = "Failed to create milestone";
-
-/// Parsed flag values. The parser rejects empty values, but the request
-/// builder does not rely on that: every supplied value is sent verbatim.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Options {
-    pub name: String,
-    pub description: Option<String>,
-    pub target_date: Option<String>,
+pub fn run(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
+    create(ctx, args).context("Failed to create milestone")
 }
 
-/// The create mutation for an already resolved project. The target date is
-/// not validated locally; Linear owns `TimelessDate` parsing.
-pub fn request(
-    project_id: &str,
-    options: &Options,
-) -> GraphQlRequest<CreateProjectMilestoneVariables> {
-    GraphQlRequest::with_variables(CreateProjectMilestone::build(
+fn create(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
+    let project = prepare_project_lookup(&args.project, &ctx.scope()?)?;
+    let client = ctx.client()?;
+    let milestone = ctx.spin(true, async {
+        let project_id = resolve_project_with_transport(&project, &args.project, client).await?;
+        submit(client, project_id, args).await
+    })?;
+    ctx.print(render(&milestone))
+}
+
+/// Sends the mutation once. A failure after the request may have reached
+/// Linear says the milestone may already exist; nothing is retried.
+async fn submit(
+    client: &GraphQlTransport,
+    project_id: String,
+    args: &MilestoneCreate,
+) -> Result<CreatedMilestone> {
+    let request = GraphQlRequest::with_variables(CreateProjectMilestone::build(
         CreateProjectMilestoneVariables {
             input: ProjectMilestoneCreateInput {
-                project_id: project_id.to_owned(),
-                name: options.name.clone(),
-                description: options.description.clone(),
-                target_date: options.target_date.clone().map(TimelessDate),
+                project_id,
+                name: args.name.clone(),
+                description: args.description.clone(),
+                target_date: args.target_date.map(|date| TimelessDate(date.to_string())),
             },
         },
-    ))
-}
-
-/// Sends the mutation once and renders the created milestone. Failures after
-/// the request may have reached Linear say the milestone may already exist,
-/// so a user checks before creating it again; nothing is retried.
-pub async fn submit(
-    transport: &GraphQlTransport,
-    project_id: &str,
-    options: &Options,
-) -> Result<Vec<u8>, Error> {
-    let result: CreateProjectMilestone = transport
-        .execute(&request(project_id, options))
-        .await
-        .map_err(|failure| {
-            let uncertain = outcome_unknown(&failure);
-            let mut error = Error::from(failure);
-            if uncertain {
-                error.push_message("; milestone may already exist");
-            }
-            error
-        })?;
+    ));
+    let result: CreateProjectMilestone = client.execute(&request).await.map_err(|failure| {
+        let uncertain = outcome_unknown(&failure);
+        let mut error = Error::from(failure);
+        if uncertain {
+            error.push_message("; milestone may already exist");
+        }
+        error
+    })?;
     let payload = result.project_milestone_create;
     if !payload.success {
-        return Err(Error::new("Failed to create milestone"));
+        return Err(Error::new("Linear did not create the milestone"));
     }
-    Ok(render(&payload.project_milestone))
+    Ok(payload.project_milestone)
 }
 
 /// Only a failed connection proves nothing was sent. A timeout, any later
@@ -81,8 +74,7 @@ pub(crate) fn outcome_unknown(failure: &TransportFailure) -> bool {
     }
 }
 
-/// The success lines; an empty target date is skipped like a null one.
-pub fn render(milestone: &CreatedMilestone) -> Vec<u8> {
+fn render(milestone: &CreatedMilestone) -> String {
     let mut output = format!(
         "✓ Created milestone: {}\n  ID: {}\n",
         milestone.name,
@@ -96,5 +88,5 @@ pub fn render(milestone: &CreatedMilestone) -> Vec<u8> {
         output.push_str(&format!("  Target Date: {}\n", date.0));
     }
     output.push_str(&format!("  Project: {}\n", milestone.project.name));
-    output.into_bytes()
+    output
 }

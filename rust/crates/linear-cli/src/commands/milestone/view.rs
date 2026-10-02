@@ -1,138 +1,137 @@
-//! Typed milestone lookup, detail pagination, and output rendering.
-
+//! `milestone view`: one milestone and its issues, as Markdown or JSON.
 use std::cell::RefCell;
-use std::future::Future;
-use std::rc::Rc;
 
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::milestone::MilestoneView;
 use crate::commands::relative_time::format_relative_time;
-use crate::error::Error;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_view::{
-    DetailIssue, DetailMilestone, DetailVariables, GetMilestoneDetails,
-    GetProjectMilestonesForLookup, LookupVariables,
+    DetailMilestone, DetailVariables, GetMilestoneDetails, GetProjectMilestonesForLookup,
+    LookupVariables,
 };
 use crate::graphql::operations::number::Float;
-use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
+use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::refs::is_linear_uuid;
+use crate::refs::{
+    is_linear_uuid, prepare_project_lookup, reject_linear_url, resolve_project_with_transport,
+};
 
-pub const CONTEXT: &str = "Failed to fetch milestone details";
 const PAGE_SIZE: i32 = 50;
 const LIST_PREVIEW: usize = 10;
 
-pub fn detail_request(id: &str, after: Option<String>) -> GraphQlRequest<DetailVariables> {
-    GraphQlRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
-        id: id.to_owned(),
-        first: PAGE_SIZE,
-        after,
-    }))
+pub fn run(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
+    view(ctx, args).context("Failed to view milestone")
 }
 
-pub async fn resolve_id(
-    transport: &GraphQlTransport,
-    input: &str,
-    project_id: &str,
-) -> Result<String, Error> {
-    if is_linear_uuid(input) {
-        return Ok(input.to_owned());
+fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
+    reject_linear_url(&args.milestone, "a milestone name or UUID")?;
+    let project = match args.project.as_deref() {
+        Some(project) => Some((prepare_project_lookup(project, &ctx.scope()?)?, project)),
+        None => None,
+    };
+    let by_name = !is_linear_uuid(&args.milestone);
+    if by_name && project.is_none() {
+        return Err(
+            Error::new(format!("\"{}\" is not a milestone UUID", args.milestone))
+                .with_hint("Pass --project to look up a milestone by name."),
+        );
     }
-    let query =
+    let client = ctx.client()?;
+    let milestone = ctx.spin(!args.json, async {
+        let id = match &project {
+            Some((reference, original)) if by_name => {
+                let project_id =
+                    resolve_project_with_transport(reference, original, client).await?;
+                find_by_name(client, &args.milestone, &project_id).await?
+            }
+            Some(_) | None => args.milestone.clone(),
+        };
+        fetch(client, &args.milestone, &id, args.all).await
+    })?;
+    if args.json {
+        ctx.print(render_json(&milestone))
+    } else {
+        let markdown = markdown(&milestone, args.all, Utc::now(), &chrono::Local);
+        ctx.show_markdown(&markdown, false)
+    }
+}
+
+/// The ID of the project's milestone named `name`, ignoring case.
+async fn find_by_name(client: &GraphQlTransport, name: &str, project_id: &str) -> Result<String> {
+    let request =
         GraphQlRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
             project_id: project_id.to_owned(),
         }));
-    let data: GetProjectMilestonesForLookup =
-        transport.execute(&query).await.map_err(Error::from)?;
+    let data: GetProjectMilestonesForLookup = client.execute(&request).await?;
     let project = data
         .project
         .ok_or_else(|| Error::not_found("Project", project_id))?;
-    let name = input.to_lowercase();
+    let wanted = name.to_lowercase();
     project
         .project_milestones
         .into_iter()
         .flat_map(|connection| connection.nodes)
-        .find(|milestone| milestone.name.to_lowercase() == name)
+        .find(|milestone| milestone.name.to_lowercase() == wanted)
         .map(|milestone| milestone.id.into_inner())
-        .ok_or_else(|| Error::not_found("Milestone", input))
+        .ok_or_else(|| Error::not_found("Milestone", name))
 }
 
-pub async fn fetch(
-    transport: &GraphQlTransport,
+/// The milestone with its first page of issues, or every issue with `all`.
+async fn fetch(
+    client: &GraphQlTransport,
     original: &str,
-    request_id: &str,
+    id: &str,
     all: bool,
-) -> Result<DetailMilestone, Error> {
-    fetch_with(original, request_id, all, |request| async move {
-        transport.execute(&request).await.map_err(Error::from)
+) -> Result<DetailMilestone> {
+    let page = |after: Option<String>| async move {
+        let request = GraphQlRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
+            id: id.to_owned(),
+            first: PAGE_SIZE,
+            after,
+        }));
+        let data: GetMilestoneDetails = client.execute(&request).await?;
+        data.project_milestone
+            .ok_or_else(|| Error::not_found("Milestone", original))
+    };
+    if !all {
+        return page(None).await;
+    }
+    let first: RefCell<Option<DetailMilestone>> = RefCell::new(None);
+    let result = pagination::paginate(|after| {
+        let pending = page(after);
+        let first = &first;
+        async move {
+            let mut milestone = pending.await?;
+            let page = Page {
+                nodes: std::mem::take(&mut milestone.issues.nodes),
+                page_info: milestone.issues.page_info.clone().into(),
+            };
+            first.borrow_mut().get_or_insert(milestone);
+            Ok::<_, Error>(page)
+        }
     })
     .await
-}
-
-/// Exercise the public page contract with a scripted transport in tests.
-pub async fn fetch_with<F, Fut>(
-    original: &str,
-    request_id: &str,
-    all: bool,
-    mut fetch: F,
-) -> Result<DetailMilestone, Error>
-where
-    F: FnMut(GraphQlRequest<DetailVariables>) -> Fut,
-    Fut: Future<Output = Result<GetMilestoneDetails, Error>>,
-{
-    if !all {
-        let data = fetch(detail_request(request_id, None)).await?;
-        return data
-            .project_milestone
-            .ok_or_else(|| Error::not_found("Milestone", original));
-    }
-    let first: Rc<RefCell<Option<DetailMilestone>>> = Rc::new(RefCell::new(None));
-    let captured = Rc::clone(&first);
-    let result = pagination::paginate_with_policy(EmptyCursorPolicy::Reject, |after| {
-        let captured = Rc::clone(&captured);
-        let pending = fetch(detail_request(request_id, after));
-        async move {
-            let data = pending.await?;
-            let milestone = data
-                .project_milestone
-                .ok_or_else(|| Error::not_found("Milestone", original))?;
-            if captured.borrow().is_none() {
-                *captured.borrow_mut() = Some(milestone.clone());
-            }
-            Ok::<Page<DetailIssue>, Error>(Page {
-                nodes: milestone.issues.nodes,
-                page_info: milestone.issues.page_info.into(),
-            })
-        }
-    })
-    .await;
-    let result = result.map_err(|error| match error {
+    .map_err(|error| match error {
         PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } => {
-            let id = first.borrow();
-            let suggestion = id.as_ref().map(|milestone| {
-                format!(
-                    "Retry, or use `linear issue query --milestone {} --json` for the full list.",
-                    milestone.id.inner()
-                )
-            });
-            let error = Error::new("Linear reported more issues but returned no pagination cursor");
-            match suggestion {
-                Some(suggestion) => error.with_hint(suggestion),
-                None => error.with_hint("Retry the command."),
-            }
-        }
+        PaginationError::MissingCursor { .. } => Error::new(
+            "Linear reported more issues but returned no pagination cursor",
+        )
+        .with_hint(format!(
+            "Retry, or use `linear issue query --milestone {id} --json` for the full list."
+        )),
         PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
             "Linear repeated an issue pagination cursor on page {page}"
         ))
         .with_hint("Retry the command."),
     })?;
     let mut milestone = first
-        .borrow_mut()
-        .take()
-        .ok_or_else(|| Error::new("pagination returned without a first milestone"))?;
+        .into_inner()
+        .expect("a successful walk fetched the first page");
     milestone.issues.nodes = result.nodes;
     milestone.issues.page_info.has_next_page = result.page_info.has_next_page;
     milestone.issues.page_info.end_cursor = result.page_info.end_cursor;
@@ -184,7 +183,7 @@ struct JsonState<'a> {
     state_type: &'a str,
 }
 
-pub fn json(milestone: &DetailMilestone) -> Result<Vec<u8>, Error> {
+fn render_json(milestone: &DetailMilestone) -> Vec<u8> {
     let output = JsonMilestone {
         id: &milestone.id,
         name: &milestone.name,
@@ -217,13 +216,12 @@ pub fn json(milestone: &DetailMilestone) -> Result<Vec<u8>, Error> {
             page_info: &milestone.issues.page_info,
         },
     };
-    let mut bytes = serde_json::to_vec_pretty(&output)
-        .map_err(|error| Error::new("could not serialize milestone").with_source(error))?;
+    let mut bytes = serde_json::to_vec_pretty(&output).expect("milestone JSON always serializes");
     bytes.push(b'\n');
-    Ok(bytes)
+    bytes
 }
 
-pub fn markdown<Tz: TimeZone>(
+fn markdown<Tz: TimeZone>(
     milestone: &DetailMilestone,
     all: bool,
     now: DateTime<Utc>,

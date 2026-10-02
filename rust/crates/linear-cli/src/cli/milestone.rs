@@ -1,4 +1,7 @@
-use clap::{Args, Subcommand};
+use chrono::NaiveDate;
+use clap::{ArgGroup, Args, Subcommand};
+
+use crate::graphql::operations::number::Float;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -52,11 +55,17 @@ pub struct MilestoneCreate {
     pub name: String,
     #[arg(long = "description", help = "Milestone description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
-    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
-    pub target_date: Option<String>,
+    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = date)]
+    pub target_date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Args)]
+#[command(group(
+    ArgGroup::new("changes")
+        .required(true)
+        .multiple(true)
+        .args(["name", "description", "target_date", "sort_order", "project"])
+))]
 pub struct MilestoneUpdate {
     #[arg(value_name = "id")]
     pub id: String,
@@ -64,10 +73,10 @@ pub struct MilestoneUpdate {
     pub name: Option<String>,
     #[arg(long = "description", help = "Milestone description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
-    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
-    pub target_date: Option<String>,
-    #[arg(long = "sort-order", help = "Sort order relative to other milestones", value_name = "value", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
-    pub sort_order: Option<f64>,
+    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = date)]
+    pub target_date: Option<NaiveDate>,
+    #[arg(long = "sort-order", help = "Sort order relative to other milestones", value_name = "value", value_parser = sort_order, allow_negative_numbers = true)]
+    pub sort_order: Option<Float>,
     #[arg(long = "project", help = "Move to a different project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
 }
@@ -78,4 +87,17 @@ pub struct MilestoneDelete {
     pub id: String,
     #[arg(long = "force", short = 'f', help = "Skip confirmation prompt")]
     pub force: bool,
+}
+
+/// A `YYYY-MM-DD` calendar date.
+fn date(value: &str) -> Result<NaiveDate, String> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| format!("expected a date like 2026-10-31, got {value:?}"))
+}
+
+/// A finite sort order; a whole number is sent to Linear as a JSON integer.
+fn sort_order(value: &str) -> Result<Float, String> {
+    let number = super::numeric::finite_decimal(value)?;
+    Ok(serde_json::from_value(serde_json::Value::from(number))
+        .expect("a finite number decodes as a Float"))
 }

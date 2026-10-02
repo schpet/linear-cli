@@ -1,14 +1,14 @@
 //! `milestone list`: every page, sorted by target date, as a table or JSON.
-
 use std::cmp::Ordering;
-use std::future::Future;
 
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::milestone::MilestoneList;
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::commands::table::underlined_header;
-use crate::error::Error;
+use crate::commands::table;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
@@ -18,51 +18,50 @@ use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::collation;
+use crate::platform::{collation, style};
+use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
-/// Prefix for every `milestone list` failure.
-pub const CONTEXT: &str = "Failed to fetch milestones";
-
-const PAGE_SIZE: i32 = 100;
 const ID_WIDTH: usize = 36;
 const TARGET_DATE_WIDTH: usize = 12;
 const SPACE_WIDTH: usize = 4;
 const PADDING: usize = 1;
 
-/// One page request: `first: 100` always, `after` omitted on the first page.
-pub fn request(
-    project_id: &str,
-    after: Option<String>,
-) -> GraphQlRequest<GetProjectMilestonesVariables> {
-    GraphQlRequest::with_variables(GetProjectMilestones::build(GetProjectMilestonesVariables {
-        project_id: project_id.to_owned(),
-        first: Some(PAGE_SIZE),
-        after,
-    }))
+pub fn run(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
+    list(ctx, args).context("Failed to list milestones")
 }
 
-/// Fetch every page for an already-resolved project, then sort and render.
-///
-/// `original` is the raw `--project` value; a null `project` root on any page
-/// reports it as not found and discards earlier pages. Every returned error
-/// carries [`CONTEXT`] exactly once.
-pub async fn run_with<F, Fut>(
+fn list(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
+    let project = prepare_project_lookup(&args.project, &ctx.scope()?)?;
+    let client = ctx.client()?;
+    let (milestones, page_info) = ctx.spin(!args.json, async {
+        let project_id = resolve_project_with_transport(&project, &args.project, client).await?;
+        fetch(client, &args.project, &project_id).await
+    })?;
+    if args.json {
+        ctx.print(render_json(&milestones, &page_info))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(&milestones, columns, ctx.color()))
+    }
+}
+
+/// Every milestone of the project, sorted by target date (undated last), then name.
+async fn fetch(
+    client: &GraphQlTransport,
     original: &str,
     project_id: &str,
-    mut fetch: F,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetProjectMilestonesVariables>) -> Fut,
-    Fut: Future<Output = Result<GetProjectMilestones, Error>>,
-{
+) -> Result<(Vec<ProjectMilestone>, PageInfo)> {
     let result = pagination::paginate(|after| {
-        let future = fetch(request(project_id, after));
+        let request = GraphQlRequest::with_variables(GetProjectMilestones::build(
+            GetProjectMilestonesVariables {
+                project_id: project_id.to_owned(),
+                first: Some(100),
+                after,
+            },
+        ));
         async move {
-            let project = future
-                .await?
+            let data: GetProjectMilestones = client.execute(&request).await?;
+            let project = data
                 .project
                 .ok_or_else(|| Error::not_found("Project", original))?;
             let connection = project.project_milestones;
@@ -73,8 +72,17 @@ where
         }
     })
     .await
-    .map_err(pagination_error)?;
-
+    .map_err(|error| match error {
+        PaginationError::Fetch { source, .. } => source,
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more milestones but returned no pagination cursor")
+                .with_hint("Retry the command.")
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a milestone pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
+    })?;
     let mut nodes = result.nodes;
     nodes.sort_by(|left, right| {
         let name = || collation::compare(&left.name, &right.name);
@@ -89,46 +97,7 @@ where
         has_next_page: result.page_info.has_next_page,
         end_cursor: result.page_info.end_cursor,
     };
-    if json {
-        render_json(&nodes, &page_info)
-    } else {
-        Ok(render_text(&nodes, columns, color).into_bytes())
-    }
-}
-
-pub async fn run(
-    transport: &GraphQlTransport,
-    original: &str,
-    project_id: &str,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        original,
-        project_id,
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        json,
-        columns,
-        color,
-    )
-    .await
-}
-
-fn pagination_error(error: PaginationError<Error>) -> Error {
-    match error {
-        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
-        PaginationError::MissingCursor { .. } => {
-            Error::new("Linear reported more milestones but returned no pagination cursor")
-                .with_hint("Retry the command.")
-                .context(CONTEXT)
-        }
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated a milestone pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command.")
-        .context(CONTEXT),
-    }
+    Ok((nodes, page_info))
 }
 
 /// A null or empty target date sorts last and prints `No date`.
@@ -163,30 +132,24 @@ struct JsonConnection<'a> {
     page_info: &'a PageInfo,
 }
 
-fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
+fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Vec<u8> {
     let nodes = nodes
         .iter()
-        .map(|milestone| {
-            Ok(JsonMilestone {
-                id: &milestone.id,
-                name: &milestone.name,
-                target_date: &milestone.target_date,
-                sort_order: &milestone.sort_order,
-                project: JsonProject {
-                    id: &milestone.project.id,
-                    name: &milestone.project.name,
-                },
-            })
+        .map(|milestone| JsonMilestone {
+            id: &milestone.id,
+            name: &milestone.name,
+            target_date: &milestone.target_date,
+            sort_order: &milestone.sort_order,
+            project: JsonProject {
+                id: &milestone.project.id,
+                name: &milestone.project.name,
+            },
         })
-        .collect::<Result<Vec<_>, Error>>()?;
-    let mut output =
-        serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            Error::new("could not serialize milestones")
-                .with_source(error)
-                .context(CONTEXT)
-        })?;
+        .collect();
+    let mut output = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
+        .expect("milestone JSON always serializes");
     output.push(b'\n');
-    Ok(output)
+    output
 }
 
 /// Render the table from already-sorted milestones.
@@ -194,7 +157,7 @@ fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u
 /// The project column is clamped to 7..=30 display columns, and the name
 /// column is the widest name capped by the remaining width (see
 /// [`flexible_width`]), without widening to the `NAME` header.
-pub fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> String {
+fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> String {
     if nodes.is_empty() {
         return "No milestones found for this project.\n".to_owned();
     }
@@ -211,14 +174,16 @@ pub fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> S
         .max()
         .unwrap_or(0);
     let name_width = flexible_width(max_name_width, columns.saturating_sub(PADDING + fixed));
-    let mut output = underlined_header(
-        &[
-            pad("NAME", name_width),
-            pad("ID", ID_WIDTH),
-            pad("TARGET DATE", TARGET_DATE_WIDTH),
-            pad("PROJECT", project_width),
-        ],
-        color,
+    let header = [
+        pad("NAME", name_width),
+        pad("ID", ID_WIDTH),
+        pad("TARGET DATE", TARGET_DATE_WIDTH),
+        pad("PROJECT", project_width),
+    ]
+    .join(" ");
+    let mut output = format!(
+        "{}\n",
+        style::bold(&style::underline(&header, color), color)
     );
     for milestone in nodes {
         output.push_str(&format!(
