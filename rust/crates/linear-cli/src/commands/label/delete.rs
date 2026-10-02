@@ -1,133 +1,128 @@
-//! `label delete`: find the label by id or name, ask which one when names repeat, delete it.
-use std::io::{Read, Write};
-
+//! `label delete`: find the label by UUID or name, ask which one when names
+//! repeat, confirm, delete it.
 use cynic::{MutationBuilder, QueryBuilder};
 
-use crate::error::Error;
-use crate::graphql::envelope::{GraphQlRequest, ResponseError};
+use crate::cli::label::LabelDelete;
+use crate::commands::confirm;
+use crate::commands::team_key::configured_team_key;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::envelope::{self, GraphQlRequest};
 use crate::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
 };
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
-use crate::refs::{is_linear_uuid, reject_linear_url};
+use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
+use crate::refs::{
+    is_linear_uuid, prepare_team_lookup, reject_linear_url, resolve_team_with_transport,
+};
 
-pub const CONTEXT: &str = "Failed to delete label";
-
-pub fn id_request(id: &str) -> GraphQlRequest<IdVariables> {
-    GraphQlRequest::with_variables(GetLabelById::build(IdVariables { id: id.to_owned() }))
+pub fn run(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
+    delete(ctx, args).context("Failed to delete label")
 }
 
-pub fn name_request(name: &str) -> GraphQlRequest<NameVariables> {
-    GraphQlRequest::with_variables(GetLabelByName::build(NameVariables {
-        name: name.to_owned(),
-    }))
-}
-
-pub fn delete_request(id: &str) -> GraphQlRequest<IdVariables> {
-    GraphQlRequest::with_variables(DeleteIssueLabel::build(IdVariables { id: id.to_owned() }))
-}
-
-// A failed lookup counts as "not found by this route". Malformed responses
-// still stop the command rather than risk deleting the wrong label.
-fn lookup_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, Error> {
-    match result {
-        Ok(value) => Ok(Some(value)),
-        Err(
-            TransportFailure::GraphQl { .. }
-            | TransportFailure::Http { .. }
-            | TransportFailure::Network { .. }
-            | TransportFailure::Timeout { .. }
-            | TransportFailure::ResponseTooLarge { .. }
-            | TransportFailure::Response(
-                ResponseError::NotJson { .. }
-                | ResponseError::MalformedJson(_)
-                | ResponseError::MissingData
-                | ResponseError::GraphQl { .. },
-            ),
-        ) => Ok(None),
-        Err(
-            error @ (TransportFailure::RequestBody(_)
-            | TransportFailure::Response(
-                ResponseError::UnexpectedShape(_)
-                | ResponseError::MutationRejected
-                | ResponseError::MissingPayloadEntity,
-            )),
-        ) => Err(Error::from(error)),
-    }
-}
-
-pub enum Lookup {
-    Direct(Label),
-    Named(Vec<Label>),
-}
-
-pub async fn lookup(transport: &GraphQlTransport, original: &str) -> Result<Lookup, Error> {
-    reject_linear_url(original, "a label name or UUID")?;
-    if is_linear_uuid(original) {
-        let data: Option<GetLabelById> =
-            lookup_result(transport.execute(&id_request(original)).await)?;
-        if let Some(data) = data {
-            return Ok(Lookup::Direct(data.issue_label));
-        }
-    }
-    let data: Option<GetLabelByName> =
-        lookup_result(transport.execute(&name_request(original)).await)?;
-    Ok(Lookup::Named(
-        data.map_or_else(Vec::new, |data| data.issue_labels.nodes),
-    ))
-}
-
-/// UUID successes bypass team filtering; all name results preserve server order.
-pub fn scoped(lookup: Lookup, team: Option<&str>) -> Vec<Label> {
-    let labels = match lookup {
-        Lookup::Direct(label) => return vec![label],
-        Lookup::Named(labels) => labels,
+fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
+    let reference = &args.name_or_id;
+    reject_linear_url(reference, "a label name or UUID")?;
+    let by_id = is_linear_uuid(reference);
+    // A name is looked up in --team (or the configured team) and the workspace.
+    let team = match &args.team {
+        Some(team) => Some(team.clone()),
+        None if by_id => None,
+        None => configured_team_key(ctx.options()),
     };
-    match team {
-        Some(key) if !key.is_empty() => {
-            let chosen = labels
-                .iter()
-                .position(|label| {
-                    label
-                        .team
-                        .as_ref()
-                        .is_some_and(|team| team.key.to_lowercase() == key.to_lowercase())
-                })
-                .or_else(|| labels.iter().position(|label| label.team.is_none()));
-            labels
-                .into_iter()
-                .enumerate()
-                .filter_map(|(index, label)| (Some(index) == chosen).then_some(label))
-                .collect()
+    let team = team
+        .map(|team| prepare_team_lookup(&team, &ctx.scope()?))
+        .transpose()?;
+    if !args.force {
+        ctx.require_tty("--force")?;
+    }
+    let client = ctx.client()?;
+    let (labels, team_key) = ctx.spin(true, async {
+        if by_id {
+            return Ok::<_, Error>((vec![by_uuid(client, reference).await?], None));
         }
-        Some(_) | None => labels,
+        let team_key = match &team {
+            Some(lookup) => Some(resolve_team_with_transport(lookup, client).await?.key),
+            None => None,
+        };
+        let labels = by_name(client, reference).await?;
+        Ok((scoped(labels, team_key.as_deref()), team_key))
+    })?;
+    let label = match labels.as_slice() {
+        [] => {
+            let error = Error::not_found("Label", reference);
+            return Err(match team_key {
+                Some(key) => error.with_hint(format!("Searched in team {key} and the workspace.")),
+                None => error,
+            });
+        }
+        [label] => label.clone(),
+        _ => choose(ctx, reference, &labels)?,
+    };
+    let question = format!(
+        "Are you sure you want to delete label \"{}\"?",
+        display(&label)
+    );
+    if !confirm::deletion(ctx, args.force, &question)? {
+        return Ok(());
+    }
+    let request = GraphQlRequest::with_variables(DeleteIssueLabel::build(IdVariables {
+        id: label.id.inner().to_owned(),
+    }));
+    let result: DeleteIssueLabel = ctx.spin(true, client.execute(&request))?;
+    if !result.issue_label_delete.success {
+        return Err(Error::new("Linear did not delete the label"));
+    }
+    ctx.print(format!("✓ Deleted label: {}\n", display(&label)))
+}
+
+async fn by_uuid(client: &GraphQlTransport, id: &str) -> Result<Label> {
+    let request =
+        GraphQlRequest::with_variables(GetLabelById::build(IdVariables { id: id.to_owned() }));
+    match client.execute::<GetLabelById, _>(&request).await {
+        Ok(data) => Ok(data.issue_label),
+        Err(TransportFailure::GraphQl { errors, .. }) if envelope::is_not_found(&errors) => {
+            Err(Error::not_found("Label", id))
+        }
+        Err(failure) => Err(failure.into()),
     }
 }
 
-pub fn missing(original: &str, team: Option<&str>) -> Error {
-    let error = Error::not_found("Label", original);
-    match team.filter(|key| !key.is_empty()) {
-        Some(key) => error.with_hint(format!("Searched in team {key} and workspace.")),
-        None => error,
+/// Labels whose name matches, ignoring case, in server order.
+async fn by_name(client: &GraphQlTransport, name: &str) -> Result<Vec<Label>> {
+    let request = GraphQlRequest::with_variables(GetLabelByName::build(NameVariables {
+        name: name.to_owned(),
+    }));
+    let data: GetLabelByName = client.execute(&request).await?;
+    Ok(data.issue_labels.nodes)
+}
+
+/// With a team, its labels win; workspace labels are the fallback.
+fn scoped(labels: Vec<Label>, team_key: Option<&str>) -> Vec<Label> {
+    let Some(key) = team_key else {
+        return labels;
+    };
+    let (team, rest): (Vec<Label>, Vec<Label>) = labels
+        .into_iter()
+        .partition(|label| label.team.as_ref().is_some_and(|team| team.key == key));
+    if team.is_empty() {
+        rest.into_iter()
+            .filter(|label| label.team.is_none())
+            .collect()
+    } else {
+        team
     }
 }
 
-pub fn display(label: &Label) -> String {
-    let team = label
-        .team
-        .as_ref()
-        .map(|team| team.key.as_str())
-        .filter(|key| !key.is_empty())
-        .unwrap_or("Workspace");
-    format!("{} ({team})", label.name)
-}
-
-pub fn choose<R: Read, W: Write>(
-    session: &mut PromptSession<R, W>,
-    original: &str,
-    labels: &[Label],
-) -> Result<PromptOutcome<Label>, Error> {
+/// Asks which of several same-named labels to delete.
+fn choose(ctx: &Ctx, name: &str, labels: &[Label]) -> Result<Label> {
+    if !ctx.stdin_tty() {
+        return Err(
+            Error::new(format!("Multiple labels named \"{name}\" found"))
+                .with_hint("Pass --team to pick one, or delete it by UUID."),
+        );
+    }
     let options: Vec<_> = labels
         .iter()
         .map(|label| PlainOption {
@@ -136,27 +131,30 @@ pub fn choose<R: Read, W: Write>(
             script_token: label.id.inner().to_owned(),
         })
         .collect();
-    match session.select(&PlainSelect {
-        message: &format!("Multiple labels named \"{original}\" found. Which one?"),
+    let mut session = ctx.prompts()?;
+    let picked = session.select(&PlainSelect {
+        message: &format!("Multiple labels named \"{name}\" found. Which one?"),
         options: &options,
         default_index: 0,
         default_hint: None,
-    })? {
-        PromptOutcome::Submitted(id) => labels
+    });
+    match session.finish_result(picked)? {
+        PromptOutcome::Submitted(id) => Ok(labels
             .iter()
             .find(|label| label.id.inner() == id)
-            .cloned()
-            .map(PromptOutcome::Submitted)
-            .ok_or_else(|| Error::new("selected label ID is missing")),
-        PromptOutcome::Interrupted => Ok(PromptOutcome::Interrupted),
-        PromptOutcome::EndOfInput => Ok(PromptOutcome::EndOfInput),
+            .expect("the picked label is one of the options")
+            .clone()),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
     }
 }
 
-pub async fn submit(transport: &GraphQlTransport, label: &Label) -> Result<Vec<u8>, Error> {
-    let data: DeleteIssueLabel = transport.execute(&delete_request(label.id.inner())).await?;
-    if !data.issue_label_delete.success {
-        return Err(Error::new(CONTEXT));
-    }
-    Ok(format!("✓ Deleted label: {}\n", display(label)).into_bytes())
+fn display(label: &Label) -> String {
+    let team = label
+        .team
+        .as_ref()
+        .map(|team| team.key.as_str())
+        .filter(|key| !key.is_empty())
+        .unwrap_or("Workspace");
+    format!("{} ({team})", label.name)
 }

@@ -531,7 +531,7 @@ fn zsh_lists_every_alias_and_quotes_descriptions() {
     ));
     assert!(
         script.contains(
-            "'--workspace-only[Show only workspace-level labels (not team-specific)]' \\\n"
+            "'(--team --all)--workspace-only[Show only workspace-level labels (not team-specific)]' \\\n"
         )
     );
 }

@@ -1,25 +1,23 @@
-//! `label list`: filter precedence, complete typed pagination and output.
-use std::future::Future;
-
+//! `label list`: a team's labels plus workspace labels, or every label, as a
+//! table or JSON.
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::label::LabelList;
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::error::{Error, ResultExt};
+use crate::commands::table;
+use crate::commands::team_key::configured_team_key;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_labels::{
-    self, GetIssueLabels, GetIssueLabelsVariables, IssueLabelFilter, NullableTeamFilter,
+    GetIssueLabels, GetIssueLabelsVariables, IssueLabel, IssueLabelFilter, NullableTeamFilter,
 };
-use crate::graphql::operations::teams::{self, StringComparator};
+use crate::graphql::operations::teams::{PageInfo, StringComparator};
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::collation;
-use crate::refs::{
-    PreparedTeamLookup, ResolvedTeam, WorkspaceScope, prepare_team_lookup,
-    resolve_team_with_transport,
-};
-
-pub const CONTEXT: &str = "Failed to fetch labels";
+use crate::platform::{collation, style};
+use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
 
 const ID_WIDTH: usize = 36;
 const COLOR_WIDTH: usize = 7;
@@ -27,116 +25,62 @@ const SPACE_WIDTH: usize = 6;
 const PADDING: usize = 1;
 const WORKSPACE: &str = "Workspace";
 
-/// Local `label list` flags. `workspace_only` is the command's own
-/// `--workspace` switch, distinct from the global `--workspace <slug>`.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Options {
-    pub team: Option<String>,
-    pub workspace_only: bool,
-    pub all: bool,
-    pub json: bool,
-}
-
-/// Which labels to request once flag precedence has been applied.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Selection {
+/// Which labels to list.
+enum Scope {
     /// Only labels without a team.
-    WorkspaceOnly,
-    /// An explicit team reference, resolved to its key before the label request.
+    Workspace,
+    /// A team's labels plus workspace labels.
     Team(PreparedTeamLookup),
-    /// The configured team key, used without a resolver lookup.
-    ConfiguredTeam(String),
-    /// No `filter` variable at all.
-    Unfiltered,
+    All,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: &'a [issue_labels::IssueLabel],
-    page_info: &'a teams::PageInfo,
+pub fn run(ctx: &Ctx, args: &LabelList) -> Result<()> {
+    list(ctx, args).context("Failed to list labels")
 }
 
-/// Pick the label scope: workspace-only, then an explicit team, then the
-/// configured team unless `--all`. Call after building the client so missing
-/// credentials are reported before a bad team reference.
-///
-/// `configured_team` is `team_key::configured_team_key`'s result: already
-/// uppercased, and absent rather than empty.
-pub fn select(
-    options: &Options,
-    configured_team: Option<&str>,
-    scope: &WorkspaceScope<'_>,
-) -> Result<Selection, Error> {
-    if options
-        .team
-        .as_deref()
-        .is_some_and(|team| team.trim().is_empty())
-    {
-        return Err(Error::new("Team reference is empty")
-            .with_hint("Pass a team key, name, or ID, e.g. --team ENG.")
-            .context(CONTEXT));
-    }
-    if options.workspace_only {
-        return Ok(Selection::WorkspaceOnly);
-    }
-    if let Some(team) = options.team.as_deref() {
-        return prepare_team_lookup(team, scope)
-            .map(Selection::Team)
-            .context(CONTEXT);
-    }
-    if options.all {
-        return Ok(Selection::Unfiltered);
-    }
-    match configured_team {
-        Some("") => Err(
-            Error::new("configured team key is empty; absent keys must be None").context(CONTEXT),
-        ),
-        Some(key) => Ok(Selection::ConfiguredTeam(key.to_owned())),
-        None => Ok(Selection::Unfiltered),
-    }
-}
-
-pub async fn run_with<R, RFut, F, Fut>(
-    selection: Selection,
-    resolve: R,
-    fetch: F,
-    json: bool,
-    columns: usize,
-) -> Result<Vec<u8>, Error>
-where
-    R: FnOnce(PreparedTeamLookup) -> RFut,
-    RFut: Future<Output = Result<ResolvedTeam, Error>>,
-    F: FnMut(GraphQlRequest<GetIssueLabelsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetIssueLabels, Error>>,
-{
-    run_with_style(selection, resolve, fetch, json, columns, false).await
-}
-
-async fn run_with_style<R, RFut, F, Fut>(
-    selection: Selection,
-    resolve: R,
-    mut fetch: F,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error>
-where
-    R: FnOnce(PreparedTeamLookup) -> RFut,
-    RFut: Future<Output = Result<ResolvedTeam, Error>>,
-    F: FnMut(GraphQlRequest<GetIssueLabelsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetIssueLabels, Error>>,
-{
-    let filter = match selection {
-        Selection::WorkspaceOnly => Some(workspace_only_filter()),
-        Selection::Team(prepared) => {
-            let team = resolve(prepared).await.context(CONTEXT)?;
-            Some(team_filter(team.key))
+fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
+    let scope = if args.workspace_only {
+        Scope::Workspace
+    } else {
+        // --team, then the configured team unless --all.
+        let team = match &args.team {
+            Some(team) => Some(team.clone()),
+            None if args.all => None,
+            None => configured_team_key(ctx.options()),
+        };
+        match team {
+            Some(team) => Scope::Team(prepare_team_lookup(&team, &ctx.scope()?)?),
+            None => Scope::All,
         }
-        Selection::ConfiguredTeam(key) => Some(team_filter(key)),
-        Selection::Unfiltered => None,
     };
+    let client = ctx.client()?;
+    let (mut labels, page_info) = ctx.spin(!args.json, async {
+        let filter = match &scope {
+            Scope::Workspace => Some(workspace_only_filter()),
+            Scope::Team(lookup) => {
+                let team = resolve_team_with_transport(lookup, client).await?;
+                Some(team_filter(team.key))
+            }
+            Scope::All => None,
+        };
+        fetch(client, filter).await
+    })?;
+    labels.sort_by(|left, right| {
+        collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+    });
+    if args.json {
+        ctx.print(render_json(&labels, &page_info))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(&labels, columns, ctx.color()))
+    }
+}
 
+/// Every page of labels matching `filter`, with the last page's info.
+async fn fetch(
+    client: &GraphQlTransport,
+    filter: Option<IssueLabelFilter>,
+) -> Result<(Vec<IssueLabel>, PageInfo)> {
     let result = pagination::paginate(|after| {
         let request =
             GraphQlRequest::with_variables(GetIssueLabels::build(GetIssueLabelsVariables {
@@ -144,10 +88,9 @@ where
                 first: Some(100),
                 after,
             }));
-        let future = fetch(request);
         async move {
-            let data = future.await?;
-            Ok::<Page<issue_labels::IssueLabel>, Error>(Page {
+            let data: GetIssueLabels = client.execute(&request).await?;
+            Ok::<Page<IssueLabel>, Error>(Page {
                 nodes: data.issue_labels.nodes,
                 page_info: data.issue_labels.page_info.into(),
             })
@@ -155,59 +98,38 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source,
         PaginationError::MissingCursor { .. } => {
             Error::new("Linear reported more labels but returned no pagination cursor")
                 .with_hint("Retry the command.")
-                .context(CONTEXT)
         }
         PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
             "Linear repeated a label pagination cursor on page {page}"
         ))
-        .with_hint("Retry the command.")
-        .context(CONTEXT),
+        .with_hint("Retry the command."),
     })?;
-
-    let mut labels = result.nodes;
-    labels.sort_by(|left, right| {
-        collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
-    });
-    if json {
-        let page_info = teams::PageInfo {
-            has_next_page: result.page_info.has_next_page,
-            end_cursor: result.page_info.end_cursor,
-        };
-        let mut output = serde_json::to_vec_pretty(&JsonConnection {
-            nodes: &labels,
-            page_info: &page_info,
-        })
-        .map_err(|error| {
-            Error::new("could not serialize labels")
-                .with_source(error)
-                .context(CONTEXT)
-        })?;
-        output.push(b'\n');
-        return Ok(output);
-    }
-    Ok(render_text(&labels, columns, color).into_bytes())
+    let page_info = PageInfo {
+        has_next_page: result.page_info.has_next_page,
+        end_cursor: result.page_info.end_cursor,
+    };
+    Ok((result.nodes, page_info))
 }
 
-pub async fn run(
-    transport: &GraphQlTransport,
-    selection: Selection,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with_style(
-        selection,
-        |prepared| async move { resolve_team_with_transport(&prepared, transport).await },
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        json,
-        columns,
-        color,
-    )
-    .await
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonConnection<'a> {
+    nodes: &'a [IssueLabel],
+    page_info: &'a PageInfo,
+}
+
+fn render_json(labels: &[IssueLabel], page_info: &PageInfo) -> Vec<u8> {
+    let mut output = serde_json::to_vec_pretty(&JsonConnection {
+        nodes: labels,
+        page_info,
+    })
+    .expect("label JSON always serializes");
+    output.push(b'\n');
+    output
 }
 
 fn workspace_only_filter() -> IssueLabelFilter {
@@ -240,8 +162,7 @@ fn team_filter(key: String) -> IssueLabelFilter {
     }
 }
 
-/// `label.team?.key || "Workspace"`: an empty key also shows `Workspace`.
-fn team_display(label: &issue_labels::IssueLabel) -> &str {
+fn team_display(label: &IssueLabel) -> &str {
     label
         .team
         .as_ref()
@@ -250,7 +171,7 @@ fn team_display(label: &issue_labels::IssueLabel) -> &str {
         .unwrap_or(WORKSPACE)
 }
 
-pub fn render_text(labels: &[issue_labels::IssueLabel], columns: usize, color: bool) -> String {
+fn render_text(labels: &[IssueLabel], columns: usize, color: bool) -> String {
     if labels.is_empty() {
         return "No labels found.\n".to_owned();
     }
@@ -275,25 +196,7 @@ pub fn render_text(labels: &[issue_labels::IssueLabel], columns: usize, color: b
         pad("COLOR", COLOR_WIDTH),
         pad("TEAM", team_width),
     ];
-    let mut output = if color {
-        let mut line = String::new();
-        for (index, cell) in header.iter().enumerate() {
-            if index > 0 {
-                line.push(' ');
-            }
-            line.push_str("\x1b[4m");
-            line.push_str(cell);
-            line.push_str(if index + 1 == header.len() {
-                "\x1b[0m"
-            } else {
-                "\x1b[24m"
-            });
-        }
-        line.push('\n');
-        line
-    } else {
-        format!("{}\n", header.join(" "))
-    };
+    let mut output = format!("{}\n", style::underline(&header.join(" "), color));
 
     for label in labels {
         let id = pad(label.id.inner(), ID_WIDTH);

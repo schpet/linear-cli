@@ -76,15 +76,27 @@ fn list_text_shows_names_and_teams() {
 #[test]
 fn list_scopes_to_the_configured_team_plus_workspace_labels() {
     let api = MockLinear::start();
-    api.on("GetIssueLabels", labels(vec![], Value::Null, false));
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("GetIssueLabels", labels(vec![], Value::Null, false));
     Cli::for_api(&api)
-        .env("LINEAR_TEAM_ID", "ENG")
+        .env("LINEAR_TEAM_ID", "eng")
         .run(&["label", "list", "--json"])
         .success();
+    assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
     assert_eq!(
         api.variables("GetIssueLabels"),
         json!({ "first": 100, "filter": team_or_workspace_filter() })
     );
+}
+
+#[test]
+fn list_scope_flags_conflict() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    cli.run(&["label", "list", "--workspace-only", "--all"])
+        .usage_error();
+    cli.run(&["label", "list", "--all", "--team", "ENG"])
+        .usage_error();
 }
 
 #[test]
@@ -253,13 +265,78 @@ fn delete_ambiguous_name_fails_without_deleting() {
 }
 
 #[test]
-fn delete_without_force_needs_a_confirmation() {
+fn delete_without_force_refuses_before_any_request() {
     let api = MockLinear::start();
-    api.on(
-        "GetLabelByName",
-        by_name(vec![label("l-bug", "Bug", eng())]),
-    );
     Cli::for_api(&api)
         .run(&["label", "delete", "Bug"])
-        .failure();
+        .failure()
+        .stderr_has("--force");
+}
+
+#[test]
+fn delete_by_name_uses_the_configured_team() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetLabelByName",
+            by_name(vec![
+                label("l-ops", "Bug", json!({ "key": "OPS", "name": "Ops" })),
+                label("l-eng", "Bug", eng()),
+            ]),
+        )
+        .on("DeleteIssueLabel", deleted());
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "eng")
+        .run(&["label", "delete", "Bug", "--force"])
+        .success()
+        .stdout_has("Bug (ENG)");
+    assert_eq!(api.variables("DeleteIssueLabel"), json!({ "id": "l-eng" }));
+}
+
+#[test]
+fn delete_falls_back_to_the_workspace_label() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetLabelByName",
+            by_name(vec![
+                label("l-ops", "Bug", json!({ "key": "OPS", "name": "Ops" })),
+                label("l-shared", "Bug", Value::Null),
+            ]),
+        )
+        .on("DeleteIssueLabel", deleted());
+    Cli::for_api(&api)
+        .run(&["label", "delete", "Bug", "--team", "ENG", "--force"])
+        .success();
+    assert_eq!(
+        api.variables("DeleteIssueLabel"),
+        json!({ "id": "l-shared" })
+    );
+}
+
+#[test]
+fn delete_missing_label_is_not_found() {
+    let api = MockLinear::start();
+    api.on("GetLabelByName", by_name(vec![]));
+    Cli::for_api(&api)
+        .run(&["label", "delete", "Nope", "--force"])
+        .failure()
+        .stderr_has("Label not found: Nope");
+}
+
+#[test]
+fn create_without_a_name_needs_a_terminal() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["label", "create", "-c", "#ABCDEF"])
+        .failure()
+        .stderr_has("--name");
+}
+
+#[test]
+fn create_rejects_a_bad_color_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["label", "create", "-n", "Bug", "-c", "red"])
+        .usage_error();
 }
