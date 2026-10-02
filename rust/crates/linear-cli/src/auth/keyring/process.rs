@@ -1,99 +1,44 @@
-//! Uncapped concurrent keyring feed/drain/wait with owned cleanup.
-use super::ReaderFlavor;
-use crate::{
-    auth::mutation::MutationFailure,
-    config::{ChildEnvOverlay, ConfigSecret},
-    error::{AppError, AppErrorKind},
-    text::js_trim,
-};
-use std::{io, process::Stdio};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::{Child, Command},
-};
+//! Keyring access through the platform's command-line tool: `secret-tool` on
+//! Linux and `/usr/bin/security` on macOS. Going through `security` keeps
+//! existing keychain items readable without a new access prompt, because
+//! their access lists already trust that tool.
+use std::ffi::OsString;
+use std::io;
+use std::process::{Output, Stdio};
+use std::time::Duration;
 
-struct OwnedChild {
-    child: Option<Child>,
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio::process::Command;
+
+use super::{KeyringReader, ReaderFlavor};
+use crate::auth::mutation::MutationFailure;
+use crate::auth::{LookupFailureCategory, LookupResult};
+use crate::config::{ChildEnvOverlay, ConfigSecret};
+use crate::error::{AppError, AppErrorKind};
+use crate::text::{js_space, js_trim};
+
+/// How long one keyring command may run before it is killed.
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// `security` exits with this status when no matching item exists.
+const MAC_NOT_FOUND: i32 = 44;
+
+#[derive(Debug)]
+enum RunError {
+    Spawn(io::Error),
+    Io(io::Error),
+    Timeout,
 }
-impl OwnedChild {
-    async fn cleanup(&mut self) {
-        if let Some(child) = self.child.as_mut() {
-            // Exited child may report InvalidInput on kill; wait still reaps it.
-            let _kill_result = child.start_kill();
-            let _wait_result = child.wait().await;
-        }
-        self.child = None;
-    }
-}
-impl Drop for OwnedChild {
-    fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            let _kill_result = child.start_kill();
-            // Own a reaper on future cancellation; Tokio's kill_on_drop remains
-            // enabled for the case the runtime itself is shutting down.
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                handle.spawn(async move {
-                    let _wait_result = child.wait().await;
-                });
-            }
-        }
-    }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProcessCompletion {
-    Exited(i32),
-    Signaled(i32),
-}
-impl ProcessCompletion {
-    pub fn source_code(self) -> Result<i32, MutationFailure> {
-        match self {
-            Self::Exited(code) => Ok(code),
-            Self::Signaled(signal) => 128_i32.checked_add(signal).ok_or_else(|| {
-                MutationFailure::Typed(AppError::new(
-                    AppErrorKind::IoProcess,
-                    format!("Keyring signal {signal} cannot be represented as an exit code; backend effects may have occurred"),
-                ))
-            }),
-        }
-    }
-}
-fn completion(status: std::process::ExitStatus) -> Result<ProcessCompletion, MutationFailure> {
-    if let Some(code) = status.code() {
-        return Ok(ProcessCompletion::Exited(code));
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        if let Some(signal) = status.signal() {
-            return Ok(ProcessCompletion::Signaled(signal));
-        }
-    }
-    Err(MutationFailure::Typed(AppError::new(
-        AppErrorKind::IoProcess,
-        "Keyring command terminated without an exit code or signal; backend effects may have occurred",
-    )))
-}
-pub struct ProcessReply {
-    pub completion: ProcessCompletion,
-    pub stdout: Vec<u8>,
-    pub stderr: String,
-}
-pub async fn run(
-    executable: &str,
-    args: &[String],
-    input: Option<&ConfigSecret>,
-    overlay: &ChildEnvOverlay,
-) -> Result<ProcessReply, MutationFailure> {
-    if args.iter().any(|arg| arg.contains('\0')) {
-        return Err(MutationFailure::Typed(AppError::new(
-            AppErrorKind::Validation,
-            "Keyring arguments cannot contain a NUL character",
-        )));
-    }
-    let mut command = Command::new(executable);
+
+/// Runs a keyring command to completion, feeding `input` on stdin.
+///
+/// The child is killed if it outlives `timeout` or the caller is dropped.
+async fn run(
+    command: &mut Command,
+    input: Option<&[u8]>,
+    timeout: Duration,
+) -> Result<Output, RunError> {
     command
-        .args(args)
-        .envs(overlay.iter())
         .kill_on_drop(true)
         .stdin(if input.is_some() {
             Stdio::piped()
@@ -102,152 +47,246 @@ pub async fn run(
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let child = command.spawn().map_err(|error| MutationFailure::Ordinary(match executable {
-        "secret-tool" => format!("Could not run secret-tool. Install libsecret (e.g. apt install libsecret-tools, pacman -S libsecret).\nAlternatively, set the LINEAR_API_KEY environment variable.\n  ({error})"),
-        "/usr/bin/security" => format!("Could not run /usr/bin/security. Is this a macOS system?\n  ({error})"),
-        _ => unreachable!("keyring executable is explicit and platform-owned"),
-    }))?;
-    let mut owned = OwnedChild { child: Some(child) };
-    let child = owned
-        .child
-        .as_mut()
-        .unwrap_or_else(|| unreachable!("owned child just spawned"));
-    let mut stdout = child
-        .stdout
-        .take()
-        .unwrap_or_else(|| unreachable!("requested stdout pipe"));
-    let mut stderr = child
-        .stderr
-        .take()
-        .unwrap_or_else(|| unreachable!("requested stderr pipe"));
+    let mut child = command.spawn().map_err(RunError::Spawn)?;
     let stdin = child.stdin.take();
-    let feed = async {
-        match (input, stdin) {
-            (Some(secret), Some(mut pipe)) => {
-                let failed = |error: io::Error| {
-                    MutationFailure::Ordinary(format!(
-                        "Failed to write to stdin of {executable}: {error}"
-                    ))
-                };
-                pipe.write_all(secret.expose().as_bytes())
-                    .await
-                    .map_err(failed)?;
-                pipe.shutdown().await.map_err(failed)
-            }
-            (None, None) => Ok(()),
-            _ => Err(MutationFailure::Typed(AppError::new(
-                AppErrorKind::Invariant,
-                "keyring stdin pipe mismatch",
-            ))),
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let exchange = async {
+        if let (Some(input), Some(mut stdin)) = (input, stdin) {
+            stdin.write_all(input).await.map_err(RunError::Io)?;
         }
+        let (status, stdout, stderr) =
+            tokio::try_join!(child.wait(), read_all(stdout), read_all(stderr))
+                .map_err(RunError::Io)?;
+        Ok(Output {
+            status,
+            stdout,
+            stderr,
+        })
     };
-    let out = async {
-        let mut bytes = Vec::new();
-        stdout
-            .read_to_end(&mut bytes)
-            .await
-            .map_err(|error| MutationFailure::Ordinary(error.to_string()))?;
-        Ok::<_, MutationFailure>(bytes)
-    };
-    let err = async {
-        let mut bytes = Vec::new();
-        stderr
-            .read_to_end(&mut bytes)
-            .await
-            .map_err(|error| MutationFailure::Ordinary(error.to_string()))?;
-        Ok::<_, MutationFailure>(bytes)
-    };
-    let wait = async {
-        child
-            .wait()
-            .await
-            .map_err(|error| MutationFailure::Ordinary(error.to_string()))
-    };
-    let result = tokio::try_join!(feed, out, err, wait);
-    match result {
-        Ok(((), stdout, stderr, status)) => {
-            owned.child = None; // wait completed, fully drained and reaped.
-            let completion = completion(status)?;
-            let decoded = String::from_utf8_lossy(&stderr);
-            Ok(ProcessReply {
-                completion,
-                stdout,
-                stderr: js_trim(decoded.strip_prefix('\u{feff}').unwrap_or(&decoded)).to_owned(),
-            })
-        }
-        Err(failure) => {
-            owned.cleanup().await;
-            Err(failure)
+    match tokio::time::timeout(timeout, exchange).await {
+        Ok(result) => result,
+        Err(_elapsed) => {
+            // Kill and reap so no zombie outlives the lookup.
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            Err(RunError::Timeout)
         }
     }
 }
 
+async fn read_all(pipe: Option<impl AsyncRead + Unpin>) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    if let Some(mut pipe) = pipe {
+        pipe.read_to_end(&mut bytes).await?;
+    }
+    Ok(bytes)
+}
+
+/// Why a keyring lookup failed. Never carries the tool's output, which may
+/// include the secret.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ProcessLookupFailure {
+    Runtime(io::ErrorKind),
+    Spawn(io::ErrorKind),
+    Io(io::ErrorKind),
+    Timeout,
+    InvalidUtf8,
+    ExitFailure,
+}
+
+impl ProcessLookupFailure {
+    fn category(self) -> LookupFailureCategory {
+        match self {
+            Self::Spawn(io::ErrorKind::NotFound) => LookupFailureCategory::Unavailable,
+            Self::Spawn(io::ErrorKind::PermissionDenied) => LookupFailureCategory::Permission,
+            Self::Runtime(_)
+            | Self::Spawn(_)
+            | Self::Io(_)
+            | Self::Timeout
+            | Self::InvalidUtf8
+            | Self::ExitFailure => LookupFailureCategory::Other,
+        }
+    }
+}
+
+/// Reads API keys with the platform's keyring tool.
+pub struct ProcessKeyringReader {
+    flavor: ReaderFlavor,
+    executable: OsString,
+    timeout: Duration,
+}
+
+impl ProcessKeyringReader {
+    pub fn new(flavor: ReaderFlavor) -> Self {
+        Self::with_executable(flavor, OsString::from(flavor.executable()))
+    }
+
+    /// Runs `executable` instead of the platform tool, with the same
+    /// arguments.
+    pub fn with_executable(flavor: ReaderFlavor, executable: OsString) -> Self {
+        Self {
+            flavor,
+            executable,
+            timeout: DEFAULT_TIMEOUT,
+        }
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// `Ok(None)` when no key is stored for the workspace.
+    pub fn lookup_detailed(
+        &self,
+        workspace: &str,
+    ) -> Result<Option<ConfigSecret>, ProcessLookupFailure> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|error| ProcessLookupFailure::Runtime(error.kind()))?;
+        let mut command = Command::new(&self.executable);
+        command.args(self.flavor.lookup_arguments(workspace));
+        let output = runtime
+            .block_on(run(&mut command, None, self.timeout))
+            .map_err(|error| match error {
+                RunError::Spawn(error) => ProcessLookupFailure::Spawn(error.kind()),
+                RunError::Io(error) => ProcessLookupFailure::Io(error.kind()),
+                RunError::Timeout => ProcessLookupFailure::Timeout,
+            })?;
+        if output.status.success() {
+            let stdout =
+                String::from_utf8(output.stdout).map_err(|_| ProcessLookupFailure::InvalidUtf8)?;
+            let key = match self.flavor {
+                // `security -w` prints the password followed by a newline.
+                ReaderFlavor::MacSecurity => js_trim(&stdout).to_owned(),
+                ReaderFlavor::SecretTool => stdout,
+            };
+            return Ok((!key.is_empty()).then(|| ConfigSecret::new(key)));
+        }
+        let missing = match self.flavor {
+            ReaderFlavor::MacSecurity => output.status.code() == Some(MAC_NOT_FOUND),
+            // secret-tool exits 1 without a message when nothing matches.
+            ReaderFlavor::SecretTool => {
+                output.status.code() == Some(1)
+                    && String::from_utf8(output.stderr)
+                        .is_ok_and(|stderr| stderr.trim_matches(js_space).is_empty())
+            }
+        };
+        if missing {
+            Ok(None)
+        } else {
+            Err(ProcessLookupFailure::ExitFailure)
+        }
+    }
+}
+
+impl KeyringReader for ProcessKeyringReader {
+    fn lookup(&self, workspace: &str) -> LookupResult {
+        match self.lookup_detailed(workspace) {
+            Ok(Some(key)) => LookupResult::Hit(key),
+            Ok(None) => LookupResult::Miss,
+            Err(error) => LookupResult::Failed(error.category()),
+        }
+    }
+}
+
+/// Stores and deletes API keys with the platform's keyring tool. The child
+/// sees the `.env` overlay, like every other subprocess.
 pub struct ProcessMutationBackend {
     pub overlay: ChildEnvOverlay,
 }
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+
+impl ProcessMutationBackend {
+    #[cfg(target_os = "linux")]
+    const FLAVOR: ReaderFlavor = ReaderFlavor::SecretTool;
+    #[cfg(not(target_os = "linux"))]
+    const FLAVOR: ReaderFlavor = ReaderFlavor::MacSecurity;
+
+    fn tool_name() -> &'static str {
+        match Self::FLAVOR {
+            ReaderFlavor::SecretTool => "secret-tool",
+            ReaderFlavor::MacSecurity => "security",
+        }
+    }
+
+    async fn run(&self, args: &[String], input: Option<&[u8]>) -> Result<Output, MutationFailure> {
+        if args.iter().any(|arg| arg.contains('\0')) {
+            return Err(MutationFailure::Typed(AppError::new(
+                AppErrorKind::Validation,
+                "Keyring arguments cannot contain a NUL character",
+            )));
+        }
+        let executable = Self::FLAVOR.executable();
+        let mut command = Command::new(executable);
+        command.args(args).envs(self.overlay.iter());
+        run(&mut command, input, DEFAULT_TIMEOUT)
+            .await
+            .map_err(|error| match error {
+                RunError::Spawn(error) => MutationFailure::Ordinary(match Self::FLAVOR {
+                    ReaderFlavor::SecretTool => format!(
+                        "Could not run secret-tool. Install libsecret (e.g. apt install libsecret-tools, pacman -S libsecret).\nAlternatively, set the LINEAR_API_KEY environment variable.\n  ({error})"
+                    ),
+                    ReaderFlavor::MacSecurity => format!(
+                        "Could not run {executable}. Is this a macOS system?\n  ({error})"
+                    ),
+                }),
+                RunError::Io(error) => MutationFailure::Ordinary(format!(
+                    "{} failed: {error}",
+                    Self::tool_name()
+                )),
+                RunError::Timeout => MutationFailure::Ordinary(format!(
+                    "{} did not finish within {} seconds",
+                    Self::tool_name(),
+                    DEFAULT_TIMEOUT.as_secs()
+                )),
+            })
+    }
+
+    /// Fails unless the tool exited with one of `accepted`.
+    fn check(output: &Output, action: &str, accepted: &[i32]) -> Result<(), MutationFailure> {
+        let code = output.status.code();
+        if code.is_some_and(|code| accepted.contains(&code)) {
+            return Ok(());
+        }
+        let status = code.map_or_else(|| output.status.to_string(), |code| format!("exit {code}"));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(MutationFailure::Ordinary(format!(
+            "{} {action} failed ({status}): {}",
+            Self::tool_name(),
+            js_trim(&stderr)
+        )))
+    }
+}
+
 impl crate::auth::mutation::CredentialMutationBackend for ProcessMutationBackend {
     async fn available(&self) -> bool {
-        #[cfg(target_os = "linux")]
-        {
-            run("secret-tool", &[], None, &self.overlay).await.is_ok()
-        }
-        #[cfg(target_os = "macos")]
-        {
-            true
+        match Self::FLAVOR {
+            ReaderFlavor::SecretTool => self.run(&[], None).await.is_ok(),
+            ReaderFlavor::MacSecurity => true,
         }
     }
+
     async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<(), MutationFailure> {
-        #[cfg(target_os = "linux")]
-        let flavor = ReaderFlavor::SecretTool;
-        #[cfg(target_os = "macos")]
-        let flavor = ReaderFlavor::MacSecurity;
-        let exe = flavor.executable();
-        let action = flavor.store_action();
-        let args = flavor.store_arguments(workspace, secret);
-        let input = match flavor {
-            ReaderFlavor::SecretTool => Some(secret),
+        let args = Self::FLAVOR.store_arguments(workspace, secret);
+        // secret-tool reads the secret from stdin; `security` takes it as an
+        // argument.
+        let input = match Self::FLAVOR {
+            ReaderFlavor::SecretTool => Some(secret.expose().as_bytes()),
             ReaderFlavor::MacSecurity => None,
         };
-        let reply = run(exe, &args, input, &self.overlay).await?;
-        let code = reply.completion.source_code()?;
-        if code != 0 {
-            return Err(MutationFailure::Ordinary(format!(
-                "{} {action} failed (exit {}): {}",
-                if exe == "secret-tool" {
-                    "secret-tool"
-                } else {
-                    "security"
-                },
-                code,
-                reply.stderr
-            )));
-        }
-        Ok(())
+        let output = self.run(&args, input).await?;
+        Self::check(&output, Self::FLAVOR.store_action(), &[0])
     }
+
     async fn delete(&self, workspace: &str) -> Result<(), MutationFailure> {
-        #[cfg(target_os = "linux")]
-        let flavor = ReaderFlavor::SecretTool;
-        #[cfg(target_os = "macos")]
-        let flavor = ReaderFlavor::MacSecurity;
-        let exe = flavor.executable();
-        let action = flavor.delete_action();
-        let args = flavor.delete_arguments(workspace);
-        let reply = run(exe, &args, None, &self.overlay).await?;
-        let code = reply.completion.source_code()?;
-        let accepted = code == 0 || (flavor == ReaderFlavor::MacSecurity && code == 44);
-        if !accepted {
-            return Err(MutationFailure::Ordinary(format!(
-                "{} {action} failed (exit {}): {}",
-                if exe == "secret-tool" {
-                    "secret-tool"
-                } else {
-                    "security"
-                },
-                code,
-                reply.stderr
-            )));
-        }
-        Ok(())
+        let args = Self::FLAVOR.delete_arguments(workspace);
+        let output = self.run(&args, None).await?;
+        let accepted: &[i32] = match Self::FLAVOR {
+            ReaderFlavor::SecretTool => &[0],
+            ReaderFlavor::MacSecurity => &[0, MAC_NOT_FOUND],
+        };
+        Self::check(&output, Self::FLAVOR.delete_action(), accepted)
     }
 }

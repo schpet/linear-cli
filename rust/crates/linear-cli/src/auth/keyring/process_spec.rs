@@ -1,4 +1,5 @@
-//! Pure process credential argv shared by native selection and confined tests.
+//! Command lines for the keyring tools. Accounts are `service=linear-cli`
+//! plus the workspace name.
 use crate::config::ConfigSecret;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

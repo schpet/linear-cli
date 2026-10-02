@@ -1,28 +1,18 @@
 //! Runs only private fake executables, never /usr/bin/security.
 use super::Sandbox;
 use linear_cli::auth::keyring::{ProcessKeyringReader, ProcessLookupFailure, ReaderFlavor};
-use std::{collections::BTreeMap, ffi::OsString, fs, time::Duration};
+use std::{fs, time::Duration};
 
 fn reader(sandbox: &Sandbox) -> ProcessKeyringReader {
-    ProcessKeyringReader::with_test_environment(
+    ProcessKeyringReader::with_executable(
         ReaderFlavor::MacSecurity,
         sandbox.executable.clone().into_os_string(),
-        BTreeMap::from([
-            (
-                OsString::from("PATH"),
-                sandbox.root.clone().into_os_string(),
-            ),
-            (
-                OsString::from("TRACE"),
-                sandbox.root.join("trace").into_os_string(),
-            ),
-        ]),
-        Duration::from_secs(2),
     )
+    .with_timeout(Duration::from_secs(2))
 }
 
 #[test]
-fn mac_flavor_has_exact_literal_argv_null_stdin_and_bom_js_trim() {
+fn mac_flavor_has_exact_argv_null_stdin_and_trims_output() {
     let sandbox = Sandbox::new(
         "printf '%s\\n' \"$@\" > \"$TRACE\"; if IFS= read -r line; then exit 8; fi; printf '\\357\\273\\277 \\tdummy_mac\\r\\n'",
     );

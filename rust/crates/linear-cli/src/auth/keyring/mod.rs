@@ -1,10 +1,10 @@
-//! Explicit startup readers and separate mutation backends; tests inject fakes.
-mod process_reader;
+//! Keyring readers used at startup and backends used by `auth` commands.
+mod process;
 pub mod process_spec;
 
 use crate::auth::{LookupFailureCategory, LookupResult};
 
-pub use process_reader::{ProcessKeyringReader, ProcessLookupFailure};
+pub use process::{ProcessKeyringReader, ProcessLookupFailure, ProcessMutationBackend};
 pub use process_spec::ReaderFlavor;
 
 pub trait KeyringReader: Sync {
@@ -19,13 +19,11 @@ impl KeyringReader for UnsupportedKeyringReader {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-pub mod process;
 #[cfg(windows)]
 pub mod windows;
 pub mod windows_spec;
 
-/// Startup always selects the supported platform reader, independent of CLI route.
+/// The keyring reader for the current platform.
 pub struct NativeKeyringReader;
 impl KeyringReader for NativeKeyringReader {
     fn lookup(&self, workspace: &str) -> LookupResult {

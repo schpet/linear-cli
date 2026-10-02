@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-use std::ffi::OsString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -23,26 +21,25 @@ impl Sandbox {
             std::env::temp_dir().join(format!("linear-keyring-{}-{number}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         let executable = root.join("secret-tool");
-        fs::write(&executable, format!("#!/bin/sh\n{script}\n")).unwrap();
+        let trace = root.join("trace");
+        fs::write(
+            &executable,
+            format!(
+                "#!/bin/sh\nTRACE='{}'\nMARKER=private-marker\n{script}\n",
+                trace.display()
+            ),
+        )
+        .unwrap();
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
         Self { root, executable }
     }
 
     fn reader(&self, timeout: Duration) -> ProcessKeyringReader {
-        let environment = BTreeMap::from([
-            (OsString::from("PATH"), OsString::from(&self.root)),
-            (
-                OsString::from("TRACE"),
-                self.root.join("trace").into_os_string(),
-            ),
-            (OsString::from("MARKER"), OsString::from("private-marker")),
-        ]);
-        ProcessKeyringReader::with_test_environment(
+        ProcessKeyringReader::with_executable(
             ReaderFlavor::SecretTool,
             self.executable.clone().into_os_string(),
-            environment,
-            timeout,
         )
+        .with_timeout(timeout)
     }
 }
 
@@ -53,7 +50,7 @@ impl Drop for Sandbox {
 }
 
 #[test]
-fn exact_lookup_argv_null_stdin_and_complete_private_environment() {
+fn exact_lookup_argv_and_null_stdin() {
     let sandbox = Sandbox::new(
         "printf '%s\\n' \"$@\" > \"$TRACE\"; if IFS= read -r line; then exit 8; fi; printf '%s' \"$MARKER\"",
     );
@@ -70,8 +67,8 @@ fn exact_lookup_argv_null_stdin_and_complete_private_environment() {
 }
 
 #[test]
-fn success_ignores_stderr_and_keeps_stdout_verbatim_except_one_bom() {
-    let sandbox = Sandbox::new("printf 'noisy' >&2; printf '\\357\\273\\277line\\n'");
+fn success_ignores_stderr_and_keeps_stdout_verbatim() {
+    let sandbox = Sandbox::new("printf 'noisy' >&2; printf 'line\\n'");
     let key = sandbox
         .reader(Duration::from_secs(2))
         .lookup_detailed("demo")
@@ -81,7 +78,7 @@ fn success_ignores_stderr_and_keeps_stdout_verbatim_except_one_bom() {
 }
 
 #[test]
-fn empty_output_and_exit_one_with_js_trimmed_stderr_are_misses() {
+fn empty_output_and_exit_one_with_blank_stderr_are_misses() {
     let empty = Sandbox::new("exit 0");
     assert!(
         empty
@@ -132,11 +129,9 @@ fn errors_are_typed_and_do_not_include_child_output() {
             .unwrap_err(),
         ProcessLookupFailure::InvalidUtf8
     );
-    let missing = ProcessKeyringReader::with_test_environment(
+    let missing = ProcessKeyringReader::with_executable(
         ReaderFlavor::SecretTool,
-        OsString::from("/definitely/absent/secret-tool"),
-        BTreeMap::new(),
-        Duration::from_secs(1),
+        "/definitely/absent/secret-tool".into(),
     );
     assert_eq!(
         missing.lookup_detailed("demo").unwrap_err(),
@@ -162,26 +157,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
 }
 
 #[test]
-fn stdout_cap_and_deadline_stop_and_reap_child() {
-    let exact = Sandbox::new("/usr/bin/head -c 65536 /dev/zero");
-    assert_eq!(
-        exact
-            .reader(Duration::from_secs(3))
-            .lookup_detailed("demo")
-            .unwrap()
-            .unwrap()
-            .expose()
-            .len(),
-        65536
-    );
-    let oversized = Sandbox::new("/usr/bin/head -c 65537 /dev/zero");
-    assert_eq!(
-        oversized
-            .reader(Duration::from_secs(3))
-            .lookup_detailed("demo")
-            .unwrap_err(),
-        ProcessLookupFailure::StdoutTooLarge
-    );
+fn deadline_kills_a_hung_child() {
     let hung = Sandbox::new("printf '%s' \"$$\" > \"$TRACE\"; exec /bin/sleep 30");
     assert_eq!(
         hung.reader(Duration::from_secs(3))
@@ -191,45 +167,18 @@ fn stdout_cap_and_deadline_stop_and_reap_child() {
     );
     let pid = fs::read_to_string(hung.root.join("trace"))
         .expect("fake child started and published PID before its fixture deadline");
-    assert!(
-        !Command::new("/bin/kill")
-            .arg("-0")
-            .arg(pid)
-            .output()
-            .unwrap()
-            .status
-            .success()
-    );
-    let stderr_flood = Sandbox::new("/usr/bin/head -c 16385 /dev/zero >&2");
-    assert_eq!(
-        stderr_flood
-            .reader(Duration::from_secs(3))
-            .lookup_detailed("demo")
-            .unwrap_err(),
-        ProcessLookupFailure::StderrTooLarge
-    );
-    let stderr_exact = Sandbox::new("/usr/bin/head -c 16384 /dev/zero >&2");
-    assert!(
-        stderr_exact
-            .reader(Duration::from_secs(3))
-            .lookup_detailed("demo")
-            .unwrap()
-            .is_none()
-    );
-}
-
-#[test]
-fn exited_child_with_descendant_holding_pipe_returns_within_grace() {
-    let sandbox = Sandbox::new("/bin/sleep 3 & printf '%s' \"$!\" > \"$TRACE\"; exit 0");
-    let started = std::time::Instant::now();
-    let result = sandbox
-        .reader(Duration::from_secs(2))
-        .lookup_detailed("demo");
-    let pid = fs::read_to_string(sandbox.root.join("trace")).unwrap();
-    let pid: i32 = pid.parse().unwrap();
-    let _ = Command::new("/bin/kill").arg(pid.to_string()).status();
-    assert_eq!(result.unwrap_err(), ProcessLookupFailure::PipeHeldOpen);
-    assert!(started.elapsed() < Duration::from_secs(2));
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while Command::new("/bin/kill")
+        .arg("-0")
+        .arg(&pid)
+        .output()
+        .unwrap()
+        .status
+        .success()
+    {
+        assert!(std::time::Instant::now() < deadline, "child {pid} survived");
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 #[path = "mac_reader.rs"]
