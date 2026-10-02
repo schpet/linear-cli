@@ -28,11 +28,11 @@ fn list_json_returns_active_members() {
         "GetOrganizationMembers",
         members(vec![ada.clone()], Value::Null, false),
     );
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["user", "list", "--json"])
         .success()
-        .json();
-    assert_eq!(json["nodes"], json!([ada]));
+        .json_nodes();
+    assert_eq!(listed, [ada]);
     assert_eq!(
         api.variables("GetOrganizationMembers"),
         json!({ "includeDisabled": false, "first": 100 })

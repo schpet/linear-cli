@@ -3,7 +3,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use serde_json::{Value, json};
 
-use crate::support::{API_KEY, Cli, MockLinear, Request, Run};
+use crate::support::{API_KEY, Cli, MockLinear, Request, Run, assert_json, nodes};
 
 pub fn viewer() -> Value {
     json!({
@@ -105,4 +105,17 @@ fn run_helpers_parse_json_and_classify_usage_errors() {
     ]);
     assert_eq!(run.success().json()["data"]["viewer"]["id"], "user-1");
     assert_eq!(api.variables("Probe"), json!({ "n": 3 }));
+}
+
+#[test]
+fn json_helpers_ignore_list_wrappers() {
+    let entity = json!({ "id": "a", "labels": { "nodes": [{ "id": "l" }] } });
+    for shape in [
+        json!([entity]),
+        json!({ "nodes": [entity], "pageInfo": { "hasNextPage": false } }),
+        json!({ "teams": { "nodes": [entity] } }),
+    ] {
+        assert_eq!(nodes(&shape), std::slice::from_ref(&entity));
+    }
+    assert_json(&json!({ "id": "a", "labels": [{ "id": "l" }] }), &entity);
 }

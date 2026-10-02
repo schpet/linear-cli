@@ -1,7 +1,7 @@
 //! The `template` command group.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, assert_json, nodes};
 use crate::team::{resolve_vars, resolved};
 
 const BUG_ID: &str = "11111111-1111-4111-8111-111111111111";
@@ -33,9 +33,7 @@ fn all_templates() -> Value {
 }
 
 fn ids(json: &Value) -> Vec<String> {
-    let mut ids: Vec<String> = json
-        .as_array()
-        .expect("template list JSON is an array")
+    let mut ids: Vec<String> = nodes(json)
         .iter()
         .map(|template| template["id"].as_str().expect("template id").to_owned())
         .collect();
@@ -55,11 +53,12 @@ fn list_json_contains_every_template() {
         ids(&json),
         [BUG_ID, "tpl-design", "tpl-kickoff", "tpl-ops-bug"]
     );
-    let bug = json
-        .as_array()
-        .and_then(|templates| templates.iter().find(|t| t["id"] == BUG_ID))
+    let listed = nodes(&json);
+    let bug = listed
+        .iter()
+        .find(|t| t["id"] == BUG_ID)
         .expect("bug report listed");
-    assert_eq!(*bug, bug_report());
+    assert_json(bug, &bug_report());
     assert_eq!(api.variables("GetTemplates"), Value::Null);
 }
 
@@ -115,7 +114,7 @@ fn view_by_id_prints_the_template_json() {
         .run(&["template", "view", BUG_ID, "--json"])
         .success()
         .json();
-    assert_eq!(json, bug_report());
+    assert_json(&json, &bug_report());
     assert_eq!(api.variables("GetTemplate"), json!({ "id": BUG_ID }));
 }
 

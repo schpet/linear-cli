@@ -2,7 +2,7 @@
 use serde_json::{Value, json};
 
 use crate::issue_comment::file_upload;
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, nodes};
 
 const ISSUE_1: &str = "00000000-0000-4000-9000-000000000001";
 const ISSUE_2: &str = "00000000-0000-4000-9000-000000000002";
@@ -317,22 +317,25 @@ fn sessions_reply() -> Value {
     })
 }
 
+/// Sessions in list output, whether printed bare or wrapped as `{agentSession}` comment nodes
+/// (null wrappers for comments without a session are skipped).
+fn sessions(listed: &[Value]) -> impl Iterator<Item = &Value> {
+    listed
+        .iter()
+        .map(|node| node.get("agentSession").unwrap_or(node))
+        .filter(|session| !session.is_null())
+}
+
 #[test]
 fn agent_session_list_json_lists_the_sessions() {
     let api = MockLinear::start();
     api.on("GetIssueAgentSessions", sessions_reply());
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["issue", "agent-session", "list", "eng-1", "--json"])
         .success()
-        .json();
-    let ids: Vec<&Value> = json["nodes"]
-        .as_array()
-        .expect("nodes array")
-        .iter()
-        .map(|node| &node["agentSession"]["id"])
-        .filter(|id| !id.is_null())
-        .collect();
-    assert_eq!(ids, [&json!("s1"), &json!("s2")]);
+        .json_nodes();
+    let ids: Vec<Value> = sessions(&listed).map(|s| s["id"].clone()).collect();
+    assert_eq!(ids, ["s1", "s2"]);
     assert_eq!(
         api.variables("GetIssueAgentSessions"),
         json!({ "issueId": "ENG-1" })
@@ -343,7 +346,7 @@ fn agent_session_list_json_lists_the_sessions() {
 fn agent_session_list_filters_by_status() {
     let api = MockLinear::start();
     api.on("GetIssueAgentSessions", sessions_reply());
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&[
             "issue",
             "agent-session",
@@ -354,11 +357,9 @@ fn agent_session_list_filters_by_status() {
             "complete",
         ])
         .success()
-        .json();
-    assert_eq!(
-        json["nodes"],
-        json!([{ "agentSession": session("s2", "complete") }])
-    );
+        .json_nodes();
+    let listed: Vec<&Value> = sessions(&listed).collect();
+    assert_eq!(listed, [&session("s2", "complete")]);
 }
 
 #[test]
@@ -416,10 +417,10 @@ fn agent_session_view_json_prints_the_session() {
     assert_eq!(json["status"], "awaitingInput");
     assert_eq!(json["issue"]["identifier"], "ENG-1");
     assert_eq!(
-        json["activities"]["nodes"][0]["content"]["body"],
+        nodes(&json["activities"])[0]["content"]["body"],
         "Thinking hard"
     );
-    assert_eq!(json["activities"]["nodes"][1]["content"]["action"], "run");
+    assert_eq!(nodes(&json["activities"])[1]["content"]["action"], "run");
     assert_eq!(
         api.variables("GetAgentSessionDetails"),
         json!({ "id": SESSION_ID })

@@ -39,13 +39,11 @@ fn list_json_follows_pages() {
         "GetIssueLabels",
         labels(vec![shared.clone()], Value::Null, false),
     );
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["label", "list", "--json"])
         .success()
-        .json();
-    let mut names: Vec<&str> = json["nodes"]
-        .as_array()
-        .expect("nodes array")
+        .json_nodes();
+    let mut names: Vec<&str> = listed
         .iter()
         .map(|node| node["name"].as_str().expect("label name"))
         .collect();

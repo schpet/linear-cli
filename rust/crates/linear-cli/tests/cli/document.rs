@@ -1,7 +1,7 @@
 //! The `document` command group.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, nodes};
 use crate::team::{resolve_vars, resolved};
 
 const DOC_ID: &str = "00000000-0000-4000-9000-000000000051";
@@ -74,11 +74,11 @@ fn list_json_contains_documents() {
         "ListDocuments",
         json!({ "documents": page(nodes.clone(), Value::Null, false) }),
     );
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["document", "list", "--json"])
         .success()
-        .json();
-    assert_eq!(json["nodes"], nodes);
+        .json_nodes();
+    assert_eq!(Value::Array(listed), nodes);
     assert_eq!(api.variables("ListDocuments"), json!({ "first": 50 }));
 }
 
@@ -149,7 +149,7 @@ fn view_json_collects_comment_pages() {
         .json();
     assert_eq!(json["title"], "Design notes");
     assert_eq!(json["content"], document()["content"]);
-    assert_eq!(json["comments"]["nodes"], json!([first, reply]));
+    assert_eq!(nodes(&json["comments"]), [first, reply]);
     let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
     assert_eq!(
         variables,
@@ -511,11 +511,11 @@ fn comment_list_json_contains_comments() {
     let api = MockLinear::start();
     let (nodes, data) = document_comments();
     api.on("GetDocumentComments", data);
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["document", "comment", "list", "--json", SLUG])
         .success()
-        .json();
-    assert_eq!(json["nodes"], nodes);
+        .json_nodes();
+    assert_eq!(Value::Array(listed), nodes);
     assert_eq!(
         api.variables("GetDocumentComments"),
         json!({ "id": SLUG, "after": null })

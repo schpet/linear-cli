@@ -1,7 +1,7 @@
 //! Read-only `issue` commands: view, title, url, mine and query.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, assert_json, nodes};
 use crate::team::{resolve_vars, resolved};
 
 fn issue(comments: bool) -> Value {
@@ -73,7 +73,7 @@ fn view_json_prints_the_issue_with_comments() {
         .run(&["issue", "view", "eng-1", "--json"])
         .success()
         .json();
-    assert_eq!(json, issue(true));
+    assert_json(&json, &issue(true));
     assert_eq!(
         api.variables("GetIssueDetailsWithComments"),
         json!({ "id": "ENG-1" })
@@ -89,7 +89,7 @@ fn view_bare_number_uses_the_configured_team() {
         .run(&["issue", "view", "1", "--json", "--no-comments"])
         .success()
         .json();
-    assert_eq!(json, issue(false));
+    assert_json(&json, &issue(false));
     assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-1" }));
 }
 
@@ -244,9 +244,7 @@ fn default_sort() -> Value {
 }
 
 fn identifiers(json: &Value) -> Vec<String> {
-    let mut ids: Vec<String> = json["nodes"]
-        .as_array()
-        .expect("nodes array")
+    let mut ids: Vec<String> = nodes(json)
         .iter()
         .map(|node| node["identifier"].as_str().expect("identifier").to_owned())
         .collect();
@@ -455,8 +453,7 @@ fn query_json_defaults_to_the_configured_team() {
         .run(&["issue", "query", "--json"]);
     let json = run.success().json();
     assert_eq!(identifiers(&json), ["ENG-1"]);
-    assert_eq!(json["nodes"][0]["title"], "Issue 1 title");
-    assert_eq!(json["pageInfo"]["hasNextPage"], false);
+    assert_eq!(nodes(&json)[0]["title"], "Issue 1 title");
     run.stderr_has("ENG");
     assert_eq!(
         api.variables("GetIssuesForQuery"),

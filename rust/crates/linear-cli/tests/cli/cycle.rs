@@ -1,7 +1,7 @@
 //! The `cycle` command group.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, assert_json};
 use crate::team::{resolve_vars, resolved};
 
 const ENG_ID: &str = "team-eng-id";
@@ -35,11 +35,10 @@ fn list_json_follows_pages_for_the_resolved_team() {
             "GetTeamCycles",
             cycles_page(vec![new.clone()], json!("cursor-2"), false),
         );
-    let json = Cli::for_api(&api)
+    let mut nodes = Cli::for_api(&api)
         .run(&["cycle", "list", "--team", "ENG", "--json"])
         .success()
-        .json();
-    let mut nodes = json["nodes"].as_array().expect("nodes array").clone();
+        .json_nodes();
     nodes.sort_by_key(|node| node["number"].as_u64());
     assert_eq!(nodes, [old, new]);
     assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
@@ -126,7 +125,7 @@ fn view_json_by_number_prints_the_cycle() {
         .run(&["cycle", "view", "5", "--team", "ENG", "--json"])
         .success()
         .json();
-    assert_eq!(json, details()["cycle"]);
+    assert_json(&json, &details()["cycle"]);
     assert_eq!(
         api.variables("GetTeamCyclesForLookup"),
         json!({ "teamId": ENG_ID, "after": null })

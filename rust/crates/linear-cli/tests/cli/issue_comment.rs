@@ -301,11 +301,11 @@ fn list_json_follows_pages() {
         "GetIssueComments",
         comments_page(vec![reply.clone()], json!("cursor-2"), false),
     );
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["issue", "comment", "list", "eng-7", "--json"])
         .success()
-        .json();
-    assert_eq!(json["nodes"], json!([root, reply]));
+        .json_nodes();
+    assert_eq!(listed, [root, reply]);
     let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
     assert_eq!(
         variables,

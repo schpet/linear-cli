@@ -47,11 +47,11 @@ fn list_json_follows_pages_and_skips_archived_teams() {
         "GetTeams",
         json!({ "teams": page(vec![alpha.clone(), archived], json!("cursor-2"), false) }),
     );
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["team", "list", "--json"])
         .success()
-        .json();
-    assert_eq!(json["nodes"], json!([alpha, zulu]));
+        .json_nodes();
+    assert_eq!(listed, [alpha, zulu]);
     let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
     assert_eq!(
         variables,
@@ -105,11 +105,11 @@ fn members_json_resolves_the_team_and_includes_inactive_with_all() {
             "GetTeamMembers",
             json!({ "team": { "members": page(vec![ada.clone()], Value::Null, false) } }),
         );
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["team", "members", "eng", "--all", "--json"])
         .success()
-        .json();
-    assert_eq!(json["nodes"], json!([ada]));
+        .json_nodes();
+    assert_eq!(listed, [ada]);
     assert_eq!(api.variables("ResolveTeam"), resolve_vars("eng"));
     assert_eq!(
         api.variables("GetTeamMembers"),
@@ -149,13 +149,11 @@ fn states_json_lists_the_teams_states() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
         .on("GetWorkflowStates", states());
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["team", "states", "eng", "--json"])
         .success()
-        .json();
-    let mut names: Vec<&str> = json["nodes"]
-        .as_array()
-        .expect("nodes array")
+        .json_nodes();
+    let mut names: Vec<&str> = listed
         .iter()
         .map(|state| state["name"].as_str().expect("state name"))
         .collect();

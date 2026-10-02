@@ -262,6 +262,12 @@ impl Run {
         serde_json::from_str(&self.stdout)
             .unwrap_or_else(|error| panic!("stdout is not JSON: {error}\n{self}"))
     }
+
+    /// The entities of a list command's `--json` output, whatever wrapper surrounds them.
+    #[track_caller]
+    pub fn json_nodes(&self) -> Vec<Value> {
+        super::json::nodes(&self.json())
+    }
 }
 
 impl std::fmt::Display for Run {

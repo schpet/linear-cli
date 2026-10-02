@@ -1,7 +1,7 @@
 //! The `project` command group.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, assert_json};
 
 const ID: &str = "85d3dad6-136e-49ff-9593-33dc4b22b5ee";
 const TEAM_ID: &str = "00000000-0000-4000-9000-000000002501";
@@ -114,7 +114,7 @@ fn list_json_filters_by_team_and_status() {
     let run = Cli::for_api(&api).run(&[
         "project", "list", "--team", "ENG", "--status", "Started", "--json",
     ]);
-    assert_eq!(run.success().json(), page(json!([list_node("Roadmap")])));
+    assert_eq!(run.success().json_nodes(), [list_node("Roadmap")]);
     assert_eq!(api.variables("ResolveTeam")["reference"], "ENG");
     assert_eq!(
         api.variables("GetProjects"),
@@ -175,7 +175,7 @@ fn view_json_by_id_returns_the_project() {
     let api = MockLinear::start();
     api.on("GetProjectDetails", json!({ "project": details() }));
     let run = Cli::for_api(&api).run(&["project", "view", ID, "--json"]);
-    assert_eq!(run.success().json(), details());
+    assert_json(&run.success().json(), &details());
     assert_eq!(
         api.variables("GetProjectDetails"),
         json!({ "id": ID, "first": 250 })
@@ -256,7 +256,7 @@ fn create_sends_input_and_prints_json() {
         "# Overview",
         "--json",
     ]);
-    assert_eq!(run.success().json(), created()["projectCreate"]);
+    assert_json(&run.success().json(), &created()["projectCreate"]);
     assert_eq!(api.variables("ResolveTeam")["reference"], "SRC");
     assert_eq!(
         api.variables("CreateProject"),
@@ -531,7 +531,7 @@ fn comment_list_json_returns_comments() {
         }),
     );
     let run = Cli::for_api(&api).run(&["project", "comment", "list", ID, "--json"]);
-    assert_eq!(run.success().json()["nodes"], comments);
+    assert_eq!(Value::Array(run.success().json_nodes()), comments);
     assert_eq!(
         api.variables("GetProjectComments"),
         json!({ "id": ID, "filterId": ID, "after": null })

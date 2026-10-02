@@ -1,7 +1,7 @@
 //! The `milestone` command group.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, assert_json, nodes};
 
 const PROJECT_ID: &str = "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d";
 const MILESTONE_ID: &str = "00000000-0000-4000-8000-000000000001";
@@ -34,11 +34,11 @@ fn list_json_by_project_id() {
     let api = MockLinear::start();
     let launch = list_node("m-1", "Launch");
     api.on("GetProjectMilestones", milestones(vec![launch.clone()]));
-    let json = Cli::for_api(&api)
+    let listed = Cli::for_api(&api)
         .run(&["milestone", "list", "--project", PROJECT_ID, "--json"])
         .success()
-        .json();
-    assert_eq!(json["nodes"], json!([launch]));
+        .json_nodes();
+    assert_eq!(listed, [launch]);
     assert_eq!(
         api.variables("GetProjectMilestones"),
         json!({ "projectId": PROJECT_ID, "first": 100 })
@@ -106,7 +106,7 @@ fn view_json_returns_the_milestone() {
         .run(&["milestone", "view", MILESTONE_ID, "--json"])
         .success()
         .json();
-    assert_eq!(json, reply["projectMilestone"]);
+    assert_json(&json, &reply["projectMilestone"]);
     assert_eq!(
         api.variables("GetMilestoneDetails"),
         json!({ "id": MILESTONE_ID, "first": 50 })
@@ -143,7 +143,7 @@ fn view_all_follows_issue_pages() {
         .run(&["milestone", "view", MILESTONE_ID, "--all", "--json"])
         .success()
         .json();
-    assert_eq!(json["issues"]["nodes"], json!([issue(1), issue(2)]));
+    assert_eq!(nodes(&json["issues"]), [issue(1), issue(2)]);
     let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
     assert_eq!(
         variables,
