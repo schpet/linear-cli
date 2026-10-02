@@ -1,5 +1,5 @@
 //! Config file discovery, precedence and validation.
-use crate::support::Cli;
+use crate::support::{Cli, MockLinear};
 
 const INLINE: &str = "default = \"beta\"\nacme = \"key-acme\"\nbeta = \"key-beta\"\n";
 const GLOBAL: &str = "home/.config/linear/linear.toml";
@@ -117,4 +117,62 @@ fn metadata_credentials_read_keys_from_secret_tool() {
         stdout(&cli, &["auth", "token", "--workspace", "beta"]),
         "key-beta"
     );
+}
+
+fn all_teams() -> serde_json::Value {
+    serde_json::json!({ "teams": {
+        "nodes": [
+            { "id": "team-ops-id", "key": "OPS", "name": "Operations" },
+            { "id": "team-eng-id", "key": "ENG", "name": "Engineering" }
+        ],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+    } })
+}
+
+fn viewer() -> serde_json::Value {
+    serde_json::json!({ "viewer": { "organization": { "urlKey": "acme" } } })
+}
+
+#[test]
+fn config_writes_the_answers_at_the_repository_root() {
+    let api = MockLinear::start();
+    api.on("GetViewer", viewer()).on("GetAllTeams", all_teams());
+    let cli = Cli::new()
+        .endpoint(&api)
+        .credentials(INLINE)
+        .file("cwd/.jj/repo/.keep", "")
+        .cwd("cwd/nested")
+        .stdin(b"acme\nEng\npriority\n");
+    cli.run(&["config"])
+        .success()
+        .stdout_has("Configuration written to");
+    assert_eq!(
+        api.request("GetViewer").header("authorization"),
+        Some("key-acme")
+    );
+    assert_eq!(
+        cli.read("cwd/.linear.toml"),
+        "# linear cli\n# https://github.com/schpet/linear-cli\n\nworkspace = \"acme\"\nteam_id = \"ENG\"\nissue_sort = \"priority\"\n"
+    );
+    assert_eq!(stdout(&cli, &["team", "id"]), "ENG");
+}
+
+#[test]
+fn config_uses_the_api_key_without_asking_for_a_workspace() {
+    let api = MockLinear::start();
+    api.on("GetViewer", viewer()).on("GetAllTeams", all_teams());
+    let cli = Cli::for_api(&api).stdin(b"OPS\n\n");
+    cli.run(&["config"]).success();
+    assert!(
+        cli.read("cwd/.linear.toml")
+            .contains("team_id = \"OPS\"\nissue_sort = \"manual\"\n")
+    );
+}
+
+#[test]
+fn config_without_credentials_points_to_login() {
+    Cli::new()
+        .run(&["config"])
+        .failure()
+        .stderr_has("linear auth login");
 }
