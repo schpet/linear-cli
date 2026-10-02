@@ -385,10 +385,6 @@ async fn update_clear_wire_order_and_lossy_file_success_are_independent_of_parse
         serde_json::to_string(&input).expect("wire"),
         "{\"assigneeId\":null,\"dueDate\":null,\"parentId\":null,\"priority\":0,\"estimate\":null,\"teamId\":\"team-id\",\"projectId\":null,\"projectMilestoneId\":null,\"cycleId\":null}"
     );
-    assert_eq!(
-        linear_cli::commands::document_content::decode_file(b"\xef\xbb\xbfDMMY \xff\r\n"),
-        "\u{feff}DMMY \u{fffd}\r\n"
-    );
 }
 #[test]
 fn integer_menu_source_prefix_and_default_state_stable_lowest() {

@@ -153,10 +153,6 @@ fn typed_url_kinds_and_boundaries() {
         parse_linear_url("\u{feff}  "),
         LinearUrlParse::NotLinear
     ));
-    assert!(matches!(
-        parse_linear_url("\u{0085}"),
-        LinearUrlParse::NotLinear
-    ));
     assert!(
         matches!(parse_linear_url("https://linear.app/acme/issue/eng-12#comment-abcdef12"), LinearUrlParse::Known(LinearUrlRef::Issue { identifier, comment_id_prefix: Some(comment), .. }) if identifier == "ENG-12" && comment == "abcdef12")
     );
@@ -320,27 +316,22 @@ fn fallthrough_and_refusal_cases_keep_exact_boundaries() {
 }
 
 #[test]
-fn unicode_workspace_and_whitespace_handling() {
+fn workspace_names_are_trimmed_and_case_folded() {
     let key = ApiKeyInput::Absent;
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some("\u{feff}Å\u{feff}");
+    scope.cli_workspace = Some(" Å ");
     assert_eq!(
         expect_team_url("https://linear.app/å/team/eng", &scope)
             .unwrap_or_else(|error| panic!("{error}")),
         Some("ENG".to_owned())
     );
-    scope.cli_workspace = Some("\u{feff}");
+    scope.cli_workspace = Some(" ");
     scope.default_workspace = Some("acme");
     assert_eq!(
         expect_team_url("https://linear.app/foreign/team/eng", &scope)
             .unwrap_or_else(|error| panic!("{error}")),
         Some("ENG".to_owned())
     );
-    scope.cli_workspace = Some("\u{0085}");
-    let error = expect_team_url("https://linear.app/foreign/team/eng", &scope)
-        .err()
-        .unwrap_or_else(|| panic!("NEL is not trimmed"));
-    assert!(error.message.contains("this is the \"\u{0085}\" workspace"));
 }
 
 #[test]

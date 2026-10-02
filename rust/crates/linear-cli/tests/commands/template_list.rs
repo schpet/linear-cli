@@ -340,7 +340,7 @@ fn prepare_rejects_bad_team_before_credentials_with_one_context() {
 
     for (reference, message, suggestion) in [
         (
-            " \u{feff}\t",
+            " \t",
             "Team reference is empty",
             "Pass a team key, name, or ID, e.g. --team ENG.",
         ),

@@ -170,7 +170,7 @@ pub fn local(options: &Options) -> Result<ProjectUpdateInput, AppError> {
         .chain(options.add_label.iter().flatten())
         .chain(options.remove_label.iter().flatten())
     {
-        if value.trim_matches(crate::text::js_space).is_empty() {
+        if value.trim().is_empty() {
             return Err(shared::validation("Project label cannot be empty")
                 .with_suggestion("Provide a label name, e.g. --label \"My Label\"."));
         }

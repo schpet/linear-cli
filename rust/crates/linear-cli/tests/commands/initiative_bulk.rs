@@ -160,10 +160,10 @@ fn temporary() -> PathBuf {
     path
 }
 #[test]
-fn additive_collection_preserves_js_tokenization_and_exact_ordered_dedupe() {
+fn bulk_ids_split_on_commas_and_whitespace_with_ordered_dedupe() {
     let dir = temporary();
     let file = dir.join("ids.txt");
-    std::fs::write(&file, "A\u{feff}File\u{85}Joined,A\r\nB").unwrap();
+    std::fs::write(&file, "\u{feff}A File\u{85}Joined,A\r\nB").unwrap();
     let argv = vec!["A".into(), " Raw, argv ".into(), "A".into()];
     let input = BulkInput {
         argv: Some(&argv),
@@ -171,15 +171,8 @@ fn additive_collection_preserves_js_tokenization_and_exact_ordered_dedupe() {
         stdin: true,
     };
     assert_eq!(
-        command::collect_ids(&input, &mut "B\u{feff}Stdin\u{85}Joined,A\nC".as_bytes()).unwrap(),
-        vec![
-            "A",
-            " Raw, argv ",
-            "File\u{85}Joined",
-            "B",
-            "Stdin\u{85}Joined",
-            "C"
-        ]
+        command::collect_ids(&input, &mut "B Stdin\u{3000}Joined,A\nC".as_bytes()).unwrap(),
+        vec!["A", " Raw, argv ", "File", "Joined", "B", "Stdin", "C"]
     );
     assert!(input.requested());
     assert!(

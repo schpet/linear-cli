@@ -13,7 +13,7 @@ pub const JJ_TEMPLATE: &str = "trailers.map(|t| if(t.key() == \"Linear-issue\", 
 pub fn parse_jj_trailers(output: &str) -> Option<String> {
     let mut last = None;
     for line in output.split('\n') {
-        let trimmed = line.trim_matches(crate::text::js_space);
+        let trimmed = line.trim();
         if trimmed.is_empty() {
             if last.is_some() {
                 return last;
@@ -31,7 +31,7 @@ pub fn parse_git_branch(
     stderr: &str,
 ) -> Result<Option<String>, AppError> {
     if !success {
-        let error = stderr.trim_matches(crate::text::js_space);
+        let error = stderr.trim();
         if error.contains("not a symbolic ref") {
             return Ok(None);
         }
@@ -40,9 +40,7 @@ pub fn parse_git_branch(
             format!("Failed to get current branch: {error}"),
         ));
     }
-    Ok(find_issue_identifier(
-        stdout.trim_matches(crate::text::js_space),
-    ))
+    Ok(find_issue_identifier(stdout.trim()))
 }
 
 fn process_error(stage: &str, error: io::Error) -> AppError {

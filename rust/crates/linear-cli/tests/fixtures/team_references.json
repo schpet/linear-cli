@@ -86,8 +86,8 @@
       }
     ]
   },
-  "blank-feff-before-key": {
-    "reference": "﻿",
+  "blank-nel": {
+    "reference": "\u0085",
     "error": {
       "message": "Team reference is empty",
       "suggestion": "Pass a team key, name, or ID, e.g. --team ENG."
@@ -540,43 +540,6 @@
           "teamKey": "ENG",
           "includeDisabled": false,
           "first": 100
-        }
-      }
-    ]
-  },
-  "nel-nonblank": {
-    "reference": "",
-    "error": {
-      "message": "Team not found: ",
-      "suggestion": "This workspace has no teams you can access."
-    },
-    "steps": [
-      {
-        "name": "resolve-team",
-        "variables": {
-          "reference": "",
-          "id": null,
-          "isUuid": false
-        },
-        "data": {
-          "teams": {
-            "nodes": []
-          }
-        }
-      },
-      {
-        "name": "all-teams-first",
-        "variables": {
-          "first": 100
-        },
-        "data": {
-          "teams": {
-            "nodes": [],
-            "pageInfo": {
-              "hasNextPage": false,
-              "endCursor": null
-            }
-          }
         }
       }
     ]

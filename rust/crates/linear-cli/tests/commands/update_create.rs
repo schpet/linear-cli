@@ -2,6 +2,7 @@
 use linear_cli::{
     commands::{
         initiative_view::Reference,
+        text_input,
         update_create::{self as command, Fields, Health, Mode},
     },
     platform::prompt::{PromptOutcome, PromptSession},
@@ -88,13 +89,14 @@ impl Read for BrokenRead {
     }
 }
 #[test]
-fn stdin_keeps_duplicates_js_separators_lossy_text_and_optional_read_failure() {
+fn stdin_content_is_read_whole_without_splitting() {
     assert_eq!(
-        command::stdin_body(&mut &b"\xef\xbb\xbfA,A,\xff\nB\xc2\x85joined"[..]),
-        Some("A\nA\n\u{fffd}\nB\u{85}joined".to_owned())
+        text_input::read_stdin(&b"\xef\xbb\xbfHello, world\n  indented\n"[..]).unwrap(),
+        Some("Hello, world\n  indented".to_owned())
     );
-    assert!(command::stdin_body(&mut &b""[..]).is_none());
-    assert!(command::stdin_body(&mut BrokenRead).is_none());
+    assert_eq!(text_input::read_stdin(&b" \n"[..]).unwrap(), None);
+    assert!(text_input::read_stdin(&b"A\xff"[..]).is_err());
+    assert!(text_input::read_stdin(BrokenRead).is_err());
 }
 #[test]
 fn file_policy_keeps_raw_body_and_stage_specific_missing_errors() {
@@ -108,11 +110,11 @@ fn file_policy_keeps_raw_body_and_stage_specific_missing_errors() {
     ));
     std::fs::create_dir(&root).unwrap();
     let body = root.join("body");
-    std::fs::write(&body, b"\xef\xbb\xbfraw\r\n\xff").unwrap();
+    std::fs::write(&body, b"\xef\xbb\xbfraw\r\n").unwrap();
     for mode in [Mode::Project, Mode::Initiative] {
         assert_eq!(
             command::file(body.to_str().unwrap(), mode, false).unwrap(),
-            "\u{feff}raw\r\n\u{fffd}"
+            "raw\r\n"
         );
         let missing = root.join("missing");
         assert_eq!(

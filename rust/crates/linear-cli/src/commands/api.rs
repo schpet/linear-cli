@@ -1,12 +1,12 @@
 //! User-authored runtime GraphQL documents are an explicitly dynamic API boundary.
 use crate::{
     cli::api::Api,
+    commands::text_input,
     error::{AppError, AppErrorKind, ExitStatus},
     graphql::transport::GraphQlTransport,
     js_value::{JsObject, JsValue, js_number, js_pretty, js_stringify},
-    text::js_trim,
 };
-use std::{collections::HashSet, io::Read, sync::mpsc, time::Duration};
+use std::collections::HashSet;
 
 pub const CONTEXT: &str = "API request failed";
 #[derive(Debug)]
@@ -40,27 +40,16 @@ fn no_query() -> AppError {
     AppError::new(AppErrorKind::Validation,"No query provided").with_suggestion("Provide a query as an argument: linear api '{ viewer { id } }'\n  Or pipe from stdin: echo '{ viewer { id } }' | linear api")
 }
 fn stdin_all() -> Result<String, AppError> {
-    let mut bytes = Vec::new();
-    std::io::stdin().read_to_end(&mut bytes).map_err(|e| {
-        AppError::new(AppErrorKind::IoProcess, "Failed to read stdin").with_source(e)
-    })?;
-    Ok(js_trim(String::from_utf8_lossy(&bytes).as_ref()).to_owned())
+    Ok(text_input::read_stdin(std::io::stdin().lock())?
+        .map(|text| text.trim().to_owned())
+        .unwrap_or_default())
 }
 pub fn resolve_query(positional: Option<&str>, stdin_tty: bool) -> Result<String, AppError> {
     if let Some(query) = positional.filter(|s| !s.is_empty() && *s != "-") {
         return Ok(query.to_owned());
     }
-    let content = if positional == Some("-") {
+    let content = if positional == Some("-") || !stdin_tty {
         stdin_all()?
-    } else if !stdin_tty {
-        let (tx, rx) = mpsc::channel();
-        std::thread::spawn(move || {
-            let _ = tx.send(stdin_all());
-        });
-        match rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(Ok(text)) => text,
-            Ok(Err(_)) | Err(_) => String::new(),
-        }
     } else {
         String::new()
     };
@@ -138,7 +127,7 @@ pub fn variables(action: &Api) -> Result<JsObject, AppError> {
             }
             parsed_or_string(text)?
         } else if let Some(path) = raw.strip_prefix('@') {
-            let bytes = std::fs::read(path).map_err(|e| {
+            let text = text_input::read_file(path).map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     AppError::new(AppErrorKind::Validation, format!("File not found: {path}"))
                 } else {
@@ -149,7 +138,7 @@ pub fn variables(action: &Api) -> Result<JsObject, AppError> {
                     .with_source(e)
                 }
             })?;
-            parsed_or_string(js_trim(&String::from_utf8_lossy(&bytes)).to_owned())?
+            parsed_or_string(text.trim().to_owned())?
         } else {
             plain(raw)
         };

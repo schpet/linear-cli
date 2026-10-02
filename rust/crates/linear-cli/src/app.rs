@@ -4685,7 +4685,7 @@ fn dispatch_initiative_bulk(
                 return initiative_interrupt_status();
             }
             initiative_prompt_stop(outcome)?;
-            if raw.into_inner().trim_matches(crate::text::js_space) != detail.name() {
+            if raw.into_inner().trim() != detail.name() {
                 context.write_stdout_with_policy(
                     b"Name does not match. Delete cancelled.\n",
                     OutputPolicy::ConsoleLike,
@@ -5481,9 +5481,7 @@ fn dispatch_document_create(
     action: &cli::document::DocumentCreate,
     workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    use crate::commands::{
-        document_content, document_target::TargetOptions, document_write as command,
-    };
+    use crate::commands::{document_target::TargetOptions, document_write as command, text_input};
     let result = (|| {
         let target = TargetOptions {
             project: action.project.as_deref(),
@@ -5540,7 +5538,7 @@ fn dispatch_document_create(
             } else if let Some(path) = &action.content_file {
                 Some(command::file(path, false)?)
             } else if !context.stdin_tty {
-                document_content::optional_stdin(std::io::stdin())?
+                text_input::read_stdin(std::io::stdin().lock())?
             } else if context.stdout_tty {
                 context.write_stdout_with_policy(
                     b"Opening editor for document content...\n",
@@ -5595,9 +5593,7 @@ fn dispatch_document_update(
     action: &cli::document::DocumentUpdate,
     workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    use crate::commands::{
-        document_content, document_target::TargetOptions, document_write as command,
-    };
+    use crate::commands::{document_target::TargetOptions, document_write as command, text_input};
     let result = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
@@ -5655,7 +5651,7 @@ fn dispatch_document_update(
             }
             Some(content)
         } else if !context.stdin_tty && !command::has_fields(&input) {
-            document_content::optional_stdin(std::io::stdin())?
+            text_input::read_stdin(std::io::stdin().lock())?
         } else {
             None
         };
@@ -5894,11 +5890,7 @@ fn dispatch_issue_archive_delete(
         if mode == command::Mode::Archive && action.target.is_some() {
             return Err(AppError::new(AppErrorKind::Validation,"Cannot combine a positional issue ID with --bulk").with_suggestion("Pass every identifier through --bulk (or --bulk-file / --bulk-stdin), or drop the positional one."));
         }
-        let ids = initiative_bulk::collect_ids_with_policy(
-            &action.bulk,
-            &mut std::io::stdin().lock(),
-            initiative_bulk::TextPolicy::Lossy,
-        )?;
+        let ids = initiative_bulk::collect_ids(&action.bulk, &mut std::io::stdin().lock())?;
         if ids.is_empty() {
             return Err(AppError::new(
                 AppErrorKind::Validation,
@@ -6102,7 +6094,7 @@ fn dispatch_update_create(
             } else if let Some(path) = action.file.filter(|value| !value.is_empty()) {
                 Some(command::file(path, mode, false)?)
             } else if !context.stdin_tty {
-                command::stdin_body(&mut std::io::stdin().lock())
+                crate::commands::text_input::read_stdin(std::io::stdin().lock())?
             } else if context.stdout_tty {
                 context.write_stdout_with_policy(
                     format!("{}\n", mode.opening()).as_bytes(),
@@ -6991,10 +6983,7 @@ fn dispatch_issue_query(
         let color = !context.no_color();
         let output = agent_session_network(context, action.json, async {
             let priority = priority?;
-            let term = action
-                .search
-                .as_deref()
-                .map(|s| s.trim_matches(crate::text::js_space).to_owned());
+            let term = action.search.as_deref().map(|s| s.trim().to_owned());
             if term.as_ref().is_some_and(String::is_empty) {
                 return Err(err("--search term cannot be empty"));
             }

@@ -457,7 +457,7 @@ async fn config_fetch_preserves_handled_raw_fallback_and_full_required_decode_wi
 
 #[cfg(unix)]
 #[tokio::test]
-async fn fresh_late_git_uses_dotenv_overlay_lossy_js_trim_ignored_exit_and_bounded_reap() {
+async fn fresh_late_git_uses_dotenv_overlay_lossy_trim_ignored_exit_and_bounded_reap() {
     use linear_cli::config::{FileKind, FileSource, ProcessEnvSnapshot};
     use std::{ffi::OsString, io, os::unix::fs::PermissionsExt};
     struct Dotenv {
@@ -508,7 +508,7 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_js_trim_ignored_exit_and_bound
         std::fs::write(&git,format!("#!/usr/bin/python3\nimport os,sys,time\nassert sys.argv[1:]==['rev-parse','--show-toplevel']\nassert os.read(0,1)==b''\nassert os.environ['LINEAR_GIT_FIXTURE']=='qualified-overlay'\n{payload}\n")).unwrap();
         std::fs::set_permissions(&git, std::fs::Permissions::from_mode(0o755)).unwrap();
     };
-    script("os.write(1,bytes.fromhex('efbbbf20ff207061746820efbbbf0a'));sys.exit(128)");
+    script("os.write(1,bytes.fromhex('20ff2070617468200a'));sys.exit(128)");
     assert_eq!(
         command::late_root_with_program(
             &root,
@@ -519,19 +519,6 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_js_trim_ignored_exit_and_bound
         .await
         .unwrap(),
         command::LateRoot::Completed("� path".to_owned())
-    );
-    script("os.write(1,bytes.fromhex('c285'));sys.exit(1)");
-    // U+0085 is not JS trim whitespace, unlike native Rust trim.
-    assert_eq!(
-        command::late_root_with_program(
-            &root,
-            &loaded.child_env,
-            command::GitLimits::default(),
-            &git
-        )
-        .await
-        .unwrap(),
-        command::LateRoot::Completed("\u{85}".into())
     );
     script("os.write(1,b'x'*100)");
     let bounded = command::GitLimits {

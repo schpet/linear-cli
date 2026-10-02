@@ -18,7 +18,6 @@ use crate::refs::{
     PreparedTeamLookup, ResolvedTeam, WorkspaceScope, prepare_team_lookup,
     resolve_team_with_transport,
 };
-use crate::text::js_space;
 
 pub const CONTEXT: &str = "Failed to fetch labels";
 
@@ -72,7 +71,7 @@ pub fn select(
     if options
         .team
         .as_deref()
-        .is_some_and(|team| team.trim_matches(js_space).is_empty())
+        .is_some_and(|team| team.trim().is_empty())
     {
         return Err(
             AppError::new(AppErrorKind::Validation, "Team reference is empty")

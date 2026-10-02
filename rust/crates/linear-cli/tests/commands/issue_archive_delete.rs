@@ -2,7 +2,7 @@
 use linear_cli::{
     auth::ApiKeyInput,
     commands::{
-        initiative_bulk::{self, BulkInput, BulkOutcome, TextPolicy},
+        initiative_bulk::{self, BulkInput, BulkOutcome},
         issue_archive_delete::{self as command, Mode, Target},
     },
     graphql::{
@@ -194,7 +194,7 @@ fn observer_classifies_only_client_errors_and_first_preferred_message() {
     }
 }
 #[test]
-fn explicit_lossy_collection_keeps_old_strict_callers_and_js_token_order() {
+fn bulk_ids_reject_invalid_utf8_and_split_on_commas_and_whitespace() {
     let dir = std::env::temp_dir().join(format!(
         "issue-lossy-{}-{}",
         std::process::id(),
@@ -218,28 +218,18 @@ fn explicit_lossy_collection_keeps_old_strict_callers_and_js_token_order() {
             .message
             .starts_with("Bulk file must be valid UTF-8")
     );
+    std::fs::write(&file, "\u{feff}ENG-1,ENG-2\n ENG-1\tjoined\n").unwrap();
     assert_eq!(
-        initiative_bulk::collect_ids_with_policy(
-            &input,
-            &mut &b"ENG-2,\xff"[..],
-            TextPolicy::Lossy
-        )
-        .unwrap(),
-        vec![" Raw, argv ", "", "ENG-1", "\u{fffd}", "ENG-2"]
-    );
-    std::fs::write(&file, "ENG-1\u{feff}ENG-2\u{85}joined").unwrap();
-    assert_eq!(
-        initiative_bulk::collect_ids_with_policy(
+        initiative_bulk::collect_ids(
             &BulkInput {
                 argv: None,
                 file: Some(&file),
                 stdin: false
             },
             &mut &b""[..],
-            TextPolicy::Lossy
         )
         .unwrap(),
-        vec!["ENG-1", "ENG-2\u{85}joined"]
+        vec!["ENG-1", "ENG-2", "joined"]
     );
     let strict_stdin = BulkInput {
         argv: None,

@@ -1,9 +1,8 @@
 //! Literal child executable, inherited stdio, and owned temporary Markdown file.
 use crate::{
-    commands::document_content::{decode_file, edited_body},
+    commands::text_input::{edited_body, read_file},
     config::ChildEnvOverlay,
     error::{AppError, AppErrorKind},
-    text::js_space,
 };
 use std::{
     ffi::OsString,
@@ -24,7 +23,7 @@ pub fn discover(env: &ChildEnvOverlay) -> Option<OsString> {
         && output.status.success()
     {
         let decoded = String::from_utf8_lossy(&output.stdout);
-        let value = decoded.trim_matches(js_space);
+        let value = decoded.trim();
         if !value.is_empty() {
             return Some(OsString::from(value));
         }
@@ -110,8 +109,8 @@ pub fn open(
                 "Editor exited with an error",
             )));
         }
-        let bytes = fs::read(&temp.0)?;
-        Ok(EditorOutcome::Content(edited_body(&decode_file(&bytes))))
+        let text = read_file(&temp.0)?;
+        Ok(EditorOutcome::Content(edited_body(&text)))
     })();
     match result {
         Ok(outcome) => Ok(outcome),
@@ -270,8 +269,8 @@ pub fn open_update(env: &ChildEnvOverlay, root: &Path) -> Result<UpdateEditorOut
         if !status.success() {
             return UpdateEditorOutcome::ChildFailed(status);
         }
-        match fs::read(&temp.0) {
-            Ok(bytes) => UpdateEditorOutcome::Content(edited_body(&decode_file(&bytes))),
+        match read_file(&temp.0) {
+            Ok(text) => UpdateEditorOutcome::Content(edited_body(&text)),
             Err(error) => UpdateEditorOutcome::Failed(
                 AppError::new(
                     AppErrorKind::IoProcess,

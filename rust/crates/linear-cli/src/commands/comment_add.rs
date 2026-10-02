@@ -1,10 +1,9 @@
 //! Shared `comment add` steps: body flags, the body prompt check, the single
 //! `AddComment` mutation and its output. Each leaf owns its target resolution
 //! and calls these in the source order.
-use std::io::Read;
-
 use cynic::{MutationBuilder, QueryBuilder};
 
+use crate::commands::text_input;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::comment_create::{
@@ -14,7 +13,6 @@ use crate::graphql::operations::comment_create::{
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::prompt::{PromptOutcome, PromptSession};
 use crate::refs::{reject_comment_url, reject_linear_url};
-use crate::text::js_space;
 
 /// The source's single `handleError` prefix for every action failure.
 pub const CONTEXT: &str = "Failed to add comment";
@@ -29,9 +27,8 @@ pub enum CommentTarget {
     Initiative { initiative_id: String },
 }
 
-/// JavaScript `!value.trim()`: empty after ECMAScript whitespace, including a BOM.
-fn js_blank(value: &str) -> bool {
-    value.chars().all(js_space)
+fn is_blank(value: &str) -> bool {
+    value.trim().is_empty()
 }
 
 /// Turn `--body` / `--body-file` into a body, or `None` so the caller prompts.
@@ -46,7 +43,7 @@ pub fn resolve_body(
             "Cannot specify both --body and --body-file",
         )),
         (None, Some(path)) => read_body_file(path).map(Some),
-        (Some(text), None) if js_blank(text) => Err(AppError::new(
+        (Some(text), None) if is_blank(text) => Err(AppError::new(
             AppErrorKind::Validation,
             "Comment body cannot be empty",
         )
@@ -56,25 +53,22 @@ pub fn resolve_body(
     }
 }
 
-/// Valid UTF-8, including a BOM, is kept byte-for-byte. Invalid UTF-8 is
-/// rejected rather than replaced, so a comment never silently changes.
+/// Invalid UTF-8 is rejected rather than replaced, so a comment never silently changes.
 fn read_body_file(path: &str) -> Result<String, AppError> {
-    let mut bytes = Vec::new();
-    std::fs::File::open(path)
-        .and_then(|mut file| file.read_to_end(&mut bytes))
-        .map_err(|error| {
+    let content = text_input::read_file(path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            AppError::new(AppErrorKind::Validation, "Body file must be valid UTF-8")
+                .with_suggestion(format!("Re-save {path} as UTF-8 text, or use --body."))
+                .with_source(error)
+        } else {
             AppError::new(
                 AppErrorKind::Validation,
                 format!("Failed to read body file: {path}"),
             )
             .with_suggestion(format!("Error: {error}"))
-        })?;
-    let content = String::from_utf8(bytes).map_err(|error| {
-        AppError::new(AppErrorKind::Validation, "Body file must be valid UTF-8")
-            .with_suggestion(format!("Re-save {path} as UTF-8 text, or use --body."))
-            .with_source(error)
+        }
     })?;
-    if js_blank(&content) {
+    if is_blank(&content) {
         return Err(AppError::new(
             AppErrorKind::Validation,
             format!("Body file is empty: {path}"),
@@ -86,7 +80,7 @@ fn read_body_file(path: &str) -> Result<String, AppError> {
 
 /// Ask for the body once. The answer is trimmed by the text prompt; a blank
 /// answer is checked by the caller after the session is closed.
-pub fn prompt_body<R: Read, W: std::io::Write>(
+pub fn prompt_body<R: std::io::Read, W: std::io::Write>(
     session: &mut PromptSession<R, W>,
 ) -> Result<PromptOutcome<String>, AppError> {
     session.text(PROMPT_MESSAGE, 0, |_| Ok(()))
@@ -94,7 +88,7 @@ pub fn prompt_body<R: Read, W: std::io::Write>(
 
 /// Reject a blank submitted prompt answer, without the flag suggestion.
 pub fn require_prompted(body: String) -> Result<String, AppError> {
-    if js_blank(&body) {
+    if is_blank(&body) {
         return Err(AppError::new(
             AppErrorKind::Validation,
             "Comment body cannot be empty",

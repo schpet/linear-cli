@@ -10,7 +10,6 @@
 
 use crate::commands::template_data::{JsObject, JsValue, js_number};
 use crate::error::{AppError, AppErrorKind};
-use crate::text::js_space;
 
 #[derive(Clone, Debug, PartialEq)]
 enum NodeKind {
@@ -233,9 +232,7 @@ pub fn to_markdown(doc: &JsValue) -> Result<String, AppError> {
             root.kind.name()
         )));
     }
-    Ok(render_blocks(&root.content)
-        .trim_end_matches(js_space)
-        .to_owned())
+    Ok(render_blocks(&root.content).trim_end().to_owned())
 }
 
 fn is_line_terminator(ch: char) -> bool {
@@ -287,7 +284,7 @@ fn escape_list_marker(line: &str, terminator: Option<char>, output: &mut String)
             .chars()
             .next()
             .or(terminator)
-            .is_some_and(js_space)
+            .is_some_and(char::is_whitespace)
     };
     let digits = after_space
         .find(|ch: char| !ch.is_ascii_digit())

@@ -14,7 +14,7 @@ fn reader(sandbox: &Sandbox) -> ProcessKeyringReader {
 #[test]
 fn mac_flavor_has_exact_argv_null_stdin_and_strips_surrounding_whitespace() {
     let sandbox = Sandbox::new(
-        "printf '%s\\n' \"$@\" > \"$TRACE\"; if IFS= read -r line; then exit 8; fi; printf '\\357\\273\\277 \\tdummy_mac\\r\\n'",
+        "printf '%s\\n' \"$@\" > \"$TRACE\"; if IFS= read -r line; then exit 8; fi; printf ' \\tdummy_mac\\r\\n'",
     );
     let key = reader(&sandbox)
         .lookup_detailed("dummy space")
@@ -36,7 +36,7 @@ fn mac_miss44_ignores_output_but_other_exit_and_invalid_utf8_stay_typed() {
         reader(&wrong_exit).lookup_detailed("dummy").unwrap_err(),
         ProcessLookupFailure::ExitFailure
     );
-    let empty = Sandbox::new("printf '\\357\\273\\277 \\t\\r\\n'");
+    let empty = Sandbox::new("printf ' \\t\\r\\n'");
     assert!(reader(&empty).lookup_detailed("dummy").unwrap().is_none());
     let invalid = Sandbox::new("printf '\\377'");
     assert_eq!(

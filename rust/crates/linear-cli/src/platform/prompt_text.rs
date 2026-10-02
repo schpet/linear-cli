@@ -1,5 +1,4 @@
 //! Opt-in document text parsing; existing PromptSession::text stays unchanged.
-use crate::text::js_space;
 #[derive(Clone, Copy, Debug)]
 pub struct TextOptions<'a> {
     pub minimum_utf16_length: usize,
@@ -30,6 +29,6 @@ impl TextOptions<'_> {
                 self.minimum_utf16_length
             ));
         }
-        Ok(raw.trim_matches(js_space).to_owned())
+        Ok(raw.trim().to_owned())
     }
 }

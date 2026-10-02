@@ -39,7 +39,7 @@ fn local_inputs_preserve_clear_empty_and_validation_phase_order() {
     .unwrap_err();
     assert_eq!(error.message, "Cannot specify both --lead and --clear-lead");
     let error = update::local(&update::Options {
-        labels: Some(vec!["\u{feff}\t".to_owned()]),
+        labels: Some(vec![" \t".to_owned()]),
         content_file: Some("missing".to_owned()),
         ..Default::default()
     })
@@ -75,9 +75,9 @@ fn decoded_files_preserve_source_success_and_distinct_error_shapes() {
     ));
     std::fs::create_dir(&root).unwrap();
     let file = root.join("body");
-    std::fs::write(&file, b"\xef\xbb\xbf#raw\r\n\xff").unwrap();
+    std::fs::write(&file, b"\xef\xbb\xbf#raw\r\n").unwrap();
     let path = file.to_str().unwrap();
-    let expected = Some("\u{feff}#raw\r\n�".to_owned());
+    let expected = Some("#raw\r\n".to_owned());
     assert_eq!(shared::content(None, Some(path)).unwrap(), expected);
     assert_eq!(shared::description(None, Some(path)).unwrap(), expected);
     std::fs::write(&file, []).unwrap();

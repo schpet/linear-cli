@@ -33,7 +33,6 @@ use crate::graphql::operations::templates::{
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::collation;
 use crate::refs::{is_linear_uuid, reject_linear_url};
-use crate::text::js_space;
 
 pub const CONTEXT: &str = "Failed to view template";
 
@@ -401,7 +400,7 @@ fn render_pre_fill(key: &str, value: &JsValue, indent: &str) -> Result<Vec<Strin
         }
         JsValue::String(text) if text.contains('\n') => vec![
             format!("{indent}{key}:"),
-            indent_block(text.trim_end_matches(js_space), &nested),
+            indent_block(text.trim_end(), &nested),
         ],
         JsValue::String(text) => vec![format!("{indent}{key}: {text}")],
         JsValue::Number(number) => vec![format!("{indent}{key}: {}", js_number(*number))],

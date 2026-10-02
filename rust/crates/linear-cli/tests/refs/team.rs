@@ -108,7 +108,7 @@ async fn hits_keep_request_variables_and_winning_keys() {
 
 #[tokio::test]
 async fn blank_and_ambiguous_errors_are_exact() {
-    for name in ["blank-feff-before-key", "blank-space-before-key"] {
+    for name in ["blank-space-before-key", "blank-nel"] {
         let spec = case(name);
         let absent = ApiKeyInput::Absent;
         let error = prepare_team_lookup(argument(&spec), &scope_for(&spec, &absent))
@@ -192,7 +192,6 @@ async fn misses_fetch_every_page_and_keep_original_errors() {
         "miss-null-cursor",
         "url-miss-original",
         "untrimmed-text",
-        "nel-nonblank",
     ] {
         assert_miss(name).await;
     }

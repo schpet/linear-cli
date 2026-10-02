@@ -80,8 +80,8 @@ pub mod auth_default;
 pub mod document_delete;
 pub mod team_delete;
 
-pub mod document_content;
 pub mod document_write;
+pub mod text_input;
 
 pub mod project_write;
 

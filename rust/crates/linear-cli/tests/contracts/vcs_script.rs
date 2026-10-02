@@ -227,7 +227,7 @@ fn opt_in_inference_preserves_existing_parsers_and_distinct_nonzero_policy() {
     }
     assert_eq!(
         vcs_script::decoded_trim(b"\xef\xbb\xbf \xff \xc2\x85"),
-        "\u{fffd} \u{85}"
+        "\u{fffd}"
     );
     assert_eq!(
         linear_cli::platform::vcs::parse_git_branch(false, "", " DUMMY failure \n")

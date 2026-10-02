@@ -55,12 +55,7 @@ fn body_flags_conflict_before_file_io_and_keep_supplied_text_exactly() {
         comment_add::resolve_body(Some(literal), None).unwrap(),
         Some(literal.to_owned())
     );
-    // NEL is Unicode whitespace but not ECMAScript whitespace, so it is text.
-    assert_eq!(
-        comment_add::resolve_body(Some("\u{85}"), None).unwrap(),
-        Some("\u{85}".to_owned())
-    );
-    for blank in [" \t\n", "\u{a0}\u{feff}\u{3000}", "\u{2028}"] {
+    for blank in [" \t\n", "\u{a0}\u{3000}", "\u{2028}"] {
         let error = comment_add::resolve_body(Some(blank), None).unwrap_err();
         assert_eq!(error.message, "Comment body cannot be empty");
         assert_eq!(
@@ -72,7 +67,7 @@ fn body_flags_conflict_before_file_io_and_keep_supplied_text_exactly() {
 }
 
 #[test]
-fn body_files_keep_valid_utf8_bytes_and_reject_invalid_or_unreadable_files() {
+fn body_files_strip_a_bom_and_reject_invalid_or_unreadable_files() {
     let dir = scratch();
     let write = |name: &str, bytes: &[u8]| {
         let path = dir.join(name);
@@ -85,7 +80,7 @@ fn body_files_keep_valid_utf8_bytes_and_reject_invalid_or_unreadable_files() {
     );
     assert_eq!(
         comment_add::resolve_body(None, Some(&text)).unwrap(),
-        Some("\u{feff}# Title\r\n\n  ☃ *md* \n".to_owned())
+        Some("# Title\r\n\n  ☃ *md* \n".to_owned())
     );
     let bom = write("bom.md", b"\xef\xbb\xbf \n");
     let error = comment_add::resolve_body(None, Some(&bom)).unwrap_err();

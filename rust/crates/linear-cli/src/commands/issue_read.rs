@@ -253,7 +253,7 @@ pub async fn state_filter(
     let mut lookups = vec![];
     for value in values {
         reject_linear_url(value, "a workflow state name, type, or ID")?;
-        if value.chars().all(crate::text::js_space) {
+        if value.chars().all(char::is_whitespace) {
             return Err(
                 validation("--state value is empty").with_suggestion(format!(
                     "Pass a state type ({}), name, or ID.",

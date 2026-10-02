@@ -12,7 +12,6 @@ use serde::de::value::{Error as ValueError, StrDeserializer};
 use serde::de::{DeserializeOwned, IntoDeserializer};
 
 use crate::graphql::transport::EndpointUrl;
-use crate::text::js_space;
 
 use super::dotenv::SelectedEnv;
 use super::parse::ConfigTier;
@@ -478,7 +477,7 @@ fn flag(raw: &Raw<'_>) -> Result<bool, OptionErrorReason> {
 
 fn template(raw: &Raw<'_>) -> Result<String, OptionErrorReason> {
     let value = raw.parse::<String>()?;
-    let trimmed = value.trim_matches(js_space);
+    let trimmed = value.trim();
     if trimmed.is_empty() {
         Err(OptionErrorReason::EmptyTemplate)
     } else {

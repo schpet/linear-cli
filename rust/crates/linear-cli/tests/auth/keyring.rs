@@ -87,16 +87,16 @@ fn empty_output_and_exit_one_with_blank_stderr_are_misses() {
             .unwrap()
             .is_none()
     );
-    let miss = Sandbox::new("printf '\\357\\273\\277' >&2; exit 1");
+    let miss = Sandbox::new("printf ' \\n' >&2; exit 1");
     assert!(
         miss.reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap()
             .is_none()
     );
-    let not_trimmed = Sandbox::new("printf '\\302\\205' >&2; exit 1");
+    let failure = Sandbox::new("printf 'denied' >&2; exit 1");
     assert_eq!(
-        not_trimmed
+        failure
             .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap_err(),

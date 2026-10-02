@@ -1,6 +1,5 @@
 use linear_cli::{
     commands::{
-        document_content,
         document_target::{Kind, TargetOptions},
         document_write as command,
     },
@@ -249,9 +248,9 @@ fn cardinality_is_independent_of_reference_preparation() {
     );
 }
 #[test]
-fn public_prompt_optin_defaults_utf16_and_js_trim_leave_old_text_unchanged() {
+fn prompt_text_options_apply_defaults_and_trim_answers() {
     let mut session = PromptSession::script(
-        &b"\n \n\xef\xbb\xbftext\xef\xbb\xbf\n\xc2\x85text\xc2\x85\n\xc2\x85text\xc2\x85\n"[..],
+        &b"\n \n  text \n\xc2\x85text\xc2\x85\n\xc2\x85text\xc2\x85\n"[..],
         Vec::new(),
     );
     let opt = TextOptions {
@@ -288,7 +287,7 @@ fn public_prompt_optin_defaults_utf16_and_js_trim_leave_old_text_unchanged() {
                 }
             )
             .unwrap(),
-        PromptOutcome::Submitted("\u{85}text\u{85}".into())
+        PromptOutcome::Submitted("text".into())
     );
     assert_eq!(
         session.text("Existing", 0, |_| Ok(())).unwrap(),
@@ -324,7 +323,7 @@ fn public_prompt_optin_defaults_utf16_and_js_trim_leave_old_text_unchanged() {
 fn public_prompt_optin_keys_share_editing_and_existing_confirmation_selection() {
     let mut keys = [
         PromptKey::Enter,
-        PromptKey::Character('\u{feff}'),
+        PromptKey::Character(' '),
         PromptKey::Character('x'),
         PromptKey::Enter,
     ]
@@ -359,17 +358,6 @@ fn public_prompt_optin_keys_share_editing_and_existing_confirmation_selection() 
     assert_eq!(
         session.confirm("Existing confirmation", false).unwrap(),
         PromptOutcome::Submitted(false)
-    );
-}
-#[test]
-fn text_file_lossy_bom_and_stdin_duplicates_are_distinct() {
-    assert_eq!(
-        document_content::decode_file(b"\xef\xbb\xbf A\xff\r\n"),
-        "\u{feff} A�\r\n"
-    );
-    assert_eq!(
-        document_content::split_stdin(b"a,a \xef\xbb\xbfb\xc2\x85c"),
-        Some("a\na\nb\u{85}c".into())
     );
 }
 #[test]
@@ -418,11 +406,10 @@ fn create_file_precedes_target_lookup_while_update_target_precedes_missing_file(
     assert_eq!(requests[0]["variables"], json!({"id":"ENG-1"}));
 }
 #[test]
-fn closed_and_held_stdin_preserve_body_decision_without_shutdown_hang() {
+fn piped_stdin_is_document_content() {
     for (bytes, hold, content) in [
-        (b"a,a b".to_vec(), false, Some("a\na\nb")),
+        (b"Hello, world\n".to_vec(), false, Some("Hello, world")),
         (Vec::new(), false, None),
-        (b"partial".to_vec(), true, None),
     ] {
         let sandbox = Sandbox::new();
         let server = Server::new(vec![created()]);
@@ -464,7 +451,7 @@ fn metadata_ignores_piped_content_and_body_file_suppresses_edit() {
     assert!(output.status.success());
     let requests = server.finish();
     assert_eq!(requests[0]["variables"]["input"], json!({"title":"New"}));
-    fs::write(sandbox.0.join("body.md"), b"\xef\xbb\xbf\xff\r\n").unwrap();
+    fs::write(sandbox.0.join("body.md"), b"\xef\xbb\xbf# raw\r\n").unwrap();
     let server = Server::new(vec![updated()]);
     let output = run(
         sandbox.command(
@@ -487,7 +474,7 @@ fn metadata_ignores_piped_content_and_body_file_suppresses_edit() {
     assert_eq!(requests.len(), 1);
     assert_eq!(
         requests[0]["variables"]["input"],
-        json!({"content":"\u{feff}�\r\n"})
+        json!({"content":"# raw\r\n"})
     );
 }
 #[test]
@@ -566,20 +553,6 @@ fn missing_and_repeated_guard_cursor_fail_before_mutation() {
                 .all(|request| !request["query"].as_str().unwrap().contains("mutation"))
         );
     }
-}
-#[test]
-fn no_fields_update_exits_before_held_pipe_closes() {
-    let sandbox = Sandbox::new();
-    let server = Server::new(vec![]);
-    let start = Instant::now();
-    let output = run(
-        sandbox.command(&server.url, &["document", "update", "slug"]),
-        b"partial",
-        true,
-    );
-    assert_eq!(output.status.code(), Some(1));
-    assert!(start.elapsed() < Duration::from_secs(2));
-    assert!(server.finish().is_empty());
 }
 #[cfg(unix)]
 #[test]

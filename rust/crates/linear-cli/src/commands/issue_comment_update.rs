@@ -1,6 +1,5 @@
 //! Complete C073 body update; source prompt/default/file semantics are opt-in.
 use crate::{
-    commands::document_content,
     error::{AppError, AppErrorKind},
     graphql::{
         bulk_error,
@@ -13,7 +12,6 @@ use crate::{
         prompt_text::TextOptions,
     },
     refs::{reject_comment_url, reject_linear_url},
-    text::js_space,
 };
 use cynic::{MutationBuilder, QueryBuilder};
 use serde::{Serialize, de::DeserializeOwned};
@@ -36,8 +34,8 @@ pub fn prepare_body(
         ));
     }
     match file {
-        Some(path) => std::fs::read(path)
-            .map(|bytes| Some(document_content::decode_file(&bytes)))
+        Some(path) => crate::commands::text_input::read_file(path)
+            .map(Some)
             .map_err(|error| {
                 AppError::new(
                     AppErrorKind::Validation,
@@ -138,7 +136,7 @@ pub fn prompt_body<R: Read, W: Write>(
         },
     )? {
         PromptOutcome::Submitted(body) => {
-            if body.trim_matches(js_space).is_empty() {
+            if body.trim().is_empty() {
                 Err(AppError::new(
                     AppErrorKind::Validation,
                     "Comment body cannot be empty",

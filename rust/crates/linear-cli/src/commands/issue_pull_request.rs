@@ -1,9 +1,9 @@
 //! Complete PR template/body/argv policy; gh owns its browser/editor/interactive flow.
 use crate::{
+    commands::text_input,
     config::ChildEnvOverlay,
     error::{AppError, AppErrorKind},
     platform::gh_script::GhRunner,
-    text::{js_space, js_trim},
 };
 use std::path::Path;
 pub const CONTEXT: &str = "Failed to create pull request";
@@ -17,7 +17,7 @@ fn unusable(reason: impl Into<String>) -> AppError {
 }
 pub fn read_template(path: &Path) -> Result<String, AppError> {
     let display = path.to_string_lossy();
-    if js_trim(&display).is_empty() {
+    if display.trim().is_empty() {
         return Err(unusable("the path is empty"));
     }
     let metadata = std::fs::metadata(path).map_err(|error| {
@@ -35,17 +35,20 @@ pub fn read_template(path: &Path) -> Result<String, AppError> {
     if !metadata.is_file() {
         return Err(unusable(format!("\"{display}\" is not a regular file")));
     }
-    let bytes = std::fs::read(path).map_err(|error| {
-        unusable(format!("\"{display}\" could not be read: {error}")).with_source(error)
+    let contents = text_input::read_file(path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            unusable(format!("\"{display}\" is not valid UTF-8 text")).with_source(error)
+        } else {
+            unusable(format!("\"{display}\" could not be read: {error}")).with_source(error)
+        }
     })?;
-    let contents = String::from_utf8_lossy(&bytes).into_owned();
     if contents.contains('\0') {
         return Err(unusable(format!("\"{display}\" is not a text file")));
     }
     Ok(contents)
 }
 pub fn body(template: Option<&str>, issue_url: &str) -> String {
-    let template = template.unwrap_or("").trim_end_matches(js_space);
+    let template = template.unwrap_or("").trim_end();
     if template.is_empty() {
         issue_url.to_owned()
     } else {

@@ -1,6 +1,6 @@
 //! Full project/initiative status-update create with separate attended editor policy.
 use crate::{
-    commands::{document_content, initiative_view::Reference},
+    commands::{initiative_view::Reference, text_input},
     config::ChildEnvOverlay,
     error::{AppError, AppErrorKind},
     graphql::{
@@ -111,17 +111,9 @@ pub fn attended(
                 .iter()
                 .all(|value| value.is_none_or(str::is_empty))))
 }
-/// Unlike documents, wait for whole EOF. Source explicitly treats read errors as absent.
-pub fn stdin_body(reader: &mut impl Read) -> Option<String> {
-    let mut bytes = vec![];
-    match reader.read_to_end(&mut bytes) {
-        Ok(_) => document_content::split_stdin(&bytes),
-        Err(_) => None,
-    }
-}
 pub fn file(path: &str, mode: Mode, interactive: bool) -> Result<String, AppError> {
-    match std::fs::read(path) {
-        Ok(bytes) => Ok(document_content::decode_file(&bytes)),
+    match text_input::read_file(path) {
+        Ok(text) => Ok(text),
         Err(error)
             if error.kind() == std::io::ErrorKind::NotFound
                 && (!interactive || mode == Mode::Project) =>
@@ -432,7 +424,7 @@ pub fn prompt<R: Read, W: Write>(
     }));
     let body = match method.as_str() {
         "skip" => None,
-        "inline" => document_content::edited_body(&answer!(session.text_with_options(
+        "inline" => text_input::edited_body(&answer!(session.text_with_options(
             match mode {
                 Mode::Project => "Update content (markdown)",
                 Mode::Initiative => "Content (markdown)",

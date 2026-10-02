@@ -14,7 +14,6 @@ use crate::graphql::operations::initiative_updates::{
 };
 use crate::graphql::operations::initiatives::InitiativeUpdateHealthType;
 use crate::graphql::transport::GraphQlTransport;
-use crate::text::js_space;
 
 pub const CONTEXT: &str = "Failed to fetch initiative updates";
 
@@ -279,7 +278,7 @@ pub fn render_text(
         output.push('\n');
         if !node.body.is_empty() {
             let preview = node.body.replace('\n', " ");
-            let preview = truncate_text(preview.trim_matches(js_space), available_width);
+            let preview = truncate_text(preview.trim(), available_width);
             output.push_str(&console_body(&preview, color));
             output.push('\n');
         }

@@ -1,9 +1,8 @@
 use crate::{
     error::{AppError, AppErrorKind},
     graphql::{edit::Edit, operations::issue_update::IssueUpdateInput},
-    text::js_space,
 };
-use std::{future::Future, path::Path};
+use std::future::Future;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Team {
@@ -75,8 +74,8 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
     }
     match truthy(file) {
         None => Ok(inline.map(str::to_owned)),
-        Some(path) => std::fs::read(Path::new(path))
-            .map(|bytes| Some(crate::commands::document_content::decode_file(&bytes)))
+        Some(path) => crate::commands::text_input::read_file(path)
+            .map(Some)
             .map_err(|error| {
                 validation(format!("Failed to read description file: {path}"))
                     .with_suggestion(format!("Error: {error}"))
@@ -100,7 +99,7 @@ pub fn integer(value: Option<f64>, field: &str) -> Result<Option<i32>, AppError>
 /// JS parseInt's consumed integer prefix; checked i32 conversion follows it.
 /// Empty/NaN is omission, syntactically valid overflow is a typed refusal.
 pub fn menu_estimate(value: &str) -> Result<Option<i32>, AppError> {
-    let value = value.trim_start_matches(js_space);
+    let value = value.trim_start();
     let (negative, value) = match value.strip_prefix('-') {
         Some(value) => (true, value),
         None => (false, value.strip_prefix('+').unwrap_or(value)),

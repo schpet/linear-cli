@@ -6,7 +6,6 @@
 //! are not reflowed because the terminal wraps them. Width only sizes thematic
 //! breaks. Deliberate differences are recorded in `rust/compatibility.md`.
 
-use crate::text::js_trim;
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
@@ -802,7 +801,7 @@ impl Renderer<'_> {
                                 return (*line).to_owned();
                             }
                             let styled = self.paint.paint_all(&[GRAY, ITALIC], line);
-                            if js_trim(&styled).is_empty() {
+                            if styled.trim().is_empty() {
                                 styled
                             } else {
                                 format!("┃ {styled}")
@@ -897,7 +896,7 @@ impl Renderer<'_> {
         let expanded = text.replace('\t', "    ");
         let lines: Vec<&str> = expanded
             .split('\n')
-            .map(|line| if js_trim(line).is_empty() { " " } else { line })
+            .map(|line| if line.trim().is_empty() { " " } else { line })
             .collect();
         let max = lines
             .iter()
@@ -942,7 +941,7 @@ impl Renderer<'_> {
             let mut rendered = Vec::with_capacity(columns);
             for column in 0..columns {
                 let content = match row.get(column) {
-                    Some(cell) => js_trim(&self.inlines(cell)?).to_owned(),
+                    Some(cell) => self.inlines(cell)?.trim().to_owned(),
                     None => String::new(),
                 };
                 rendered.push(content);

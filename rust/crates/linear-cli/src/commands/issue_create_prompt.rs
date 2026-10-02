@@ -5,7 +5,7 @@ use super::{
     },
 };
 use crate::platform::network_owner;
-use crate::{error::AppError, graphql::edit::Edit, text::js_space};
+use crate::{error::AppError, graphql::edit::Edit};
 fn option(id: &str, name: &str) -> Named {
     Named {
         id: id.to_owned(),
@@ -296,7 +296,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
             None
         }
     } else {
-        let text = raw.trim_matches(js_space);
+        let text = raw.trim();
         (!text.is_empty()).then(|| text.to_owned())
     };
     ui.suspend()?;

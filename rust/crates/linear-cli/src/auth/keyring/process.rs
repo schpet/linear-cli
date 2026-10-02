@@ -15,7 +15,6 @@ use crate::auth::mutation::MutationFailure;
 use crate::auth::{LookupFailureCategory, LookupResult};
 use crate::config::{ChildEnvOverlay, ConfigSecret};
 use crate::error::{AppError, AppErrorKind};
-use crate::text::{js_space, js_trim};
 
 /// How long one keyring command may run before it is killed.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -195,7 +194,7 @@ impl ProcessKeyringReader {
                 String::from_utf8(output.stdout).map_err(|_| ProcessLookupFailure::InvalidUtf8)?;
             let key = match self.flavor {
                 // `security -w` prints the password followed by a newline.
-                ReaderFlavor::MacSecurity => js_trim(&stdout).to_owned(),
+                ReaderFlavor::MacSecurity => stdout.trim().to_owned(),
                 ReaderFlavor::SecretTool => stdout,
             };
             return Ok((!key.is_empty()).then(|| ConfigSecret::new(key)));
@@ -205,8 +204,7 @@ impl ProcessKeyringReader {
             // secret-tool exits 1 without a message when nothing matches.
             ReaderFlavor::SecretTool => {
                 output.status.code() == Some(1)
-                    && String::from_utf8(output.stderr)
-                        .is_ok_and(|stderr| stderr.trim_matches(js_space).is_empty())
+                    && String::from_utf8(output.stderr).is_ok_and(|stderr| stderr.trim().is_empty())
             }
         };
         if missing {
@@ -290,7 +288,7 @@ impl ProcessMutationBackend {
         Err(MutationFailure::Ordinary(format!(
             "{} {action} failed ({status}): {}",
             Self::tool_name(),
-            js_trim(&stderr)
+            stderr.trim()
         )))
     }
 }

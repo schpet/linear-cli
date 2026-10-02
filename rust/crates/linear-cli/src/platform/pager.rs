@@ -20,7 +20,6 @@ use crate::config::{NoColor, OsFamily};
 use crate::error::{AppError, AppErrorKind};
 use crate::platform::markdown_terminal::{self, HostSource, RenderOptions};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream};
-use crate::text::js_space;
 
 /// Line limit used when a TTY reports no size.
 pub const UNKNOWN_SIZE_LINE_LIMIT: usize = 50;
@@ -105,7 +104,7 @@ pub fn primary_command(pager: Option<&str>, os: OsFamily) -> PagerCommand {
     match (pager, os) {
         (Some(value), _) if !value.is_empty() => {
             let mut parts = value
-                .split(js_space)
+                .split(char::is_whitespace)
                 .filter(|part| !part.is_empty())
                 .map(str::to_owned);
             PagerCommand {

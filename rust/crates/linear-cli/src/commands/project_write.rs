@@ -1,6 +1,6 @@
 //! C025/C026 shared source-compatible boundaries.
 use crate::{
-    commands::{document_content, project_collections::ResolvedRef, table::utf16_len},
+    commands::{project_collections::ResolvedRef, table::utf16_len, text_input},
     error::{AppError, AppErrorKind},
     graphql::{
         envelope::GraphQlRequest,
@@ -27,8 +27,8 @@ pub fn content(inline: Option<&str>, file: Option<&str>) -> Result<Option<String
     }
     match file {
         None => Ok(inline.map(str::to_owned)),
-        Some(path) => std::fs::read(path)
-            .map(|bytes| Some(document_content::decode_file(&bytes)))
+        Some(path) => crate::commands::text_input::read_file(path)
+            .map(Some)
             .map_err(|error| {
                 validation(format!("Failed to read content file: {path}"))
                     .with_suggestion(format!("Error: {error}"))
@@ -45,8 +45,8 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
     }
     let value = match file {
         None => inline.map(str::to_owned),
-        Some(path) => Some(match std::fs::read(path) {
-            Ok(bytes) => document_content::decode_file(&bytes),
+        Some(path) => Some(match text_input::read_file(path) {
+            Ok(text) => text,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 return Err(AppError::not_found("File", path));
             }

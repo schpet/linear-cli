@@ -530,7 +530,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     ) -> Result<PromptOutcome<crate::config::ConfigSecret>, AppError> {
         self.check_ready(message)?;
         let parse = |raw: &str| {
-            let value = crate::text::js_trim(raw).to_owned();
+            let value = raw.trim().to_owned();
             let mask = "*".repeat(value.chars().count());
             Ok((crate::config::ConfigSecret::new(value), mask))
         };

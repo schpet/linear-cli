@@ -93,24 +93,24 @@ fn raw_jj_joining_and_newline_parsing() {
         ),
         ("\n\nNo issue\nFixes XYZ-9", Some("XYZ-9")),
         ("", None),
-        ("\u{feff}ENG-7\u{feff}", Some("ENG-7")),
+        (" ENG-7 ", Some("ENG-7")),
     ] {
         assert_eq!(parse_jj_trailers(text).as_deref(), expected);
     }
 }
 #[test]
-fn git_nonzero_is_detached_only_for_the_detached_head_message() {
+fn git_nonzero_is_detached_only_for_not_a_symbolic_ref() {
     assert_eq!(
         parse_git_branch(false, "ENG-7", "fatal: not a symbolic ref\n").expect("detached"),
         None
     );
     assert_eq!(
-        parse_git_branch(true, "\u{feff}feature/eng-7-x\n", "warning")
+        parse_git_branch(true, " feature/eng-7-x\n", "warning")
             .expect("branch")
             .as_deref(),
         Some("ENG-7")
     );
     assert_eq!(parse_git_branch(true, "\n", "").expect("empty"), None);
-    let error = parse_git_branch(false, "ENG-7", "\u{feff}fatal: denied\n").expect_err("fatal");
+    let error = parse_git_branch(false, "ENG-7", " fatal: denied\n").expect_err("fatal");
     assert_eq!(error.message, "Failed to get current branch: fatal: denied");
 }

@@ -14,7 +14,6 @@ use crate::graphql::operations::team_resolver::{
 };
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
-use crate::text::js_space;
 
 use super::uuid::is_linear_uuid;
 use super::workspace::{WorkspaceScope, expect_team_url};
@@ -57,7 +56,7 @@ pub fn prepare_team_lookup(
     original: &str,
     scope: &WorkspaceScope<'_>,
 ) -> Result<PreparedTeamLookup, AppError> {
-    if original.trim_matches(js_space).is_empty() {
+    if original.trim().is_empty() {
         return Err(
             AppError::new(AppErrorKind::Validation, "Team reference is empty")
                 .with_suggestion("Pass a team key, name, or ID, e.g. --team ENG."),

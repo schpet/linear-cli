@@ -1,6 +1,5 @@
 use crate::auth::{ApiKeyInput, CredentialSelectionInputs, CredentialStore};
 use crate::error::{AppError, AppErrorKind};
-use crate::text::js_space;
 
 use super::url::{LinearUrlKind, LinearUrlParse, LinearUrlRef, parse_linear_url};
 
@@ -30,7 +29,7 @@ impl<'a> WorkspaceScope<'a> {
             .cli_workspace
             .or(self.sourced_workspace)
             .or(self.default_workspace)?;
-        let trimmed = selected.trim_matches(js_space);
+        let trimmed = selected.trim();
         (!trimmed.is_empty()).then_some(trimmed)
     }
 

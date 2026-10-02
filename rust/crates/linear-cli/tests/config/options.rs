@@ -322,20 +322,11 @@ fn template_paths_resolve_against_their_config_file() {
             .path(),
         Path::new("dotenv.md")
     );
-    let inputs = env(&[("LINEAR_PR_TEMPLATE", "\u{feff}x\u{feff}")]);
+    let inputs = env(&[("LINEAR_PR_TEMPLATE", " x\t")]);
     let options = snapshot(&inputs, &dotenv(&[]), None, None).expect("trimmed");
     assert_eq!(
         options.sourced_pr_template().expect("template").value(),
         "x"
-    );
-    let inputs = env(&[("LINEAR_PR_TEMPLATE", "\u{85}")]);
-    assert_eq!(
-        snapshot(&inputs, &dotenv(&[]), None, None)
-            .expect("NEL not trimmed")
-            .sourced_pr_template()
-            .expect("template")
-            .value(),
-        "\u{85}"
     );
 }
 

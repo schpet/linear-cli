@@ -1,7 +1,5 @@
 use reqwest::Url;
 
-use crate::text::js_space;
-
 const TEAM_SUBPAGES: &[&str] = &[
     "overview",
     "all",
@@ -224,7 +222,7 @@ fn cycle_path(workspace: String, team_key: String, rest: &[String]) -> LinearUrl
 
 /// Classify a URL without network access. Ordinary text stays unchanged for lookup.
 pub fn parse_linear_url(value: &str) -> LinearUrlParse {
-    let trimmed = value.trim_matches(js_space);
+    let trimmed = value.trim();
     if trimmed.is_empty() {
         return LinearUrlParse::NotLinear;
     }

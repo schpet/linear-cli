@@ -41,8 +41,7 @@ fn local_guards_precede_conflict_and_body_files_keep_source_text_policy() {
     ));
     std::fs::create_dir(&root).unwrap();
     for (name, bytes, expected) in [
-        ("bom", b"\xef\xbb\xbfraw\r\n".as_slice(), "\u{feff}raw\r\n"),
-        ("lossy", b"a\xffb", "a\u{fffd}b"),
+        ("bom", b"\xef\xbb\xbfraw\r\n".as_slice(), "raw\r\n"),
         ("space", b" \t\r\n", " \t\r\n"),
         ("empty", b"", ""),
     ] {
@@ -54,7 +53,8 @@ fn local_guards_precede_conflict_and_body_files_keep_source_text_policy() {
         assert_eq!(actual, expected);
         assert_eq!(command::needs_prompt(Some(&actual)), actual.is_empty());
     }
-    for path in [root.join("missing"), root.clone()] {
+    std::fs::write(root.join("invalid"), b"a\xffb").unwrap();
+    for path in [root.join("missing"), root.clone(), root.join("invalid")] {
         let error =
             command::prepare_body("opaque", None, Some(path.to_str().unwrap())).unwrap_err();
         assert_eq!(

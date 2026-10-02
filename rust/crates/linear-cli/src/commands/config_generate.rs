@@ -15,7 +15,6 @@ use crate::{
         prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession},
         selector::SelectOption,
     },
-    text::js_space,
 };
 use cynic::QueryBuilder;
 use std::{
@@ -301,9 +300,7 @@ pub async fn late_root_with_program(
     .await;
     match result {
         Ok(Ok((_read, _status))) => Ok(LateRoot::Completed(
-            String::from_utf8_lossy(&bytes)
-                .trim_matches(js_space)
-                .to_owned(),
+            String::from_utf8_lossy(&bytes).trim().to_owned(),
         )),
         failure => {
             let kill = child.start_kill();

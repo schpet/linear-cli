@@ -1,8 +1,8 @@
 //! Full document writes, comment guards, and source-specific interactive inputs.
 use crate::{
     commands::{
-        document_content,
         document_target::{Kind, TargetOptions},
+        text_input,
     },
     config::ChildEnvOverlay,
     error::{AppError, AppErrorKind},
@@ -196,8 +196,8 @@ pub async fn guard(transport: &GraphQlTransport, id: &str) -> Result<(), AppErro
     }
 }
 pub fn file(path: &str, interactive: bool) -> Result<String, AppError> {
-    match std::fs::read(path) {
-        Ok(bytes) => Ok(document_content::decode_file(&bytes)),
+    match text_input::read_file(path) {
+        Ok(text) => Ok(text),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             Err(AppError::not_found("File", path))
         }
@@ -292,7 +292,7 @@ pub fn prompt<R: Read, W: Write>(
     match method.as_str() {
         "skip" => (),
         "inline" => {
-            fields.content = document_content::edited_body(&answer!(
+            fields.content = text_input::edited_body(&answer!(
                 session.text_with_options("Content (markdown)", options(0, Some("")))
             ))
         }
@@ -328,7 +328,7 @@ pub fn prompt<R: Read, W: Write>(
             ));
         }
     }
-    fields.icon = document_content::edited_body(&answer!(
+    fields.icon = text_input::edited_body(&answer!(
         session.text_with_options("Icon (emoji, leave blank for none)", options(0, Some("")))
     ));
     let targets = [

@@ -279,18 +279,14 @@ fn attributes_follow_the_source_fallbacks() {
 }
 
 #[test]
-fn trailing_js_whitespace_is_trimmed_from_the_whole_document() {
+fn trailing_whitespace_is_trimmed_from_the_whole_document() {
     assert_eq!(
-        markdown(doc(vec![paragraph(vec![text("body \u{feff}\u{3000}\n")])])),
-        "body"
-    );
-    assert_eq!(
-        markdown(doc(vec![paragraph(vec![text("body\u{feff}")])])),
+        markdown(doc(vec![paragraph(vec![text("body \u{3000}\n")])])),
         "body"
     );
     assert_eq!(
         markdown(doc(vec![paragraph(vec![text("body\u{85}")])])),
-        "body\u{85}"
+        "body"
     );
     assert_eq!(markdown(doc(vec![])), "");
 }

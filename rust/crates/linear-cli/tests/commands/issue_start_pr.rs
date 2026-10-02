@@ -112,11 +112,7 @@ fn team_preempts_conflict_and_picker_filters_preserve_assignee_shapes() {
 fn git_switch_and_suffix_failures_keep_exact_argv_and_correct_branch_diagnostics() {
     let cwd = Path::new("/dummy");
     let env = overlay();
-    let mut runner = Runner::new(vec![captured(
-        7,
-        b"hidden",
-        b" \xef\xbb\xbfDUMMY switch\n ",
-    )]);
+    let mut runner = Runner::new(vec![captured(7, b"hidden", b" DUMMY switch\n ")]);
     let err = start::existing_git(
         &mut runner,
         start::ExistingBranch::Switch,
@@ -258,12 +254,12 @@ fn mixed_output_refusal_is_stdin_tty_and_actual_fifo_only() {
     }
 }
 #[test]
-fn pr_body_and_argv_preserve_js_trimend_bom_empty_title_and_raw_values() {
+fn pr_body_and_argv_trim_template_end_and_keep_raw_values() {
     let args = pr::args(
         "ENG-1",
         "default",
         "URL",
-        Some("\u{feff} leading\r\n\u{feff}"),
+        Some(" leading\r\n \t"),
         pr::Options {
             title: Some(""),
             base: Some(""),
@@ -280,26 +276,23 @@ fn pr_body_and_argv_preserve_js_trimend_bom_empty_title_and_raw_values() {
             "--title",
             "ENG-1 ",
             "--body",
-            "\u{feff} leading\n\nURL",
+            " leading\n\nURL",
             "--head",
             " ",
             "--draft",
             "--web"
         ]
     );
-    assert_eq!(pr::body(Some(" \u{feff}\r\n"), "URL"), "URL");
-    assert_eq!(pr::body(Some("text\u{0085}"), "URL"), "text\u{0085}\n\nURL");
+    assert_eq!(pr::body(Some(" \r\n"), "URL"), "URL");
+    assert_eq!(pr::body(Some("text\u{0085}"), "URL"), "text\n\nURL");
 }
 #[test]
-fn pr_template_follows_symlink_keeps_lossy_bom_crlf_and_refuses_nul_missing_directory() {
-    let root = std::env::temp_dir().join(format!("c071-c081-template-{}", std::process::id()));
+fn pr_template_follows_symlink_strips_bom_and_refuses_invalid_nul_missing_directory() {
+    let root = std::env::temp_dir().join(format!("pr-template-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
     let file = root.join("template");
-    std::fs::write(&file, b"\xef\xbb\xbfDUMMY\xff\r\n").unwrap();
-    assert_eq!(
-        pr::read_template(&file).unwrap(),
-        "\u{feff}DUMMY\u{fffd}\r\n"
-    );
+    std::fs::write(&file, b"\xef\xbb\xbfDUMMY\r\n").unwrap();
+    assert_eq!(pr::read_template(&file).unwrap(), "DUMMY\r\n");
     #[cfg(unix)]
     {
         let link = root.join("link");
@@ -317,6 +310,13 @@ fn pr_template_follows_symlink_keeps_lossy_bom_crlf_and_refuses_nul_missing_dire
         assert!(error.message.contains(reason));
         assert_eq!(error.suggestion.as_deref(), Some(pr::TEMPLATE_SUGGESTION));
     }
+    std::fs::write(&file, b"DUMMY\xff").unwrap();
+    assert!(
+        pr::read_template(&file)
+            .unwrap_err()
+            .message
+            .ends_with("is not valid UTF-8 text")
+    );
     std::fs::write(&file, b"DUMMY\0").unwrap();
     assert!(
         pr::read_template(&file)

@@ -15,7 +15,6 @@ use crate::{
         operations::auth_login_viewer::AuthLoginViewer,
         transport::{ApiKey, GraphQlTransport},
     },
-    text::js_trim,
 };
 use cynic::QueryBuilder;
 use std::path::Path;
@@ -27,13 +26,15 @@ pub const MIGRATE_MESSAGE: &str =
 
 pub fn supplied_key(input: Option<&str>) -> Option<ConfigSecret> {
     input
-        .map(js_trim)
+        .map(str::trim)
         .filter(|key| !key.is_empty())
         .map(|key| ConfigSecret::new(key.to_owned()))
 }
 pub fn clean_key(key: ConfigSecret) -> Result<ConfigSecret, AppError> {
-    let trimmed =
-        js_trim(key.expose()).trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_');
+    let trimmed = key
+        .expose()
+        .trim()
+        .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_');
     if trimmed.is_empty() {
         return Err(
             AppError::new(AppErrorKind::Validation, "No API key provided")

@@ -345,7 +345,11 @@ impl ProcessRunner for NativeProcessRunner {
 /// Deno's UTF8 TextDecoder drops one BOM and replaces invalid UTF8, then JS trim.
 pub fn decoded_trim(bytes: &[u8]) -> String {
     let decoded = String::from_utf8_lossy(bytes);
-    crate::text::js_trim(decoded.strip_prefix('\u{feff}').unwrap_or(&decoded)).to_owned()
+    decoded
+        .strip_prefix('\u{feff}')
+        .unwrap_or(&decoded)
+        .trim()
+        .to_owned()
 }
 pub fn inference_spec(vcs: Vcs) -> CommandSpec {
     match vcs {
