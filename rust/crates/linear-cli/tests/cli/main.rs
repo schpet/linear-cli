@@ -13,5 +13,8 @@ mod issue_comment;
 mod issue_read;
 mod issue_vcs;
 mod issue_write;
+mod label;
+mod milestone;
 mod project;
 mod team;
+mod user;
