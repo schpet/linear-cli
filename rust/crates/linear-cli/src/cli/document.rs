@@ -25,15 +25,15 @@ pub enum DocumentCommand {
 
 #[derive(Debug, Args)]
 pub struct DocumentList {
-    #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    #[arg(long = "project", conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
-    #[arg(long = "issue", help = "Filter by issue (identifier like TC-123)", value_name = "issue", value_parser = super::nonempty_string)]
+    #[arg(long = "issue", conflicts_with_all = ["initiative", "team", "cycle", "release"], help = "Filter by issue (identifier like TC-123)", value_name = "issue", value_parser = super::nonempty_string)]
     pub issue: Option<String>,
-    #[arg(long = "initiative", help = "Filter by initiative (UUID, slug ID, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
+    #[arg(long = "initiative", conflicts_with_all = ["team", "cycle", "release"], help = "Filter by initiative (UUID, slug ID, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: Option<String>,
-    #[arg(long = "team", help = "Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
+    #[arg(long = "team", conflicts_with = "release", help = "Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
-    #[arg(long = "cycle", help = "Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
+    #[arg(long = "cycle", conflicts_with = "release", help = "Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
     pub cycle: Option<String>,
     #[arg(long = "release", help = "Filter by release (UUID, name, or version)", value_name = "release", value_parser = super::nonempty_string)]
     pub release: Option<String>,
@@ -45,7 +45,7 @@ pub struct DocumentList {
 
 #[derive(Debug, Args)]
 pub struct DocumentView {
-    #[arg(value_name = "id")]
+    #[arg(value_name = "id", value_parser = super::nonempty_string)]
     pub id: String,
     #[arg(long = "raw", help = "Output raw markdown without rendering")]
     pub raw: bool,
@@ -68,15 +68,15 @@ pub struct DocumentCreate {
     pub content: Option<String>,
     #[arg(long = "content-file", short = 'f', help = "Read content from file", value_name = "path", value_parser = super::nonempty_string)]
     pub content_file: Option<String>,
-    #[arg(long = "project", help = "Attach to project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    #[arg(long = "project", conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], help = "Attach to project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
-    #[arg(long = "issue", help = "Attach to issue (identifier like TC-123)", value_name = "issue", value_parser = super::nonempty_string)]
+    #[arg(long = "issue", conflicts_with_all = ["initiative", "team", "cycle", "release"], help = "Attach to issue (identifier like TC-123)", value_name = "issue", value_parser = super::nonempty_string)]
     pub issue: Option<String>,
-    #[arg(long = "initiative", help = "Attach to initiative (UUID, slug ID, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
+    #[arg(long = "initiative", conflicts_with_all = ["team", "cycle", "release"], help = "Attach to initiative (UUID, slug ID, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: Option<String>,
-    #[arg(long = "team", help = "Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
+    #[arg(long = "team", conflicts_with = "release", help = "Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
-    #[arg(long = "cycle", help = "Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
+    #[arg(long = "cycle", conflicts_with = "release", help = "Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
     pub cycle: Option<String>,
     #[arg(long = "release", help = "Attach to release (UUID, name, or version)", value_name = "release", value_parser = super::nonempty_string)]
     pub release: Option<String>,
@@ -85,14 +85,15 @@ pub struct DocumentCreate {
     #[arg(
         long = "interactive",
         short = 'i',
-        help = "Interactive mode with prompts"
+        help = "Interactive mode with prompts",
+        conflicts_with_all = ["project", "issue", "initiative", "team", "cycle", "release"]
     )]
     pub interactive: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentUpdate {
-    #[arg(value_name = "documentId")]
+    #[arg(value_name = "documentId", value_parser = super::nonempty_string)]
     pub document_id: String,
     #[arg(long = "title", short = 't', help = "New title for the document", value_name = "title", value_parser = super::nonempty_string)]
     pub title: Option<String>,
@@ -102,15 +103,15 @@ pub struct DocumentUpdate {
     pub content_file: Option<String>,
     #[arg(long = "icon", help = "New icon (emoji)", value_name = "icon", value_parser = super::nonempty_string)]
     pub icon: Option<String>,
-    #[arg(long = "project", help = "Re-point to project (UUID, slug ID, or name); replaces the current attachment", value_name = "project", value_parser = super::nonempty_string)]
+    #[arg(long = "project", conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], help = "Re-point to project (UUID, slug ID, or name); replaces the current attachment", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
-    #[arg(long = "issue", help = "Re-point to issue (identifier like TC-123); replaces the current attachment", value_name = "issue", value_parser = super::nonempty_string)]
+    #[arg(long = "issue", conflicts_with_all = ["initiative", "team", "cycle", "release"], help = "Re-point to issue (identifier like TC-123); replaces the current attachment", value_name = "issue", value_parser = super::nonempty_string)]
     pub issue: Option<String>,
-    #[arg(long = "initiative", help = "Re-point to initiative (UUID, slug ID, or name); replaces the current attachment", value_name = "initiative", value_parser = super::nonempty_string)]
+    #[arg(long = "initiative", conflicts_with_all = ["team", "cycle", "release"], help = "Re-point to initiative (UUID, slug ID, or name); replaces the current attachment", value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: Option<String>,
-    #[arg(long = "team", help = "Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
+    #[arg(long = "team", conflicts_with = "release", help = "Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
-    #[arg(long = "cycle", help = "Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
+    #[arg(long = "cycle", conflicts_with = "release", help = "Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
     pub cycle: Option<String>,
     #[arg(long = "release", help = "Re-point to release (UUID, name, or version); replaces the current attachment", value_name = "release", value_parser = super::nonempty_string)]
     pub release: Option<String>,
@@ -129,7 +130,7 @@ pub struct DocumentUpdate {
 
 #[derive(Debug, Args)]
 pub struct DocumentDelete {
-    #[arg(value_name = "documentId")]
+    #[arg(value_name = "documentId", value_parser = super::nonempty_string, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub document_id: Option<String>,
     #[arg(long = "yes", short = 'y', help = "Skip confirmation prompt")]
     pub yes: bool,
@@ -162,7 +163,7 @@ pub enum DocumentCommentCommand {
 
 #[derive(Debug, Args)]
 pub struct DocumentCommentAdd {
-    #[arg(value_name = "document")]
+    #[arg(value_name = "document", value_parser = super::nonempty_string)]
     pub document: String,
     #[arg(long = "body", short = 'b', help = "Comment body text", value_name = "text", value_parser = super::nonempty_string)]
     pub body: Option<String>,
@@ -174,7 +175,7 @@ pub struct DocumentCommentAdd {
 
 #[derive(Debug, Args)]
 pub struct DocumentCommentList {
-    #[arg(value_name = "document")]
+    #[arg(value_name = "document", value_parser = super::nonempty_string)]
     pub document: String,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,

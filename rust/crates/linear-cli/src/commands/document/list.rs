@@ -1,37 +1,76 @@
 //! `document list`: one page of documents as a table or JSON.
+use std::time::SystemTime;
+
+use cynic::QueryBuilder;
+
+use crate::cli::document::DocumentList;
 use crate::commands::{
     display::{display_width, fit, pad},
     relative_time::format_relative_time,
-    table::underlined_header,
+    table::{self, underlined_header},
 };
-use crate::error::Error;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::{
     envelope::GraphQlRequest,
     operations::{documents::*, teams::PageInfo},
     transport::GraphQlTransport,
 };
 use crate::platform::style;
-use cynic::QueryBuilder;
-use std::time::SystemTime;
-pub const CONTEXT: &str = "Failed to list documents";
-pub fn request(
+
+use super::target::{self, TargetOptions};
+
+pub fn run(ctx: &Ctx, args: &DocumentList) -> Result<()> {
+    list(ctx, args).context("Failed to list documents")
+}
+
+fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
+    let target = target::prepare(
+        ctx,
+        TargetOptions {
+            project: args.project.as_deref(),
+            issue: args.issue.as_deref(),
+            initiative: args.initiative.as_deref(),
+            team: args.team.as_deref(),
+            cycle: args.cycle.as_deref(),
+            release: args.release.as_deref(),
+        },
+    )?;
+    let first = i32::try_from(args.limit.get()).map_err(|error| {
+        Error::new(format!("--limit must be at most {}", i32::MAX)).with_source(error)
+    })?;
+    let client = ctx.client()?;
+    let documents = ctx.spin(!args.json, async {
+        let filter = match &target {
+            Some(target) => {
+                let (kind, id) = target::resolve(target, client).await?;
+                Some(target::filter(kind, id))
+            }
+            None => None,
+        };
+        fetch(client, filter, first).await
+    })?;
+    if args.json {
+        let mut output =
+            serde_json::to_vec_pretty(&documents).expect("document JSON always serializes");
+        output.push(b'\n');
+        ctx.print(output)
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(text(&documents, columns, ctx.color(), SystemTime::now()))
+    }
+}
+
+async fn fetch(
+    client: &GraphQlTransport,
     filter: Option<DocumentFilter>,
     first: i32,
-) -> GraphQlRequest<ListDocumentsVariables> {
-    GraphQlRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
+) -> Result<DocumentConnection> {
+    let request = GraphQlRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
         filter,
         first: Some(first),
-    }))
-}
-pub async fn fetch(
-    transport: &GraphQlTransport,
-    filter: Option<DocumentFilter>,
-    first: i32,
-) -> Result<DocumentConnection, Error> {
-    let data: ListDocuments = transport
-        .execute(&request(filter, first))
-        .await
-        .map_err(Error::from)?;
+    }));
+    let data: ListDocuments = client.execute(&request).await?;
     Ok(data.documents.unwrap_or(DocumentConnection {
         nodes: Vec::new(),
         page_info: PageInfo {
@@ -40,13 +79,8 @@ pub async fn fetch(
         },
     }))
 }
-pub fn json(documents: &DocumentConnection) -> Result<Vec<u8>, Error> {
-    let mut out = serde_json::to_vec_pretty(documents)
-        .map_err(|error| Error::new("could not serialize documents").with_source(error))?;
-    out.push(b'\n');
-    Ok(out)
-}
-pub fn attachment(doc: &ListedDocument) -> String {
+
+fn attachment(doc: &ListedDocument) -> String {
     if let Some(project) = &doc.project
         && !project.name.is_empty()
     {
@@ -83,12 +117,7 @@ pub fn attachment(doc: &ListedDocument) -> String {
     }
     "-".to_owned()
 }
-pub fn text(
-    documents: &DocumentConnection,
-    columns: usize,
-    color: bool,
-    now: SystemTime,
-) -> String {
+fn text(documents: &DocumentConnection, columns: usize, color: bool, now: SystemTime) -> String {
     if documents.nodes.is_empty() {
         return "No documents found.\n".to_owned();
     }

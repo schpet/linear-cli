@@ -117,6 +117,18 @@ fn view_raw_prints_markdown_from_a_url() {
 }
 
 #[test]
+fn view_piped_prints_the_title_and_details_with_the_content() {
+    let api = MockLinear::start();
+    api.on("GetDocument", json!({ "document": document() }));
+    Cli::for_api(&api)
+        .run(&["document", "view", SLUG, "--no-download"])
+        .success()
+        .stdout_has("# Design notes")
+        .stdout_has("**Project:** Roadmap")
+        .stdout_has("The plan in **bold**.");
+}
+
+#[test]
 fn view_missing_document_fails() {
     let api = MockLinear::start();
     api.on("GetDocument", json!({ "document": null }));
@@ -158,6 +170,19 @@ fn view_json_collects_comment_pages() {
             json!({ "id": SLUG, "commentsAfter": "cursor-1" }),
         ]
     );
+}
+
+#[test]
+fn view_json_stops_on_an_empty_comment_cursor() {
+    let api = MockLinear::start();
+    let mut doc = document();
+    doc["comments"] = page(json!([comment("c1", "Looks good", None)]), json!(""), true);
+    api.on("GetDocumentWithComments", json!({ "document": doc }));
+    Cli::for_api(&api)
+        .run(&["document", "view", SLUG, "--json"])
+        .failure()
+        .stderr_has("cursor");
+    assert_eq!(api.operations(), ["GetDocumentWithComments"]);
 }
 
 #[test]
@@ -254,6 +279,47 @@ fn create_without_title_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["document", "create", "--content", "Body"])
         .failure();
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn create_and_update_accept_one_attachment_target() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    cli.run(&[
+        "document",
+        "create",
+        "-t",
+        "T",
+        "--project",
+        PROJECT_ID,
+        "--team",
+        "ENG",
+    ])
+    .usage_error();
+    cli.run(&[
+        "document",
+        "update",
+        SLUG,
+        "--issue",
+        "ENG-1",
+        "--release",
+        "v1",
+    ])
+    .usage_error();
+    cli.run(&["document", "create", "-t", "T", "--content", "Body"])
+        .failure()
+        .stderr_has("attachment target");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_without_fields_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["document", "update", SLUG])
+        .failure()
+        .stderr_has("No update fields");
     assert!(api.requests().is_empty());
 }
 
@@ -359,16 +425,16 @@ fn delete_resolves_a_url_then_deletes_by_id() {
 }
 
 #[test]
-fn delete_without_confirmation_does_not_delete() {
+fn delete_without_yes_or_a_terminal_fails_before_any_request() {
     let api = MockLinear::start();
-    api.on(
-        "GetDocumentForDelete",
-        json!({ "document": { "id": DOC_ID, "slugId": SLUG, "title": "Design notes" } }),
-    );
-    Cli::for_api(&api)
-        .run(&["document", "delete", SLUG])
-        .failure();
-    assert!(!api.operations().contains(&"DeleteDocument".to_owned()));
+    let cli = Cli::for_api(&api);
+    cli.run(&["document", "delete", SLUG])
+        .failure()
+        .stderr_has("--yes");
+    cli.run(&["document", "delete", "--bulk", SLUG])
+        .failure()
+        .stderr_has("--yes");
+    assert!(api.requests().is_empty());
 }
 
 #[test]
@@ -376,11 +442,11 @@ fn delete_bulk_deletes_each_document() {
     let api = MockLinear::start();
     for (id, slug) in [("doc-a", "aaa111"), ("doc-b", "bbb222")] {
         api.on(
-            "GetDocumentForBulkDelete",
+            "GetDocumentForDelete",
             json!({ "document": { "id": id, "slugId": slug, "title": format!("Doc {slug}") } }),
         )
         .on(
-            "BulkDeleteDocument",
+            "DeleteDocument",
             json!({ "documentDelete": { "success": true } }),
         );
     }
@@ -390,7 +456,7 @@ fn delete_bulk_deletes_each_document() {
     let mut lookups: Vec<Value> = api
         .requests()
         .into_iter()
-        .filter(|r| r.operation.as_deref() == Some("GetDocumentForBulkDelete"))
+        .filter(|r| r.operation.as_deref() == Some("GetDocumentForDelete"))
         .map(|r| r.variables)
         .collect();
     lookups.sort_by_key(Value::to_string);
@@ -401,7 +467,7 @@ fn delete_bulk_deletes_each_document() {
     let mut deletes: Vec<Value> = api
         .requests()
         .into_iter()
-        .filter(|r| r.operation.as_deref() == Some("BulkDeleteDocument"))
+        .filter(|r| r.operation.as_deref() == Some("DeleteDocument"))
         .map(|r| r.variables)
         .collect();
     deletes.sort_by_key(Value::to_string);
@@ -484,6 +550,16 @@ fn comment_add_with_a_blank_body_fails_before_any_request() {
     assert!(api.requests().is_empty());
 }
 
+#[test]
+fn comment_add_without_a_body_or_terminal_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["document", "comment", "add", SLUG])
+        .failure()
+        .stderr_has("--body");
+    assert!(api.requests().is_empty());
+}
+
 fn listed_comment(id: &str, body: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null,
@@ -531,6 +607,21 @@ fn comment_list_text_shows_threads() {
         .success()
         .stdout_has("Root comment")
         .stdout_has("Reply comment");
+}
+
+#[test]
+fn comment_list_stops_on_an_empty_cursor() {
+    let api = MockLinear::start();
+    let (nodes, _) = document_comments();
+    api.on(
+        "GetDocumentComments",
+        json!({ "document": { "id": DOC_ID, "comments": page(nodes, json!(""), true) } }),
+    );
+    Cli::for_api(&api)
+        .run(&["document", "comment", "list", SLUG])
+        .failure()
+        .stderr_has("cursor");
+    assert_eq!(api.operations(), ["GetDocumentComments"]);
 }
 
 fn for_edit(content: &str) -> Value {

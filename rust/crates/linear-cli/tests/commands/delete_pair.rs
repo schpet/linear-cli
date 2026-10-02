@@ -1,8 +1,7 @@
-use linear_cli::commands::bulk::{BulkOutcome, BulkResult};
 use linear_cli::{
-    commands::document::delete as doc,
     graphql::{
         bulk_error::{self, BulkExchangeFailure},
+        envelope::GraphQlRequest,
         transport::RawHttpResponse,
     },
 };
@@ -16,10 +15,18 @@ fn response(status: u16, mime: &str, body: &str) -> RawHttpResponse {
         body: body.as_bytes().to_vec(),
     }
 }
+/// A document delete mutation, as the sample request in error metadata.
+fn bulk_delete_request(id: &str) -> GraphQlRequest<Value> {
+    GraphQlRequest {
+        query: "mutation BulkDeleteDocument($id: String!) {\n  documentDelete(id: $id) {\n    success\n  }\n}\n".to_owned(),
+        variables: Some(json!({ "id": id })),
+        operation_name: Some("BulkDeleteDocument".to_owned()),
+    }
+}
 fn message(status: u16, mime: &str, body: &str) -> Result<Option<String>, BulkExchangeFailure> {
     bulk_error::source_error(
         &response(status, mime, body),
-        &doc::bulk_delete_request("error-uuid"),
+        &bulk_delete_request("error-uuid"),
     )
 }
 #[test]
@@ -43,7 +50,7 @@ fn compiled_bulk_request_and_full_source_error_are_byte_exact() {
         .unwrap()
         .unwrap();
     assert_eq!(actual, expected);
-    let request = doc::bulk_delete_request("error-uuid");
+    let request = bulk_delete_request("error-uuid");
     let metadata: Value = serde_json::from_str(
         actual
             .split_once(": {\"response\"")
@@ -100,7 +107,7 @@ fn source_error_content_type_status_and_empty_error_arrays() {
 }
 #[test]
 fn raw_bulk_error_body_matches_source_fetch_utf8_replacement_and_bom_removal() {
-    let request = doc::bulk_delete_request("error-uuid");
+    let request = bulk_delete_request("error-uuid");
     let json = br#"{"errors":[{"message":"byte"}]}"#;
     let mut bom = vec![0xef, 0xbb, 0xbf];
     bom.extend_from_slice(json);
@@ -168,89 +175,4 @@ fn nonstandard_bulk_shapes_are_strict_and_partial_data_is_not_lost() {
     assert!(text.starts_with("first\r\nsecond: "));
     assert!(text.contains("\"data\":{\"unused\":true},\"errors\""));
     assert!(!text.starts_with("friendly"));
-}
-#[test]
-fn document_summary_keeps_source_names_multiline_and_delete_typo() {
-    let rows = [BulkResult {
-        id: "id".into(),
-        name: None,
-        outcome: BulkOutcome::Failed("raw\nerror".into()),
-    }];
-    let (text, failed) = doc::summary(&rows);
-    assert!(failed);
-    assert_eq!(
-        String::from_utf8(text).unwrap(),
-        "\n✗ Failed to delete all 1 document\n\nFailed operations:\n  - id: raw\nerror\n"
-    );
-    let rows = [
-        BulkResult {
-            id: "yes".into(),
-            name: Some("title".into()),
-            outcome: BulkOutcome::Succeeded,
-        },
-        BulkResult {
-            id: "no".into(),
-            name: Some("".into()),
-            outcome: BulkOutcome::Failed("".into()),
-        },
-    ];
-    assert_eq!(
-        String::from_utf8(doc::summary(&rows).0).unwrap(),
-        "\nCompleted: 1/2 documents deleted\n  ✓ Succeeded: 1\n  ✗ Failed: 1\n\nFailed operations:\n  - no: Unknown error\n"
-    );
-}
-
-#[tokio::test]
-async fn corrupt_bulk_lookup_is_not_an_ordinary_not_found_fallback() {
-    let target = || doc::Target {
-        original: "original".to_owned(),
-        id: Ok("resolved".to_owned()),
-    };
-    let (transport, server) = super::delete_server::serve(
-        r#"{"data":{"document":{"id":3,"slugId":"slug","title":"title"}}}"#,
-    );
-    let result = doc::run_item(&transport, target()).await;
-    let request = server.join().unwrap();
-    assert_eq!(request["variables"], json!({"id":"resolved"}));
-    match result.outcome {
-        BulkOutcome::Failed(message) => {
-            assert!(message.contains("expected operation shape"));
-            assert_ne!(message, "Document not found")
-        }
-        _ => panic!("corrupt ID accepted"),
-    }
-    let (transport, server) =
-        super::delete_server::serve(r#"{"errors":[{"message":"ordinary lookup error"}]}"#);
-    let result = doc::run_item(&transport, target()).await;
-    server.join().unwrap();
-    assert_eq!(
-        result.outcome,
-        BulkOutcome::Failed("Document not found".to_owned())
-    );
-    assert_eq!(result.id, "original");
-    assert!(result.name.is_none());
-}
-
-#[tokio::test]
-async fn non_json_bulk_details_never_send_a_delete() {
-    let (transport, server) = super::delete_server::serve_with_content_type(
-        r#"{"data":{"document":{"id":"resolved-id","slugId":"slug","title":"title"}}}"#,
-        "text/plain; charset=utf-8",
-    );
-    let result = doc::run_item(
-        &transport,
-        doc::Target {
-            original: "original".to_owned(),
-            id: Ok("resolved".to_owned()),
-        },
-    )
-    .await;
-    let request = server.join().unwrap();
-    assert_eq!(request["variables"], json!({"id":"resolved"}));
-    assert_eq!(
-        result.outcome,
-        BulkOutcome::Failed("Document not found".to_owned())
-    );
-    assert_eq!(result.id, "original");
-    assert!(result.name.is_none());
 }

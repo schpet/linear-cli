@@ -1,129 +1,139 @@
-//! Document detail: JSON-only complete comment pagination, raw body and metadata.
-use crate::{
-    error::Error,
-    graphql::{
-        envelope::{GraphQlRequest, is_not_found},
-        operations::documents::*,
-        transport::{GraphQlTransport, TransportFailure},
-    },
-};
+//! `document view`: a document as Markdown, raw content or JSON (with every
+//! comment), or opened in the browser.
+use std::cell::RefCell;
+
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
-use std::{collections::HashSet, future::Future};
-pub const CONTEXT: &str = "Failed to view document";
-pub enum DocumentResult {
-    Body(DocumentBody),
-    WithComments(DocumentWithComments),
+
+use crate::cli::document::DocumentView;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::documents::*;
+use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::transport::GraphQlTransport;
+use crate::platform::{markdown_assets, markdown_ast, markdown_serializer};
+
+pub fn run(ctx: &Ctx, args: &DocumentView) -> Result<()> {
+    view(ctx, args).context("Failed to view document")
 }
-pub fn body_request(id: &str) -> GraphQlRequest<GetDocumentVariables> {
-    GraphQlRequest::with_variables(GetDocument::build(GetDocumentVariables {
-        id: id.to_owned(),
-    }))
-}
-pub fn comments_request(
-    id: &str,
-    after: Option<String>,
-) -> GraphQlRequest<GetDocumentCommentsVariables> {
-    GraphQlRequest::with_variables(GetDocumentWithComments::build(
-        GetDocumentCommentsVariables {
-            id: id.to_owned(),
-            comments_after: after,
-        },
-    ))
-}
-fn translate(failure: TransportFailure, original: &str) -> Error {
-    if let TransportFailure::GraphQl { errors, .. } = &failure
-        && is_not_found(errors)
+
+fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
+    let original = &args.id;
+    let id = super::reference(ctx, original)?;
+    let client = ctx.client()?;
+    if args.web {
+        let document = ctx.spin(true, body(client, &id, original))?;
+        return ctx.open_url(&document.url, false);
+    }
+    if args.json {
+        let document = ctx.spin(false, with_comments(client, &id, original))?;
+        let mut output =
+            serde_json::to_vec_pretty(&document).expect("document JSON always serializes");
+        output.push(b'\n');
+        return ctx.print(output);
+    }
+    let document = ctx.spin(!args.raw, body(client, &id, original))?;
+    let download = !args.no_download
+        && ctx
+            .options()
+            .download_images()
+            .is_none_or(|value| *value.value());
+    let content = match document
+        .content
+        .as_deref()
+        .filter(|content| !content.is_empty())
     {
-        return Error::not_found("Document", original);
+        Some(content) if download => Some(local_images(ctx, client, content)?),
+        content => content.map(str::to_owned),
+    };
+    if args.raw {
+        return match content {
+            Some(content) => ctx.print(format!("{content}\n")),
+            None => Ok(()),
+        };
     }
-    Error::from(failure)
+    let markdown = markdown(&document, content.as_deref(), Utc::now(), &chrono::Local);
+    ctx.show_markdown(&markdown, false)
 }
-pub async fn fetch(
-    transport: &GraphQlTransport,
-    original: &str,
-    id: &str,
-    json: bool,
-) -> Result<DocumentResult, Error> {
-    if json {
-        return all_comments_with(id, |query| async move {
-            transport
-                .execute(&query)
-                .await
-                .map_err(|failure| translate(failure, original))
-        })
-        .await
-        .map(DocumentResult::WithComments);
+
+/// The content with its images downloaded and pointed at the local copies.
+fn local_images(ctx: &Ctx, client: &GraphQlTransport, content: &str) -> Result<String> {
+    let root = &ctx.config().image_cache_root;
+    let downloaded = ctx.block_on(markdown_assets::download_with(
+        content,
+        root,
+        |url| async move { client.download_markdown_image(&url).await },
+        |bytes| ctx.eprint(bytes),
+    ))?;
+    if downloaded.paths.is_empty() {
+        return Ok(content.to_owned());
     }
-    let data: GetDocument = transport
-        .execute(&body_request(id))
+    markdown_ast::rewrite_with(content, &downloaded.paths, markdown_serializer::serialize)
+}
+
+async fn body(client: &GraphQlTransport, id: &str, original: &str) -> Result<DocumentBody> {
+    let request = GraphQlRequest::with_variables(GetDocument::build(GetDocumentVariables {
+        id: id.to_owned(),
+    }));
+    let data: GetDocument = client
+        .execute(&request)
         .await
-        .map_err(|failure| translate(failure, original))?;
+        .map_err(|failure| super::not_found(failure, original))?;
     data.document
-        .ok_or_else(|| Error::not_found("Document", id))
-        .map(DocumentResult::Body)
+        .ok_or_else(|| Error::not_found("Document", original))
 }
-pub async fn all_comments_with<F, Fut>(
+
+/// The document with every page of its comments.
+async fn with_comments(
+    client: &GraphQlTransport,
     id: &str,
-    mut fetch: F,
-) -> Result<DocumentWithComments, Error>
-where
-    F: FnMut(GraphQlRequest<GetDocumentCommentsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetDocumentWithComments, Error>>,
-{
-    let mut document = fetch(comments_request(id, None))
-        .await?
-        .document
-        .ok_or_else(|| Error::not_found("Document", id))?;
-    let mut seen = HashSet::new();
-    while document.comments.page_info.has_next_page {
-        let after = document
-            .comments
-            .page_info
-            .end_cursor
-            .clone()
-            .ok_or_else(|| {
-                Error::new(
-                    "Linear reported more document comments but returned no pagination cursor",
-                )
-            })?;
-        if !seen.insert(after.clone()) {
-            return Err(Error::new(
-                "Linear repeated a document comment pagination cursor",
-            ));
+    original: &str,
+) -> Result<DocumentWithComments> {
+    let first = RefCell::new(None);
+    let comments = pagination::paginate(|after| {
+        let request = GraphQlRequest::with_variables(GetDocumentWithComments::build(
+            GetDocumentCommentsVariables {
+                id: id.to_owned(),
+                comments_after: after,
+            },
+        ));
+        let first = &first;
+        async move {
+            let data: GetDocumentWithComments = client
+                .execute(&request)
+                .await
+                .map_err(|failure| super::not_found(failure, original))?;
+            let mut document = data
+                .document
+                .ok_or_else(|| Error::not_found("Document", original))?;
+            let comments = std::mem::take(&mut document.comments.nodes);
+            let page_info = document.comments.page_info.clone();
+            first.borrow_mut().get_or_insert(document);
+            Ok(Page {
+                nodes: comments,
+                page_info: page_info.into(),
+            })
         }
-        let next = fetch(comments_request(id, Some(after)))
-            .await?
-            .document
-            .ok_or_else(|| Error::not_found("Document", id))?;
-        document.comments.nodes.extend(next.comments.nodes);
-        document.comments.page_info = next.comments.page_info;
-    }
+    })
+    .await
+    .map_err(|error| match error {
+        PaginationError::Fetch { source, .. } => source,
+        PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
+            Error::new("Linear reported more document comments but returned no usable cursor")
+                .with_hint("Retry the command.")
+        }
+    })?;
+    let mut document = first
+        .into_inner()
+        .expect("a successful walk fetched at least one page");
+    document.comments.nodes = comments.nodes;
+    document.comments.page_info.has_next_page = comments.page_info.has_next_page;
+    document.comments.page_info.end_cursor = comments.page_info.end_cursor;
     Ok(document)
 }
-impl DocumentResult {
-    pub fn url(&self) -> &str {
-        match self {
-            Self::Body(document) => &document.url,
-            Self::WithComments(document) => &document.url,
-        }
-    }
-    pub fn json(&self) -> Result<Vec<u8>, Error> {
-        let mut bytes = match self {
-            Self::Body(document) => serde_json::to_vec_pretty(document),
-            Self::WithComments(document) => serde_json::to_vec_pretty(document),
-        }
-        .map_err(|error| Error::new("could not serialize document").with_source(error))?;
-        bytes.push(b'\n');
-        Ok(bytes)
-    }
-}
-pub fn raw(content: Option<&str>) -> Vec<u8> {
-    content
-        .filter(|content| !content.is_empty())
-        .map_or(Vec::new(), |content| format!("{content}\n").into_bytes())
-}
-pub fn markdown<Tz: TimeZone>(
+
+fn markdown<Tz: TimeZone>(
     document: &DocumentBody,
     content: Option<&str>,
     now: DateTime<Utc>,
