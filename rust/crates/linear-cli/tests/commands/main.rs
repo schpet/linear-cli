@@ -19,9 +19,6 @@ mod project_update_list;
 mod project_view;
 mod prosemirror;
 mod relative_time;
-mod template_json;
-mod template_list;
-mod template_view;
 
 mod initiative_unarchive;
 

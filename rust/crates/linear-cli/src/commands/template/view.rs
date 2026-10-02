@@ -1,29 +1,19 @@
 //! `template view`: one template by UUID or exact case-insensitive name, as
-//! the shared JSON projection or as its metadata and recursive pre-fills.
+//! JSON or as its metadata and what it pre-fills.
 //!
-//! A Linear URL is refused before credentials are selected. A UUID sends one
-//! `GetTemplate` with the reference as typed; a name sends one `GetTemplates`
-//! and matches in response order; no team is resolved. [`prepare`] and
-//! [`run_with`] each attach [`CONTEXT`] once to their own failures.
-//!
-//! Text output parses `templateData` lazily and reports the first error in
-//! render order. Rich-text bodies are printed as the generated Markdown,
-//! indented, so a pre-fill can be copied into `--description`; the output does
-//! not depend on terminal width or color.
+//! Text output prints rich-text bodies as indented Markdown, so a pre-fill can
+//! be copied into `--description`.
 
-use std::future::Future;
-
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde_json::{Map, Number, Value};
 
-use crate::auth::CredentialStore;
-use crate::commands::client;
+use crate::cli::template::TemplateView;
 use crate::commands::prosemirror;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::template::{json as template_json, list as template_list};
-use crate::config::{ConfigOptions, TransportEnvInputs};
-use crate::error::{Error, ResultExt};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::templates::{
     GetTemplate, GetTemplateVariables, GetTemplates, Template,
@@ -31,8 +21,6 @@ use crate::graphql::operations::templates::{
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::collation;
 use crate::refs::{is_linear_uuid, reject_linear_url};
-
-pub const CONTEXT: &str = "Failed to view template";
 
 const LIST_SUGGESTION: &str = "Run `linear template list` to see every template.";
 const INDENT: &str = "  ";
@@ -42,138 +30,34 @@ const LABEL_KEYS: [&str; 2] = ["title", "name"];
 const FORM_NOTE: &str = "Form template: yes (its form is filled in inside Linear; applying it from the CLI creates the entity with the form unanswered)";
 const FOOTER: &str = "References are IDs. Map them with `linear team states`, `linear label list`, `linear user list`, or `linear project list`.";
 
-/// A reference that is not a Linear URL, classified by the UUID predicate.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TemplateReference {
-    /// Sent to `GetTemplate` exactly as typed.
+/// A template named by UUID or by name.
+enum Reference {
     Id(String),
-    /// Matched against every template's lowercased name.
     Name(String),
 }
 
-impl TemplateReference {
-    /// Refuse any recognized Linear URL, then classify.
-    pub fn parse(reference: &str) -> Result<Self, Error> {
-        reject_linear_url(reference, "a template name or UUID")?;
-        Ok(if is_linear_uuid(reference) {
-            Self::Id(reference.to_owned())
-        } else {
-            Self::Name(reference.to_owned())
-        })
+pub fn run(ctx: &Ctx, args: &TemplateView) -> Result<()> {
+    view(ctx, args).context("Failed to view template")
+}
+
+fn view(ctx: &Ctx, args: &TemplateView) -> Result<()> {
+    reject_linear_url(&args.template, "a template name or UUID")?;
+    let reference = if is_linear_uuid(&args.template) {
+        Reference::Id(args.template.clone())
+    } else {
+        Reference::Name(args.template.clone())
+    };
+    let client = ctx.client()?;
+    let template = ctx.spin(!args.json, resolve(client, &reference))?;
+    if args.json {
+        return ctx.print(template_json::render_one(&template));
     }
-}
-
-pub struct Prepared {
-    pub reference: TemplateReference,
-    pub transport: GraphQlTransport,
-}
-
-/// Refuse a URL reference before credential selection, then build the client.
-pub fn prepare(
-    options: &ConfigOptions,
-    credentials: &CredentialStore,
-    cli_workspace: Option<&str>,
-    transport_env: &TransportEnvInputs,
-    reference: &str,
-) -> Result<Prepared, Error> {
-    prepare_uncontextualized(
-        options,
-        credentials,
-        cli_workspace,
-        transport_env,
-        reference,
-    )
-    .context(CONTEXT)
-}
-
-fn prepare_uncontextualized(
-    options: &ConfigOptions,
-    credentials: &CredentialStore,
-    cli_workspace: Option<&str>,
-    transport_env: &TransportEnvInputs,
-    reference: &str,
-) -> Result<Prepared, Error> {
-    let reference = TemplateReference::parse(reference)?;
-    let transport = client::prepare_transport(options, credentials, cli_workspace, transport_env)?;
-    Ok(Prepared {
-        reference,
-        transport,
-    })
-}
-
-pub fn template_request(id: &str) -> GraphQlRequest<GetTemplateVariables> {
-    GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
-        id: id.to_owned(),
-    }))
-}
-
-/// Resolve the reference with exactly one request, then render it. `now` is
-/// read after the request so relative times are measured from then.
-pub async fn run_with<OF, OFut, AF, AFut, Tz, Now>(
-    reference: &TemplateReference,
-    json: bool,
-    now: Now,
-    zone: &Tz,
-    template_fetch: OF,
-    templates_fetch: AF,
-) -> Result<Vec<u8>, Error>
-where
-    OF: FnOnce(GraphQlRequest<GetTemplateVariables>) -> OFut,
-    OFut: Future<Output = Result<GetTemplate, TransportFailure>>,
-    AF: FnOnce(GraphQlRequest<()>) -> AFut,
-    AFut: Future<Output = Result<GetTemplates, TransportFailure>>,
-    Tz: TimeZone,
-    Now: FnOnce() -> DateTime<Utc>,
-{
-    run_uncontextualized(reference, json, now, zone, template_fetch, templates_fetch)
-        .await
-        .context(CONTEXT)
-}
-
-async fn run_uncontextualized<OF, OFut, AF, AFut, Tz, Now>(
-    reference: &TemplateReference,
-    json: bool,
-    now: Now,
-    zone: &Tz,
-    template_fetch: OF,
-    templates_fetch: AF,
-) -> Result<Vec<u8>, Error>
-where
-    OF: FnOnce(GraphQlRequest<GetTemplateVariables>) -> OFut,
-    OFut: Future<Output = Result<GetTemplate, TransportFailure>>,
-    AF: FnOnce(GraphQlRequest<()>) -> AFut,
-    AFut: Future<Output = Result<GetTemplates, TransportFailure>>,
-    Tz: TimeZone,
-    Now: FnOnce() -> DateTime<Utc>,
-{
-    let template = resolve(reference, template_fetch, templates_fetch).await?;
-    if json {
-        return template_json::render_one(&template);
-    }
-    let mut text = render_text(&template, now(), zone)?;
+    let mut text = render_text(&template, Utc::now(), &Local)?;
     text.push('\n');
-    Ok(text.into_bytes())
+    ctx.print(text)
 }
 
-pub async fn run<Tz: TimeZone>(
-    transport: &GraphQlTransport,
-    reference: &TemplateReference,
-    json: bool,
-    zone: &Tz,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        reference,
-        json,
-        Utc::now,
-        zone,
-        |request| async move { transport.execute(&request).await },
-        |request| async move { transport.execute(&request).await },
-    )
-    .await
-}
-
-/// Whether any raw GraphQL `message` says the ID matched no template. The
-/// presentable message is ignored; `Entity not found` does not match.
+/// Whether Linear reported that no template has the requested ID.
 fn is_missing_template(failure: &TransportFailure) -> bool {
     match failure {
         TransportFailure::GraphQl { errors, .. } => errors.iter().any(|error| {
@@ -186,31 +70,25 @@ fn is_missing_template(failure: &TransportFailure) -> bool {
     }
 }
 
-async fn resolve<OF, OFut, AF, AFut>(
-    reference: &TemplateReference,
-    template_fetch: OF,
-    templates_fetch: AF,
-) -> Result<Template, Error>
-where
-    OF: FnOnce(GraphQlRequest<GetTemplateVariables>) -> OFut,
-    OFut: Future<Output = Result<GetTemplate, TransportFailure>>,
-    AF: FnOnce(GraphQlRequest<()>) -> AFut,
-    AFut: Future<Output = Result<GetTemplates, TransportFailure>>,
-{
+/// One request: the template by ID, or every template to match the name.
+async fn resolve(client: &GraphQlTransport, reference: &Reference) -> Result<Template> {
     match reference {
-        TemplateReference::Id(id) => match template_fetch(template_request(id)).await {
-            Ok(response) => Ok(response.template),
-            Err(failure) if is_missing_template(&failure) => {
-                Err(Error::not_found("Template", id).with_hint(LIST_SUGGESTION))
+        Reference::Id(id) => {
+            let request =
+                GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
+                    id: id.clone(),
+                }));
+            match client.execute::<GetTemplate, _>(&request).await {
+                Ok(response) => Ok(response.template),
+                Err(failure) if is_missing_template(&failure) => {
+                    Err(Error::not_found("Template", id).with_hint(LIST_SUGGESTION))
+                }
+                Err(failure) => Err(Error::from(failure)),
             }
-            Err(failure) => Err(Error::from(failure)),
-        },
-        TemplateReference::Name(name) => {
-            let templates = templates_fetch(template_list::request())
-                .await
-                .map_err(Error::from)?
-                .templates;
-            select_by_name(name, templates)
+        }
+        Reference::Name(name) => {
+            let data: GetTemplates = client.execute(&template_list::request()).await?;
+            select_by_name(name, data.templates)
         }
     }
 }
@@ -288,8 +166,7 @@ fn parse_template_data(template: &Template) -> Result<Map<String, Value>, Error>
 }
 
 /// The metadata header, the pre-fills and the footer, without a final newline.
-/// `templateData` is parsed first, so its errors precede any output.
-pub fn render_text<Tz: TimeZone>(
+fn render_text<Tz: TimeZone>(
     template: &Template,
     now: DateTime<Utc>,
     zone: &Tz,

@@ -149,3 +149,100 @@ fn view_unknown_name_fails() {
         .failure()
         .stderr_has("Nonexistent");
 }
+
+#[test]
+fn list_text_is_a_table_with_a_count() {
+    let api = MockLinear::start();
+    api.on(
+        "GetTemplates",
+        json!({ "templates": [template("tpl-kickoff", "Kickoff", "project", None)] }),
+    );
+    let run = Cli::for_api(&api).run(&["template", "list"]);
+    run.success();
+    let lines: Vec<&str> = run.stdout.lines().collect();
+    assert!(lines[0].starts_with("ID "), "{run}");
+    assert!(lines[1].starts_with("tpl-kickoff "), "{run}");
+    assert!(lines[1].contains("Kickoff"), "{run}");
+    assert!(lines[1].contains("Workspace"), "{run}");
+    assert_eq!(lines.last(), Some(&"1 template found."));
+}
+
+#[test]
+fn view_text_lists_pre_fills_with_bodies_last() {
+    let api = MockLinear::start();
+    let mut bug = bug_report();
+    let body = json!({ "type": "doc", "content": [
+        { "type": "paragraph", "content": [{ "type": "text", "text": "Steps to reproduce" }] }
+    ] });
+    bug["templateData"] = json!(
+        json!({
+            "descriptionData": body,
+            "title": "Bug: ",
+            "priority": 2,
+            "labelIds": ["label-1", "label-2"],
+            "subIssueData": [{ "title": "Triage", "priority": 1 }]
+        })
+        .to_string()
+    );
+    api.on("GetTemplate", json!({ "template": bug }));
+    let run = Cli::for_api(&api).run(&["template", "view", BUG_ID]);
+    run.success();
+    assert!(
+        run.stdout.starts_with(&format!(
+            "Bug report\nIssue template · Team ENG (Team ENG)\nID: {BUG_ID}\nDescription: Bug report description\nCreated by: Sam\n"
+        )),
+        "{run}"
+    );
+    let pre_fills = run
+        .stdout
+        .split_once("Pre-fills:\n")
+        .expect("pre-fills heading")
+        .1;
+    assert!(
+        pre_fills.starts_with(
+            "  title: Bug: \n  priority: 2 (high)\n  labelIds: label-1, label-2\n  subIssueData: 1 item\n    - Triage\n        priority: 1 (urgent)\n  descriptionData:\n    Steps to reproduce\n"
+        ),
+        "{run}"
+    );
+}
+
+#[test]
+fn view_unknown_id_is_not_found() {
+    let api = MockLinear::start();
+    api.on_error(
+        "GetTemplate",
+        &format!("No template found with id {BUG_ID}"),
+    );
+    Cli::for_api(&api)
+        .run(&["template", "view", BUG_ID])
+        .failure()
+        .stderr_has(&format!("Template not found: {BUG_ID}"))
+        .stderr_has("linear template list");
+}
+
+#[test]
+fn view_ambiguous_name_lists_the_ids() {
+    let api = MockLinear::start();
+    api.on(
+        "GetTemplates",
+        json!({ "templates": [
+            bug_report(),
+            template("tpl-ops-bug", "bug report", "issue", Some(("team-ops-id", "OPS"))),
+        ] }),
+    );
+    Cli::for_api(&api)
+        .run(&["template", "view", "Bug Report"])
+        .failure()
+        .stderr_has("ambiguous")
+        .stderr_has(BUG_ID)
+        .stderr_has("tpl-ops-bug");
+}
+
+#[test]
+fn view_rejects_a_linear_url_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["template", "view", "https://linear.app/acme/issue/ENG-1"])
+        .failure();
+    assert!(api.requests().is_empty());
+}

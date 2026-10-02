@@ -2,14 +2,13 @@
 
 use serde::Serialize;
 
-use crate::error::Error;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::templates::{
     InheritedTemplate, Template, TemplateCreator, TemplateTeam,
 };
 use crate::graphql::scalars::{DateTime, Json};
 
-/// The GraphQL field names, nesting and nulls.
+/// A template with its GraphQL field names, nesting and nulls.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JsonTemplate<'a> {
@@ -31,29 +30,23 @@ struct JsonTemplate<'a> {
     template_data: &'a Json,
 }
 
-/// Serialize a template list in GraphQL field order.
-pub fn render_list(templates: &[Template]) -> Result<Vec<u8>, Error> {
-    let projected = templates
-        .iter()
-        .map(project)
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut output = serde_json::to_vec_pretty(&projected)
-        .map_err(|error| Error::new("could not serialize templates").with_source(error))?;
+pub fn render_list(templates: &[Template]) -> Vec<u8> {
+    let projected: Vec<_> = templates.iter().map(project).collect();
+    let mut output =
+        serde_json::to_vec_pretty(&projected).expect("template JSON always serializes");
     output.push(b'\n');
-    Ok(output)
+    output
 }
 
-/// Serialize one template with the same field order and number spelling as the list.
-pub fn render_one(template: &Template) -> Result<Vec<u8>, Error> {
-    let projected = project(template)?;
-    let mut output = serde_json::to_vec_pretty(&projected)
-        .map_err(|error| Error::new("could not serialize template").with_source(error))?;
+pub fn render_one(template: &Template) -> Vec<u8> {
+    let mut output =
+        serde_json::to_vec_pretty(&project(template)).expect("template JSON always serializes");
     output.push(b'\n');
-    Ok(output)
+    output
 }
 
-fn project(template: &Template) -> Result<JsonTemplate<'_>, Error> {
-    Ok(JsonTemplate {
+fn project(template: &Template) -> JsonTemplate<'_> {
+    JsonTemplate {
         id: template.id.inner(),
         name: &template.name,
         description: template.description.as_deref(),
@@ -69,5 +62,5 @@ fn project(template: &Template) -> Result<JsonTemplate<'_>, Error> {
         inherited_from: template.inherited_from.as_ref(),
         creator: template.creator.as_ref(),
         template_data: &template.template_data,
-    })
+    }
 }

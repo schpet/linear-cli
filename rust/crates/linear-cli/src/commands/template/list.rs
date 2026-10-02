@@ -1,31 +1,18 @@
-//! `template list`: one template request, filtered by type and team, as a
-//! table or JSON.
-//!
-//! [`prepare`] and [`run_with`] each attach [`CONTEXT`] once to their own
-//! failures. Dispatch adds context only to failures outside those helpers,
-//! such as network-runtime setup. Output is returned as bytes for the caller
-//! to write with the console-like stdout policy.
-
-use std::future::Future;
-
+//! `template list`: every template, filtered by type and team, as a table or
+//! JSON.
 use cynic::QueryBuilder;
 
-use crate::auth::CredentialStore;
-use crate::commands::client;
+use crate::cli::TemplateType;
+use crate::cli::template::TemplateList;
 use crate::commands::display::{display_width, pad, truncate_text};
+use crate::commands::table;
 use crate::commands::template::json as template_json;
-use crate::config::{ConfigOptions, TransportEnvInputs};
-use crate::error::{Error, ResultExt};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
-use crate::graphql::operations::team_resolver::{
-    GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
-};
 use crate::graphql::operations::templates::{GetTemplates, Template};
-use crate::graphql::transport::GraphQlTransport;
-use crate::platform::collation;
-use crate::refs::{PreparedTeamLookup, WorkspaceScope, prepare_team_lookup, resolve_team};
-
-pub const CONTEXT: &str = "Failed to list templates";
+use crate::platform::{collation, style};
+use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 
 const ID_WIDTH: usize = 36;
 const MIN_COLUMN_WIDTH: usize = 4;
@@ -33,162 +20,45 @@ const MIN_TRUNCATED_NAME_WIDTH: usize = 20;
 const MAX_TEAM_WIDTH: usize = 15;
 const SPACE_WIDTH: usize = 3;
 
-/// The types `--type` accepts. Listing without a filter keeps any other type
-/// Linear returns.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TemplateType {
-    Issue,
-    Project,
-    Document,
+pub fn run(ctx: &Ctx, args: &TemplateList) -> Result<()> {
+    list(ctx, args).context("Failed to list templates")
 }
 
-impl TemplateType {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Issue => "issue",
-            Self::Project => "project",
-            Self::Document => "document",
-        }
+fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
+    let team = args
+        .team
+        .as_deref()
+        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .transpose()?;
+    let client = ctx.client()?;
+    let (templates, team_id) = ctx.spin(!args.json, async {
+        let team_id = match &team {
+            Some(lookup) => Some(resolve_team_with_transport(lookup, client).await?.id),
+            None => None,
+        };
+        let data: GetTemplates = client.execute(&request()).await?;
+        Ok::<_, Error>((data.templates, team_id))
+    })?;
+    let templates = select(templates, args.r#type, team_id.as_deref());
+    if args.json {
+        ctx.print(template_json::render_list(&templates))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(&templates, columns, ctx.color()))
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Options {
-    pub template_type: Option<TemplateType>,
-    pub json: bool,
-}
-
-pub struct Prepared {
-    pub team: Option<PreparedTeamLookup>,
-    pub transport: GraphQlTransport,
-}
-
-/// Local team-reference checks, then credential selection and client setup.
-/// A bad explicit team reference fails before credentials are selected, and
-/// its URL workspace check reads the same selection inputs as the transport.
-pub fn prepare(
-    options: &ConfigOptions,
-    credentials: &CredentialStore,
-    cli_workspace: Option<&str>,
-    transport_env: &TransportEnvInputs,
-    team: Option<&str>,
-) -> Result<Prepared, Error> {
-    prepare_uncontextualized(options, credentials, cli_workspace, transport_env, team)
-        .context(CONTEXT)
-}
-
-fn prepare_uncontextualized(
-    options: &ConfigOptions,
-    credentials: &CredentialStore,
-    cli_workspace: Option<&str>,
-    transport_env: &TransportEnvInputs,
-    team: Option<&str>,
-) -> Result<Prepared, Error> {
-    let inputs = client::selection_inputs(options, cli_workspace);
-    let team = team
-        .map(|reference| {
-            prepare_team_lookup(
-                reference,
-                &WorkspaceScope::from_selection(&inputs, credentials),
-            )
-        })
-        .transpose()?;
-    let transport =
-        client::prepare_transport_with_inputs(options, credentials, &inputs, transport_env)?;
-    Ok(Prepared { team, transport })
-}
-
-pub fn request() -> GraphQlRequest<()> {
+/// Every template in the workspace, unfiltered (the API takes no filter).
+pub(super) fn request() -> GraphQlRequest<()> {
     GraphQlRequest::without_variables(GetTemplates::build(()))
 }
 
-/// Resolve the team (if any) before the single template request; a team
-/// lookup failure never sends `GetTemplates`.
-pub async fn run_with<RF, RFut, AF, AFut, TF, TFut>(
-    team: Option<&PreparedTeamLookup>,
-    options: Options,
-    columns: usize,
-    color: bool,
-    resolve_fetch: RF,
-    all_teams_fetch: AF,
-    templates_fetch: TF,
-) -> Result<Vec<u8>, Error>
-where
-    RF: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> RFut,
-    RFut: Future<Output = Result<ResolveTeam, Error>>,
-    AF: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> AFut,
-    AFut: Future<Output = Result<GetAllTeams, Error>>,
-    TF: FnOnce(GraphQlRequest<()>) -> TFut,
-    TFut: Future<Output = Result<GetTemplates, Error>>,
-{
-    run_uncontextualized(
-        team,
-        options,
-        columns,
-        color,
-        resolve_fetch,
-        all_teams_fetch,
-        templates_fetch,
-    )
-    .await
-    .context(CONTEXT)
-}
-
-async fn run_uncontextualized<RF, RFut, AF, AFut, TF, TFut>(
-    team: Option<&PreparedTeamLookup>,
-    options: Options,
-    columns: usize,
-    color: bool,
-    resolve_fetch: RF,
-    all_teams_fetch: AF,
-    templates_fetch: TF,
-) -> Result<Vec<u8>, Error>
-where
-    RF: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> RFut,
-    RFut: Future<Output = Result<ResolveTeam, Error>>,
-    AF: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> AFut,
-    AFut: Future<Output = Result<GetAllTeams, Error>>,
-    TF: FnOnce(GraphQlRequest<()>) -> TFut,
-    TFut: Future<Output = Result<GetTemplates, Error>>,
-{
-    let team_id = match team {
-        Some(prepared) => Some(
-            resolve_team(prepared, resolve_fetch, all_teams_fetch)
-                .await?
-                .id,
-        ),
-        None => None,
-    };
-    let response = templates_fetch(request()).await?;
-    let templates = select(
-        response.templates,
-        options.template_type,
-        team_id.as_deref(),
-    )?;
-    if options.json {
-        template_json::render_list(&templates)
-    } else {
-        Ok(render_text(&templates, columns, color).into_bytes())
+fn type_name(template_type: TemplateType) -> &'static str {
+    match template_type {
+        TemplateType::Issue => "issue",
+        TemplateType::Project => "project",
+        TemplateType::Document => "document",
     }
-}
-
-pub async fn run(
-    transport: &GraphQlTransport,
-    team: Option<&PreparedTeamLookup>,
-    options: Options,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        team,
-        options,
-        columns,
-        color,
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-    )
-    .await
 }
 
 /// Filter by type, then keep workspace templates and the resolved team's,
@@ -197,11 +67,11 @@ fn select(
     templates: Vec<Template>,
     template_type: Option<TemplateType>,
     team_id: Option<&str>,
-) -> Result<Vec<Template>, Error> {
+) -> Vec<Template> {
     let mut selected: Vec<Template> = templates
         .into_iter()
         .filter(|template| {
-            template_type.is_none_or(|wanted| template.template_type == wanted.as_str())
+            template_type.is_none_or(|wanted| template.template_type == type_name(wanted))
         })
         .filter(|template| {
             team_id.is_none_or(|id| {
@@ -218,7 +88,7 @@ fn select(
             .then_with(|| left.team.is_some().cmp(&right.team.is_some()))
             .then_with(|| collation::compare(team_key(left), team_key(right)))
     });
-    Ok(selected)
+    selected
 }
 
 fn team_key(template: &Template) -> &str {
@@ -243,7 +113,7 @@ fn type_cell(template: &Template) -> String {
 /// The `ID NAME TYPE TEAM` table. NAME is truncated only when the widest name
 /// does not fit, and then to no fewer than 20 columns; IDs, types and team
 /// keys are padded but never truncated. Trailing padding is preserved.
-pub fn render_text(templates: &[Template], columns: usize, color: bool) -> String {
+fn render_text(templates: &[Template], columns: usize, color: bool) -> String {
     if templates.is_empty() {
         return "No templates found.\n".to_owned();
     }
@@ -271,12 +141,7 @@ pub fn render_text(templates: &[Template], columns: usize, color: bool) -> Strin
         pad("TYPE", type_width),
         pad("TEAM", team_width),
     ];
-    let mut output = if color {
-        let underlined: Vec<String> = header.iter().map(|cell| format!("\x1b[4m{cell}")).collect();
-        format!("{}\x1b[0m\n", underlined.join("\x1b[24m "))
-    } else {
-        format!("{}\n", header.join(" "))
-    };
+    let mut output = format!("{}\n", style::underline(&header.join(" "), color));
     for (template, type_cell) in templates.iter().zip(&type_cells) {
         output.push_str(&format!(
             "{} {} {} {}\n",
