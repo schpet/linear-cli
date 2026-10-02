@@ -1,4 +1,4 @@
-//! Source-ordered login; app owns the lazy prompt/output lifecycle.
+//! `auth login`: read an API key, verify it, then store it.
 use crate::{
     auth::{
         CredentialFormat,

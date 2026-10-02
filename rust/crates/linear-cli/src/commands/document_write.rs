@@ -1,4 +1,4 @@
-//! Full document writes, comment guards, and source-specific interactive inputs.
+//! `document create` and `document update`: fields from flags, stdin, an editor or prompts.
 use crate::{
     commands::{
         document_target::{Kind, TargetOptions},
@@ -45,7 +45,7 @@ impl Fields {
         }
     }
 }
-/// Source uses a literal forward-slash split, independent of host path rules.
+/// The editor's file name after the last `/`, independent of host path rules.
 pub fn editor_label(name: &std::ffi::OsStr) -> Option<String> {
     name.to_string_lossy()
         .rsplit('/')

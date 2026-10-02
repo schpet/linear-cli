@@ -10,7 +10,7 @@ use crate::graphql::operations::milestone_create::{
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::{GraphQlTransport, NetworkPhase, TransportFailure};
 
-/// The source's single `handleError` prefix for every action failure.
+/// Prefix for every `milestone create` failure.
 pub const CONTEXT: &str = "Failed to create milestone";
 
 /// Parsed flag values. The parser rejects empty values, but the request
@@ -84,8 +84,7 @@ pub(crate) fn outcome_unknown(failure: &TransportFailure) -> bool {
     }
 }
 
-/// The source's `console.log` lines; an empty target date is skipped like
-/// a null one.
+/// The success lines; an empty target date is skipped like a null one.
 pub fn render(milestone: &CreatedMilestone) -> Vec<u8> {
     let mut output = format!(
         "✓ Created milestone: {}\n  ID: {}\n",

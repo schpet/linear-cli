@@ -1,4 +1,4 @@
-//! C025 complete production draft; spinner/TTY owned by app.
+//! `project create`: fields from flags or prompts, then one mutation.
 use crate::{
     commands::project_write as shared,
     error::{AppError, AppErrorKind},

@@ -1,4 +1,4 @@
-//! Prefix-based source URL dispatch and typed attachment mutation.
+//! `issue link`: attach a URL to an issue (the issue may be inferred from the branch).
 use crate::commands::issue_id;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;

@@ -96,7 +96,7 @@ pub async fn resolve_owner(
     select_owner(&result.users.nodes, input).ok_or_else(|| AppError::not_found("Owner", input))
 }
 
-/// Shared source selection only; callers retain their own transport/error scopes.
+/// Pick the user matching an owner reference; callers fetch the users.
 pub fn select_owner(
     users: &[crate::graphql::operations::initiatives::LookupUserNode],
     input: &str,

@@ -245,7 +245,7 @@ mod tests {
     use super::display_width;
 
     #[test]
-    fn width_examples_match_frozen_deno_per_codepoint_measurement() {
+    fn display_width_counts_terminal_columns() {
         for (name, expected) in [
             ("漢", 2),
             ("e\u{301}", 1),

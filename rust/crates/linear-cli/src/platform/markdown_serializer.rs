@@ -1,5 +1,4 @@
-//! Source-qualified wrapper for the maintained minimal mdast serializer fork.
-//! Original baseline and exact25-row helper qualification are retained.
+//! Markdown serialization through the vendored mdast serializer.
 use crate::error::{AppError, AppErrorKind};
 use markdown::mdast::Node;
 

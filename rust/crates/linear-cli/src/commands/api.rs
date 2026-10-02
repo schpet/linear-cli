@@ -326,8 +326,8 @@ pub async fn execute(
 }
 
 /// Reports a stdout write failure with the underlying IO message, keeping the
-/// typed output failure as the source so stream routing still works.
-pub fn source_output_error(mut error: AppError) -> AppError {
+/// typed output failure as the error source so stream routing still works.
+pub fn stdout_write_error(mut error: AppError) -> AppError {
     use std::error::Error;
     if let Some(source) = error
         .source()

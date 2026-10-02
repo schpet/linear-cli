@@ -1,4 +1,4 @@
-//! Source Config auth/prompt/template/file effects, with scoped native search/Git bounds.
+//! `config`: pick a workspace and team, then write `.linear.toml`.
 use crate::{
     auth::{ApiKeyInput, CredentialStore},
     config::{ChildEnvOverlay, ConfigOptions},
@@ -325,7 +325,7 @@ pub async fn late_root_with_program(
         }
     }
 }
-/// Linux POSIX join reuses qualified normalization; Windows source spelling remains qualification pending.
+/// Join a config path; Windows normalizes it lexically, other platforms join with `/`.
 fn joined(root: &str, leaf: &str) -> String {
     if cfg!(windows) {
         crate::config::lexical_config_path(&Path::new(root).join(leaf))
@@ -365,8 +365,8 @@ pub fn write_config(cwd: &Path, display: &str, content: &str) -> Result<Vec<u8>,
     Ok(format!("Configuration written to {display}\n").into_bytes())
 }
 
-/// Source-measured C082 Unix FIFO prompt failure. Call at first required prompt,
-/// after Config/team decoding on the automatic path, before workspace on the menu path.
+/// Refuses prompting when stdout is a FIFO. Call before the first prompt: after
+/// the teams are fetched on the automatic path, before the workspace menu otherwise.
 pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), AppError> {
     if stdin_tty && stdout_fifo {
         return Err(AppError::new(AppErrorKind::Validation,"Configuration prompts require terminal or regular-file stdout when stdin is a terminal").with_suggestion("Keep stdout on the terminal, redirect it to a regular file, or provide piped prompt answers."));

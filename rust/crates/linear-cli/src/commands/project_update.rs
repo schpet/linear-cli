@@ -1,4 +1,4 @@
-//! C026 complete read-barrier/sequential-write production draft.
+//! `project update`: resolve every reference first, then apply the writes in order.
 use crate::{
     commands::{
         project_collections::{self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef},

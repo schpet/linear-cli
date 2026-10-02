@@ -308,7 +308,7 @@ fn frame(selector: &Selector<'_>, labels: &PromptLabels<'_>, columns: usize) -> 
 }
 
 /// Drive one selection with an injectable key source and stdout writer.
-/// EOF is an explicit outcome, avoiding the reference prompt's apparent loop.
+/// EOF is an explicit outcome rather than a re-prompt.
 pub fn run_with(
     options: &[SelectOption],
     labels: &PromptLabels<'_>,

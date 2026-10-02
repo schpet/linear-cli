@@ -673,8 +673,7 @@ pub async fn mine(
     })
     .await
 }
-/// Explicit request producer; Start trims its source document's final LF only.
-/// Old Mine keeps its existing producer and bytes.
+/// `mine` with a caller-built request, used by `issue start`.
 pub(crate) async fn mine_with_requests(
     transport: &GraphQlTransport,
     filter: IssueFilter,
@@ -1196,7 +1195,7 @@ pub fn table(
     Ok(lines.join("\n"))
 }
 
-/// Command-local typed preflight for source-valid text refused by the native menu.
+/// Refuse menu text the selector cannot display (control characters).
 pub fn project_menu_text(message: &str, labels: &[&str]) -> Result<(), AppError> {
     if std::iter::once(message)
         .chain(labels.iter().copied())

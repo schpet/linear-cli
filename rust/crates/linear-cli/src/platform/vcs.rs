@@ -1,4 +1,4 @@
-//! Source-compatible read-only Git branch and jj trailer inference.
+//! Infer the current issue from the Git branch name or jj trailers (read-only).
 use std::io::{self, Read};
 use std::path::Path;
 use std::process::{Command, ExitStatus, Stdio};

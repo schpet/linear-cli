@@ -1,4 +1,4 @@
-//! App owns source-ordered prompting/spinner/context.
+//! `team delete`: optionally move the team's issues elsewhere, then delete it.
 use crate::{
     error::{AppError, AppErrorKind},
     graphql::{edit::Edit, envelope::GraphQlRequest, operations::team_delete::*},
@@ -58,7 +58,7 @@ where
     }
     Ok(nodes)
 }
-/// False is deliberately ignored: source counts every nonthrowing update as moved.
+/// `success: false` is ignored: every update that does not error counts as moved.
 /// No delete/confirmation is permitted until this sequential future returns.
 pub async fn move_all<F, Fut, P>(
     issues: &[MoveIssue],

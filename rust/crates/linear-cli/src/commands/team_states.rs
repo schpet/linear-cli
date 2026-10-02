@@ -1,4 +1,4 @@
-//! `team states`: one typed Linear request and source-compatible display order.
+//! `team states`: a team's workflow states in display order.
 
 use std::future::Future;
 

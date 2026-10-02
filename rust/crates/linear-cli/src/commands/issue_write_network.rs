@@ -297,8 +297,7 @@ impl Backend for NetworkBackend {
         let key = crate::auth::ApiKeyInput::from_options(&self.options)
             .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
         let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
-        // Existing source-compatible helper has full exact-name ambiguity and slug fallback.
-        // Its exchange is the same captured handled Client policy, not friendly transport.
+        // The same project lookup as the issue read commands: exact-name ambiguity checks and slug fallback.
         crate::commands::issue_read::project_id_without_terminal_lf(&self.transport, &prepared)
             .await
     }
@@ -412,8 +411,8 @@ impl Backend for NetworkBackend {
     }
     async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, AppError> {
         let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
-        // Only request/network and source SDK exceptions are optional. Schema
-        // failures never become absence; API0/Create0 is not invented.
+        // Only request and GraphQL errors make the parent optional; a malformed
+        // response is still an error.
         let response = match self.transport.send_request(&req).await {
             Ok(response) => response,
             Err(_) => return Ok(None),
@@ -512,7 +511,7 @@ struct OptionalParent {
     #[serde(default)]
     issue: Option<ops::ParentIssue>,
 }
-// Command-local object-only nullable/missing selected observation, source NotFound.
+// An issue that may be null or missing in the response.
 #[derive(serde::Deserialize)]
 struct OptionalIssue {
     #[serde(default)]

@@ -1,4 +1,4 @@
-//! Agent-session reads preserve source selections, connection shape and order.
+//! `issue agent-session list/view`: agent sessions on an issue's comments.
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;

@@ -8,7 +8,7 @@ pub const CLEAR: &[u8] = b"\r\x1b[K";
 pub const TICK_INTERVAL: Duration = Duration::from_millis(75);
 
 /// The spinner belongs to non-JSON terminal stdout only when `NO_COLOR` is
-/// absent. An empty `NO_COLOR` still suppresses it, matching the Deno CLI.
+/// absent. An empty `NO_COLOR` still suppresses it.
 pub fn enabled(json: bool, stdout_tty: bool, no_color_absent: bool) -> bool {
     !json && stdout_tty && no_color_absent
 }

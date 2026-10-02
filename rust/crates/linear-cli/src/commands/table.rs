@@ -20,7 +20,7 @@ pub fn terminal_color(color: &str) -> Option<String> {
     Some(format!("\x1b[38;2;{};{};{}m", rgb.0, rgb.1, rgb.2))
 }
 
-/// Render already-padded header cells with the frozen per-cell underline codes.
+/// Render already-padded header cells, underlining each cell when color is on.
 pub fn underlined_header(cells: &[String], color: bool) -> String {
     if !color {
         return format!("{}\n", cells.join(" "));

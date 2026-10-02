@@ -30,7 +30,7 @@ pub struct Fields {
     pub clear_cycle: bool,
 }
 impl Fields {
-    /// Before file read, inference, spinner, or any request; source order wins.
+    /// Flag conflicts, checked before reading files, inferring an issue or any request.
     pub fn local(&self) -> Result<Option<String>, AppError> {
         let conflicts = [
             (

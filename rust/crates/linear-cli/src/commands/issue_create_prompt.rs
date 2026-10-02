@@ -68,7 +68,7 @@ async fn additional<B: Backend, U: Ui>(
     }
     let selected = ui.checkbox("Select additional fields to configure", &fields, false)?;
     let mut more = More::default();
-    // Source resets all additional-field state, including existing default state.
+    // Choosing more fields starts them over, including the default state.
     if auto {
         ui.suspend()?;
         more.assignee = Some(backend.viewer().await?)
@@ -225,7 +225,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
     }
     let title = ui.text("What's the title of your issue?", true, None)?;
     ui.suspend()?;
-    // Exact SOURCE await order. Background tasks already live during title.
+    // The team and auto-assign lookups started before the title prompt; wait for them now.
     let team = team.take()?;
     let auto = auto.take()?;
     first_phase.close()?;

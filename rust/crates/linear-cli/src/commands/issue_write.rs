@@ -96,8 +96,8 @@ pub fn integer(value: Option<f64>, field: &str) -> Result<Option<i32>, AppError>
         })
         .transpose()
 }
-/// JS parseInt's consumed integer prefix; checked i32 conversion follows it.
-/// Empty/NaN is omission, syntactically valid overflow is a typed refusal.
+/// The leading integer of a prompted estimate. Blank or non-numeric input means
+/// no estimate; an integer outside the i32 range is an error.
 pub fn menu_estimate(value: &str) -> Result<Option<i32>, AppError> {
     let value = value.trim_start();
     let (negative, value) = match value.strip_prefix('-') {

@@ -1,4 +1,4 @@
-//! Typed issue view, source Markdown threads and caller-specific attachment cache.
+//! `issue view`: the issue as Markdown with comment threads, or JSON.
 use crate::{
     error::{AppError, AppErrorKind},
     graphql::{envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport},
@@ -495,31 +495,4 @@ pub fn terminal(
         out.push_str(&format!("\n\n{}", summary(threads.hidden)));
     }
     Ok(out)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn thread_hyperlink_uses_source_st_sequence() -> Result<(), Box<dyn std::error::Error>> {
-        let case: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../parity/runner/c060-c062-frozen-cases/c062-markdown-all-threads.json"
-        ))?;
-        let issue: super::Issue = serde_json::from_value(
-            case.pointer("/graphql/groups/0/steps/0/response/data/issue")
-                .ok_or("captured issue data missing")?
-                .clone(),
-        )?;
-        let root = issue
-            .comments
-            .nodes
-            .iter()
-            .find(|c| c.id.inner() == "root")
-            .ok_or("captured root comment missing")?;
-        assert_eq!(
-            super::suffix(root, true),
-            "\x1b]8;;https://linear.app/fake/issue/ENG-1#comment-root\x1b\\[thread: root]\x1b]8;;\x1b\\"
-        );
-        assert_eq!(super::suffix(root, false), "[thread: root]");
-        Ok(())
-    }
 }

@@ -1,4 +1,4 @@
-//! C025/C026 shared source-compatible boundaries.
+//! Input handling shared by `project create` and `project update`.
 use crate::{
     commands::{project_collections::ResolvedRef, text_input},
     error::{AppError, AppErrorKind},
@@ -60,7 +60,7 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
         }),
     };
     if let Some(value) = &value {
-        // Linear measures this limit in UTF-16 code units, as JavaScript string length does.
+        // Linear measures this limit in UTF-16 code units.
         let len = value.encode_utf16().count();
         if len > 255 {
             return Err(validation(format!("Project description is {len} characters, exceeds the 255-character limit enforced by Linear's API")).with_suggestion("Shorten the description to 255 characters or fewer, or move the long content into an attached document via `linear document create --project <slug>`."));

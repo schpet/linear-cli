@@ -1,4 +1,4 @@
-//! Full initiative archive/delete: source-local resolution and five-operation batch barriers.
+//! `initiative archive`/`delete`, including bulk mode run in batches of five.
 use crate::{
     commands::initiative_view::{Reference, prepare_reference},
     error::{AppError, AppErrorKind},
@@ -74,7 +74,7 @@ fn parse_ids(text: &str) -> impl Iterator<Item = &str> {
     text.split(|ch: char| ch == ',' || ch.is_whitespace())
         .filter(|id| !id.is_empty())
 }
-/// Read and decode every selected source before printing a count or dispatching requests.
+/// Read and decode every selected input before printing a count or dispatching requests.
 /// argv tokens deliberately remain unsplit and untrimmed.
 pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<String>, AppError> {
     let mut ids = input.argv.unwrap_or_default().to_vec();
@@ -447,7 +447,7 @@ pub struct Progress {
 }
 impl Progress {
     pub fn render(self) -> Vec<u8> {
-        // JS Math.round for the nonnegative percentage; no float cast/rounding ambiguity.
+        // The percentage rounded half up, in integer arithmetic.
         let percent = (self.completed * 200 + self.total) / (self.total * 2);
         format!(
             "\r⏳ Processing: {}/{} ({percent}%) - ✓ {} ✗ {}",

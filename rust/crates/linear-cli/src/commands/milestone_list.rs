@@ -1,4 +1,4 @@
-//! `milestone list`: typed pages, source ordering, and the Deno output shapes.
+//! `milestone list`: every page, sorted by target date, as a table or JSON.
 
 use std::cmp::Ordering;
 use std::future::Future;
@@ -20,7 +20,7 @@ use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 
-/// The source's single `handleError` prefix for every action failure.
+/// Prefix for every `milestone list` failure.
 pub const CONTEXT: &str = "Failed to fetch milestones";
 
 const PAGE_SIZE: i32 = 100;
@@ -133,7 +133,7 @@ fn pagination_error(error: PaginationError<AppError>) -> AppError {
     }
 }
 
-/// The source treats null and `""` alike: both sort last and print `No date`.
+/// A null or empty target date sorts last and prints `No date`.
 fn target_date(milestone: &ProjectMilestone) -> Option<&str> {
     milestone
         .target_date
@@ -191,12 +191,11 @@ fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u
     Ok(output)
 }
 
-/// Render the source table from already-sorted milestones.
+/// Render the table from already-sorted milestones.
 ///
-/// Column widths follow the source: the project column is clamped to 7..=30
-/// display columns, and the name column is the widest name capped by the
-/// remaining width, without widening to the `NAME` header. Both cells use the
-/// source's UTF-16 length comparison and slice.
+/// The project column is clamped to 7..=30 display columns, and the name
+/// column is the widest name capped by the remaining width (see
+/// [`flexible_width`]), without widening to the `NAME` header.
 pub fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> String {
     if nodes.is_empty() {
         return "No milestones found for this project.\n".to_owned();

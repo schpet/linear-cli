@@ -27,8 +27,8 @@ const SPACE_WIDTH: usize = 6;
 const PADDING: usize = 1;
 const WORKSPACE: &str = "Workspace";
 
-/// Local `label list` flags. `workspace_only` is the reviewed v3 spelling of
-/// the frozen local `--workspace` Boolean.
+/// Local `label list` flags. `workspace_only` is the command's own
+/// `--workspace` switch, distinct from the global `--workspace <slug>`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Options {
     pub team: Option<String>,
@@ -57,9 +57,9 @@ struct JsonConnection<'a> {
     page_info: &'a teams::PageInfo,
 }
 
-/// Apply the source precedence: workspace-only, then explicit team, then the
-/// configured team unless `--all`. Call after building the client, because
-/// the frozen command reports credential failures before team-reference ones.
+/// Pick the label scope: workspace-only, then an explicit team, then the
+/// configured team unless `--all`. Call after building the client so missing
+/// credentials are reported before a bad team reference.
 ///
 /// `configured_team` is `team_key::configured_team_key`'s result: already
 /// uppercased, and absent rather than empty.

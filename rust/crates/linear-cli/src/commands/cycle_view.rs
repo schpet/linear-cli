@@ -60,7 +60,7 @@ fn validate_first_team(
     Ok(())
 }
 
-/// Fetch every lookup page before choosing a cycle, as the source does.
+/// Fetch every lookup page before choosing a cycle.
 pub async fn resolve_id_with<F, Fut>(
     team_id: &str,
     reference: &str,
@@ -132,7 +132,7 @@ pub fn classify_lookup_page(
                 .is_some_and(serde_json::Value::is_null)
             {
                 // A null team and invalid metadata remain typed decode/team
-                // errors. For page one, Deno checks URL and enabled first.
+                // errors. On page one, the URL and cycles-enabled checks come first.
                 if page == 1 {
                     if let (Some(key), Some(enabled)) = (
                         key,

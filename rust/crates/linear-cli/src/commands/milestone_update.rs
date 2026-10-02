@@ -12,7 +12,7 @@ use crate::graphql::transport::GraphQlTransport;
 
 pub const CONTEXT: &str = "Failed to update milestone";
 
-/// String values follow source truthiness; sort order follows nullness.
+/// Empty strings mean "not given"; a sort order is sent whenever present.
 /// `project_id` contains the resolved UUID when building the request.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Options {
@@ -78,7 +78,7 @@ pub fn request(
     ))
 }
 
-/// Sends exactly once; update preserves the source's server/network errors.
+/// Sends the update once and reports server and network errors as they are.
 pub async fn submit(
     transport: &GraphQlTransport,
     id: &str,

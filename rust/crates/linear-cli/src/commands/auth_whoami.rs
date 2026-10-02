@@ -51,7 +51,7 @@ pub async fn run(transport: &GraphQlTransport) -> Result<Vec<u8>, AppError> {
         .await
 }
 
-/// Select from already loaded credentials, then resolve the reviewed ambient
+/// Select from already loaded credentials, then resolve the ambient
 /// transport policy. No process state or credential file is read here.
 pub fn prepare_transport(
     options: &ConfigOptions,

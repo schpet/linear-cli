@@ -1,4 +1,4 @@
-//! One requested document page with exact connection and source table output.
+//! `document list`: one page of documents as a table or JSON.
 use crate::commands::{
     display::{display_width, fit, pad},
     relative_time::format_relative_time,

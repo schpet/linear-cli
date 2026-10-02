@@ -1,5 +1,4 @@
 //! Ordered collection edits and partial initiative-write diagnostics.
-//! The future command owns source phase ordering, typed transport and error nouns.
 
 use crate::error::{AppError, AppErrorKind};
 
@@ -12,7 +11,7 @@ pub struct ResolvedRef {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MissingMember(pub ResolvedRef);
 
-/// Preserve existing duplicates and order. Source pages dedupe nodes/rows first.
+/// Preserve existing duplicates and order; callers dedupe fetched rows first.
 pub fn apply_collection_edit(
     current: &[String],
     add: &[ResolvedRef],
@@ -73,7 +72,7 @@ pub enum InitiativeChange {
 }
 
 /// Input links have been deduped by ROW id, never by initiative id.
-/// Desired IDs come from source replacement or apply_collection_edit.
+/// Desired IDs come from a replacement list or apply_collection_edit.
 pub fn plan_initiative_changes(
     links: &[InitiativeLink],
     desired_ids: &[String],

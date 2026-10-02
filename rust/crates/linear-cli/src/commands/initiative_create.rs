@@ -1,4 +1,4 @@
-//! Create an initiative, preserving the source command's validation and write order.
+//! `initiative create`: validate the fields, then create the initiative.
 use std::io::{Read, Write};
 
 use cynic::MutationBuilder;

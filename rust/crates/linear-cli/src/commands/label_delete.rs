@@ -1,4 +1,4 @@
-//! Source lookup order, client-side scope and attended duplicate selection.
+//! `label delete`: find the label by id or name, ask which one when names repeat, delete it.
 use std::io::{Read, Write};
 
 use cynic::{MutationBuilder, QueryBuilder};
@@ -28,9 +28,8 @@ pub fn delete_request(id: &str) -> GraphQlRequest<IdVariables> {
     GraphQlRequest::with_variables(DeleteIssueLabel::build(IdVariables { id: id.to_owned() }))
 }
 
-// Source lookup catches swallow ordinary exchange failures. Broken typed
-// boundaries and impossible request/payload states stop instead of deleting
-// another label after a corrupted response.
+// A failed lookup counts as "not found by this route". Malformed responses
+// still stop the command rather than risk deleting the wrong label.
 fn lookup_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, AppError> {
     match result {
         Ok(value) => Ok(Some(value)),

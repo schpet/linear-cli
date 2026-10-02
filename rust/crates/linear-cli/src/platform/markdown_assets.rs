@@ -1,4 +1,4 @@
-//! Source-compatible image cache and ordered downloads; extraction is in markdown_ast.
+//! Download images referenced in Markdown into a local cache; extraction is in markdown_ast.
 use crate::error::{AppError, AppErrorKind};
 use sha2::{Digest, Sha256};
 use std::{
@@ -49,7 +49,7 @@ pub fn sanitized_filename(alt: Option<&str>) -> String {
     }
     value
 }
-/// Deno POSIX lexical join: no filesystem canonicalization or cwd expansion.
+/// Lexical POSIX path join: no filesystem canonicalization or cwd expansion.
 pub fn posix_join(parts: &[&str]) -> String {
     let joined = parts
         .iter()
@@ -133,7 +133,7 @@ where
 {
     download_sources_with(&[content], root, fetch, emit_failure).await
 }
-/// Source array semantics: each body contributes its images then upload links,
+/// Each body contributes its images then upload links,
 /// with URL deduplication across bodies retaining the first label.
 pub async fn download_sources_with<F, Fut, E>(
     sources: &[&str],
@@ -157,7 +157,7 @@ where
     }
     let mut paths = HashMap::new();
     for asset in assets {
-        // Source directory creation happens before stat and URL/fetch parsing.
+        // Create the cache directory before checking the file or parsing the URL.
         let result = async {
             let (directory, path) = cache_location(root, &asset)?;
             std::fs::create_dir_all(&directory).map_err(io_error)?;

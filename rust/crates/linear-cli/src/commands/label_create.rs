@@ -97,7 +97,7 @@ pub fn prompt_fields<R: Read, W: Write>(
     Ok(PromptOutcome::Submitted(()))
 }
 
-/// Teams are already sorted by the typed source paging service. Workspace is
+/// Teams arrive already sorted. Workspace is
 /// first; the configured uppercased key selects a default or falls back to it.
 pub fn prompt_team<R: Read, W: Write>(
     options: &mut Options,

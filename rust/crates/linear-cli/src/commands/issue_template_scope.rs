@@ -176,6 +176,5 @@ pub fn select(
     };
     Err(AppError::not_found("Template", reference).with_suggestion(suggestion))
 }
-// Existing project public entry points continue to call scope=Project; preserving
-// their source text/errors/current friendly transport is a required regression.
-// The new Issue path uses NetworkBackend's command-local captured exchange below.
+// Project callers use scope=Project with the shared transport; the issue path
+// uses NetworkBackend's exchange below.

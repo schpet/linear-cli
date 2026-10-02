@@ -1,6 +1,6 @@
 //! Paging for long terminal output.
 //!
-//! This follows the Deno CLI's `pager.ts`. Output is paged only on a TTY, with
+//! Output is paged only on a TTY, with
 //! more lines than `rows - 2`, or more than 50 when the size is unknown. `PAGER`
 //! is split on whitespace into a program and arguments; no shell is involved.
 //! When a pager fails, the platform fallbacks run in order, skipping one whose
@@ -49,13 +49,12 @@ pub fn stdout_size() -> Option<TerminalSize> {
 }
 
 /// The terminal-size adapter treats either zero dimension as unavailable.
-/// This is a documented v3 difference from a source console reporting zero.
 pub fn usable_size(size: Option<TerminalSize>) -> Option<TerminalSize> {
     size.filter(|size| size.columns > 0 && size.rows > 0)
 }
 
-/// Whether rendered output should go to a pager. Lines are counted as the
-/// source does, by splitting on LF, so a trailing LF adds one empty line.
+/// Whether rendered output should go to a pager. Lines are counted by
+/// splitting on LF, so a trailing LF adds one empty line.
 pub fn should_page(
     rendered: &str,
     pager_enabled: bool,
@@ -98,8 +97,8 @@ impl fmt::Display for PagerCommand {
 }
 
 /// The first pager to try. A nonempty `PAGER` is trimmed and split on
-/// ECMAScript whitespace; a whitespace-only value yields an empty program,
-/// which fails and falls through to every fallback, as in the source.
+/// whitespace; a whitespace-only value yields an empty program, which fails
+/// and falls through to every fallback.
 pub fn primary_command(pager: Option<&str>, os: OsFamily) -> PagerCommand {
     match (pager, os) {
         (Some(value), _) if !value.is_empty() => {
@@ -178,8 +177,8 @@ pub enum PagerAttempt {
     /// Every byte was written and the pager exited successfully.
     Completed,
     /// The pager closed its input before reading everything, then exited
-    /// successfully: the user quit early. The source treats this as a failure
-    /// and shows the content again through a fallback.
+    /// successfully: the user quit early. This counts as a failure, so the
+    /// content is shown again through a fallback.
     ClosedEarly,
     Failed(PagerFailure),
 }

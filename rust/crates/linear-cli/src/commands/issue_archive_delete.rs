@@ -1,4 +1,4 @@
-//! Complete source-local issue archive/delete, including asymmetric bulk detail policy.
+//! `issue archive`/`delete`, single or bulk.
 use crate::{
     commands::initiative_bulk::{BulkOutcome, BulkResult, Progress},
     error::{AppError, AppErrorKind},
@@ -118,8 +118,8 @@ async fn single_exchange<T: serde::de::DeserializeOwned>(
         {
             return Err(AppError::not_found("Issue", id));
         }
-        // Source's single friendly printer uses only a nonempty preferred message;
-        // otherwise it retains the complete ClientError.message, including metadata.
+        // Prefer Linear's user-facing message; otherwise keep the full error
+        // message, including its metadata.
         return Err(AppError::new(
             AppErrorKind::GraphQl,
             error.preferred_message.unwrap_or(error.message),
@@ -212,8 +212,8 @@ async fn bulk_resolved(
             )
         }
         Mode::Delete => {
-            // Source catches EVERY details error. This stage preserves deletion effects
-            // even when the typed decoder refuses malformed selected data.
+            // A failed details lookup only loses the title in the summary; the
+            // delete still runs.
             let data: Result<GetIssueDetailsForBulkDelete, _> =
                 bulk_error::execute_observed(transport, &request).await;
             let issue = match data {
@@ -276,7 +276,7 @@ pub async fn run_item(transport: &GraphQlTransport, target: Target, mode: Mode) 
             name: None,
             outcome: BulkOutcome::Failed("Issue not found".to_owned()),
         }),
-        // Source bulk executor prints Error.message only, never suggestion/context.
+        // Bulk rows show only the error message, not its suggestion or context.
         ReferenceOutcome::Failed(error) => Err(error),
     };
     result.unwrap_or_else(|error| BulkResult {

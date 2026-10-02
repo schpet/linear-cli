@@ -1,10 +1,9 @@
 //! Markdown rendering for terminal stdout.
 //!
 //! Only TTY output reaches this module; piped output stays raw Markdown. The
-//! vocabulary follows the Deno CLI's charmd 0.1.2 renderer: headings keep their
-//! `#` markers, emphasis becomes SGR styling, links keep `[text](url)`, and lines
-//! are not reflowed because the terminal wraps them. Width only sizes thematic
-//! breaks. Deliberate differences are recorded in `rust/compatibility.md`.
+//! style is deliberately light: headings keep their `#` markers, emphasis
+//! becomes SGR styling, links keep `[text](url)`, and lines are not reflowed
+//! because the terminal wraps them. Width only sizes thematic breaks.
 
 use std::borrow::Cow;
 use std::collections::VecDeque;
@@ -36,7 +35,7 @@ pub enum HostSource {
     Fixed(String),
 }
 
-/// OSC-8 links on image destinations, as the Deno CLI's charmd extension adds.
+/// OSC-8 hyperlinks on image destinations.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImageHyperlinks {
     template: String,
@@ -71,7 +70,7 @@ pub struct RenderOptions {
 }
 
 impl RenderOptions {
-    /// Source gating: styling follows `NO_COLOR` being nonempty, while image
+    /// Styling is off when `NO_COLOR` is nonempty, while image
     /// hyperlinks need a nonempty format, TTY stdout and an absent `NO_COLOR`.
     pub fn for_terminal(
         columns: NonZeroU16,
@@ -732,7 +731,7 @@ fn width(text: &str) -> usize {
     UnicodeWidthStr::width(visible(text).as_str())
 }
 
-/// ECMAScript `encodeURI`, then the source's `#` to `%23` escape.
+/// Percent-encode a path like `encodeURI`, and also escape `#` as `%23`.
 fn encode_path(path: &str) -> String {
     let mut encoded = String::with_capacity(path.len());
     let mut buffer = [0; 4];

@@ -13,10 +13,10 @@ use crate::graphql::operations::team_create::{
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
 
-/// The source's single `handleError` prefix for every action failure.
+/// Prefix for every `team create` failure.
 pub const CONTEXT: &str = "Failed to create team";
 
-/// Printed before the prompts, as the source's `console.log("...\n")`.
+/// Printed before the prompts.
 pub const PROMPT_HEADER: &[u8] = b"Creating a new team...\n\n";
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -109,7 +109,7 @@ pub fn prompt<R: Read, W: Write>(
         message: "Team visibility:",
         options: &visibility,
         default_index: 0,
-        // Cliffy shows the default option's label, not its value.
+        // The hint shows the default option's label, not its value.
         default_hint: Some("Public"),
     }));
     options.private = match choice.as_str() {
@@ -184,7 +184,7 @@ pub async fn submit(transport: &GraphQlTransport, options: &Options) -> Result<V
     render(&result.team_create)
 }
 
-/// `success: false` is checked before a missing team, as in the source.
+/// `success: false` is reported before a missing team.
 pub fn render(payload: &CreateTeamPayload) -> Result<Vec<u8>, AppError> {
     if !payload.success {
         return Err(AppError::new(AppErrorKind::GraphQl, "Team creation failed"));

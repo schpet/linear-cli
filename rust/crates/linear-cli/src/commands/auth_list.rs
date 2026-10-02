@@ -94,7 +94,7 @@ pub fn classify(store: &CredentialStore) -> Vec<Row<StoredKey>> {
         .collect()
 }
 
-/// Build every request handle in source order before any request starts, so a
+/// Build every request handle in row order before any request starts, so a
 /// later build failure cannot follow an earlier request.
 pub fn prepare_with<T>(
     rows: Vec<Row<StoredKey>>,

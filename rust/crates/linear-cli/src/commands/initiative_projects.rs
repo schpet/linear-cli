@@ -1,4 +1,4 @@
-//! Source-local project association resolution, writes and first-page link lookup.
+//! `initiative add-project` / `remove-project`: resolve both sides, then link or unlink.
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_projects::*;

@@ -75,7 +75,7 @@ fn task<'a, T: Send + 'a>(
     let future = async move {
         // Each result is sent as soon as its own request completes, even while
         // join keeps driving the other pending request. Main waits outside this
-        // runtime at the exact source stage, never mpsc.recv inside polling.
+        // runtime, never blocking on mpsc.recv inside polling.
         if let Ok(result) = Abortable::new(future, registration).await {
             let _abandoned = sender.send(result);
         }

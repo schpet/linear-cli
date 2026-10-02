@@ -1,4 +1,4 @@
-//! Schema-typed minimal issue lookup and source not-found translation.
+//! Resolve an issue identifier to its id, mapping a missing issue to "not found".
 use crate::error::AppError;
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::issue_id::{GetIssueId, Variables};
@@ -26,8 +26,8 @@ pub async fn fetch(transport: &GraphQlTransport, identifier: &str) -> Result<Str
         .await
         .map_err(|failure| lookup_error(failure, identifier))?;
     let id = result.issue.id.into_inner();
-    // A schema-valid empty ID is still falsey in each source caller. Do not
-    // pass it to a second lookup or a mutation.
+    // An empty id is treated as not found rather than passed to a second
+    // lookup or a mutation.
     if id.is_empty() {
         return Err(AppError::not_found("Issue", identifier));
     }

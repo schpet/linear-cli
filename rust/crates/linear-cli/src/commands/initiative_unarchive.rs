@@ -1,4 +1,4 @@
-//! Source-specific archived resolution: first match, with exchange-error fallback.
+//! `initiative unarchive`: find the archived initiative by id, slug or name, then restore it.
 use crate::commands::initiative_view::{FETCH_CONTEXT, RESOLVE_CONTEXT, Reference};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
@@ -13,9 +13,8 @@ use crate::refs::is_linear_uuid;
 use cynic::{MutationBuilder, QueryBuilder};
 pub const CONTEXT: &str = "Failed to unarchive initiative";
 
-// Only the two source text-query catches swallow these failures. Strict shape
-// errors and impossible query states retain their error rather than resolving
-// another entity after a corrupted response.
+// A failed name or slug lookup counts as "not found by this route". Malformed
+// responses still stop the command rather than resolve the wrong initiative.
 fn text_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, AppError> {
     match result {
         Ok(value) => Ok(Some(value)),

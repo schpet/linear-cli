@@ -1,4 +1,4 @@
-//! `project-update list`: one typed page and source-shaped output.
+//! `project-update list`: the first page of status updates as a table or JSON.
 
 use std::future::Future;
 use std::num::NonZeroU32;

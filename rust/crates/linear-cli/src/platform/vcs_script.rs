@@ -1,5 +1,4 @@
-//! Opt-in source process policy for commits/describe.
-//! Existing platform::vcs callers retain their inherited-stdin implementation.
+//! Running jj/git for `issue commits` and `issue describe` with captured output.
 use crate::{
     config::{ChildEnvOverlay, Vcs},
     error::{AppError, AppErrorKind},
@@ -342,7 +341,7 @@ impl ProcessRunner for NativeProcessRunner {
             .map_err(|error| abort_child(&mut owner, process_error("wait for VCS", error)))
     }
 }
-/// Deno's UTF8 TextDecoder drops one BOM and replaces invalid UTF8, then JS trim.
+/// Process output as text: one leading BOM dropped, invalid UTF-8 replaced, trimmed.
 pub fn decoded_trim(bytes: &[u8]) -> String {
     let decoded = String::from_utf8_lossy(bytes);
     decoded

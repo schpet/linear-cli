@@ -1,4 +1,4 @@
-//! Complete C073 body update; source prompt/default/file semantics are opt-in.
+//! `issue comment update`: body from a flag, a file or a prompt, then one mutation.
 use crate::{
     error::{AppError, AppErrorKind},
     graphql::{
@@ -50,7 +50,7 @@ pub fn prepare_body(
 pub fn needs_prompt(body: Option<&str>) -> bool {
     body.is_none_or(str::is_empty)
 }
-/// C073 measured Unix FIFO boundary, checked after Get and before raw mode.
+/// Refuses prompting when stdout is a FIFO; checked after the fetch and before raw mode.
 /// Pipe stdin and regular redirected files remain eligible for their native prompts.
 pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), AppError> {
     if stdin_tty && stdout_fifo {
@@ -85,8 +85,7 @@ pub fn update_request(id: &str, body: String) -> GraphQlRequest<UpdateCommentVar
         input: CommentUpdateInput { body },
     }))
 }
-/// Observe the captured exchange for source handled ClientError extraction;
-/// then decode the WHOLE result. Never decode partial JSON to confirm a mutation.
+/// Report a GraphQL error from the exchange first, then decode the whole result. Never decode partial JSON to confirm a mutation.
 async fn exchange<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<V>,
@@ -161,8 +160,8 @@ pub async fn submit(
     if !result.comment_update.success {
         return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
     }
-    // Complete typed true plus this legal optional-null business failure confirms
-    // the source update. Preserve exact diagnostic; no retry/rollback is attempted.
+    // `success: true` with a null comment means the update happened but its
+    // result is unavailable; report that without retrying.
     let comment = result.comment_update.comment.ok_or_else(|| {
         AppError::new(
             AppErrorKind::GraphQl,

@@ -1,4 +1,4 @@
-//! Source start sequencing, captured VCS steps and best-effort state update.
+//! `issue start`: create or switch the VCS branch, then move the issue to a started state.
 use crate::{
     commands::{issue_read, team_states},
     config::ChildEnvOverlay,
@@ -391,7 +391,7 @@ pub async fn update_state(
         bulk_error::execute_observed(transport, &update_request(identifier, state.id.inner()))
             .await
             .map_err(post_failure)?;
-    // The source intentionally ignores both true and false, but typed decoding is full.
+    // The `success` flag is not reported; the whole payload is still decoded.
     let _reported_success = response.issue_update.success;
     Ok(format!("✓ Issue state updated to '{}'\n", state.name).into_bytes())
 }

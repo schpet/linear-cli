@@ -88,8 +88,6 @@ pub struct PromptSession<R: Read, W: Write> {
 }
 
 impl<R: Read, W: Write> PromptSession<R, W> {
-    //! Insert this opt-in method inside PromptSession's existing impl. It shares
-    //! reader/key source/raw ownership; old methods remain byte/decision unchanged.
     pub fn checkbox(
         &mut self,
         message: &str,
@@ -398,14 +396,14 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
-    /// C040 opt-in only: CR submits immediately, optional LF is deferred to next read.
+    /// A script session where CR submits immediately and a following LF is skipped.
     pub fn script_cr_or_lf(reader: R, writer: W) -> Self {
         let mut session = Self::script(reader, writer);
         session.framing = ScriptFraming::CrOrLf;
         session
     }
 
-    /// Injectable key source for public state-machine tests and confined QA.
+    /// A session driven by injected keys, for tests.
     pub fn keys(
         writer: W,
         columns: usize,
@@ -453,8 +451,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
-    /// Document opt-in ECMAScript trim/minimum/default semantics; other callers
-    /// retain the existing text method unchanged.
+    /// A text prompt with [`crate::platform::prompt_text::TextOptions`]: an optional default and a required flag.
     pub fn text_with_options(
         &mut self,
         message: &str,
@@ -488,8 +485,8 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
-    /// C040 opt-in: raw defaults retain semantics; only displayed controls are escaped.
-    /// Existing text/default preflight and edited-answer checks remain unchanged.
+    /// Like [`Self::text_with_options`], but control characters in the default
+    /// and answer are escaped when displayed.
     pub fn text_with_display_default(
         &mut self,
         message: &str,
@@ -521,7 +518,6 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
-    // Insert inside impl<R: Read, W: Write> PromptSession, opt-in only.
     pub fn secret(
         &mut self,
         message: &str,
@@ -1066,14 +1062,14 @@ impl<W: Write> PromptSession<io::Stdin, W> {
         Ok(session)
     }
 
-    /// C040 stdout-gated caller owns whether prompting is permitted.
+    /// A terminal session where CR submits; the caller decides whether stdout permits prompting.
     pub fn stdio_cr_or_lf(writer: W) -> Result<Self, AppError> {
         let mut session = Self::stdio(writer)?;
         session.framing = ScriptFraming::CrOrLf;
         Ok(session)
     }
 
-    /// Enter the C039 prompt path without applying the search selector's CI or
+    /// A terminal session without the search selector's CI or
     /// stdin-TTY gate. The command must decide whether stdout permits prompts.
     pub fn stdio(writer: W) -> Result<Self, AppError> {
         if !io::stdin().is_terminal() {

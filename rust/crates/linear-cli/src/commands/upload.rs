@@ -1,4 +1,4 @@
-//! Source-compatible file prevalidation, MIME/public policy, signed upload and links.
+//! File uploads: validation, MIME types, the signed upload and the resulting links.
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::upload::{FileUpload, FileUploadVariables, UploadFileHeader};
@@ -104,7 +104,7 @@ pub fn validate_file(path: &Path) -> Result<std::fs::Metadata, AppError> {
     }
     Ok(info)
 }
-/// This deliberately does NOT prevalidate file sizes; the source checks sizes
+/// This deliberately does NOT prevalidate file sizes; sizes are checked
 /// during each sequential upload, so earlier uploads may already have succeeded.
 pub fn prevalidate(paths: &[String], public: bool) -> Result<(), AppError> {
     for path in paths {
@@ -163,8 +163,8 @@ pub fn request(file: &PreparedFile) -> GraphQlRequest<FileUploadVariables> {
         make_public: Some(file.public),
     }))
 }
-/// Reproduce the source JS record followed by Fetch Headers: same-cased keys
-/// replace, differently-cased keys remain repeated values in insertion order after folding.
+/// Linear's signed upload headers: an exact repeated key replaces the earlier
+/// value, while keys differing only in case are sent as repeated headers.
 pub fn signed_headers(
     content_type: &str,
     returned: &[UploadFileHeader],
@@ -192,8 +192,6 @@ pub fn signed_headers(
                 "Invalid signed upload header value",
             )
         })?;
-        // Deno Fetch emits separately-cased record keys as multiple physical
-        // header lines after name folding, preserving their value order.
         headers.append(name, value);
     }
     Ok(headers)
@@ -224,7 +222,7 @@ pub async fn upload(
             "Failed to get upload URL from Linear",
         )
     })?;
-    // Read AFTER obtaining the URL, exactly like source; no retry or rollback.
+    // The file is read only after the upload URL is issued; no retry or rollback.
     let bytes = std::fs::read(path).map_err(|error| {
         AppError::new(
             AppErrorKind::Validation,

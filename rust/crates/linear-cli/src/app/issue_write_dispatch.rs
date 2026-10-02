@@ -50,8 +50,8 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
     ) -> Result<String, AppError> {
         self.stop_spinner()?;
         let message = crate::platform::prompt::escaped_display(message);
-        // Menu identity is local and unique; source IDs and duplicate/control names
-        // retain semantics after selection and are only escaped for display.
+        // Rows are identified by position, so duplicate or control-character names
+        // still select the right option; names are only escaped for display.
         let answer = if search {
             let rows: Vec<_> = options
                 .iter()
@@ -352,7 +352,7 @@ pub(super) fn dispatch_issue_create(
                 None => command::flag_output(&issue),
             })?;
             if start {
-                // Interactive source resolves the returned team key again; flag source passes the key.
+                // Interactive creation resolves the chosen team key to an id again; flags pass the key.
                 let team = if interactive {
                     block_on_network(backend.team(issue.team_key.clone()))?.id
                 } else {

@@ -1665,8 +1665,8 @@ fn dispatch_milestone_list(
 ) -> Result<ExitStatus, AppError> {
     let json = action.json;
     let original = action.project.clone();
-    // Deno starts this spinner before config, credential and URL preparation,
-    // and its catch path stops it before reporting any action error.
+    // The spinner starts before config, credential and URL preparation and
+    // stops before any error is reported.
     let show_spinner = spinner::enabled(
         json,
         context.stdout_tty,
@@ -1754,8 +1754,8 @@ fn dispatch_milestone_create(
         description: action.description.clone(),
         target_date: action.target_date.clone(),
     };
-    // Deno starts this spinner before config, credential and URL preparation,
-    // and its catch path stops it before reporting any action error.
+    // The spinner starts before config, credential and URL preparation and
+    // stops before any error is reported.
     let show_spinner = spinner::enabled(
         false,
         context.stdout_tty,
@@ -1842,7 +1842,7 @@ fn dispatch_milestone_update(
         sort_order,
         project_id: action.project.clone(),
     };
-    // The source throws this outside its catch, before spinner/config/client.
+    // Checked before the spinner, config or client.
     options.require_update()?;
     let show_spinner = spinner::enabled(
         false,
@@ -1858,7 +1858,7 @@ fn dispatch_milestone_update(
         let credentials = context.credentials()?;
 
         let inputs = client::selection_inputs(&config.options, workspace)?;
-        // Source constructs the client before validating an optional project.
+        // The client is built first so missing credentials are reported before a bad project.
         let transport = client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -1981,7 +1981,7 @@ fn dispatch_label_delete(
         let config = context.config()?;
         let credentials = context.credentials()?;
         let inputs = client::selection_inputs(&config.options, workspace)?;
-        // Source creates the client before parsing/resolving an explicit team.
+        // The client is built first so missing credentials are reported before a bad team.
         let transport = client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -2115,7 +2115,7 @@ fn dispatch_project_delete(
         let config = context.config()?;
         let credentials = context.credentials()?;
         let inputs = client::selection_inputs(&config.options, workspace)?;
-        // Source constructs its client before parsing any project URL.
+        // The client is built first so missing credentials are reported before a bad URL.
         let transport = client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -2226,7 +2226,7 @@ fn relation_transport(
     )
 }
 
-/// Source relations use a spinner; URL links do not. Clear it on every network
+/// Relation commands use a spinner; URL links do not. Clear it on every network
 /// result before displaying the result or returning its contextual error.
 fn relation_network(
     context: &mut AppContext<'_>,
@@ -2395,7 +2395,7 @@ fn dispatch_issue_comment_delete(
     workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
     let id = &action.comment_id;
-    // Both URL checks precede config and credentials, as in the source.
+    // Both URL checks come before config and credentials.
     crate::refs::reject_comment_url(id)
         .and_then(|()| crate::refs::reject_linear_url(id, "a comment UUID"))
         .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
@@ -2491,7 +2491,7 @@ pub fn write_final_error(
     Ok(ExitStatus::HandledFailure)
 }
 
-/// Source order: body flags, project reference (a UUID needs no client), the
+/// Order: body flags, project reference (a UUID needs no client), the
 /// omitted-body prompt, then client construction before parent validation.
 fn dispatch_project_comment_add(
     context: &mut AppContext<'_>,
@@ -2543,7 +2543,7 @@ fn dispatch_project_comment_add(
     finish_comment_add(context, result)
 }
 
-/// Source order: body flags, initiative reference (a UUID needs no client),
+/// Order: body flags, initiative reference (a UUID needs no client),
 /// the omitted-body prompt, then client construction before parent validation.
 fn dispatch_initiative_comment_add(
     context: &mut AppContext<'_>,
@@ -2595,7 +2595,7 @@ fn dispatch_initiative_comment_add(
     finish_comment_add(context, result)
 }
 
-/// Source order: local document URL reduction, body flags, then the content
+/// Order: local document URL reduction, body flags, then the content
 /// record lookup for every reference (UUIDs included), the omitted-body
 /// prompt, and a second client before parent validation.
 fn dispatch_document_comment_add(
@@ -2647,7 +2647,7 @@ fn dispatch_document_comment_add(
     finish_comment_add(context, result)
 }
 
-/// The source always prompts for an omitted body. Terminal cleanup completes
+/// An omitted body is always prompted for. Terminal cleanup completes
 /// before any outcome, and a blank answer fails after submission.
 fn prompt_comment_body(
     context: &mut AppContext<'_>,
@@ -2999,7 +2999,7 @@ fn dispatch_label_create(
     action: &cli::label::LabelCreate,
     workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    // Source builds the transport even before validating required fields.
+    // The transport is built before validating required fields.
     let transport = (|| {
         let config = context.config()?;
         client::prepare_transport(
@@ -3769,8 +3769,8 @@ fn dispatch_cycle_list(
     let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
         .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
 
-    // Deno starts this spinner after the team lookup, and its catch
-    // path leaves the last frame visible on a cycle-fetch error.
+    // The spinner starts after the team lookup; a cycle-fetch error leaves
+    // its last frame visible.
     let show_spinner = spinner::enabled(
         json,
         context.stdout_tty,
@@ -4160,8 +4160,8 @@ fn dispatch_template_view(
 ) -> Result<ExitStatus, AppError> {
     let json = action.json;
     let reference = &action.template;
-    // Deno starts this spinner before the URL check and credential
-    // selection, and stops it before reporting either failure.
+    // The spinner starts before the URL check and credential selection, and
+    // stops before either failure is reported.
     let show_spinner = spinner::enabled(
         json,
         context.stdout_tty,
@@ -4512,7 +4512,7 @@ fn dispatch_initiative_bulk(
     workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
     use crate::platform::prompt::{PromptOutcome, PromptSession};
-    // Source constructs the client before reading or validating collected IDs.
+    // The client is built before reading or validating the collected IDs.
     let transport = {
         let config = context.config()?;
         let credentials = context.credentials()?;
@@ -4636,7 +4636,7 @@ fn dispatch_initiative_bulk(
         context.write_stdout_with_policy(&warning, OutputPolicy::ConsoleLike)?;
     }
     if !action.force {
-        // In source the nonTTY gate precedes the extra permanent warning.
+        // The terminal check comes before the permanent-deletion warning.
         if !context.stdin_tty {
             return Err(AppError::new(
                 AppErrorKind::Validation,
@@ -4670,8 +4670,7 @@ fn dispatch_initiative_bulk(
             return Ok(ExitStatus::Success);
         }
         if mode == initiative_bulk::Mode::Delete {
-            // Keep raw input for JS trim semantics (FEFF yes, U+0085 no); the maintained
-            // prompt owns terminal handling and its native rendering.
+            // Keep the raw answer; the prompt owns terminal handling and rendering.
             let raw = std::cell::RefCell::new(String::new());
             let outcome = {
                 let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
@@ -4721,7 +4720,7 @@ fn dispatch_initiative_bulk(
 }
 
 use crate::commands::{issue_upload, upload};
-/// Issue source order: hidden id, body flags, identifier, all-file prevalidation,
+/// Order: hidden id, body flags, identifier, all-file prevalidation,
 /// sequential uploads with immediate output, line prompt only with no links,
 /// client then parent validation then AddComment. No pre-target API lookup.
 fn dispatch_issue_comment_add(
@@ -4799,7 +4798,7 @@ fn dispatch_issue_attach(
         upload::validate_file(std::path::Path::new(&action.filepath))?;
         let transport = relation_transport(context, workspace)?;
         let issue_uuid = block_on_network(issue_upload::lookup(&transport, &identifier))?;
-        // Source public eligibility and size checks occur AFTER the UUID lookup.
+        // Public-upload eligibility and size checks happen after the UUID lookup.
         let mut upload_transport = Some(transport);
         let file = upload_issue_file(
             context,
@@ -4850,7 +4849,7 @@ fn upload_issue_file(
     let filename = file.filename.clone();
     let pending = upload::upload(transport, path, file);
     let uploaded = if show_spinner {
-        // Source frames clear the line and reset color before the message.
+        // Each frame clears the line and resets color before the message.
         let frame = |tick: usize| format!("{}Uploading {filename}...", spinner::frame(tick));
         context.write_stdout_with_policy(frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
         let result = block_on_network(async {
@@ -5723,8 +5722,7 @@ fn dispatch_project_create(
         };
         let default_team = configured_team_key(&options);
         if command::interactive(&fields, action.interactive, context.stdout_tty) {
-            // Stdout-only source gate. Genuine stdin-pipe qualification/refusal remains
-            // pending; never inherit doc's body-stdin/editor branches or CI gate.
+            // Only stdout is checked here; piped stdin is not refused.
             context.write_stdout_with_policy(
                 b"\nCreate a new project\n\n",
                 OutputPolicy::ConsoleLike,
@@ -5793,7 +5791,7 @@ fn dispatch_project_update(
 ) -> Result<ExitStatus, AppError> {
     use crate::commands::project_update as command;
     let options = command::Options::from_cli(action);
-    // Local input/files/date checks before spinner and client, with source order.
+    // Local input, file and date checks run before the spinner and client.
     let local =
         command::local(&options).map_err(|error| error.with_context("Failed to update project"))?;
     let enabled = spinner::enabled(
@@ -5888,7 +5886,7 @@ fn dispatch_issue_archive_delete(
 ) -> Result<ExitStatus, AppError> {
     use crate::commands::issue_archive_delete as command;
     use crate::platform::prompt::PromptOutcome;
-    // Both source leaves construct the client before any local collection/resolution.
+    // The client is built before collecting or resolving any IDs.
     let transport = relation_transport(context, workspace)?;
     if action.bulk.requested() {
         if mode == command::Mode::Archive && action.target.is_some() {
@@ -6038,7 +6036,7 @@ fn dispatch_update_create(
             action.file,
             action.health,
         )?;
-        // Approved explicit-i preflight precedes both clients. Otherwise source client-first.
+        // The explicit -i check runs before either client is built.
         let transport = relation_transport(context, workspace)?;
         let (id, display) = {
             let config = context.config()?;
@@ -6421,8 +6419,8 @@ fn dispatch_config_generate(
     result.map_err(|error: AppError| error.with_context(command::CONTEXT))
 }
 
-// Source resolver order belongs to these commands; the helpers return owned data
-// before prompts or stream output borrow the application context.
+// These helpers return owned data before prompts or stream output borrow the
+// application context.
 fn issue_read_transport(
     context: &AppContext<'_>,
     workspace: Option<&str>,
@@ -7280,7 +7278,7 @@ fn api_action(
                         OutputPolicy::Strict
                     },
                 )
-                .map_err(api::source_output_error)?;
+                .map_err(api::stdout_write_error)?;
         }
         if !output.stderr.is_empty() {
             write_stderr(context, output.stderr.as_bytes())?;
@@ -7598,7 +7596,7 @@ fn dispatch_auth_migrate(context: &mut AppContext<'_>) -> Result<ExitStatus, App
     Ok(ExitStatus::Success)
 }
 
-// Source-compatible issue resolution with explicit child stdin and environment.
+// Resolve the issue from the argument or the VCS, running jj/git with explicit stdin and environment.
 fn resolve_script_issue(
     context: &AppContext<'_>,
     input: Option<&str>,
@@ -7690,7 +7688,7 @@ fn dispatch_issue_describe(
                 OutputPolicy::ConsoleLike,
             )?;
         }
-        // Source starts spinner BEFORE building client, including missing-key failure.
+        // The spinner starts before the client is built, so it also covers a missing key.
         let fetched = (|| {
             let transport = relation_transport(context, workspace)?;
             project_ticks(context, command::fetch(&transport, &identifier), enabled)
@@ -7798,7 +7796,7 @@ fn start_details(
         script_status(writer, spinner::frame(0).as_bytes())?;
     }
     let fetched = (|| {
-        // Source starts spinner before constructing the client on each details read.
+        // The spinner starts before the client is built on each details read.
         let transport = client::prepare_transport(
             &config.options,
             credentials,

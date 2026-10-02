@@ -1,4 +1,4 @@
-//! `initiative-update list`: a typed first page with source-shaped output.
+//! `initiative-update list`: the first page of status updates as a table or JSON.
 
 use chrono::{DateTime, Local, Utc};
 use cynic::QueryBuilder;

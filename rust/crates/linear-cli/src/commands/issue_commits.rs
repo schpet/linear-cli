@@ -57,7 +57,7 @@ impl<'de> Deserialize<'de> for LookupIssue {
         deserializer.deserialize_map(ObjectVisitor)
     }
 }
-/// Source optional/missing fields are absence, not old shared issue_id strict shape.
+/// Look up the issue; a missing or null issue is "not found".
 pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), AppError> {
     let mut request = issue_id::request(identifier);
     request.query = request.query.trim_end_matches('\n').to_owned();
@@ -145,7 +145,7 @@ pub fn show(
     env: &crate::config::ChildEnvOverlay,
 ) -> Result<ExitStatus, AppError> {
     let captured = runner.capture(&probe_spec(identifier), cwd, env)?;
-    // Source ignores probe exit status/stderr, including nonzero + nonempty.
+    // The probe's exit status and stderr are ignored; only its output matters.
     if vcs_script::decoded_trim(&captured.stdout).is_empty() {
         return Err(AppError::not_found("Commits", identifier));
     }

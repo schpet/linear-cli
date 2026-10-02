@@ -1,4 +1,4 @@
-//! Shared GraphQL template JSON projection, preserving C021 field and number bytes.
+//! The `--json` shape shared by `template list` and `template view`.
 
 use serde::Serialize;
 
@@ -9,8 +9,7 @@ use crate::graphql::operations::templates::{
 };
 use crate::graphql::scalars::{DateTime, Json};
 
-/// The source's GraphQL field names, nesting and nulls; `sortOrder` uses the
-/// JavaScript number spelling.
+/// The GraphQL field names, nesting and nulls.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JsonTemplate<'a> {
@@ -32,7 +31,7 @@ struct JsonTemplate<'a> {
     template_data: &'a Json,
 }
 
-/// Serialize a template list with C021's exact field order and JSON number spelling.
+/// Serialize a template list in GraphQL field order.
 pub fn render_list(templates: &[Template]) -> Result<Vec<u8>, AppError> {
     let projected = templates
         .iter()

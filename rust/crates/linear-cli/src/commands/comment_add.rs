@@ -1,6 +1,6 @@
 //! Shared `comment add` steps: body flags, the body prompt check, the single
-//! `AddComment` mutation and its output. Each leaf owns its target resolution
-//! and calls these in the source order.
+//! `AddComment` mutation and its output. Each target command resolves its own
+//! target and then calls these in order.
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::commands::text_input;
@@ -14,7 +14,7 @@ use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::prompt::{PromptOutcome, PromptSession};
 use crate::refs::{reject_comment_url, reject_linear_url};
 
-/// The source's single `handleError` prefix for every action failure.
+/// Prefix for every `comment add` failure.
 pub const CONTEXT: &str = "Failed to add comment";
 pub const PROMPT_MESSAGE: &str = "Comment body";
 
@@ -159,7 +159,7 @@ pub async fn create(
     Ok(result.comment_create.comment)
 }
 
-/// The source's two `console.log` lines, naming the target as the user gave it.
+/// The success lines, naming the target as the user gave it.
 pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
     format!("✓ Comment added to {noun} {original}\n{}\n", comment.url).into_bytes()
 }

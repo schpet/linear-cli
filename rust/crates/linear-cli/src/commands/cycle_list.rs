@@ -1,4 +1,4 @@
-//! `cycle list`: typed pages, stable ordering, and the Deno output shapes.
+//! `cycle list`: every page, newest first, as a table or JSON.
 
 use cynic::QueryBuilder;
 use serde::Serialize;

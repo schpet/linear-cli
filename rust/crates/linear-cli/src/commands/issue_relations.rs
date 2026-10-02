@@ -1,4 +1,4 @@
-//! Directional relation operations preserving source request order and output.
+//! `issue relation`: add, delete and list relations between issues.
 use crate::cli::issue::RelationType;
 use crate::commands::issue_id;
 use crate::error::{AppError, AppErrorKind};

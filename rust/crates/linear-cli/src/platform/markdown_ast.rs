@@ -70,8 +70,8 @@ fn replace(node: &mut Node, paths: &HashMap<String, String>) {
         }
     }
 }
-/// Explicit serializer injection keeps the qualified source-compatible serializer
-/// independent of AST extraction and URL replacement.
+/// The serializer is passed in, keeping it independent of AST extraction and
+/// URL replacement.
 pub fn rewrite_with<F>(
     content: &str,
     paths: &HashMap<String, String>,

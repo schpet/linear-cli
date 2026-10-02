@@ -1,5 +1,5 @@
-//! `template list`: one typed template request, the source filters and
-//! display order, and the two output formats.
+//! `template list`: one template request, filtered by type and team, as a
+//! table or JSON.
 //!
 //! [`prepare`] and [`run_with`] each attach [`CONTEXT`] once to their own
 //! failures. Dispatch adds context only to failures outside those helpers,

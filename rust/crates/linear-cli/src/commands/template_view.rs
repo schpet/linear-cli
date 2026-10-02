@@ -108,7 +108,7 @@ pub fn template_request(id: &str) -> GraphQlRequest<GetTemplateVariables> {
 }
 
 /// Resolve the reference with exactly one request, then render it. `now` is
-/// read after the request, as the source formats after its fetch.
+/// read after the request so relative times are measured from then.
 pub async fn run_with<OF, OFut, AF, AFut, Tz, Now>(
     reference: &TemplateReference,
     json: bool,
