@@ -92,7 +92,12 @@
       "skills/linear-cli/references/schema.md",
       "skills/linear-cli/references/team.md",
       "skills/linear-cli/references/template.md",
-      "skills/linear-cli/references/user.md"
+      "skills/linear-cli/references/user.md",
+      "untracked/",
+      "rust/parity/runner/cases/",
+      "rust/parity/runner/*-frozen-cases/",
+      "rust/crates/linear-cli/src/graphql/schema_builtin_types.json",
+      "rust/crates/linear-cli/tests/commands/fixtures/api-schema/"
     ],
     "proseWrap": "never",
     "semiColons": false
@@ -100,7 +105,8 @@
   "lint": {
     "exclude": [
       "__generated__/",
-      "src/__codegen__/"
+      "src/__codegen__/",
+      "untracked/"
     ]
   },
   "test": {

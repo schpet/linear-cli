@@ -27,7 +27,7 @@ jobs:
         run: deno task check
 
       - name: Run tests
-        run: deno task test --ignore=test/keyring.integration.test.ts
+        run: deno task test --ignore=test/keyring.integration.test.ts,rust/,untracked/
 
       - name: Install linear-cli for skill generation
         run: deno task install

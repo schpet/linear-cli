@@ -142,8 +142,8 @@ fn main() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::{process_env_error, unicode_argument};
-    use linear_cli::config::{OsFamily, ProcessEnvError, ProcessEnvSnapshot};
+    use super::unicode_argument;
+    use linear_cli::config::{OsFamily, ProcessEnvSnapshot};
     use std::ffi::OsString;
 
     #[test]
@@ -165,6 +165,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn non_unicode_process_inputs_report_typed_errors() {
+        use super::process_env_error;
+        use linear_cli::config::ProcessEnvError;
         use std::os::unix::ffi::OsStringExt;
 
         let invalid = || OsString::from_vec(vec![0xff]);

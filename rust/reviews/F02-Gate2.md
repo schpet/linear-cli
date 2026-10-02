@@ -73,17 +73,17 @@ Every case: route `linear document view` as a schema binding only, `argv` = one 
 
 All Cargo commands ran from `rust/` with `CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0`, pinned `cargo +1.93.0`, `--locked --offline` where applicable. They owned the shared target exclusively. After tests and Clippy, `cargo clean -p linear-cli --locked --offline` removed the package's stale artifacts before the final example build; the copied executable has mode 555 and matches the Cargo binary's SHA-256.
 
-| Gate | Result |
-| --- | --- |
-| `cargo +1.93.0 fmt --all -- --check` | pass |
-| `cargo +1.93.0 check --workspace --all-targets --locked --offline` | pass |
-| `cargo +1.93.0 test --workspace --locked --offline` | pass: 2 library, 2 main, 36 contracts, 88 GraphQL, 2 registered probe example tests; 130 total, 0 failed |
-| `cargo +1.93.0 clippy --workspace --all-targets --locked --offline -- -D warnings` | pass, no warnings (11m 07s single job) |
-| `cargo +1.93.0 build --workspace --examples --locked --offline` after package clean | pass |
-| `deno check --frozen --config rust/parity/deno.json rust/parity/runner/*.ts rust/parity/verify.test.ts` | pass |
-| `deno lint rust/parity`; `deno fmt --check rust/parity` | pass; 62 linted files and 211 formatted files |
-| Focused `deno test --frozen --allow-all --config rust/parity/deno.json rust/parity/runner/f02b-fixed-host-driver.test.ts` | 6 passed, 0 failed |
-| `deno task parity:test` | 153 passed, 0 failed |
+| Gate                                                                                                                      | Result                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `cargo +1.93.0 fmt --all -- --check`                                                                                      | pass                                                                                                     |
+| `cargo +1.93.0 check --workspace --all-targets --locked --offline`                                                        | pass                                                                                                     |
+| `cargo +1.93.0 test --workspace --locked --offline`                                                                       | pass: 2 library, 2 main, 36 contracts, 88 GraphQL, 2 registered probe example tests; 130 total, 0 failed |
+| `cargo +1.93.0 clippy --workspace --all-targets --locked --offline -- -D warnings`                                        | pass, no warnings (11m 07s single job)                                                                   |
+| `cargo +1.93.0 build --workspace --examples --locked --offline` after package clean                                       | pass                                                                                                     |
+| `deno check --frozen --config rust/parity/deno.json rust/parity/runner/*.ts rust/parity/verify.test.ts`                   | pass                                                                                                     |
+| `deno lint rust/parity`; `deno fmt --check rust/parity`                                                                   | pass; 62 linted files and 211 formatted files                                                            |
+| Focused `deno test --frozen --allow-all --config rust/parity/deno.json rust/parity/runner/f02b-fixed-host-driver.test.ts` | 6 passed, 0 failed                                                                                       |
+| `deno task parity:test`                                                                                                   | 153 passed, 0 failed                                                                                     |
 
 The registered example tests prove that the entire typed `GetTeams` fixture is compared, including nested `pageInfo`, and that CA construction errors do not print paths or source messages. The altered-field lane control changed only the team name and was rejected at exit, stdout and fixture surfaces.
 
@@ -101,12 +101,12 @@ The first integrated lane attempt caught a missing P04A2 status-helper handoff b
 
 ### Digests
 
-| Input | SHA-256 |
-| --- | --- |
-| `rust/Cargo.lock` | `7c004f549400068a1af36486b514150f16d7446b18e372b0720acc4b7580fb34` |
-| `graphql/schema.graphql` | `eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a` |
-| `rust/parity/runner/schema.ts` | `b97044e3fad404bc32adb7ffc44485340989da64d96b1bdb12e6d4804e8aa6a1` |
-| `rust/parity/runner/run.ts` | `e8c79a2fdbc63a7c3bb0df1e36032e459fa4e12b52876f3615766b65c0271b1e` |
+| Input                                  | SHA-256                                                            |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| `rust/Cargo.lock`                      | `7c004f549400068a1af36486b514150f16d7446b18e372b0720acc4b7580fb34` |
+| `graphql/schema.graphql`               | `eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a` |
+| `rust/parity/runner/schema.ts`         | `b97044e3fad404bc32adb7ffc44485340989da64d96b1bdb12e6d4804e8aa6a1` |
+| `rust/parity/runner/run.ts`            | `e8c79a2fdbc63a7c3bb0df1e36032e459fa4e12b52876f3615766b65c0271b1e` |
 | `rust/parity/runner/certs/test-ca.pem` | `46ce07ecda8f2252b5730fa3ee2bda9a0bee357fec0b15af9dcc06d64b03fcf1` |
 
 ## Deviations from the reviewed microplan, and why

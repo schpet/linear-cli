@@ -194,6 +194,7 @@ fn updated() -> Value {
 fn guard(nodes: Value, next: bool, cursor: Value) -> Value {
     json!({"data":{"document":{"id":"slug","comments":{"nodes":nodes,"pageInfo":{"hasNextPage":next,"endCursor":cursor}}}}})
 }
+#[cfg(unix)]
 fn edit(seed: &str) -> Value {
     json!({"data":{"document":{"id":"slug","title":"Original","content":seed}}})
 }

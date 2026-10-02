@@ -1,10 +1,15 @@
+use std::fs;
+#[cfg(target_os = "linux")]
 use std::io::{Read, Write};
+#[cfg(target_os = "linux")]
 use std::net::TcpListener;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
+#[cfg(target_os = "linux")]
 use std::{
-    fs, thread,
+    thread,
     time::{Duration, Instant},
 };
 
@@ -18,7 +23,9 @@ use serde_json::{Value, json};
 const P: &str = "00000000-0000-4000-9000-000000002801";
 const I: &str = "00000000-0000-4000-9000-000000004401";
 const D: &str = "00000000-0000-4000-9000-000000005501";
+#[cfg(target_os = "linux")]
 const NO_KEY: &str = "✗ Failed to add comment: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n";
+#[cfg(target_os = "linux")]
 const CREATED: &str = r#"{"data":{"commentCreate":{"success":true,"comment":{"id":"c1","url":"https://linear.app/acme/comment/c1"}}}}"#;
 
 fn compact(text: &str) -> String {
@@ -270,6 +277,7 @@ fn prompt_answer_is_trimmed_and_blank_fails_after_submission() {
 }
 
 /// Serve `replies` in order, then prove no further request arrives.
+#[cfg(target_os = "linux")]
 fn server(replies: Vec<String>) -> (String, thread::JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
@@ -324,11 +332,13 @@ fn server(replies: Vec<String>) -> (String, thread::JoinHandle<Vec<Value>>) {
     (endpoint, worker)
 }
 
+#[cfg(target_os = "linux")]
 struct Run {
     output: Output,
     requests: Vec<Value>,
 }
 
+#[cfg(target_os = "linux")]
 fn run(args: &[&str], stdin: &[u8], key: bool, files: &[(&str, &[u8])], replies: &[&str]) -> Run {
     let dir = scratch();
     for (name, bytes) in files {
@@ -360,12 +370,14 @@ fn run(args: &[&str], stdin: &[u8], key: bool, files: &[(&str, &[u8])], replies:
     Run { output, requests }
 }
 
+#[cfg(target_os = "linux")]
 fn assert_failure(run: &Run, stdout: &str, stderr: &str) {
     assert_eq!(run.output.status.code(), Some(1));
     assert_eq!(String::from_utf8_lossy(&run.output.stdout), stdout);
     assert_eq!(String::from_utf8_lossy(&run.output.stderr), stderr);
 }
 
+#[cfg(target_os = "linux")]
 fn operation(request: &Value) -> &str {
     request["operationName"].as_str().unwrap()
 }

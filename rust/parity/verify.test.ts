@@ -3,6 +3,7 @@ import { fromFileUrl, join } from "@std/path"
 import { withSourceMap } from "./source-map.ts"
 import {
   APPROVED_ROOT_FMT_EXCLUDE,
+  APPROVED_ROOT_LINT_EXCLUDE,
   APPROVED_ROOT_TASKS,
   APPROVED_ROOT_TEST_EXCLUDE,
   compareManifest,
@@ -177,6 +178,10 @@ function frozenRootConfig(): Record<string, unknown> {
       proseWrap: "never",
       semiColons: false,
     },
+    lint: {
+      exclude: ["original-generated/", "second-generated/"],
+      rules: { tags: ["recommended"] },
+    },
     unstable: ["sloppy-imports"],
   }
 }
@@ -188,6 +193,11 @@ function withApprovedAdditions(): Record<string, unknown> {
     ...APPROVED_ROOT_TASKS,
   }
   current.test = { exclude: APPROVED_ROOT_TEST_EXCLUDE }
+  recordField(current, "lint").exclude = [
+    "original-generated/",
+    "second-generated/",
+    ...APPROVED_ROOT_LINT_EXCLUDE,
+  ]
   recordField(current, "fmt").exclude = [
     "original/",
     "second/",
@@ -211,7 +221,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value != null && !Array.isArray(value)
 }
 
-Deno.test("source binding accepts only the reviewed task, test and fmt exclusions", () => {
+Deno.test("source binding accepts only the reviewed task, test, fmt and lint exclusions", () => {
   compareRootConfig(frozenRootConfig(), frozenRootConfig())
   compareRootConfig(frozenRootConfig(), withApprovedAdditions())
   const cases: Array<[string, (current: Record<string, unknown>) => void]> = [
@@ -307,6 +317,50 @@ Deno.test("source binding accepts only the reviewed task, test and fmt exclusion
     [
       "fmt other field",
       (current) => (recordField(current, "fmt").proseWrap = "always"),
+    ],
+    [
+      "lint original order",
+      (
+        current,
+      ) => (recordField(current, "lint").exclude = [
+        "second-generated/",
+        "original-generated/",
+        ...APPROVED_ROOT_LINT_EXCLUDE,
+      ]),
+    ],
+    [
+      "lint extra exclusion",
+      (
+        current,
+      ) => (recordField(current, "lint").exclude = [
+        "original-generated/",
+        "second-generated/",
+        "src/",
+        ...APPROVED_ROOT_LINT_EXCLUDE,
+      ]),
+    ],
+    [
+      "lint missing original exclusion",
+      (
+        current,
+      ) => (recordField(current, "lint").exclude = [
+        "second-generated/",
+        ...APPROVED_ROOT_LINT_EXCLUDE,
+      ]),
+    ],
+    [
+      "lint misplaced suffix",
+      (
+        current,
+      ) => (recordField(current, "lint").exclude = [
+        ...APPROVED_ROOT_LINT_EXCLUDE,
+        "original-generated/",
+        "second-generated/",
+      ]),
+    ],
+    [
+      "lint other field",
+      (current) => (recordField(current, "lint").rules = { tags: [] }),
     ],
     ["new top-level key", (current) => (current.compilerOptions = {})],
   ]

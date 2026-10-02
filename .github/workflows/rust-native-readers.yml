@@ -38,3 +38,44 @@ jobs:
       - name: Unix private process readers, including Mac flavor
         if: runner.os != 'Windows'
         run: cargo +1.93.0 test --locked -p linear-cli --test auth keyring
+
+  full-suite:
+    name: Full Rust suite (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            optional: false
+          - os: macos-latest
+            optional: false
+          - os: windows-latest
+            optional: true
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.93.0 --profile minimal --component clippy --component rustfmt
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: "2.7.9"
+      - name: Cache parity driver dependencies
+        working-directory: .
+        run: deno cache --frozen --config rust/parity/deno.json rust/parity/runner/serve-case.ts
+      - name: Install fish and bubblewrap
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update && sudo apt-get install -y fish bubblewrap
+          else
+            brew install fish
+          fi
+      - name: Run full Rust suite
+        run: cargo +1.93.0 test --locked --no-fail-fast

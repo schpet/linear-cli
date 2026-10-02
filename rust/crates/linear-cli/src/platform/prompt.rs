@@ -1423,6 +1423,61 @@ pub fn escaped_display(value: &str) -> String {
         .collect()
 }
 
+#[cfg(not(unix))]
+struct RawPrompt {
+    confirmation: bool,
+    active: bool,
+}
+
+#[cfg(not(unix))]
+impl RawPrompt {
+    fn enter() -> Result<Self, AppError> {
+        Ok(Self {
+            confirmation: false,
+            active: false,
+        })
+    }
+    fn enter_attended() -> Result<Self, AppError> {
+        crossterm::terminal::enable_raw_mode().map_err(|error| {
+            AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
+                .with_source(error)
+        })?;
+        Ok(Self {
+            confirmation: true,
+            active: true,
+        })
+    }
+    fn resume(&mut self) -> Result<(), AppError> {
+        if self.confirmation {
+            crossterm::terminal::enable_raw_mode().map_err(|error| {
+                AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
+                    .with_source(error)
+            })?;
+            self.active = true;
+        }
+        Ok(())
+    }
+    fn restore(&mut self) -> Result<(), AppError> {
+        if self.active {
+            self.active = false;
+            crossterm::terminal::disable_raw_mode().map_err(|error| {
+                AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
+                    .with_source(error)
+            })?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(unix))]
+impl Drop for RawPrompt {
+    fn drop(&mut self) {
+        if let Err(error) = self.restore() {
+            let _ = writeln!(io::stderr(), "failed to restore terminal input: {error}");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -1483,61 +1538,6 @@ mod tests {
                 PromptKey::Other,
                 "release {code:?} {modifiers:?}"
             );
-        }
-    }
-}
-
-#[cfg(not(unix))]
-struct RawPrompt {
-    confirmation: bool,
-    active: bool,
-}
-
-#[cfg(not(unix))]
-impl RawPrompt {
-    fn enter() -> Result<Self, AppError> {
-        Ok(Self {
-            confirmation: false,
-            active: false,
-        })
-    }
-    fn enter_attended() -> Result<Self, AppError> {
-        crossterm::terminal::enable_raw_mode().map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                .with_source(error)
-        })?;
-        Ok(Self {
-            confirmation: true,
-            active: true,
-        })
-    }
-    fn resume(&mut self) -> Result<(), AppError> {
-        if self.confirmation {
-            crossterm::terminal::enable_raw_mode().map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                    .with_source(error)
-            })?;
-            self.active = true;
-        }
-        Ok(())
-    }
-    fn restore(&mut self) -> Result<(), AppError> {
-        if self.active {
-            self.active = false;
-            crossterm::terminal::disable_raw_mode().map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
-                    .with_source(error)
-            })?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg(not(unix))]
-impl Drop for RawPrompt {
-    fn drop(&mut self) {
-        if let Err(error) = self.restore() {
-            let _ = writeln!(io::stderr(), "failed to restore terminal input: {error}");
         }
     }
 }

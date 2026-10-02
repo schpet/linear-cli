@@ -279,6 +279,7 @@ export const APPROVED_ROOT_TASKS: Record<string, string> = {
     "deno test --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/",
 }
 export const APPROVED_ROOT_TEST_EXCLUDE = ["rust/", "untracked/"]
+export const APPROVED_ROOT_LINT_EXCLUDE = ["untracked/"]
 
 // Exact appended paths protect hash-bound native distribution inputs from fmt.
 export const APPROVED_ROOT_FMT_EXCLUDE = [
@@ -304,6 +305,11 @@ export const APPROVED_ROOT_FMT_EXCLUDE = [
   "skills/linear-cli/references/team.md",
   "skills/linear-cli/references/template.md",
   "skills/linear-cli/references/user.md",
+  "untracked/",
+  "rust/parity/runner/cases/",
+  "rust/parity/runner/*-frozen-cases/",
+  "rust/crates/linear-cli/src/graphql/schema_builtin_types.json",
+  "rust/crates/linear-cli/tests/commands/fixtures/api-schema/",
 ]
 
 /** Structural comparison of the current root config with the frozen one. */
@@ -332,9 +338,19 @@ export function compareRootConfig(frozen: unknown, current: unknown): void {
       pruned.fmt.exclude = excludes.slice(0, -APPROVED_ROOT_FMT_EXCLUDE.length)
     }
   }
+  if (isRecord(pruned.lint) && Array.isArray(pruned.lint.exclude)) {
+    const excludes = pruned.lint.exclude
+    const suffix = excludes.slice(-APPROVED_ROOT_LINT_EXCLUDE.length)
+    if (JSON.stringify(suffix) === JSON.stringify(APPROVED_ROOT_LINT_EXCLUDE)) {
+      pruned.lint.exclude = excludes.slice(
+        0,
+        -APPROVED_ROOT_LINT_EXCLUDE.length,
+      )
+    }
+  }
   assert(
     JSON.stringify(pruned) === JSON.stringify(frozen),
-    "root deno.json differs from the frozen reference beyond the approved parity task, test.exclude and fmt.exclude additions",
+    "root deno.json differs from the frozen reference beyond the approved parity task, test.exclude, fmt.exclude and lint.exclude additions",
   )
 }
 

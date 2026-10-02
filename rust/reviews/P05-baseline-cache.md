@@ -6,10 +6,10 @@ Cache actual complete validated interpreted-source proofs under ignored `untrack
 
 Qualification used the unchanged C029/C034 r2 binary SHA256 `4dd8bc697de85b6cc11732dbce9f6a61d7a541c1140b6fbe1b1a2a62b95b46c2` and P01 reference SHA256 `a17675c5ab9a0bf5f32f65e5e68112676576972a9979f5a97bc844f6b23e0835`.
 
-| Run | Whole invocation | Corpus | Source executions | Fresh Rust executions | Result |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Forced baseline | 629.06s | 605.500s | 1,576 | 1,542 | 1,542 pass / 34 unimplemented / 0 failure or drift |
-| Warm cache | 62.97s | 39.261s | 0 | 1,542 | Same per-case statuses and source proofs |
+| Run             | Whole invocation |   Corpus | Source executions | Fresh Rust executions | Result                                             |
+| --------------- | ---------------: | -------: | ----------------: | --------------------: | -------------------------------------------------- |
+| Forced baseline |          629.06s | 605.500s |             1,576 |                 1,542 | 1,542 pass / 34 unimplemented / 0 failure or drift |
+| Warm cache      |           62.97s |  39.261s |                 0 |                 1,542 | Same per-case statuses and source proofs           |
 
 The warm run hit all1,576 records, with zero misses/refreshes/writes and1.308s cache work. Current Rust execution took37.857s; the553.080s cached source subprocess total is historical, explicitly labelled. Staged modules remained unchanged. The whole invocation is9.99× faster and meets the measured1–2minute target. Root independently compared all1,576 baseline observations/statuses/provenance timestamps, binary/manifest identities and exact execution counters, and verified the eight reviewed code hashes stayed unchanged.
 

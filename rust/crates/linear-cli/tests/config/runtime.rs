@@ -1,21 +1,30 @@
+#[cfg(unix)]
 use std::collections::BTreeMap;
+#[cfg(unix)]
 use std::env;
 use std::ffi::OsString;
+#[cfg(unix)]
 use std::fs;
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(unix)]
 use std::time::{Duration, Instant};
 
+#[cfg(unix)]
 use linear_cli::config::{
-    ConfigFailure, DiagnosticReason, GitProbeError, GitProbeResult, GitRootProbe, OsFamily,
-    ProcessEnvError, ProcessEnvSnapshot, RealFileSource, RealGitRootProbe, discover_config_paths,
-    load_env,
+    ConfigFailure, DiagnosticReason, GitProbeError, GitProbeResult, GitRootProbe, RealFileSource,
+    RealGitRootProbe, discover_config_paths, load_env,
 };
+use linear_cli::config::{OsFamily, ProcessEnvError, ProcessEnvSnapshot};
 
+#[cfg(unix)]
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(unix)]
 struct TempTree(PathBuf);
 
+#[cfg(unix)]
 impl TempTree {
     fn new() -> Self {
         let path = env::temp_dir().join(format!(
@@ -54,6 +63,7 @@ impl TempTree {
     }
 }
 
+#[cfg(unix)]
 impl Drop for TempTree {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.0).unwrap();

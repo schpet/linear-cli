@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 //! Public CLI fixtures with fake HTTP/git/jj and isolated synthetic configuration.
 use serde_json::json;
 use std::{
