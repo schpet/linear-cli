@@ -8069,6 +8069,33 @@
           "hidden": false,
           "global": false,
           "valueHandler": "none"
+        },
+        {
+          "scope": "local",
+          "name": "priority",
+          "flags": [
+            "--priority"
+          ],
+          "description": "Project priority (none, urgent, high, medium, low)",
+          "typeDefinition": "<priority:string>",
+          "args": [
+            {
+              "name": "priority",
+              "type": "string",
+              "action": "string",
+              "optional": false,
+              "variadic": false,
+              "list": false
+            }
+          ],
+          "required": false,
+          "default": null,
+          "collect": false,
+          "conflicts": [],
+          "depends": [],
+          "hidden": false,
+          "global": false,
+          "valueHandler": "none"
         }
       ],
       "inheritedGlobalOptions": [

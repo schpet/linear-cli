@@ -1,16 +1,18 @@
-//! `project list`: typed project pagination, stable display ordering and the
-//! selected GraphQL connection in JSON or terminal form.
+//! `project list`: every project of a team (or the workspace), as a table or
+//! JSON, or the projects page opened in Linear.
 
-use std::future::Future;
 use std::time::SystemTime;
 
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::project::ProjectList;
 use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table::underlined_header;
-use crate::error::{Error, ResultExt};
+use crate::commands::table::{self, underlined_header};
+use crate::commands::team_key::configured_team_key;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::projects::{
@@ -18,33 +20,70 @@ use crate::graphql::operations::projects::{
     ProjectStatusType, TeamCollectionFilter,
 };
 use crate::graphql::operations::teams::{PageInfo, StringComparator, TeamFilter};
-use crate::graphql::operations::viewer::GetViewer;
-use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
+use crate::graphql::pagination::{self, EmptyCursorPolicy, Page};
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::{collation, opener};
+use crate::platform::{collation, style};
+use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 
-pub const FETCH_CONTEXT: &str = "Failed to fetch projects";
-pub const OPEN_CONTEXT: &str = "Failed to open projects";
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Options {
-    pub team: Option<String>,
-    pub all_teams: bool,
-    pub status: Option<String>,
-    pub json: bool,
-    pub web: bool,
-    pub app: bool,
+pub fn run(ctx: &Ctx, args: &ProjectList) -> Result<()> {
+    list(ctx, args).context("Failed to list projects")
 }
 
-pub fn check_conflicting_flags(options: &Options) -> Result<(), Error> {
-    if options.team.is_some() && options.all_teams {
-        return Err(Error::new("Cannot use both --team and --all-teams flags"));
+fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
+    let team_lookup = args
+        .team
+        .as_deref()
+        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .transpose()?;
+    let configured = if args.all_teams {
+        None
+    } else {
+        configured_team_key(ctx.options())
+    };
+    if (args.web || args.app) && team_lookup.is_none() {
+        return ctx.open_in_linear(&projects_path(configured.as_deref()), args.app);
     }
-    Ok(())
+    let client = ctx.client()?;
+    let team_key = async {
+        match &team_lookup {
+            Some(lookup) => {
+                Ok::<_, Error>(Some(resolve_team_with_transport(lookup, client).await?.key))
+            }
+            None => Ok(configured.clone()),
+        }
+    };
+    if args.web || args.app {
+        let team_key = ctx.spin(true, team_key)?;
+        return ctx.open_in_linear(&projects_path(team_key.as_deref()), args.app);
+    }
+    let status = args.status.as_deref();
+    let (projects, page_info) = ctx.spin(!args.json, async {
+        let team_key = team_key.await?;
+        fetch(client, filter(team_key.as_deref(), status)).await
+    })?;
+    if args.json {
+        ctx.print(render_json(&projects, &page_info))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(
+            &projects,
+            SystemTime::now(),
+            columns,
+            ctx.color(),
+        ))
+    }
 }
 
-pub fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<ProjectFilter> {
+/// The projects page of a team, or of the whole workspace.
+fn projects_path(team_key: Option<&str>) -> String {
+    team_key.map_or_else(
+        || "projects/all".to_owned(),
+        |team| format!("team/{team}/projects/all"),
+    )
+}
+
+pub(super) fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<ProjectFilter> {
     let accessible_teams = team_key.map(|key| TeamCollectionFilter {
         some: Some(TeamFilter {
             key: Some(StringComparator {
@@ -70,113 +109,40 @@ pub fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<ProjectFil
     }
 }
 
-pub async fn run_with<F, Fut, Now>(
-    mut fetch: F,
-    team_key: Option<&str>,
-    status: Option<&str>,
-    json: bool,
-    now: Now,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetProjectsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetProjects, Error>>,
-    Now: FnOnce() -> SystemTime,
-{
-    run_uncontextualized(&mut fetch, team_key, status, json, now, columns, color)
-        .await
-        .context(FETCH_CONTEXT)
-}
-
-async fn run_uncontextualized<F, Fut, Now>(
-    mut fetch: F,
-    team_key: Option<&str>,
-    status: Option<&str>,
-    json: bool,
-    now: Now,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetProjectsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetProjects, Error>>,
-    Now: FnOnce() -> SystemTime,
-{
-    let filter = filter(team_key, status);
+/// Every matching project, in Linear's manual order.
+async fn fetch(
+    client: &GraphQlTransport,
+    filter: Option<ProjectFilter>,
+) -> Result<(Vec<Project>, PageInfo)> {
     let pages = pagination::paginate_with_policy(EmptyCursorPolicy::Allow, |after| {
         let request = GraphQlRequest::with_variables(GetProjects::build(GetProjectsVariables {
             filter: filter.clone(),
             first: Some(100),
             after,
         }));
-        let future = fetch(request);
         async move {
-            let data = future.await?;
-            Ok::<Page<Project>, Error>(Page {
+            let data: GetProjects = client.execute(&request).await?;
+            Ok(Page {
                 nodes: data.projects.nodes,
                 page_info: data.projects.page_info.into(),
             })
         }
     })
     .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { page } => Error::new(format!(
-            "Linear reported more projects but returned no pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated a project pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
-    })?;
-
+    .map_err(|error| super::pagination_error("projects", error))?;
     let mut projects = pages.nodes;
-    if projects.is_empty() {
-        if !json {
-            return Ok(b"No projects found.\n".to_vec());
-        }
-    } else {
-        projects.sort_by(|left, right| {
-            left.sort_order
-                .get()
-                .total_cmp(&right.sort_order.get())
-                .then_with(|| collation::compare(&left.name, &right.name))
-                .then_with(|| collation::compare(left.id.inner(), right.id.inner()))
-        });
-    }
-    if json {
-        render_json(
-            &projects,
-            &PageInfo {
-                has_next_page: pages.page_info.has_next_page,
-                end_cursor: pages.page_info.end_cursor,
-            },
-        )
-    } else {
-        Ok(render_text(&projects, now(), columns, color)?.into_bytes())
-    }
-}
-
-pub async fn run(
-    transport: &GraphQlTransport,
-    team_key: Option<&str>,
-    status: Option<&str>,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        team_key,
-        status,
-        json,
-        SystemTime::now,
-        columns,
-        color,
-    )
-    .await
+    projects.sort_by(|left, right| {
+        left.sort_order
+            .get()
+            .total_cmp(&right.sort_order.get())
+            .then_with(|| collation::compare(&left.name, &right.name))
+            .then_with(|| collation::compare(left.id.inner(), right.id.inner()))
+    });
+    let page_info = PageInfo {
+        has_next_page: pages.page_info.has_next_page,
+        end_cursor: pages.page_info.end_cursor,
+    };
+    Ok((projects, page_info))
 }
 
 #[derive(Serialize)]
@@ -211,41 +177,39 @@ struct JsonProject<'a> {
     teams: &'a crate::graphql::operations::projects::ProjectTeams,
 }
 
-fn render_json(projects: &[Project], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
+fn render_json(projects: &[Project], page_info: &PageInfo) -> Vec<u8> {
     let nodes = projects
         .iter()
-        .map(|project| {
-            Ok(JsonProject {
-                id: project.id.inner(),
-                name: &project.name,
-                description: &project.description,
-                slug_id: &project.slug_id,
-                icon: project.icon.as_deref(),
-                color: &project.color,
-                sort_order: &project.sort_order,
-                status: &project.status,
-                lead: project.lead.as_ref(),
-                priority: project.priority,
-                health: project.health.as_ref(),
-                start_date: project.start_date.as_ref(),
-                target_date: project.target_date.as_ref(),
-                started_at: project.started_at.as_ref(),
-                completed_at: project.completed_at.as_ref(),
-                canceled_at: project.canceled_at.as_ref(),
-                created_at: &project.created_at,
-                updated_at: &project.updated_at,
-                url: &project.url,
-                teams: &project.teams,
-            })
+        .map(|project| JsonProject {
+            id: project.id.inner(),
+            name: &project.name,
+            description: &project.description,
+            slug_id: &project.slug_id,
+            icon: project.icon.as_deref(),
+            color: &project.color,
+            sort_order: &project.sort_order,
+            status: &project.status,
+            lead: project.lead.as_ref(),
+            priority: project.priority,
+            health: project.health.as_ref(),
+            start_date: project.start_date.as_ref(),
+            target_date: project.target_date.as_ref(),
+            started_at: project.started_at.as_ref(),
+            completed_at: project.completed_at.as_ref(),
+            canceled_at: project.canceled_at.as_ref(),
+            created_at: &project.created_at,
+            updated_at: &project.updated_at,
+            url: &project.url,
+            teams: &project.teams,
         })
-        .collect::<Result<Vec<_>, Error>>()?;
+        .collect();
     let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
-        .map_err(|error| Error::new("could not serialize projects").with_source(error))?;
+        .expect("project JSON always serializes");
     bytes.push(b'\n');
-    Ok(bytes)
+    bytes
 }
 
-fn priority_label(priority: i32) -> String {
+pub(super) fn priority_label(priority: i32) -> String {
     match priority {
         0 => "None".to_owned(),
         1 => "Urgent".to_owned(),
@@ -256,80 +220,51 @@ fn priority_label(priority: i32) -> String {
     }
 }
 
-fn display_date(project: &Project, now: SystemTime) -> Result<String, Error> {
-    let updated = || {
+/// The date that matters for the project's status, like "Started 3 days ago".
+fn display_date(project: &Project, now: SystemTime) -> String {
+    let relative = |label: &str, date: &DateTime| {
         format!(
-            "Updated {}",
-            format_relative_time(&project.updated_at.0, now.into(), &chrono::Local)
+            "{label} {}",
+            format_relative_time(&date.0, now.into(), &chrono::Local)
         )
     };
-    let created = || {
-        format!(
-            "Created {}",
-            format_relative_time(&project.created_at.0, now.into(), &chrono::Local)
-        )
-    };
+    let planned = |label: &str, date: &TimelessDate| format!("{label}: {}", date.0);
+    let updated = || relative("Updated", &project.updated_at);
+    let created = || relative("Created", &project.created_at);
     match &project.status.status_type {
-        ProjectStatusType::Started => Ok(project.started_at.as_ref().map_or_else(
-            || {
-                project
-                    .start_date
-                    .as_ref()
-                    .map_or_else(created, |date| format!("Start: {}", date.0))
-            },
-            |date| {
-                format!(
-                    "Started {}",
-                    format_relative_time(&date.0, now.into(), &chrono::Local)
-                )
-            },
-        )),
-        ProjectStatusType::Completed => {
-            Ok(project.completed_at.as_ref().map_or_else(updated, |date| {
-                format!(
-                    "Done {}",
-                    format_relative_time(&date.0, now.into(), &chrono::Local)
-                )
-            }))
+        ProjectStatusType::Started => match (&project.started_at, &project.start_date) {
+            (Some(started), _) => relative("Started", started),
+            (None, Some(start)) => planned("Start", start),
+            (None, None) => created(),
+        },
+        ProjectStatusType::Completed => project
+            .completed_at
+            .as_ref()
+            .map_or_else(updated, |date| relative("Done", date)),
+        ProjectStatusType::Canceled => project
+            .canceled_at
+            .as_ref()
+            .map_or_else(updated, |date| relative("Canceled", date)),
+        ProjectStatusType::Planned => match (&project.start_date, &project.target_date) {
+            (Some(start), _) => planned("Start", start),
+            (None, Some(target)) => planned("Target", target),
+            (None, None) => created(),
+        },
+        // A status type newer than this program shows like a paused one.
+        ProjectStatusType::Backlog | ProjectStatusType::Paused | ProjectStatusType::Unknown(_) => {
+            updated()
         }
-        ProjectStatusType::Canceled => {
-            Ok(project.canceled_at.as_ref().map_or_else(updated, |date| {
-                format!(
-                    "Canceled {}",
-                    format_relative_time(&date.0, now.into(), &chrono::Local)
-                )
-            }))
-        }
-        ProjectStatusType::Planned => Ok(project.start_date.as_ref().map_or_else(
-            || {
-                project
-                    .target_date
-                    .as_ref()
-                    .map_or_else(created, |date| format!("Target: {}", date.0))
-            },
-            |date| format!("Start: {}", date.0),
-        )),
-        ProjectStatusType::Backlog | ProjectStatusType::Paused => Ok(updated()),
-        ProjectStatusType::Unknown(value) => Err(Error::new(format!(
-            "Linear returned an unknown project status type: {value}"
-        ))
-        .with_hint("Update the CLI, or report this if it persists.")),
     }
 }
 
-pub fn render_text(
-    projects: &[Project],
-    now: SystemTime,
-    columns: usize,
-    color: bool,
-) -> Result<String, Error> {
+fn render_text(projects: &[Project], now: SystemTime, columns: usize, color: bool) -> String {
     if projects.is_empty() {
-        return Ok("No projects found.\n".to_owned());
+        return "No projects found.\n".to_owned();
     }
-    let dates = projects
+    let dates: Vec<_> = projects
         .iter()
         .map(|project| display_date(project, now))
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect();
     let slug_width = projects
         .iter()
         .map(|project| display_width(&project.slug_id))
@@ -409,25 +344,13 @@ pub fn render_text(
         let lead = pad(lead(project), lead_width);
         let teams = pad(&teams(project), team_width);
         let date = pad(&date, date_width);
-        if color {
-            output.push_str(&format!("{slug} {name} "));
-            if let Some(ansi) = crate::commands::table::terminal_color(&project.status.color) {
-                output.push_str(&ansi);
-                output.push_str(&status);
-                output.push_str("\x1b[39m");
-            } else {
-                output.push_str(&status);
-            }
-            output.push_str(&format!(
-                " {priority} {health} {lead} {teams} \x1b[38;2;128;128;128m{date}\x1b[39m\x1b[0m\n"
-            ));
-        } else {
-            output.push_str(&format!(
-                "{slug} {name} {status} {priority} {health} {lead} {teams} {date}\n"
-            ));
-        }
+        let status = hex_color(&status, &project.status.color, color);
+        let date = style::gray(&date, color);
+        output.push_str(&format!(
+            "{slug} {name} {status} {priority} {health} {lead} {teams} {date}\n"
+        ));
     }
-    Ok(output)
+    output
 }
 
 fn health(project: &Project) -> &str {
@@ -462,22 +385,26 @@ fn teams(project: &Project) -> String {
     }
 }
 
-pub fn opening(workspace: &str, team_key: Option<&str>, app: bool) -> (String, Vec<u8>) {
-    let url = team_key.map_or_else(
-        || format!("https://linear.app/{workspace}/projects/all"),
-        |team| format!("https://linear.app/{workspace}/team/{team}/projects/all"),
-    );
-    let destination = if app { "Linear.app" } else { "web browser" };
-    let line = format!("Opening {url} in {destination}\n").into_bytes();
-    (url, line)
-}
-
-pub async fn viewer_workspace(transport: &GraphQlTransport) -> Result<String, Error> {
-    let request = GraphQlRequest::without_variables(GetViewer::build(()));
-    let result: GetViewer = transport.execute(&request).await.map_err(Error::from)?;
-    Ok(result.viewer.organization.url_key)
-}
-
-pub fn open(url: &str, app: bool) -> Result<(), Error> {
-    opener::open(url, app).context(OPEN_CONTEXT)
+/// Paints `text` in a Linear color like `#5e6ad2`; other values leave it plain.
+fn hex_color(text: &str, hex: &str, enabled: bool) -> String {
+    let rgb = hex.strip_prefix('#').and_then(|digits| {
+        let channel = |range| u8::from_str_radix(digits.get(range)?, 16).ok();
+        match digits.len() {
+            6 => Some((channel(0..2)?, channel(2..4)?, channel(4..6)?)),
+            3 => Some((
+                channel(0..1)? * 17,
+                channel(1..2)? * 17,
+                channel(2..3)? * 17,
+            )),
+            _ => None,
+        }
+    });
+    match rgb {
+        Some((red, green, blue)) if enabled => console::Style::new()
+            .true_color(red, green, blue)
+            .force_styling(true)
+            .apply_to(text)
+            .to_string(),
+        Some(_) | None => text.to_owned(),
+    }
 }

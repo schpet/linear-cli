@@ -1,385 +1,266 @@
-//! Input handling shared by `project create` and `project update`.
-use crate::{
-    commands::{project::collections::ResolvedRef, text_input},
-    error::Error,
-    graphql::{
-        envelope::GraphQlRequest,
-        operations::{
-            initiatives::{GetViewerId, GetViewerIdVariables, LookupUser, LookupUserVariables},
-            project_write::*,
-            templates::{GetTemplate, GetTemplateVariables, GetTemplates, Template},
-        },
-        transport::{GraphQlTransport, TransportFailure},
-    },
-    refs::{self, WorkspaceScope},
-};
+//! Inputs and lookups shared by `project create` and `project update`.
+use chrono::NaiveDate;
 use cynic::QueryBuilder;
 use futures_util::future::try_join_all;
 
-pub fn validation(message: impl Into<String>) -> Error {
-    Error::new(message)
-}
-pub fn content(inline: Option<&str>, file: Option<&str>) -> Result<Option<String>, Error> {
-    if inline.is_some() && file.is_some() {
-        return Err(validation(
-            "Cannot specify both --content and --content-file",
-        ));
-    }
-    match file {
-        None => Ok(inline.map(str::to_owned)),
-        Some(path) => crate::commands::text_input::read_file(path)
-            .map(Some)
-            .map_err(|error| {
-                validation(format!("Failed to read content file: {path}"))
-                    .with_hint(format!("Error: {error}"))
-                    .with_source(error)
-            }),
-    }
-}
-pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<String>, Error> {
-    if inline.is_some() && file.is_some() {
-        return Err(
-            validation("Cannot use --description and --description-file together")
-                .with_hint("Pass only one of --description or --description-file."),
-        );
-    }
-    let value = match file {
-        None => inline.map(str::to_owned),
-        Some(path) => Some(match text_input::read_file(path) {
-            Ok(text) => text,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Err(Error::not_found("File", path));
-            }
-            Err(error) => {
-                return Err(
-                    Error::new(format!("Failed to read description file: {error}"))
-                        .with_source(error),
-                );
-            }
-        }),
+use crate::cli::project::{Priority, ProjectFields, Status};
+use crate::commands::issue::template_scope::{self, TemplateScope};
+use crate::commands::project::collections::ResolvedRef;
+use crate::commands::text_input;
+use crate::error::{Error, Result};
+use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::initiatives::{
+    GetViewerId, GetViewerIdVariables, LookupUser, LookupUserVariables,
+};
+use crate::graphql::operations::project_write::{
+    GetInitiativeByIdForUpdate, GetProjectLabelIdByName, GetProjectStatuses, InitiativeIdVariables,
+    NameVariables, ProjectStatus,
+};
+use crate::graphql::operations::projects::ProjectStatusType;
+use crate::graphql::operations::templates::GetTemplates;
+use crate::graphql::scalars::TimelessDate;
+use crate::graphql::transport::GraphQlTransport;
+use crate::refs::{
+    self, InitiativeReference, PreparedTeamLookup, ResolvedTeam, WorkspaceScope,
+    prepare_initiative_lookup, prepare_team_lookup, reject_linear_url,
+    resolve_initiative_with_transport, resolve_team_with_transport,
+};
+
+/// Linear's limit on a project description.
+const DESCRIPTION_LIMIT: usize = 255;
+
+/// The description from `--description` or `--description-file`.
+pub fn description(fields: &ProjectFields) -> Result<Option<String>> {
+    let description = match &fields.description_file {
+        Some(path) => Some(read(path, "description")?),
+        None => fields.description.clone(),
     };
-    if let Some(value) = &value {
-        // Linear measures this limit in UTF-16 code units.
-        let len = value.encode_utf16().count();
-        if len > 255 {
-            return Err(validation(format!("Project description is {len} characters, exceeds the 255-character limit enforced by Linear's API")).with_hint("Shorten the description to 255 characters or fewer, or move the long content into an attached document via `linear document create --project <slug>`."));
+    if let Some(description) = &description {
+        let length = description.chars().count();
+        if length > DESCRIPTION_LIMIT {
+            return Err(Error::new(format!(
+                "Project description is {length} characters, over Linear's limit of {DESCRIPTION_LIMIT}"
+            ))
+            .with_hint("Shorten the description, or put the long text in --content (the project overview)."));
         }
     }
-    Ok(value)
+    Ok(description)
 }
-pub fn truthy(value: Option<&str>) -> Option<&str> {
-    value.filter(|v| !v.is_empty())
-}
-pub fn priority(value: &str) -> Result<i32, Error> {
-    match value.to_lowercase().as_str() {
-        "none" => Ok(0),
-        "urgent" => Ok(1),
-        "high" => Ok(2),
-        "medium" => Ok(3),
-        "low" => Ok(4),
-        _ => Err(validation(format!("Invalid priority: {value}"))
-            .with_hint("Valid values: none, urgent, high, medium, low")),
+
+/// The overview Markdown from `--content` or `--content-file`.
+pub fn content(fields: &ProjectFields) -> Result<Option<String>> {
+    match &fields.content_file {
+        Some(path) => read(path, "content").map(Some),
+        None => Ok(fields.content.clone()),
     }
 }
-pub fn status_type(value: &str) -> Result<&'static str, Error> {
-    match value.to_lowercase().as_str() {
-        "planned" => Ok("planned"),
-        "in progress" | "started" => Ok("started"),
-        "paused" => Ok("paused"),
-        "completed" => Ok("completed"),
-        "canceled" => Ok("canceled"),
-        "backlog" => Ok("backlog"),
-        _ => Err(validation(format!("Invalid status: {value}"))
-            .with_hint("Valid values: planned, started, paused, completed, canceled, backlog")),
+
+fn read(path: &str, what: &str) -> Result<String> {
+    text_input::read_file(path).map_err(|error| {
+        Error::new(format!("Failed to read {what} file {path}: {error}")).with_source(error)
+    })
+}
+
+/// Rejects a Linear URL where only a name or ID is accepted.
+pub fn plain_references<'a>(
+    values: impl IntoIterator<Item = &'a String>,
+    what: &str,
+) -> Result<()> {
+    values
+        .into_iter()
+        .try_for_each(|value| reject_linear_url(value, what))
+}
+
+pub fn priority(priority: Priority) -> i32 {
+    match priority {
+        Priority::None => 0,
+        Priority::Urgent => 1,
+        Priority::High => 2,
+        Priority::Medium => 3,
+        Priority::Low => 4,
     }
 }
-pub fn date(value: Option<&str>, noun: &str) -> Result<(), Error> {
-    if let Some(value) = truthy(value) {
-        let bytes = value.as_bytes();
-        if bytes.len() != 10
-            || bytes.get(4) != Some(&b'-')
-            || bytes.get(7) != Some(&b'-')
-            || !bytes
-                .iter()
-                .enumerate()
-                .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
-        {
-            return Err(validation(format!(
-                "{noun} date must be in YYYY-MM-DD format"
-            )));
-        }
-    }
-    Ok(())
+
+pub fn date(date: NaiveDate) -> TimelessDate {
+    TimelessDate(date.format("%Y-%m-%d").to_string())
 }
-pub async fn statuses(transport: &GraphQlTransport) -> Result<Vec<ProjectStatus>, Error> {
-    let query = GraphQlRequest::without_variables(GetProjectStatuses::build(()));
-    let data: GetProjectStatuses = transport.execute(&query).await.map_err(Error::from)?;
+
+/// The workspace's project statuses.
+pub async fn statuses(client: &GraphQlTransport) -> Result<Vec<ProjectStatus>> {
+    let request = GraphQlRequest::without_variables(GetProjectStatuses::build(()));
+    let data: GetProjectStatuses = client.execute(&request).await?;
     Ok(data.project_statuses.nodes)
 }
-pub async fn status(transport: &GraphQlTransport, value: &str) -> Result<String, Error> {
-    let kind = status_type(value)?;
-    statuses(transport)
+
+/// The ID of the workspace's first status of kind `status`.
+pub async fn status_id(client: &GraphQlTransport, status: Status) -> Result<String> {
+    let kind = match status {
+        Status::Planned => ProjectStatusType::Planned,
+        Status::Started => ProjectStatusType::Started,
+        Status::Paused => ProjectStatusType::Paused,
+        Status::Completed => ProjectStatusType::Completed,
+        Status::Canceled => ProjectStatusType::Canceled,
+        Status::Backlog => ProjectStatusType::Backlog,
+    };
+    statuses(client)
         .await?
         .into_iter()
-        .find(|s| s.status_type.as_str() == kind)
-        .map(|s| s.id.into_inner())
-        .ok_or_else(|| Error::not_found("Project status", kind))
+        .find(|candidate| candidate.status_type == kind)
+        .map(|found| found.id.into_inner())
+        .ok_or_else(|| Error::not_found("Project status", kind.as_str()))
 }
-pub async fn user(transport: &GraphQlTransport, value: &str, noun: &str) -> Result<String, Error> {
-    refs::reject_linear_url(value, "an email, username, display name, or @me")?;
-    let id = if value == "self" || value == "@me" {
-        let query = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
-        let data: GetViewerId = transport.execute(&query).await.map_err(Error::from)?;
-        Some(data.viewer.id.into_inner())
-    } else {
-        let query = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
-            input: value.to_owned(),
-        }));
-        let data: LookupUser = transport.execute(&query).await.map_err(Error::from)?;
-        let wanted = value.to_lowercase();
-        data.users
-            .nodes
-            .iter()
-            .find(|u| u.email.to_lowercase() == wanted)
-            .or_else(|| {
-                data.users
-                    .nodes
-                    .iter()
-                    .find(|u| u.display_name.to_lowercase() == wanted)
-            })
-            .or_else(|| data.users.nodes.first())
-            .map(|u| u.id.clone().into_inner())
-    };
-    id.filter(|id| !id.is_empty())
+
+/// The ID of a user named by email, display name, name, or `@me`.
+pub async fn user(client: &GraphQlTransport, value: &str, noun: &str) -> Result<String> {
+    if value == "@me" || value == "self" {
+        let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
+        let data: GetViewerId = client.execute(&request).await?;
+        return Ok(data.viewer.id.into_inner());
+    }
+    let request = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
+        input: value.to_owned(),
+    }));
+    let data: LookupUser = client.execute(&request).await?;
+    let wanted = value.to_lowercase();
+    let users = data.users.nodes;
+    users
+        .iter()
+        .find(|user| user.email.to_lowercase() == wanted)
+        .or_else(|| {
+            users
+                .iter()
+                .find(|user| user.display_name.to_lowercase() == wanted)
+        })
+        .or_else(|| users.first())
+        .map(|user| user.id.inner().to_owned())
         .ok_or_else(|| Error::not_found(noun, value))
 }
-pub async fn label(transport: &GraphQlTransport, value: &str) -> Result<String, Error> {
-    refs::reject_linear_url(value, "a project label name")?;
-    let query = GraphQlRequest::with_variables(GetProjectLabelIdByName::build(NameVariables {
-        name: value.to_owned(),
-    }));
-    let data: GetProjectLabelIdByName = transport.execute(&query).await.map_err(Error::from)?;
-    data.project_labels
-        .nodes
-        .into_iter()
-        .next()
-        .map(|v| v.id.into_inner())
-        .filter(|id| !id.is_empty())
-        .ok_or_else(|| Error::not_found("Project label", value))
-}
-pub async fn labels(
-    transport: &GraphQlTransport,
-    values: &[String],
-) -> Result<Vec<ResolvedRef>, Error> {
-    let mut result = Vec::new();
+
+/// The project labels named by `values`, without duplicates.
+pub async fn labels(client: &GraphQlTransport, values: &[String]) -> Result<Vec<ResolvedRef>> {
+    let mut labels: Vec<ResolvedRef> = Vec::new();
     for value in values {
-        let id = label(transport, value).await?;
-        if !result.iter().any(|r: &ResolvedRef| r.id == id) {
-            result.push(ResolvedRef {
+        let request =
+            GraphQlRequest::with_variables(GetProjectLabelIdByName::build(NameVariables {
+                name: value.clone(),
+            }));
+        let data: GetProjectLabelIdByName = client.execute(&request).await?;
+        let id = data
+            .project_labels
+            .nodes
+            .into_iter()
+            .next()
+            .map(|label| label.id.into_inner())
+            .ok_or_else(|| Error::not_found("Project label", value))?;
+        if !labels.iter().any(|label| label.id == id) {
+            labels.push(ResolvedRef {
                 id,
                 label: value.clone(),
             });
         }
     }
-    Ok(result)
+    Ok(labels)
 }
-pub async fn teams(
-    transport: &GraphQlTransport,
-    scope: &WorkspaceScope<'_>,
+
+pub fn prepare_teams(
     values: &[String],
-) -> Result<Vec<crate::refs::ResolvedTeam>, Error> {
-    let resolved = try_join_all(values.iter().map(|value| async move {
-        let prepared = refs::prepare_team_lookup(value, scope)?;
-        refs::resolve_team_with_transport(&prepared, transport).await
-    }))
-    .await?;
-    let mut result = Vec::new();
-    for team in resolved {
-        if !result
-            .iter()
-            .any(|kept: &crate::refs::ResolvedTeam| kept.id == team.id)
-        {
-            result.push(team);
-        }
-    }
-    Ok(result)
-}
-pub async fn initiatives(
-    transport: &GraphQlTransport,
     scope: &WorkspaceScope<'_>,
-    values: &[String],
-) -> Result<Vec<ResolvedRef>, Error> {
-    let mut result = Vec::new();
-    for value in values {
-        let reference = if refs::is_linear_uuid(value) {
-            let query = GraphQlRequest::with_variables(GetInitiativeByIdForUpdate::build(
-                InitiativeIdVariables {
-                    id: cynic::Id::new(value),
-                },
-            ));
-            let data: GetInitiativeByIdForUpdate =
-                transport.execute(&query).await.map_err(Error::from)?;
-            let found = data.initiatives.nodes.into_iter().next().ok_or_else(|| {
-                Error::not_found("Initiative", value)
-                    .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
-            })?;
-            ResolvedRef {
-                id: found.id.into_inner(),
-                label: found.name,
-            }
-        } else {
-            let prepared = refs::prepare_initiative_lookup(value, scope)?;
-            ResolvedRef {
-                id: refs::resolve_initiative_with_transport(&prepared, value, transport).await?,
-                label: value.clone(),
-            }
-        };
-        if !result.iter().any(|r: &ResolvedRef| r.id == reference.id) {
-            result.push(reference);
-        }
-    }
-    Ok(result)
-}
-fn template_available(template: &Template, team_ids: &[String]) -> bool {
-    template
-        .team
-        .as_ref()
-        .is_none_or(|team| team_ids.iter().any(|id| id == team.id.inner()))
-}
-fn wrong_type(template: &Template) -> Error {
-    let article = if template
-        .template_type
-        .chars()
-        .next()
-        .is_some_and(|c| "aeiouAEIOU".contains(c))
-    {
-        "an"
-    } else {
-        "a"
-    };
-    validation(format!(
-        "Template \"{}\" is {article} {} template, not a project template",
-        template.name, template.template_type
-    ))
-    .with_hint("Run `linear template list --type project` to see the project templates.")
-}
-fn wrong_team(name: &str, keys: &[String]) -> Error {
-    let Some(first_key) = keys.first() else {
-        return Error::new("unavailable template has no team key");
-    };
-    validation(format!("Template \"{name}\" belongs to team{} {} and cannot be applied here", if keys.len() == 1 { "" } else { "s" }, keys.join(", ")))
-        .with_hint(format!("Pass --team {first_key}, or pick a workspace template or one from the target team with `linear template list --type project --team <team>`."))
-}
-pub fn select_template(
-    reference: &str,
-    all: Vec<Template>,
-    team_ids: &[String],
-) -> Result<Template, Error> {
-    let wanted = reference.to_lowercase();
-    let by_name: Vec<_> = all
+) -> Result<Vec<PreparedTeamLookup>> {
+    values
         .iter()
-        .filter(|t| t.name.to_lowercase() == wanted)
-        .collect();
-    let eligible = |t: &Template| t.template_type == "project" && template_available(t, team_ids);
-    let selected: Vec<_> = by_name.iter().copied().filter(|t| eligible(t)).collect();
-    if selected.len() > 1 {
-        return Err(validation(format!(
-            "Template name \"{reference}\" is ambiguous: it matches {} templates",
-            selected.len()
-        ))
-        .with_hint(format!(
-            "Pass the template ID instead: {}",
-            selected
-                .iter()
-                .map(|t| format!(
-                    "{} ({}, {})",
-                    t.id.inner(),
-                    t.template_type,
-                    t.team.as_ref().map_or("Workspace", |v| v.key.as_str())
-                ))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )));
-    }
-    if let Some(selected) = selected.first() {
-        return Ok((*selected).clone());
-    }
-    if let Some(first_name) = by_name.first() {
-        let same_type: Vec<_> = by_name
-            .iter()
-            .copied()
-            .filter(|t| t.template_type == "project")
-            .collect();
-        let mut keys = Vec::new();
-        for t in &same_type {
-            if let Some(team) = &t.team
-                && !keys.contains(&team.key)
-            {
-                keys.push(team.key.clone());
-            }
-        }
-        if !keys.is_empty() {
-            let first = same_type.first().ok_or_else(|| {
-                Error::new("template team keys have no matching project template")
-            })?;
-            return Err(wrong_team(&first.name, &keys));
-        }
-        return Err(wrong_type(first_name));
-    }
-    let mut names = Vec::new();
-    for t in all.iter().filter(|t| eligible(t)) {
-        if !names.contains(&t.name) {
-            names.push(t.name.clone());
-        }
-    }
-    names.sort_by(|a, b| crate::platform::collation::compare(a, b));
-    let suggestion = if names.is_empty() {
-        "No project templates are available here. Run `linear template list` to see every template."
-            .to_owned()
-    } else {
-        format!(
-            "Available project templates: {}. Run `linear template list` to see every template.",
-            names
-                .iter()
-                .map(|name| format!("\"{name}\""))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    };
-    Err(Error::not_found("Template", reference).with_hint(suggestion))
+        .map(|value| prepare_team_lookup(value, scope))
+        .collect()
 }
+
+/// The teams named by `teams`, without duplicates.
+pub async fn teams(
+    client: &GraphQlTransport,
+    teams: &[PreparedTeamLookup],
+) -> Result<Vec<ResolvedTeam>> {
+    let resolved = try_join_all(
+        teams
+            .iter()
+            .map(|team| resolve_team_with_transport(team, client)),
+    )
+    .await?;
+    let mut unique: Vec<ResolvedTeam> = Vec::new();
+    for team in resolved {
+        if !unique.iter().any(|kept| kept.id == team.id) {
+            unique.push(team);
+        }
+    }
+    Ok(unique)
+}
+
+pub fn prepare_initiatives(
+    values: &[String],
+    scope: &WorkspaceScope<'_>,
+) -> Result<Vec<(String, InitiativeReference)>> {
+    values
+        .iter()
+        .map(|value| Ok((value.clone(), prepare_initiative_lookup(value, scope)?)))
+        .collect()
+}
+
+/// The initiatives named by `initiatives`, without duplicates. An initiative
+/// given by UUID is looked up for its name.
+pub async fn initiatives(
+    client: &GraphQlTransport,
+    initiatives: &[(String, InitiativeReference)],
+) -> Result<Vec<ResolvedRef>> {
+    let mut resolved: Vec<ResolvedRef> = Vec::new();
+    for (original, reference) in initiatives {
+        let initiative = match reference {
+            InitiativeReference::Id(id) => {
+                let request = GraphQlRequest::with_variables(GetInitiativeByIdForUpdate::build(
+                    InitiativeIdVariables {
+                        id: cynic::Id::new(id),
+                    },
+                ));
+                let data: GetInitiativeByIdForUpdate = client.execute(&request).await?;
+                let found = data.initiatives.nodes.into_iter().next().ok_or_else(|| {
+                    Error::not_found("Initiative", original)
+                        .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
+                })?;
+                ResolvedRef {
+                    id: found.id.into_inner(),
+                    label: found.name,
+                }
+            }
+            InitiativeReference::NameOrSlug(_) | InitiativeReference::UrlSlug(_) => ResolvedRef {
+                id: resolve_initiative_with_transport(reference, original, client).await?,
+                label: original.clone(),
+            },
+        };
+        if !resolved.iter().any(|kept| kept.id == initiative.id) {
+            resolved.push(initiative);
+        }
+    }
+    Ok(resolved)
+}
+
+/// The ID of the project template named by `reference` (a name or UUID) that
+/// may be applied to a project of `team_ids`.
 pub async fn template(
-    transport: &GraphQlTransport,
+    client: &GraphQlTransport,
     reference: &str,
     team_ids: &[String],
-) -> Result<String, Error> {
-    refs::reject_linear_url(reference, "a template name or UUID")?;
-    let t = if refs::is_linear_uuid(reference) {
-        let query = GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
-            id: reference.to_owned(),
-        }));
-        let data: GetTemplate = match transport.execute(&query).await {
-            Ok(data) => data,
-            Err(TransportFailure::GraphQl { errors, .. })
-                if errors
-                    .iter()
-                    .any(|e| e.message.to_lowercase().contains("no template found")) =>
-            {
-                return Err(Error::not_found("Template", reference)
-                    .with_hint("Run `linear template list` to see every template."));
-            }
-            Err(error) => return Err(Error::from(error)),
-        };
-        crate::commands::issue::template_scope::assert_scope(
-            &data.template,
-            team_ids,
-            crate::commands::issue::template_scope::TemplateScope::Project,
-        )?;
-        data.template
+) -> Result<String> {
+    let request = GraphQlRequest::without_variables(GetTemplates::build(()));
+    let data: GetTemplates = client.execute(&request).await?;
+    let template = if refs::is_linear_uuid(reference) {
+        let template = data
+            .templates
+            .into_iter()
+            .find(|template| template.id.inner() == reference)
+            .ok_or_else(|| {
+                Error::not_found("Template", reference)
+                    .with_hint("Run `linear template list` to see every template.")
+            })?;
+        template_scope::assert_scope(&template, team_ids, TemplateScope::Project)?;
+        template
     } else {
-        let query = GraphQlRequest::without_variables(GetTemplates::build(()));
-        let data: GetTemplates = transport.execute(&query).await.map_err(Error::from)?;
-        select_template(reference, data.templates, team_ids)?
+        template_scope::select(reference, data.templates, team_ids, TemplateScope::Project)?
     };
-    Ok(t.id.into_inner())
+    Ok(template.id.into_inner())
 }

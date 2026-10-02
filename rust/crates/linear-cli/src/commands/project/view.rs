@@ -1,13 +1,15 @@
-//! Project detail lookup, pagination, picker and Markdown document.
+//! `project view`: one project as Markdown or JSON, or opened in Linear.
 
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 
-use crate::commands::project::list as project_list;
+use crate::cli::project::ProjectView;
 use crate::commands::relative_time::format_relative_time;
-use crate::error::Error;
+use crate::commands::team_key::configured_team_key;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_view::{
     DateResolutionType, GetProjectDetails, GetProjectIssuesPage, GetProjectsForPicker,
@@ -15,123 +17,171 @@ use crate::graphql::operations::project_view::{
     ProjectIssuesVariables, ProjectMilestoneStatus, ViewInverseRelation, ViewRelation,
 };
 use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
-use crate::platform::selector::SelectOption;
+use crate::platform::prompt::PromptOutcome;
+use crate::platform::selector::{self, SelectOption};
+use crate::refs::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
 
-pub const CONTEXT: &str = "Failed to view project";
 const PAGE_SIZE: i32 = 250;
 
-fn protocol_error(message: String, suggestion: &str) -> Error {
-    Error::new(message).with_hint(suggestion)
+pub fn run(ctx: &Ctx, args: &ProjectView) -> Result<()> {
+    view(ctx, args).context("Failed to view project")
 }
 
-pub async fn fetch_details(
-    transport: &GraphQlTransport,
+fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
+    let (original, reference) = match &args.project_id {
+        Some(original) => (
+            original.clone(),
+            prepare_project_lookup(original, &ctx.scope()?)?,
+        ),
+        None => {
+            let id = pick(ctx, args)?;
+            (id.clone(), ProjectReference::Id(id))
+        }
+    };
+    if args.web || args.app {
+        let id = match reference {
+            ProjectReference::Id(id) => id,
+            reference => ctx.spin(
+                true,
+                resolve_project_with_transport(&reference, &original, ctx.client()?),
+            )?,
+        };
+        return ctx.open_in_linear(&format!("project/{id}"), args.app);
+    }
+    let client = ctx.client()?;
+    let project = ctx.spin(!args.json, async {
+        let id = resolve_project_with_transport(&reference, &original, client).await?;
+        fetch_details(client, &id, &original).await
+    })?;
+    if args.json {
+        let mut output =
+            serde_json::to_vec_pretty(&project).expect("project JSON always serializes");
+        output.push(b'\n');
+        return ctx.print(output);
+    }
+    ctx.show_markdown(
+        &markdown(&project, Utc::now(), &chrono::Local),
+        !args.no_pager,
+    )
+}
+
+/// Asks which project to show, from the configured team's projects.
+fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
+    if args.json {
+        return Err(Error::new("A project is required with --json").with_hint(
+            "Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.",
+        ));
+    }
+    if !selector::interactive_allowed(
+        ctx.stdin_tty(),
+        ctx.stdout_tty(),
+        ctx.config().ci.as_deref(),
+    ) {
+        return Err(Error::new("No project specified").with_hint(
+            "Pass a project UUID, slug ID, or exact name. Without one, `linear project view` picks from a list, but only on a terminal.",
+        ));
+    }
+    let team_key = configured_team_key(ctx.options());
+    let client = ctx.client()?;
+    let projects = ctx.spin(true, fetch_picker(client, team_key.as_deref()))?;
+    let options = picker_options(&projects);
+    let mut session = ctx.prompts()?;
+    let result = session.searchable_select_with_no_match(
+        "Select a project",
+        "Search projects",
+        &options,
+        "no projects match submitted search query",
+    );
+    match session.finish_result(result)? {
+        PromptOutcome::Submitted(id) => Ok(id),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("Input ended before a project was chosen")),
+    }
+}
+
+/// The project with every issue page, so the issue counts are complete.
+async fn fetch_details(
+    client: &GraphQlTransport,
     project_id: &str,
-    original_input: &str,
-) -> Result<ProjectDetails, Error> {
+    original: &str,
+) -> Result<ProjectDetails> {
     let first = GraphQlRequest::with_variables(GetProjectDetails::build(ProjectDetailsVariables {
         id: project_id.to_owned(),
         first: PAGE_SIZE,
     }));
-    let data: GetProjectDetails = transport.execute(&first).await.map_err(Error::from)?;
+    let data: GetProjectDetails = client.execute(&first).await?;
     let mut project = data
         .project
-        .ok_or_else(|| Error::not_found("Project", original_input))?;
+        .ok_or_else(|| Error::not_found("Project", original))?;
     let mut page_info = project.issues.page_info.clone();
     let mut seen = HashSet::new();
     while page_info.has_next_page {
-        let cursor = page_info.end_cursor.ok_or_else(|| protocol_error(
-            format!("Linear reported more issues for project {} but returned no cursor to fetch them.", project.name),
-            "Retry, or report this if it keeps happening.",
-        ))?;
-        if !seen.insert(cursor.clone()) {
-            return Err(protocol_error(
-                format!(
-                    "Linear returned a repeated issue cursor for project {}.",
+        let cursor = page_info
+            .end_cursor
+            .filter(|cursor| seen.insert(cursor.clone()))
+            .ok_or_else(|| {
+                Error::new(format!(
+                    "Linear reported more issues for project {} but did not return a usable cursor",
                     project.name
-                ),
-                "Retry, or report this if it keeps happening.",
-            ));
-        }
-        let query =
+                ))
+                .with_hint("Retry the command; if it keeps happening, report it.")
+            })?;
+        let request =
             GraphQlRequest::with_variables(GetProjectIssuesPage::build(ProjectIssuesVariables {
                 id: project_id.to_owned(),
                 first: PAGE_SIZE,
-                after: cursor.clone(),
+                after: cursor,
             }));
-        let data: GetProjectIssuesPage = transport.execute(&query).await.map_err(Error::from)?;
+        let data: GetProjectIssuesPage = client.execute(&request).await?;
         let next = data
             .project
-            .ok_or_else(|| Error::not_found("Project", original_input))?;
+            .ok_or_else(|| Error::not_found("Project", original))?;
         project.issues.nodes.extend(next.issues.nodes);
         page_info = next.issues.page_info;
-        if page_info.has_next_page && page_info.end_cursor.as_deref() == Some(&cursor) {
-            return Err(protocol_error(
-                format!(
-                    "Linear returned the same issue cursor twice for project {}.",
-                    project.name
-                ),
-                "Retry, or report this if it keeps happening.",
-            ));
-        }
     }
     project.issues.page_info = page_info;
     Ok(project)
 }
 
-pub async fn fetch_picker(
-    transport: &GraphQlTransport,
+async fn fetch_picker(
+    client: &GraphQlTransport,
     team_key: Option<&str>,
-) -> Result<Vec<PickerProject>, Error> {
-    let filter = project_list::filter(team_key, None);
-    let mut projects = Vec::new();
-    let mut after: Option<String> = None;
-    let mut seen = HashSet::new();
-    loop {
-        let query = GraphQlRequest::with_variables(GetProjectsForPicker::build(PickerVariables {
-            filter: filter.clone(),
-            first: 100,
-            after: after.clone(),
-        }));
-        let data: GetProjectsForPicker = transport.execute(&query).await.map_err(Error::from)?;
-        projects.extend(data.projects.nodes);
-        let page_info = data.projects.page_info;
-        if !page_info.has_next_page {
-            break;
+) -> Result<Vec<PickerProject>> {
+    let filter = super::list::filter(team_key, None);
+    let projects = pagination::paginate(|after| {
+        let request =
+            GraphQlRequest::with_variables(GetProjectsForPicker::build(PickerVariables {
+                filter: filter.clone(),
+                first: 100,
+                after,
+            }));
+        async move {
+            let data: GetProjectsForPicker = client.execute(&request).await?;
+            Ok(Page {
+                nodes: data.projects.nodes,
+                page_info: data.projects.page_info.into(),
+            })
         }
-        let cursor = page_info.end_cursor.ok_or_else(|| {
-            protocol_error(
-                "Linear reported more projects but returned no new cursor to fetch them."
-                    .to_owned(),
-                "Retry, or pass a project explicitly.",
-            )
-        })?;
-        if after.as_deref() == Some(&cursor) {
-            return Err(protocol_error(
-                "Linear reported more projects but returned no new cursor to fetch them."
-                    .to_owned(),
-                "Retry, or pass a project explicitly.",
-            ));
-        }
-        if !seen.insert(cursor.clone()) {
-            return Err(protocol_error(
-                "Linear returned a repeated project picker cursor.".to_owned(),
-                "Retry, or pass a project explicitly.",
-            ));
-        }
-        after = Some(cursor);
-    }
+    })
+    .await
+    .map_err(|error| super::pagination_error("projects", error))?
+    .nodes;
     if projects.is_empty() {
-        let identifier = team_key.map_or("this workspace".to_owned(), |key| format!("team {key}"));
-        let suggestion = team_key.map_or("Create one with `linear project create`.".to_owned(), |key| format!("No projects are accessible to team {key}. Check `linear project list --all-teams`, or create one with `linear project create`."));
-        return Err(Error::not_found("Project", &identifier).with_hint(suggestion));
+        return Err(match team_key {
+            Some(key) => Error::new(format!("Team {key} has no projects")).with_hint(
+                "Check `linear project list --all-teams`, or create one with `linear project create`.",
+            ),
+            None => Error::new("This workspace has no projects")
+                .with_hint("Create one with `linear project create`."),
+        });
     }
     Ok(projects)
 }
 
-pub fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
+fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
     let mut ordered: Vec<_> = projects.iter().collect();
     ordered.sort_by(|a, b| {
         collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
@@ -159,13 +209,6 @@ pub fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
             }
         })
         .collect()
-}
-
-pub fn json(project: &ProjectDetails) -> Result<Vec<u8>, Error> {
-    let mut bytes = serde_json::to_vec_pretty(project)
-        .map_err(|error| Error::new("could not serialize project").with_source(error))?;
-    bytes.push(b'\n');
-    Ok(bytes)
 }
 
 fn ratio(value: f64) -> String {
@@ -270,11 +313,7 @@ fn incoming(relation: &ViewInverseRelation) -> String {
     )
 }
 
-pub fn markdown<Tz: TimeZone>(
-    project: &ProjectDetails,
-    now: DateTime<Utc>,
-    zone: &Tz,
-) -> Result<String, Error> {
+fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &Tz) -> String {
     let mut out = if let Some(identifier) = &project.identifier
         && !identifier.is_empty()
     {
@@ -282,14 +321,7 @@ pub fn markdown<Tz: TimeZone>(
     } else {
         format!("# {}", project.name)
     };
-    let priority = match project.priority {
-        0 => "None".to_owned(),
-        1 => "Urgent".to_owned(),
-        2 => "High".to_owned(),
-        3 => "Medium".to_owned(),
-        4 => "Low".to_owned(),
-        other => other.to_string(),
-    };
+    let priority = super::list::priority_label(project.priority);
     let mut meta = vec![
         format!("**Status:** {}", project.status.name),
         format!("**Priority:** {priority}"),
@@ -542,5 +574,5 @@ pub fn markdown<Tz: TimeZone>(
     push("Created", Some(relative(&project.created_at)));
     push("Updated", Some(relative(&project.updated_at)));
     out.push_str(&format!("\n\n## Details\n\n{}", rows.join("\n")));
-    Ok(out)
+    out
 }

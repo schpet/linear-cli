@@ -137,3 +137,35 @@ fn opener_failures_fail_the_command() {
         .stub_bin("xdg-open", "exit 3");
     cli.run(&["issue", "view", "ENG-1", "--web"]).failure();
 }
+
+#[test]
+fn project_view_looks_up_the_workspace_for_an_environment_key() {
+    const ID: &str = "85d3dad6-136e-49ff-9593-33dc4b22b5ee";
+    let api = MockLinear::start();
+    api.on(
+        "GetViewer",
+        json!({ "viewer": { "organization": { "urlKey": "acme" } } }),
+    );
+    let cli = open_stubs(Cli::for_api(&api));
+    cli.run(&["project", "view", ID, "--web"]).success();
+    assert_eq!(
+        opened(&cli),
+        [format!("https://linear.app/acme/project/{ID}")]
+    );
+}
+
+#[test]
+fn project_list_opens_the_projects_of_a_named_team() {
+    let api = MockLinear::start();
+    api.on(
+        "ResolveTeam",
+        json!({ "teams": { "nodes": [{ "id": "team-1", "key": "OPS", "name": "Operations" }] } }),
+    );
+    let cli = configured(&api);
+    cli.run(&["project", "list", "--team", "Operations", "--web"])
+        .success();
+    assert_eq!(
+        opened(&cli),
+        ["https://linear.app/acme/team/OPS/projects/all"]
+    );
+}

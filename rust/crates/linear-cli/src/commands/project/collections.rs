@@ -1,7 +1,5 @@
 //! Ordered collection edits and partial initiative-write diagnostics.
 
-use crate::error::Error;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedRef {
     pub id: String,
@@ -11,7 +9,8 @@ pub struct ResolvedRef {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MissingMember(pub ResolvedRef);
 
-/// Preserve existing duplicates and order; callers dedupe fetched rows first.
+/// The IDs after removing `remove` from and adding `add` to `current`, in
+/// order. Removing an ID that is not there fails.
 pub fn apply_collection_edit(
     current: &[String],
     add: &[ResolvedRef],
@@ -40,17 +39,6 @@ pub fn has_add_remove_overlap(add: &[ResolvedRef], remove: &[ResolvedRef]) -> bo
         .any(|added| remove.iter().any(|removed| removed.id == added.id))
 }
 
-/// Applied after sequential reference resolution, preserving the first label.
-pub fn dedupe_refs(references: Vec<ResolvedRef>) -> Vec<ResolvedRef> {
-    let mut result: Vec<ResolvedRef> = Vec::new();
-    for reference in references {
-        if !result.iter().any(|kept| kept.id == reference.id) {
-            result.push(reference);
-        }
-    }
-    result
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InitiativeLink {
     pub id: String,
@@ -71,8 +59,8 @@ pub enum InitiativeChange {
     },
 }
 
-/// Input links have been deduped by ROW id, never by initiative id.
-/// Desired IDs come from a replacement list or apply_collection_edit.
+/// The link removals and additions that turn `links` into `desired_ids`.
+/// `desired_labels` names the initiatives being added.
 pub fn plan_initiative_changes(
     links: &[InitiativeLink],
     desired_ids: &[String],
@@ -131,19 +119,17 @@ pub struct PartialDiagnostic {
     pub suggestion: String,
 }
 
-/// Only invoked for an actual failed sequential write, never for a no-op.
+/// What was and was not applied when `changes[applied]` failed.
 pub fn partial_diagnostic(
     changes: &[InitiativeChange],
     applied: usize,
     outcome: FailedWrite,
     prior_fields_applied: bool,
-) -> Result<PartialDiagnostic, Error> {
-    let (completed, pending) = changes
-        .split_at_checked(applied)
-        .ok_or_else(|| Error::new("failed write index exceeds initiative plan"))?;
+) -> PartialDiagnostic {
+    let (completed, pending) = changes.split_at(applied);
     let (current, after_current) = pending
         .split_first()
-        .ok_or_else(|| Error::new("failed write is missing from initiative plan"))?;
+        .expect("the failed change is one of the planned changes");
     let mut done = Vec::new();
     if prior_fields_applied {
         done.push("updated the project's other fields".to_owned());
@@ -188,11 +174,11 @@ pub fn partial_diagnostic(
         FailedWrite::Rejected => format!("Re-run {advice}"),
         FailedWrite::Unknown => format!("Check the project's initiatives, then re-run {advice}"),
     };
-    Ok(PartialDiagnostic {
+    PartialDiagnostic {
         message: format!(
             "Failed to update project initiatives after {applied} of {} changes; earlier changes were not rolled back. Applied: {done_text}.{unknown_text}{not_applied_text}",
             changes.len()
         ),
         suggestion,
-    })
+    }
 }

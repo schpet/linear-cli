@@ -1,4 +1,5 @@
-use clap::{Args, Subcommand};
+use chrono::NaiveDate;
+use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -35,7 +36,11 @@ pub enum ProjectCommand {
 pub struct ProjectList {
     #[arg(long = "team", help = "Filter by team key, name, or ID", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
-    #[arg(long = "all-teams", help = "Show projects from all teams")]
+    #[arg(
+        long = "all-teams",
+        help = "Show projects from all teams",
+        conflicts_with = "team"
+    )]
     pub all_teams: bool,
     #[arg(long = "status", help = "Filter by status name", value_name = "status", value_parser = super::nonempty_string)]
     pub status: Option<String>,
@@ -61,15 +66,17 @@ pub struct ProjectView {
     pub no_pager: bool,
 }
 
+/// The scalar fields `project create` and `project update` share.
 #[derive(Debug, Args)]
-pub struct ProjectCreate {
-    #[arg(long = "name", short = 'n', help = "Project name (required)", value_name = "name", value_parser = super::nonempty_string)]
+pub struct ProjectFields {
+    #[arg(long = "name", short = 'n', help = "Project name", value_name = "name", value_parser = super::nonempty_string)]
     pub name: Option<String>,
     #[arg(
         long = "description",
         short = 'd',
         help = "Project description (max 255 characters, enforced by Linear's API)",
-        value_name = "description"
+        value_name = "description",
+        conflicts_with = "description_file"
     )]
     pub description: Option<String>,
     #[arg(long = "description-file", short = 'f', help = "Read project description from file (still subject to the 255-character API limit)", value_name = "path", value_parser = super::nonempty_string)]
@@ -77,23 +84,78 @@ pub struct ProjectCreate {
     #[arg(
         long = "content",
         help = "Project overview markdown",
-        value_name = "markdown"
+        value_name = "markdown",
+        conflicts_with = "content_file"
     )]
     pub content: Option<String>,
     #[arg(long = "content-file", help = "Read project overview markdown from a file", value_name = "path", value_parser = super::nonempty_string)]
     pub content_file: Option<String>,
-    #[arg(long = "team", short = 't', help = "Team key, name, or ID (required, can be repeated for multiple teams)", value_name = "team", value_parser = super::nonempty_string)]
-    pub team: Vec<String>,
+    #[arg(
+        long = "status",
+        short = 's',
+        help = "Project status",
+        value_name = "status",
+        ignore_case = true
+    )]
+    pub status: Option<Status>,
     #[arg(long = "lead", short = 'l', help = "Project lead (username, email, or @me)", value_name = "lead", value_parser = super::nonempty_string)]
     pub lead: Option<String>,
-    #[arg(long = "status", short = 's', help = "Project status (planned, started, paused, completed, canceled, backlog)", value_name = "status", value_parser = super::nonempty_string)]
-    pub status: Option<String>,
-    #[arg(long = "start-date", help = "Start date (YYYY-MM-DD)", value_name = "startDate", value_parser = super::nonempty_string)]
-    pub start_date: Option<String>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::nonempty_string)]
-    pub target_date: Option<String>,
-    #[arg(long = "priority", help = "Project priority (none, urgent, high, medium, low)", value_name = "priority", value_parser = super::nonempty_string)]
-    pub priority: Option<String>,
+    #[arg(long = "start-date", help = "Start date (YYYY-MM-DD)", value_name = "startDate", value_parser = date)]
+    pub start_date: Option<NaiveDate>,
+    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = date)]
+    pub target_date: Option<NaiveDate>,
+    #[arg(
+        long = "priority",
+        help = "Project priority",
+        value_name = "priority",
+        ignore_case = true
+    )]
+    pub priority: Option<Priority>,
+}
+
+/// A project status, by its kind.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum Status {
+    #[value(name = "planned")]
+    Planned,
+    #[value(name = "started", aliases = ["in-progress", "in progress"])]
+    Started,
+    #[value(name = "paused")]
+    Paused,
+    #[value(name = "completed")]
+    Completed,
+    #[value(name = "canceled")]
+    Canceled,
+    #[value(name = "backlog")]
+    Backlog,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum Priority {
+    #[value(name = "none")]
+    None,
+    #[value(name = "urgent")]
+    Urgent,
+    #[value(name = "high")]
+    High,
+    #[value(name = "medium")]
+    Medium,
+    #[value(name = "low")]
+    Low,
+}
+
+/// A `YYYY-MM-DD` calendar date.
+fn date(value: &str) -> Result<NaiveDate, String> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| format!("expected a date like 2025-01-31, got {value:?}"))
+}
+
+#[derive(Debug, Args)]
+pub struct ProjectCreate {
+    #[command(flatten)]
+    pub fields: ProjectFields,
+    #[arg(long = "team", short = 't', help = "Team key, name, or ID (required, can be repeated for multiple teams)", value_name = "team", value_parser = super::nonempty_string)]
+    pub team: Vec<String>,
     #[arg(long = "label", help = "Project label associated with the project. May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
     pub label: Vec<String>,
     #[arg(long = "member", help = "Project member (username, email, display name, or @me). May be repeated.", value_name = "user", value_parser = super::nonempty_string)]
@@ -124,61 +186,39 @@ pub struct ProjectCreate {
 pub struct ProjectUpdate {
     #[arg(value_name = "projectId")]
     pub project_id: String,
-    #[arg(long = "name", short = 'n', help = "Project name", value_name = "name", value_parser = super::nonempty_string)]
-    pub name: Option<String>,
-    #[arg(
-        long = "description",
-        short = 'd',
-        help = "Project description (max 255 characters, enforced by Linear's API)",
-        value_name = "description"
-    )]
-    pub description: Option<String>,
-    #[arg(long = "description-file", short = 'f', help = "Read project description from file (still subject to the 255-character API limit)", value_name = "path", value_parser = super::nonempty_string)]
-    pub description_file: Option<String>,
-    #[arg(
-        long = "content",
-        help = "Project overview markdown",
-        value_name = "markdown"
-    )]
-    pub content: Option<String>,
-    #[arg(long = "content-file", help = "Read project overview markdown from a file", value_name = "path", value_parser = super::nonempty_string)]
-    pub content_file: Option<String>,
-    #[arg(long = "status", short = 's', help = "Status (planned, started, paused, completed, canceled, backlog)", value_name = "status", value_parser = super::nonempty_string)]
-    pub status: Option<String>,
-    #[arg(long = "lead", short = 'l', help = "Project lead (username, email, or @me). Use --clear-lead to remove it", value_name = "lead", value_parser = super::nonempty_string)]
-    pub lead: Option<String>,
+    #[command(flatten)]
+    pub fields: ProjectFields,
     #[arg(
         long = "clear-lead",
-        help = "Remove the project's lead (cannot be combined with --lead)"
+        help = "Remove the project's lead",
+        conflicts_with = "lead"
     )]
     pub clear_lead: bool,
-    #[arg(long = "start-date", help = "Start date (YYYY-MM-DD). Use --clear-start-date to remove it", value_name = "startDate", value_parser = super::nonempty_string)]
-    pub start_date: Option<String>,
     #[arg(
         long = "clear-start-date",
-        help = "Remove the project's start date (cannot be combined with --start-date)"
+        help = "Remove the project's start date",
+        conflicts_with = "start_date"
     )]
     pub clear_start_date: bool,
-    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD). Use --clear-target-date to remove it", value_name = "targetDate", value_parser = super::nonempty_string)]
-    pub target_date: Option<String>,
     #[arg(
         long = "clear-target-date",
-        help = "Remove the project's target date (cannot be combined with --target-date)"
+        help = "Remove the project's target date",
+        conflicts_with = "target_date"
     )]
     pub clear_target_date: bool,
-    #[arg(long = "team", short = 't', help = "Team key, name, or ID; replaces the project's entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.", value_name = "team", value_parser = super::nonempty_string)]
+    #[arg(long = "team", short = 't', help = "Team key, name, or ID; replaces the project's entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.", value_name = "team", value_parser = super::nonempty_string, conflicts_with_all = ["add_team", "remove_team"])]
     pub team: Vec<String>,
     #[arg(long = "add-team", help = "Add a team to the project, keeping its existing teams. May be repeated.", value_name = "team", value_parser = super::nonempty_string)]
     pub add_team: Vec<String>,
     #[arg(long = "remove-team", help = "Remove a team from the project, keeping its other teams. May be repeated.", value_name = "team", value_parser = super::nonempty_string)]
     pub remove_team: Vec<String>,
-    #[arg(long = "label", help = "Project label; replaces the project's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.", value_name = "label", value_parser = super::nonempty_string)]
+    #[arg(long = "label", help = "Project label; replaces the project's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.", value_name = "label", value_parser = super::nonempty_string, conflicts_with_all = ["add_label", "remove_label"])]
     pub label: Vec<String>,
     #[arg(long = "add-label", help = "Add a label to the project, keeping its existing labels. May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
     pub add_label: Vec<String>,
     #[arg(long = "remove-label", help = "Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
     pub remove_label: Vec<String>,
-    #[arg(long = "initiative", help = "Initiative ID, slug, or name; replaces the project's entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.", value_name = "initiative", value_parser = super::nonempty_string)]
+    #[arg(long = "initiative", help = "Initiative ID, slug, or name; replaces the project's entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.", value_name = "initiative", value_parser = super::nonempty_string, conflicts_with_all = ["add_initiative", "remove_initiative"])]
     pub initiative: Vec<String>,
     #[arg(long = "add-initiative", help = "Add the project to an initiative, keeping its existing initiatives. May be repeated.", value_name = "initiative", value_parser = super::nonempty_string)]
     pub add_initiative: Vec<String>,

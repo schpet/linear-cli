@@ -1,83 +1,315 @@
-//! `project update`: resolve every reference first, then apply the writes in order.
-use crate::{
-    commands::{
-        project::collections::{
-            self as project_collections, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
-        },
-        project::write as shared,
-    },
-    error::Error,
-    graphql::{
-        edit::Edit,
-        envelope::GraphQlRequest,
-        operations::{project_write::*, teams::PageInfo},
-        transport::GraphQlTransport,
-    },
-    refs::{self, WorkspaceScope},
-};
+//! `project update`: resolve every reference first, then apply the field
+//! update and the initiative links in order.
+use std::cell::RefCell;
+
 use cynic::{MutationBuilder, QueryBuilder};
-use std::collections::HashSet;
-#[derive(Clone, Debug, Default)]
-pub struct Options {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub description_file: Option<String>,
-    pub content: Option<String>,
-    pub content_file: Option<String>,
-    pub status: Option<String>,
-    pub lead: Option<String>,
-    pub clear_lead: bool,
-    pub start_date: Option<String>,
-    pub clear_start_date: bool,
-    pub target_date: Option<String>,
-    pub clear_target_date: bool,
-    pub teams: Option<Vec<String>>,
-    pub add_team: Option<Vec<String>>,
-    pub remove_team: Option<Vec<String>>,
-    pub labels: Option<Vec<String>>,
-    pub add_label: Option<Vec<String>>,
-    pub remove_label: Option<Vec<String>>,
-    pub initiatives: Option<Vec<String>>,
-    pub add_initiative: Option<Vec<String>>,
-    pub remove_initiative: Option<Vec<String>>,
+
+use crate::cli::project::ProjectUpdate;
+use crate::commands::milestone::create::outcome_unknown;
+use crate::commands::project::collections::{
+    self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
+};
+use crate::commands::project::write;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::edit::Edit;
+use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::project_write::{
+    AddProjectToInitiative, GetProjectInitiativeLinksForUpdate, GetProjectLabelsForUpdate,
+    GetProjectTeamsForUpdate, IdVariables, InitiativeLinkInput, LinkVariables, PageVariables,
+    ProjectLabel, ProjectTeam, ProjectUpdateInput, RemoveProjectFromInitiative, UpdateProject,
+    UpdateProjectVariables,
+};
+use crate::graphql::pagination::{self, Page};
+use crate::graphql::transport::GraphQlTransport;
+use crate::refs::{
+    InitiativeReference, PreparedTeamLookup, prepare_project_lookup, resolve_project_with_transport,
+};
+
+pub fn run(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
+    update(ctx, args).context("Failed to update project")
 }
-impl Options {
-    pub fn from_cli(action: &crate::cli::project::ProjectUpdate) -> Self {
-        let list = |values: &Vec<String>| (!values.is_empty()).then(|| values.clone());
-        Self {
-            name: action.name.clone(),
-            description: action.description.clone(),
-            description_file: action.description_file.clone(),
-            content: action.content.clone(),
-            content_file: action.content_file.clone(),
-            status: action.status.clone(),
-            lead: action.lead.clone(),
-            clear_lead: action.clear_lead,
-            start_date: action.start_date.clone(),
-            clear_start_date: action.clear_start_date,
-            target_date: action.target_date.clone(),
-            clear_target_date: action.clear_target_date,
-            teams: list(&action.team),
-            add_team: list(&action.add_team),
-            remove_team: list(&action.remove_team),
-            labels: list(&action.label),
-            add_label: list(&action.add_label),
-            remove_label: list(&action.remove_label),
-            initiatives: list(&action.initiative),
-            add_initiative: list(&action.add_initiative),
-            remove_initiative: list(&action.remove_initiative),
+
+/// How a flag family (`--team`, `--add-team`, `--remove-team`) changes a set.
+enum SetChange<T> {
+    Keep,
+    Replace(Vec<T>),
+    Edit { add: Vec<T>, remove: Vec<T> },
+}
+
+impl<T> SetChange<T> {
+    /// clap rejects replacing together with adding or removing.
+    fn new(replace: Vec<T>, add: Vec<T>, remove: Vec<T>) -> Self {
+        if !replace.is_empty() {
+            Self::Replace(replace)
+        } else if add.is_empty() && remove.is_empty() {
+            Self::Keep
+        } else {
+            Self::Edit { add, remove }
         }
     }
-}
-pub fn replace_conflict(kind: &str, replace: bool, add: bool, remove: bool) -> Result<(), Error> {
-    if replace && (add || remove) {
-        return Err(shared::validation(format!("Cannot combine --{kind} with --add-{kind} or --remove-{kind}")).with_hint(format!("--{kind} replaces the project's entire {kind} set. Use it alone to set the exact set, or use --add-{kind}/--remove-{kind} alone to change it incrementally.")));
+
+    fn is_keep(&self) -> bool {
+        matches!(self, Self::Keep)
     }
-    Ok(())
 }
-pub fn overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result<(), Error> {
-    if project_collections::has_add_remove_overlap(add, remove) {
-        return Err(shared::validation(format!(
+
+/// The project as the success line names it.
+struct Shown {
+    name: String,
+    url: String,
+}
+
+fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
+    let fields = &args.fields;
+    let scope = ctx.scope()?;
+    let teams = SetChange::new(
+        write::prepare_teams(&args.team, &scope)?,
+        write::prepare_teams(&args.add_team, &scope)?,
+        write::prepare_teams(&args.remove_team, &scope)?,
+    );
+    let labels = SetChange::new(
+        args.label.clone(),
+        args.add_label.clone(),
+        args.remove_label.clone(),
+    );
+    let initiatives = SetChange::new(
+        write::prepare_initiatives(&args.initiative, &scope)?,
+        write::prepare_initiatives(&args.add_initiative, &scope)?,
+        write::prepare_initiatives(&args.remove_initiative, &scope)?,
+    );
+    let changes_fields = fields.name.is_some()
+        || fields.description.is_some()
+        || fields.description_file.is_some()
+        || fields.content.is_some()
+        || fields.content_file.is_some()
+        || fields.status.is_some()
+        || fields.lead.is_some()
+        || fields.start_date.is_some()
+        || fields.target_date.is_some()
+        || fields.priority.is_some()
+        || args.clear_lead
+        || args.clear_start_date
+        || args.clear_target_date;
+    if !changes_fields && teams.is_keep() && labels.is_keep() && initiatives.is_keep() {
+        return Err(Error::new("No changes specified").with_hint(
+            "Pass at least one field to change, like --name, --status, --lead, or --add-team.",
+        ));
+    }
+    write::plain_references(&fields.lead, "an email, username, display name, or @me")?;
+    write::plain_references(
+        args.label
+            .iter()
+            .chain(&args.add_label)
+            .chain(&args.remove_label),
+        "a project label name",
+    )?;
+    let original = &args.project_id;
+    let reference = prepare_project_lookup(original, &scope)?;
+    let mut input = ProjectUpdateInput {
+        name: Edit::set_or_unchanged(fields.name.clone()),
+        description: Edit::set_or_unchanged(write::description(fields)?),
+        content: Edit::set_or_unchanged(write::content(fields)?),
+        start_date: if args.clear_start_date {
+            Edit::Clear
+        } else {
+            Edit::set_or_unchanged(fields.start_date.map(write::date))
+        },
+        target_date: if args.clear_target_date {
+            Edit::Clear
+        } else {
+            Edit::set_or_unchanged(fields.target_date.map(write::date))
+        },
+        priority: fields.priority.map(write::priority),
+        ..Default::default()
+    };
+    let client = ctx.client()?;
+    let shown = ctx.spin(true, async {
+        let id = resolve_project_with_transport(&reference, original, client).await?;
+        if let Some(status) = fields.status {
+            input.status_id = Edit::Set(write::status_id(client, status).await?);
+        }
+        input.lead_id = match &fields.lead {
+            Some(lead) => Edit::Set(write::user(client, lead, "Lead").await?),
+            None if args.clear_lead => Edit::Clear,
+            None => Edit::Unchanged,
+        };
+        input.team_ids = team_ids(client, &id, &teams).await?;
+        input.label_ids = label_ids(client, &id, &labels).await?;
+        let (changes, linked) = initiative_changes(client, &id, &initiatives).await?;
+        let updated = changes_fields || input.team_ids.is_some() || input.label_ids.is_some();
+        let shown = if updated {
+            submit(client, &id, input).await?
+        } else {
+            linked
+        };
+        apply(client, &id, &changes, updated).await?;
+        Ok::<_, Error>(shown)
+    })?;
+    ctx.print(match shown {
+        Some(shown) => format!("✓ Updated project: {}\n{}\n", shown.name, shown.url),
+        None => format!("✓ Updated project: {original}\n"),
+    })
+}
+
+async fn team_ids(
+    client: &GraphQlTransport,
+    project_id: &str,
+    change: &SetChange<PreparedTeamLookup>,
+) -> Result<Option<Vec<String>>> {
+    let (add, remove) = match change {
+        SetChange::Keep => return Ok(None),
+        SetChange::Replace(teams) => return Ok(Some(ids(&team_refs(client, teams).await?))),
+        SetChange::Edit { add, remove } => (
+            team_refs(client, add).await?,
+            team_refs(client, remove).await?,
+        ),
+    };
+    no_overlap("team", &add, &remove)?;
+    let current = current_teams(client, project_id).await?;
+    let current_ids: Vec<_> = current
+        .iter()
+        .map(|team| team.id.inner().to_owned())
+        .collect();
+    let result =
+        collections::apply_collection_edit(&current_ids, &add, &remove).map_err(|missing| {
+            Error::new(format!(
+                "Cannot remove team \"{}\": it is not on this project",
+                missing.0.label
+            ))
+            .with_hint(format!(
+                "Current teams: {}. Use --add-team to add one.",
+                current
+                    .iter()
+                    .map(|team| format!("{} ({})", team.key, team.name))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })?;
+    if result.is_empty() {
+        return Err(Error::new(
+            "Removing these teams would leave the project with no teams; Linear requires at least one",
+        )
+        .with_hint("Keep at least one team, or use --team to replace the set."));
+    }
+    Ok(Some(result))
+}
+
+async fn team_refs(
+    client: &GraphQlTransport,
+    teams: &[PreparedTeamLookup],
+) -> Result<Vec<ResolvedRef>> {
+    Ok(write::teams(client, teams)
+        .await?
+        .into_iter()
+        .map(|team| ResolvedRef {
+            id: team.id,
+            label: team.key,
+        })
+        .collect())
+}
+
+async fn label_ids(
+    client: &GraphQlTransport,
+    project_id: &str,
+    change: &SetChange<String>,
+) -> Result<Option<Vec<String>>> {
+    let (add, remove) = match change {
+        SetChange::Keep => return Ok(None),
+        SetChange::Replace(labels) => return Ok(Some(ids(&write::labels(client, labels).await?))),
+        SetChange::Edit { add, remove } => (
+            write::labels(client, add).await?,
+            write::labels(client, remove).await?,
+        ),
+    };
+    no_overlap("label", &add, &remove)?;
+    let current = current_labels(client, project_id).await?;
+    let current_ids: Vec<_> = current
+        .iter()
+        .map(|label| label.id.inner().to_owned())
+        .collect();
+    let result =
+        collections::apply_collection_edit(&current_ids, &add, &remove).map_err(|missing| {
+            Error::new(format!(
+                "Cannot remove label \"{}\": it is not on this project",
+                missing.0.label
+            ))
+            .with_hint(if current.is_empty() {
+                "The project has no labels. Use --add-label to add one.".to_owned()
+            } else {
+                format!(
+                    "Current labels: {}. Use --add-label to add one.",
+                    current
+                        .iter()
+                        .map(|label| label.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })
+        })?;
+    Ok(Some(result))
+}
+
+/// The link changes to make, and the project as its links query names it.
+async fn initiative_changes(
+    client: &GraphQlTransport,
+    project_id: &str,
+    change: &SetChange<(String, InitiativeReference)>,
+) -> Result<(Vec<InitiativeChange>, Option<Shown>)> {
+    let (desired, labels, links, shown) = match change {
+        SetChange::Keep => return Ok((Vec::new(), None)),
+        SetChange::Replace(initiatives) => {
+            let replacement = write::initiatives(client, initiatives).await?;
+            let (links, shown) = current_links(client, project_id).await?;
+            (ids(&replacement), replacement, links, shown)
+        }
+        SetChange::Edit { add, remove } => {
+            let add = write::initiatives(client, add).await?;
+            let remove = write::initiatives(client, remove).await?;
+            no_overlap("initiative", &add, &remove)?;
+            let (links, shown) = current_links(client, project_id).await?;
+            let current: Vec<_> = links
+                .iter()
+                .map(|link| link.initiative_id.clone())
+                .collect();
+            let desired = collections::apply_collection_edit(&current, &add, &remove).map_err(
+                |missing| {
+                    Error::new(format!(
+                        "Cannot remove initiative \"{}\": it is not linked to this project",
+                        missing.0.label
+                    ))
+                    .with_hint(if links.is_empty() {
+                        "The project is not linked to any initiative. Use --add-initiative to link one."
+                            .to_owned()
+                    } else {
+                        format!(
+                            "Current initiatives: {}. Use --add-initiative to link one.",
+                            links
+                                .iter()
+                                .map(|link| link.initiative_name.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    })
+                },
+            )?;
+            (desired, add, links, shown)
+        }
+    };
+    let changes = collections::plan_initiative_changes(&links, &desired, &labels);
+    Ok((changes, Some(shown)))
+}
+
+fn ids(references: &[ResolvedRef]) -> Vec<String> {
+    references
+        .iter()
+        .map(|reference| reference.id.clone())
+        .collect()
+}
+
+fn no_overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result<()> {
+    if collections::has_add_remove_overlap(add, remove) {
+        return Err(Error::new(format!(
             "Cannot add and remove the same {kind} in one update"
         ))
         .with_hint(format!(
@@ -86,417 +318,156 @@ pub fn overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Resul
     }
     Ok(())
 }
-pub fn local(options: &Options) -> Result<ProjectUpdateInput, Error> {
-    let has_option = shared::truthy(options.name.as_deref()).is_some()
-        || options.description.is_some()
-        || options.description_file.is_some()
-        || options.content.is_some()
-        || options.content_file.is_some()
-        || shared::truthy(options.status.as_deref()).is_some()
-        || shared::truthy(options.lead.as_deref()).is_some()
-        || options.clear_lead
-        || shared::truthy(options.start_date.as_deref()).is_some()
-        || options.clear_start_date
-        || shared::truthy(options.target_date.as_deref()).is_some()
-        || options.clear_target_date
-        || options.teams.is_some()
-        || options.add_team.is_some()
-        || options.remove_team.is_some()
-        || options.labels.is_some()
-        || options.add_label.is_some()
-        || options.remove_label.is_some()
-        || options.initiatives.is_some()
-        || options.add_initiative.is_some()
-        || options.remove_initiative.is_some();
-    if !has_option {
-        return Err(shared::validation("At least one update option must be provided").with_hint("Use --name, --description, --description-file, --content, --content-file, --status, --lead, --clear-lead, --start-date, --clear-start-date, --target-date, --clear-target-date, --team, --add-team, --remove-team, --label, --add-label, --remove-label, --initiative, --add-initiative, or --remove-initiative"));
-    }
-    for (name, clear, value, noun) in [
-        ("lead", options.clear_lead, options.lead.as_ref(), "user"),
-        (
-            "start-date",
-            options.clear_start_date,
-            options.start_date.as_ref(),
-            "date",
-        ),
-        (
-            "target-date",
-            options.clear_target_date,
-            options.target_date.as_ref(),
-            "date",
-        ),
-    ] {
-        if clear && value.is_some() {
-            return Err(shared::validation(format!(
-                "Cannot specify both --{name} and --clear-{name}"
-            ))
-            .with_hint(format!(
-                "Use --{name} <{noun}> to set a {}, or --clear-{name} on its own to remove it.",
-                if name == "lead" {
-                    "lead"
-                } else if name == "start-date" {
-                    "start date"
-                } else {
-                    "target date"
-                }
-            )));
-        }
-    }
-    replace_conflict(
-        "team",
-        options.teams.is_some(),
-        options.add_team.is_some(),
-        options.remove_team.is_some(),
-    )?;
-    replace_conflict(
-        "label",
-        options.labels.is_some(),
-        options.add_label.is_some(),
-        options.remove_label.is_some(),
-    )?;
-    replace_conflict(
-        "initiative",
-        options.initiatives.is_some(),
-        options.add_initiative.is_some(),
-        options.remove_initiative.is_some(),
-    )?;
-    for value in options
-        .labels
-        .iter()
-        .flatten()
-        .chain(options.add_label.iter().flatten())
-        .chain(options.remove_label.iter().flatten())
-    {
-        if value.trim().is_empty() {
-            return Err(shared::validation("Project label cannot be empty")
-                .with_hint("Provide a label name, e.g. --label \"My Label\"."));
-        }
-    }
-    let description = shared::description(
-        options.description.as_deref(),
-        options.description_file.as_deref(),
-    )?;
-    let content = shared::content(options.content.as_deref(), options.content_file.as_deref())?;
-    shared::date(options.start_date.as_deref(), "Start")?;
-    shared::date(options.target_date.as_deref(), "Target")?;
-    Ok(ProjectUpdateInput {
-        name: Edit::set_or_unchanged(shared::truthy(options.name.as_deref()).map(str::to_owned)),
-        description: Edit::set_or_unchanged(description),
-        content: Edit::set_or_unchanged(content),
-        start_date: if options.clear_start_date {
-            Edit::Clear
-        } else {
-            Edit::set_or_unchanged(
-                shared::truthy(options.start_date.as_deref())
-                    .map(|v| crate::graphql::scalars::TimelessDate(v.to_owned())),
-            )
-        },
-        target_date: if options.clear_target_date {
-            Edit::Clear
-        } else {
-            Edit::set_or_unchanged(
-                shared::truthy(options.target_date.as_deref())
-                    .map(|v| crate::graphql::scalars::TimelessDate(v.to_owned())),
-            )
-        },
-        ..Default::default()
-    })
-}
-pub fn has_fields(input: &ProjectUpdateInput) -> bool {
-    !input.name.is_unchanged()
-        || !input.description.is_unchanged()
-        || !input.content.is_unchanged()
-        || !input.status_id.is_unchanged()
-        || !input.lead_id.is_unchanged()
-        || !input.start_date.is_unchanged()
-        || !input.target_date.is_unchanged()
-        || input.team_ids.is_some()
-        || input.label_ids.is_some()
-}
-fn next_cursor(
-    after: Option<&str>,
-    page: &PageInfo,
-    seen: &mut HashSet<String>,
-) -> Result<Option<String>, Error> {
-    if !page.has_next_page {
-        return Ok(None);
-    }
-    let cursor = page.end_cursor.as_ref().ok_or_else(|| {
-        Error::new("Linear reported another page of results but returned no cursor to fetch it")
-    })?;
-    if Some(cursor.as_str()) == after {
-        return Err(Error::new(
-            "Linear reported another page of results but returned the same cursor again",
-        ));
-    }
-    if !seen.insert(cursor.clone()) {
-        return Err(Error::new(
-            "Linear returned a pagination cursor seen earlier in this pagination walk",
-        ));
-    }
-    Ok(Some(cursor.clone()))
-}
-pub async fn current_teams(
-    transport: &GraphQlTransport,
-    id: &str,
-) -> Result<Vec<ProjectTeam>, Error> {
-    let mut result: Vec<ProjectTeam> = Vec::new();
-    let mut after = None;
-    let mut seen = HashSet::new();
-    loop {
-        let query =
+
+async fn current_teams(client: &GraphQlTransport, id: &str) -> Result<Vec<ProjectTeam>> {
+    let mut teams = pagination::paginate(|after| {
+        let request =
             GraphQlRequest::with_variables(GetProjectTeamsForUpdate::build(PageVariables {
                 id: id.to_owned(),
-                after: after.clone(),
+                after,
             }));
-        let data: GetProjectTeamsForUpdate =
-            transport.execute(&query).await.map_err(Error::from)?;
-        for node in data.project.teams.nodes {
-            if !result.iter().any(|kept| kept.id == node.id) {
-                result.push(node);
-            }
+        async move {
+            let data: GetProjectTeamsForUpdate = client.execute(&request).await?;
+            Ok(Page {
+                nodes: data.project.teams.nodes,
+                page_info: data.project.teams.page_info.into(),
+            })
         }
-        match next_cursor(after.as_deref(), &data.project.teams.page_info, &mut seen)? {
-            Some(cursor) => after = Some(cursor),
-            None => return Ok(result),
-        }
-    }
+    })
+    .await
+    .map_err(|error| super::pagination_error("teams", error))?
+    .nodes;
+    dedupe(&mut teams, |team| team.id.inner().to_owned());
+    Ok(teams)
 }
-pub async fn current_labels(
-    transport: &GraphQlTransport,
-    id: &str,
-) -> Result<Vec<ProjectLabel>, Error> {
-    let mut result: Vec<ProjectLabel> = Vec::new();
-    let mut after = None;
-    let mut seen = HashSet::new();
-    loop {
-        let query =
+
+async fn current_labels(client: &GraphQlTransport, id: &str) -> Result<Vec<ProjectLabel>> {
+    let mut labels = pagination::paginate(|after| {
+        let request =
             GraphQlRequest::with_variables(GetProjectLabelsForUpdate::build(PageVariables {
                 id: id.to_owned(),
-                after: after.clone(),
+                after,
             }));
-        let data: GetProjectLabelsForUpdate =
-            transport.execute(&query).await.map_err(Error::from)?;
-        for node in data.project.labels.nodes {
-            if !result.iter().any(|kept| kept.id == node.id) {
-                result.push(node);
-            }
+        async move {
+            let data: GetProjectLabelsForUpdate = client.execute(&request).await?;
+            Ok(Page {
+                nodes: data.project.labels.nodes,
+                page_info: data.project.labels.page_info.into(),
+            })
         }
-        match next_cursor(after.as_deref(), &data.project.labels.page_info, &mut seen)? {
-            Some(cursor) => after = Some(cursor),
-            None => return Ok(result),
-        }
-    }
+    })
+    .await
+    .map_err(|error| super::pagination_error("labels", error))?
+    .nodes;
+    dedupe(&mut labels, |label| label.id.inner().to_owned());
+    Ok(labels)
 }
-#[derive(Debug, PartialEq, Eq)]
-pub struct DisplayProject {
-    pub name: String,
-    pub url: String,
-}
-pub async fn current_links(
-    transport: &GraphQlTransport,
+
+/// The project's initiative links, and the project as that query names it.
+async fn current_links(
+    client: &GraphQlTransport,
     id: &str,
-) -> Result<(Vec<InitiativeLink>, DisplayProject), Error> {
-    let mut result: Vec<InitiativeLink> = Vec::new();
-    let mut after = None;
-    let mut seen = HashSet::new();
-    loop {
-        let query = GraphQlRequest::with_variables(GetProjectInitiativeLinksForUpdate::build(
+) -> Result<(Vec<InitiativeLink>, Shown)> {
+    let shown = RefCell::new(None);
+    let mut links = pagination::paginate(|after| {
+        let request = GraphQlRequest::with_variables(GetProjectInitiativeLinksForUpdate::build(
             PageVariables {
                 id: id.to_owned(),
-                after: after.clone(),
+                after,
             },
         ));
-        let data: GetProjectInitiativeLinksForUpdate =
-            transport.execute(&query).await.map_err(Error::from)?;
-        let display = DisplayProject {
-            name: data.project.name,
-            url: data.project.url,
-        };
-        for node in data.project.initiative_to_projects.nodes {
-            if !result.iter().any(|kept| kept.id == node.id.inner()) {
-                result.push(InitiativeLink {
-                    id: node.id.into_inner(),
-                    initiative_id: node.initiative.id.into_inner(),
-                    initiative_name: node.initiative.name,
-                });
-            }
-        }
-        match next_cursor(
-            after.as_deref(),
-            &data.project.initiative_to_projects.page_info,
-            &mut seen,
-        )? {
-            Some(cursor) => after = Some(cursor),
-            None => return Ok((result, display)),
-        }
-    }
-}
-fn ids(values: &[ResolvedRef]) -> Vec<String> {
-    values.iter().map(|v| v.id.clone()).collect()
-}
-fn slices(value: &Option<Vec<String>>) -> &[String] {
-    value.as_deref().unwrap_or(&[])
-}
-pub struct Plan {
-    pub project_id: String,
-    pub input: ProjectUpdateInput,
-    pub changes: Vec<InitiativeChange>,
-    pub initiative_only_display: Option<DisplayProject>,
-}
-pub async fn plan(
-    transport: &GraphQlTransport,
-    scope: &WorkspaceScope<'_>,
-    original: &str,
-    options: &Options,
-    mut input: ProjectUpdateInput,
-) -> Result<Plan, Error> {
-    let reference = refs::prepare_project_lookup(original, scope)?;
-    let id = refs::resolve_project_with_transport(&reference, original, transport).await?;
-    if let Some(value) = shared::truthy(options.status.as_deref()) {
-        input.status_id = Edit::Set(shared::status(transport, value).await?);
-    }
-    input.lead_id = if options.clear_lead {
-        Edit::Clear
-    } else {
-        match shared::truthy(options.lead.as_deref()) {
-            Some(value) => Edit::Set(shared::user(transport, value, "Lead").await?),
-            None => Edit::Unchanged,
-        }
-    };
-    if let Some(values) = &options.teams {
-        input.team_ids = Some(
-            shared::teams(transport, scope, values)
-                .await?
-                .into_iter()
-                .map(|t| t.id)
-                .collect(),
-        );
-    } else if options.add_team.is_some() || options.remove_team.is_some() {
-        let to_refs = |teams: Vec<crate::refs::ResolvedTeam>| {
-            teams
-                .into_iter()
-                .map(|t| ResolvedRef {
-                    id: t.id,
-                    label: t.key,
-                })
-                .collect::<Vec<_>>()
-        };
-        let added = to_refs(shared::teams(transport, scope, slices(&options.add_team)).await?);
-        let removed = to_refs(shared::teams(transport, scope, slices(&options.remove_team)).await?);
-        overlap("team", &added, &removed)?;
-        let current = current_teams(transport, &id).await?;
-        let current_ids: Vec<_> = current.iter().map(|t| t.id.clone().into_inner()).collect();
-        let result = project_collections::apply_collection_edit(&current_ids, &added, &removed)
-            .map_err(|missing| {
-                shared::validation(format!(
-                    "Cannot remove team \"{}\": it is not on this project",
-                    missing.0.label
-                ))
-                .with_hint(format!(
-                    "Current teams: {}. Use --add-team to add one.",
-                    current
-                        .iter()
-                        .map(|t| format!("{} ({})", t.key, t.name))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ))
-            })?;
-        if result.is_empty() {
-            return Err(shared::validation("Removing these teams would leave the project with no teams; Linear requires at least one").with_hint("Keep at least one team, or use --team to replace the set."));
-        }
-        input.team_ids = Some(result);
-    }
-    if let Some(values) = &options.labels {
-        input.label_ids = Some(ids(&shared::labels(transport, values).await?));
-    } else if options.add_label.is_some() || options.remove_label.is_some() {
-        let added = shared::labels(transport, slices(&options.add_label)).await?;
-        let removed = shared::labels(transport, slices(&options.remove_label)).await?;
-        overlap("label", &added, &removed)?;
-        let current = current_labels(transport, &id).await?;
-        let current_ids: Vec<_> = current.iter().map(|l| l.id.clone().into_inner()).collect();
-        input.label_ids = Some(
-            project_collections::apply_collection_edit(&current_ids, &added, &removed).map_err(
-                |missing| {
-                    shared::validation(format!(
-                        "Cannot remove label \"{}\": it is not on this project",
-                        missing.0.label
-                    ))
-                    .with_hint(if current.is_empty() {
-                        "The project has no labels. Use --add-label to add one.".to_owned()
-                    } else {
-                        format!(
-                            "Current labels: {}. Use --add-label to add one.",
-                            current
-                                .iter()
-                                .map(|l| l.name.clone())
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        )
+        let shown = &shown;
+        async move {
+            let data: GetProjectInitiativeLinksForUpdate = client.execute(&request).await?;
+            let project = data.project;
+            shown.replace(Some(Shown {
+                name: project.name,
+                url: project.url,
+            }));
+            Ok(Page {
+                nodes: project
+                    .initiative_to_projects
+                    .nodes
+                    .into_iter()
+                    .map(|row| InitiativeLink {
+                        id: row.id.into_inner(),
+                        initiative_id: row.initiative.id.into_inner(),
+                        initiative_name: row.initiative.name,
                     })
-                },
-            )?,
-        );
-    }
-    let mut changes = Vec::new();
-    let mut display = None;
-    if options.initiatives.is_some()
-        || options.add_initiative.is_some()
-        || options.remove_initiative.is_some()
-    {
-        let replacement = match &options.initiatives {
-            Some(values) => Some(shared::initiatives(transport, scope, values).await?),
-            None => None,
-        };
-        let added = shared::initiatives(transport, scope, slices(&options.add_initiative)).await?;
-        let removed =
-            shared::initiatives(transport, scope, slices(&options.remove_initiative)).await?;
-        overlap("initiative", &added, &removed)?;
-        let (links, last_page) = current_links(transport, &id).await?;
-        let current_ids: Vec<_> = links.iter().map(|l| l.initiative_id.clone()).collect();
-        let desired=match &replacement{Some(refs)=>ids(refs),None=>project_collections::apply_collection_edit(&current_ids,&added,&removed).map_err(|missing|shared::validation(format!("Cannot remove initiative \"{}\": it is not linked to this project",missing.0.label)).with_hint(if links.is_empty(){"The project is not linked to any initiative. Use --add-initiative to link one.".to_owned()}else{format!("Current initiatives: {}. Use --add-initiative to link one.",links.iter().map(|l|l.initiative_name.clone()).collect::<Vec<_>>().join(", "))}))?};
-        let mut labels = replacement.unwrap_or_default();
-        labels.extend(added);
-        changes = project_collections::plan_initiative_changes(&links, &desired, &labels);
-        display = Some(last_page);
-    }
-    Ok(Plan {
-        project_id: id,
-        input,
-        changes,
-        initiative_only_display: display,
+                    .collect(),
+                page_info: project.initiative_to_projects.page_info.into(),
+            })
+        }
     })
+    .await
+    .map_err(|error| super::pagination_error("initiative links", error))?
+    .nodes;
+    dedupe(&mut links, |link| link.id.clone());
+    let shown = shown
+        .into_inner()
+        .expect("a completed walk fetched at least one page");
+    Ok((links, shown))
 }
-pub async fn apply(
-    transport: &GraphQlTransport,
+
+/// Keeps the first of each item with the same key, in order.
+fn dedupe<T>(items: &mut Vec<T>, key: impl Fn(&T) -> String) {
+    let mut seen = std::collections::HashSet::new();
+    items.retain(|item| seen.insert(key(item)));
+}
+
+async fn submit(
+    client: &GraphQlTransport,
     id: &str,
+    input: ProjectUpdateInput,
+) -> Result<Option<Shown>> {
+    let request = GraphQlRequest::with_variables(UpdateProject::build(UpdateProjectVariables {
+        id: id.to_owned(),
+        input,
+    }));
+    let result: UpdateProject = client.execute(&request).await?;
+    let payload = result.project_update;
+    if !payload.success {
+        return Err(Error::new("Linear did not update the project"));
+    }
+    Ok(payload.project.map(|project| Shown {
+        name: project.name,
+        url: project.url,
+    }))
+}
+
+/// Makes the link changes one at a time. A failure reports what was and was
+/// not applied, since earlier changes are not rolled back.
+async fn apply(
+    client: &GraphQlTransport,
+    project_id: &str,
     changes: &[InitiativeChange],
-    prior_fields: bool,
-) -> Result<(), Error> {
+    updated_fields: bool,
+) -> Result<()> {
     for (applied, change) in changes.iter().enumerate() {
         let result = match change {
             InitiativeChange::Add { initiative_id, .. } => {
-                let query = GraphQlRequest::with_variables(AddProjectToInitiativeForUpdate::build(
-                    LinkVariables {
+                let request =
+                    GraphQlRequest::with_variables(AddProjectToInitiative::build(LinkVariables {
                         input: InitiativeLinkInput {
                             initiative_id: initiative_id.clone(),
-                            project_id: id.to_owned(),
+                            project_id: project_id.to_owned(),
                         },
-                    },
-                ));
-                let result: Result<AddProjectToInitiativeForUpdate, _> =
-                    transport.execute(&query).await;
-                result.map(|r| r.initiative_to_project_create.success)
+                    }));
+                client
+                    .execute::<AddProjectToInitiative, _>(&request)
+                    .await
+                    .map(|data| data.initiative_to_project_create.success)
             }
             InitiativeChange::Remove { link_id, .. } => {
-                let query = GraphQlRequest::with_variables(
-                    RemoveProjectFromInitiativeForUpdate::build(IdVariables {
+                let request = GraphQlRequest::with_variables(RemoveProjectFromInitiative::build(
+                    IdVariables {
                         id: link_id.clone(),
-                    }),
-                );
-                let result: Result<RemoveProjectFromInitiativeForUpdate, _> =
-                    transport.execute(&query).await;
-                result.map(|r| r.initiative_to_project_delete.success)
+                    },
+                ));
+                client
+                    .execute::<RemoveProjectFromInitiative, _>(&request)
+                    .await
+                    .map(|data| data.initiative_to_project_delete.success)
             }
         };
         let (outcome, cause) = match result {
@@ -504,57 +475,17 @@ pub async fn apply(
             Ok(false) => (
                 FailedWrite::Rejected,
                 Error::new(format!(
-                    "Linear reported failure for initiative \"{}\"",
-                    match change {
-                        InitiativeChange::Add { label, .. }
-                        | InitiativeChange::Remove { label, .. } => label,
-                    }
+                    "Linear rejected the change: {}",
+                    change.description()
                 )),
             ),
-            Err(error) => (FailedWrite::Unknown, Error::from(error)),
+            Err(error) if outcome_unknown(&error) => (FailedWrite::Unknown, Error::from(error)),
+            Err(error) => (FailedWrite::Rejected, Error::from(error)),
         };
-        let diagnostic =
-            project_collections::partial_diagnostic(changes, applied, outcome, prior_fields)?;
-        return Err(Error::new(diagnostic.message)
+        let diagnostic = collections::partial_diagnostic(changes, applied, outcome, updated_fields);
+        return Err(Error::new(format!("{} Cause: {cause}", diagnostic.message))
             .with_hint(diagnostic.suggestion)
             .with_source(cause));
     }
     Ok(())
-}
-pub async fn submit(
-    transport: &GraphQlTransport,
-    plan: Plan,
-) -> Result<Option<DisplayProject>, Error> {
-    let prior_fields = has_fields(&plan.input);
-    let display = if prior_fields {
-        let query = GraphQlRequest::with_variables(UpdateProject::build(UpdateProjectVariables {
-            id: plan.project_id.clone(),
-            input: plan.input,
-        }));
-        let result: UpdateProject = transport.execute(&query).await.map_err(Error::from)?;
-        if !result.project_update.success {
-            return Err(Error::new("Failed to update project"));
-        }
-        result.project_update.project.map(|p| DisplayProject {
-            name: p.name,
-            url: p.url,
-        })
-    } else {
-        plan.initiative_only_display
-    };
-    apply(transport, &plan.project_id, &plan.changes, prior_fields).await?;
-    Ok(display)
-}
-pub fn output(project: Option<&DisplayProject>) -> Vec<u8> {
-    match project {
-        None => Vec::new(),
-        Some(project) => {
-            let mut text = format!("✓ Updated project: {}\n", project.name);
-            if !project.url.is_empty() {
-                text.push_str(&project.url);
-                text.push('\n');
-            }
-            text.into_bytes()
-        }
-    }
 }

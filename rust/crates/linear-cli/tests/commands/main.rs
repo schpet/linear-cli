@@ -5,13 +5,7 @@ mod document_comment_list;
 mod initiative_comment_list;
 mod initiative_create;
 mod initiative_list;
-mod initiative_update_list;
 mod initiative_view;
-mod project_comment_list;
-mod project_delete;
-mod project_list;
-mod project_update_list;
-mod project_view;
 mod prosemirror;
 mod relative_time;
 
@@ -32,15 +26,9 @@ mod delete_pair;
 
 mod document_write;
 
-mod project_create;
-
-mod project_update;
-
 mod project_write_server;
 
 mod issue_archive_delete;
-
-mod update_create;
 
 mod initiative_update;
 
@@ -100,3 +88,7 @@ pub fn hydrate(
 ) -> Result<CredentialStore, std::convert::Infallible> {
     Ok(CredentialStore::new(manifest, Box::new(Replies(replies))))
 }
+
+mod initiative_update_list;
+mod project_update_list;
+mod update_create;

@@ -304,7 +304,7 @@ fn create_adds_the_project_to_an_initiative() {
     api.on("ResolveTeam", team("SRC", TEAM_ID))
         .on("CreateProject", created())
         .on(
-            "AddProjectToInitiativeForCreate",
+            "AddProjectToInitiative",
             json!({ "initiativeToProjectCreate": { "success": true } }),
         );
     Cli::for_api(&api)
@@ -320,7 +320,7 @@ fn create_adds_the_project_to_an_initiative() {
         ])
         .success();
     assert_eq!(
-        api.variables("AddProjectToInitiativeForCreate"),
+        api.variables("AddProjectToInitiative"),
         json!({ "input": { "initiativeId": initiative, "projectId": ID } })
     );
 }
@@ -556,4 +556,239 @@ fn comment_list_shows_threads() {
         .success()
         .stdout_has("Root A")
         .stdout_has("Reply B");
+}
+
+#[test]
+fn update_sets_priority_status_and_dates() {
+    let api = MockLinear::start();
+    api.on(
+        "GetProjectStatuses",
+        json!({ "projectStatuses": { "nodes": [
+            { "id": "status-planned", "name": "Planned", "type": "planned" },
+            { "id": "status-started", "name": "In Progress", "type": "started" }
+        ] } }),
+    )
+    .on("UpdateProject", updated());
+    Cli::for_api(&api)
+        .run(&[
+            "project",
+            "update",
+            ID,
+            "--priority",
+            "High",
+            "--status",
+            "in-progress",
+            "--start-date",
+            "2025-01-31",
+        ])
+        .success();
+    assert_eq!(
+        api.variables("UpdateProject"),
+        json!({
+            "id": ID,
+            "input": { "priority": 2, "statusId": "status-started", "startDate": "2025-01-31" }
+        })
+    );
+}
+
+#[test]
+fn create_and_update_reject_invalid_values_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    for args in [
+        &[
+            "project",
+            "create",
+            "-n",
+            "X",
+            "-t",
+            "SRC",
+            "--start-date",
+            "tomorrow",
+        ][..],
+        &[
+            "project",
+            "create",
+            "-n",
+            "X",
+            "-t",
+            "SRC",
+            "--priority",
+            "9",
+        ],
+        &[
+            "project", "create", "-n", "X", "-t", "SRC", "--status", "done",
+        ],
+        &["project", "update", ID, "--priority", "extreme"],
+        &["project", "update", ID, "--target-date", "2025-02-30"],
+        &[
+            "project",
+            "update",
+            ID,
+            "--description",
+            "a",
+            "--description-file",
+            "b",
+        ],
+    ] {
+        cli.run(args).usage_error();
+    }
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_without_changes_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["project", "update", ID])
+        .failure()
+        .stderr_has("No changes");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_reports_partially_applied_initiative_links() {
+    let first = "00000000-0000-4000-9000-00000000000a";
+    let second = "00000000-0000-4000-9000-00000000000b";
+    let initiative =
+        |id: &str, name: &str| json!({ "initiatives": { "nodes": [{ "id": id, "name": name }] } });
+    let api = MockLinear::start();
+    api.on("GetInitiativeByIdForUpdate", initiative(first, "Alpha"))
+        .on("GetInitiativeByIdForUpdate", initiative(second, "Beta"))
+        .on(
+            "GetProjectInitiativeLinksForUpdate",
+            json!({ "project": {
+                "id": ID, "name": "Mobile App", "url": "https://linear.app/acme/project/mobile",
+                "initiativeToProjects": page(json!([]))
+            } }),
+        )
+        .on(
+            "AddProjectToInitiative",
+            json!({ "initiativeToProjectCreate": { "success": true } }),
+        )
+        .on_error("AddProjectToInitiative", "Initiative is archived");
+    let run = Cli::for_api(&api).run(&[
+        "project",
+        "update",
+        ID,
+        "--add-initiative",
+        first,
+        "--add-initiative",
+        second,
+    ]);
+    run.failure()
+        .stderr_has("after 1 of 2 changes")
+        .stderr_has("Applied: added \"Alpha\"")
+        .stderr_has("Initiative is archived")
+        .stderr_has(&format!("--add-initiative {second}"));
+    assert!(!api.operations().contains(&"UpdateProject".to_owned()));
+}
+
+#[test]
+fn create_fails_before_creating_when_the_initiative_is_unknown() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", team("SRC", TEAM_ID))
+        .on(
+            "ResolveInitiativeBySlug",
+            json!({ "initiatives": { "nodes": [] } }),
+        )
+        .on(
+            "ResolveInitiativeByName",
+            json!({ "initiatives": { "nodes": [] } }),
+        );
+    Cli::for_api(&api)
+        .run(&[
+            "project",
+            "create",
+            "-n",
+            "X",
+            "-t",
+            "SRC",
+            "--initiative",
+            "Nope",
+        ])
+        .failure()
+        .stderr_has("Nope");
+    assert!(!api.operations().contains(&"CreateProject".to_owned()));
+}
+
+#[test]
+fn create_reports_a_failed_initiative_link_after_creating() {
+    let initiative = "00000000-0000-4000-9000-000000002509";
+    let api = MockLinear::start();
+    api.on("ResolveTeam", team("SRC", TEAM_ID))
+        .on("CreateProject", created())
+        .on_error("AddProjectToInitiative", "Initiative is archived");
+    Cli::for_api(&api)
+        .run(&[
+            "project",
+            "create",
+            "-n",
+            "X",
+            "-t",
+            "SRC",
+            "--initiative",
+            initiative,
+        ])
+        .failure()
+        .stdout_has("Created project: Fixture project")
+        .stderr_has("Initiative is archived")
+        .stderr_has("--add-initiative");
+}
+
+#[test]
+fn comment_add_without_a_body_needs_a_terminal_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["project", "comment", "add", "Roadmap"])
+        .failure()
+        .stderr_has("--body");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn comment_list_follows_every_page() {
+    let api = MockLinear::start();
+    api.on(
+        "GetProjectComments",
+        json!({
+            "project": { "id": ID, "name": "Mobile App" },
+            "comments": {
+                "nodes": [comment("comment-1", "Root A", None)],
+                "pageInfo": { "hasNextPage": true, "endCursor": "cursor-1" }
+            }
+        }),
+    )
+    .on(
+        "GetProjectComments",
+        json!({
+            "project": { "id": ID, "name": "Mobile App" },
+            "comments": page(json!([comment("comment-2", "Root B", None)]))
+        }),
+    );
+    Cli::for_api(&api)
+        .run(&["project", "comment", "list", ID])
+        .success()
+        .stdout_has("Root A")
+        .stdout_has("Root B");
+    let afters: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .map(|request| request.variables["after"].clone())
+        .collect();
+    assert_eq!(afters, [Value::Null, json!("cursor-1")]);
+}
+
+#[test]
+fn delete_resolves_names() {
+    let api = MockLinear::start();
+    api.on("GetProjectIdByName", ids(ID)).on(
+        "DeleteProject",
+        json!({ "projectDelete": { "success": true, "entity": { "id": ID, "name": "Mobile App" } } }),
+    );
+    Cli::for_api(&api)
+        .run(&["project", "delete", "Mobile App", "--force"])
+        .success()
+        .stdout_has("Deleted project: Mobile App");
+    assert_eq!(api.variables("DeleteProject"), json!({ "id": ID }));
 }

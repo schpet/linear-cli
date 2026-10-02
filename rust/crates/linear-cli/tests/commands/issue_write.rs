@@ -599,10 +599,7 @@ async fn full_mutation_decode_precedes_false_null_and_preserves_raw_first_error(
 #[test]
 fn issue_and_project_templates_share_scope_rules_with_exact_project_regression() {
     use linear_cli::{
-        commands::{
-            issue::template_scope::{self as issue_template_scope, TemplateScope},
-            project::write as project_write,
-        },
+        commands::issue::template_scope::{self as issue_template_scope, TemplateScope},
         graphql::operations::templates::Template,
     };
     let template = |kind: &str| {
@@ -615,7 +612,9 @@ fn issue_and_project_templates_share_scope_rules_with_exact_project_regression()
             .inner(),
         "t"
     );
-    let error = project_write::select_template("Plan", vec![template("issue")], &[]).unwrap_err();
+    let error =
+        issue_template_scope::select("Plan", vec![template("issue")], &[], TemplateScope::Project)
+            .unwrap_err();
     assert_eq!(
         error.message(),
         "Template \"Plan\" is an issue template, not a project template"

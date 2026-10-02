@@ -54,6 +54,8 @@ pub struct ProjectUpdateInput {
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub target_date: Edit<TimelessDate>,
     #[cynic(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<i32>,
+    #[cynic(skip_serializing_if = "Option::is_none")]
     pub team_ids: Option<Vec<String>>,
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub label_ids: Option<Vec<String>>,
@@ -141,10 +143,6 @@ pub struct NameVariables {
     pub name: String,
 }
 #[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct SlugVariables {
-    pub slug_id: String,
-}
-#[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct InitiativeIdVariables {
     pub id: cynic::Id,
 }
@@ -173,29 +171,6 @@ pub struct ProjectLabels {
 pub struct ProjectLabel {
     pub id: cynic::Id,
     pub name: String,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlugForCreate {
-    #[arguments(filter:{slugId:{eq:$slug_id}})]
-    pub initiatives: InitiativeSlugs,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct InitiativeSlugs {
-    pub nodes: Vec<InitiativeSlug>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct InitiativeSlug {
-    pub id: cynic::Id,
-    pub slug_id: String,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByNameForCreate {
-    #[arguments(filter:{name:{eqIgnoreCase:$name}})]
-    pub initiatives: InitiativeNames,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(
@@ -234,17 +209,7 @@ pub struct LinkVariables {
     graphql_type = "Mutation",
     variables = "LinkVariables"
 )]
-pub struct AddProjectToInitiativeForCreate {
-    #[arguments(input:$input)]
-    pub initiative_to_project_create: LinkCreated,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(
-    schema = "linear",
-    graphql_type = "Mutation",
-    variables = "LinkVariables"
-)]
-pub struct AddProjectToInitiativeForUpdate {
+pub struct AddProjectToInitiative {
     #[arguments(input:$input)]
     pub initiative_to_project_create: LinkCreated,
 }
@@ -254,7 +219,7 @@ pub struct AddProjectToInitiativeForUpdate {
     graphql_type = "Mutation",
     variables = "IdVariables"
 )]
-pub struct RemoveProjectFromInitiativeForUpdate {
+pub struct RemoveProjectFromInitiative {
     #[arguments(id:$id)]
     pub initiative_to_project_delete: LinkDeleted,
 }
