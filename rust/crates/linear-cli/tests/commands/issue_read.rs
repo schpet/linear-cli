@@ -1,6 +1,12 @@
 use linear_cli::{
     commands::{issue_read as read, issue_view as view},
-    graphql::{envelope::parse_response, operations::issue_read::*},
+    graphql::{
+        envelope::parse_response,
+        operations::{
+            issue_read::*,
+            number::{Float, WholeNumber},
+        },
+    },
     platform::markdown_assets,
 };
 use serde_json::{Value, json};
@@ -87,7 +93,7 @@ fn strict_date_accepts_only_complete_ascii_real_calendar_and_utc_milliseconds() 
     );
 }
 #[test]
-fn complete_typed_connections_preserve_json_and_binary64_metadata() {
+fn complete_typed_connections_preserve_json_and_metadata() {
     let query: GetIssuesForQuery = serde_json::from_value(data(QUERY)).unwrap();
     let json = serde_json::to_value(&query.issues).unwrap();
     assert!(json.get("nodes").unwrap().is_array());
@@ -103,8 +109,8 @@ fn complete_typed_connections_preserve_json_and_binary64_metadata() {
         .0
         .insert("zero".to_owned(), json!(-0.0));
     let out = view::Fetched::With(i).json().unwrap();
-    assert!(out.contains("\"integer\": 9007199254740992"));
-    assert!(out.contains("\"zero\": 0"));
+    assert!(out.contains("\"integer\": 9007199254740993"));
+    assert!(out.contains("\"zero\": -0.0"));
     assert!(out.contains("\"quotedText\": null"));
     for mutation in ["priority", "identifier", "comments"] {
         let mut wrong = data(VIEW);
@@ -127,7 +133,7 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
         r.identifier = id.to_owned();
         r.team.key = team.to_owned();
         r.state.r#type = kind.to_owned();
-        r.state.position = position;
+        r.state.position = Float(serde_json::Number::from_f64(position).unwrap());
         rows.push(r);
     }
     read::sort_mine(&mut rows).unwrap();
@@ -146,8 +152,6 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
             .collect::<Vec<_>>(),
         ["started", "low", "high", "tie"]
     );
-    rows[0].state.position = f64::NAN;
-    assert!(read::sort_mine(&mut rows).is_err());
 }
 #[test]
 fn exact_pipe_table_and_clock_thresholds_match_frozen_mine() {
@@ -184,7 +188,7 @@ fn exact_pipe_table_and_clock_thresholds_match_frozen_mine() {
     row.updated = chrono::DateTime::<chrono::Utc>::from(now)
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
-    row.estimate = Some(0.0);
+    row.estimate = Some(Float(0.into()));
     let mut short = read::table(&[row.clone()], false, true, true, 40, false, now).unwrap();
     assert!(short.contains("just now"));
     assert!(short.contains(" 0 "));
@@ -193,8 +197,8 @@ fn exact_pipe_table_and_clock_thresholds_match_frozen_mine() {
         .to_string();
     short = read::table(&[row], false, false, false, 120, false, now).unwrap();
     assert!(short.contains("1 hour ago"));
-    assert_eq!(read::priority(4.0).unwrap(), "▄  ");
-    assert_eq!(read::priority(9.0).unwrap(), "9");
+    assert_eq!(read::priority(WholeNumber(4)), "▄  ");
+    assert_eq!(read::priority(WholeNumber(9)), "9");
 }
 #[test]
 fn thread_roots_resolution_hidden_count_orphans_duplicates_and_cycles_are_distinct() {

@@ -1,23 +1,21 @@
 //! Best-effort Markdown for the ProseMirror documents Linear stores in a
-//! template's `descriptionData` / `contentData`. Its only frozen caller is
-//! `template view`.
+//! template's `descriptionData` / `contentData`, used by `template view`.
 //!
 //! The whole tree is read into typed nodes first, so a malformed node reports
 //! its `doc.content[...]` path before anything renders. Nodes and marks this
-//! converter does not know stay visible instead of being dropped. String
-//! handling follows JavaScript: lines split on `\n` only, a line start follows
-//! any ECMAScript line terminator, and `\s` / `trimEnd` use its whitespace set.
+//! converter does not know stay visible instead of being dropped.
 
-use crate::commands::template_data::{JsObject, JsValue, js_number};
+use serde_json::{Map, Value};
+
 use crate::error::{AppError, AppErrorKind};
 
 #[derive(Clone, Debug, PartialEq)]
 enum NodeKind {
     Doc,
     Paragraph,
-    Heading { level: f64 },
+    Heading { level: usize },
     BulletList,
-    OrderedList { order: f64 },
+    OrderedList { order: u64 },
     TodoList,
     ListItem,
     TodoItem,
@@ -31,16 +29,19 @@ enum NodeKind {
 }
 
 impl NodeKind {
-    fn read(name: &str, attrs: Option<&JsObject>) -> Self {
+    fn read(name: &str, attrs: Option<&Map<String, Value>>) -> Self {
         match name {
             "doc" => Self::Doc,
             "paragraph" => Self::Paragraph,
             "heading" => Self::Heading {
-                level: attr_number(attrs, "level", 1.0),
+                level: attr_whole(attrs, "level")
+                    .and_then(|level| usize::try_from(level).ok())
+                    .unwrap_or(1)
+                    .clamp(1, 6),
             },
             "bullet_list" => Self::BulletList,
             "ordered_list" => Self::OrderedList {
-                order: attr_number(attrs, "order", 1.0),
+                order: attr_whole(attrs, "order").unwrap_or(1),
             },
             "todo_list" => Self::TodoList,
             "list_item" => Self::ListItem,
@@ -112,56 +113,55 @@ fn validation(message: String) -> AppError {
     AppError::new(AppErrorKind::Validation, message)
 }
 
-fn as_record(value: &JsValue) -> Option<&JsObject> {
+fn as_record(value: &Value) -> Option<&Map<String, Value>> {
     match value {
-        JsValue::Object(object) => Some(object),
+        Value::Object(object) => Some(object),
         _ => None,
     }
 }
 
-fn attrs_of(object: &JsObject) -> Option<&JsObject> {
+fn attrs_of(object: &Map<String, Value>) -> Option<&Map<String, Value>> {
     object.get("attrs").and_then(as_record)
 }
 
-fn attr_string(attrs: Option<&JsObject>, key: &str) -> String {
+fn attr_string(attrs: Option<&Map<String, Value>>, key: &str) -> String {
     match attrs.and_then(|attrs| attrs.get(key)) {
-        Some(JsValue::String(value)) => value.clone(),
+        Some(Value::String(value)) => value.clone(),
         _ => String::new(),
     }
 }
 
-fn attr_number(attrs: Option<&JsObject>, key: &str, fallback: f64) -> f64 {
-    match attrs.and_then(|attrs| attrs.get(key)) {
-        Some(JsValue::Number(value)) if value.is_finite() => *value,
-        _ => fallback,
-    }
+fn attr_whole(attrs: Option<&Map<String, Value>>, key: &str) -> Option<u64> {
+    attrs
+        .and_then(|attrs| attrs.get(key))
+        .and_then(Value::as_u64)
 }
 
-fn attr_true(attrs: Option<&JsObject>, key: &str) -> bool {
+fn attr_true(attrs: Option<&Map<String, Value>>, key: &str) -> bool {
     matches!(
         attrs.and_then(|attrs| attrs.get(key)),
-        Some(JsValue::Bool(true))
+        Some(Value::Bool(true))
     )
 }
 
 /// A present, non-null property that must be an array.
 fn optional_array<'a>(
-    object: &'a JsObject,
+    object: &'a Map<String, Value>,
     key: &str,
     path: &str,
-) -> Result<&'a [JsValue], AppError> {
+) -> Result<&'a [Value], AppError> {
     match object.get(key) {
-        None | Some(JsValue::Null) => Ok(&[]),
-        Some(JsValue::Array(items)) => Ok(items),
+        None | Some(Value::Null) => Ok(&[]),
+        Some(Value::Array(items)) => Ok(items),
         Some(_) => Err(validation(format!(
             "Invalid ProseMirror node at {path}: \"{key}\" must be an array"
         ))),
     }
 }
 
-fn read_mark(value: &JsValue, path: &str) -> Result<Mark, AppError> {
+fn read_mark(value: &Value, path: &str) -> Result<Mark, AppError> {
     let Some((object, name)) = as_record(value).and_then(|object| match object.get("type") {
-        Some(JsValue::String(name)) => Some((object, name)),
+        Some(Value::String(name)) => Some((object, name)),
         _ => None,
     }) else {
         return Err(validation(format!(
@@ -181,9 +181,9 @@ fn read_mark(value: &JsValue, path: &str) -> Result<Mark, AppError> {
 }
 
 /// Validate one node, then its children in order, then its marks.
-fn read_node(value: &JsValue, path: &str) -> Result<Node, AppError> {
+fn read_node(value: &Value, path: &str) -> Result<Node, AppError> {
     let Some((object, name)) = as_record(value).and_then(|object| match object.get("type") {
-        Some(JsValue::String(name)) => Some((object, name)),
+        Some(Value::String(name)) => Some((object, name)),
         _ => None,
     }) else {
         return Err(validation(format!(
@@ -193,8 +193,8 @@ fn read_node(value: &JsValue, path: &str) -> Result<Node, AppError> {
     let content = optional_array(object, "content", path)?;
     let marks = optional_array(object, "marks", path)?;
     let text = match object.get("text") {
-        None | Some(JsValue::Null) => None,
-        Some(JsValue::String(text)) => Some(text.clone()),
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => Some(text.clone()),
         Some(_) => {
             return Err(validation(format!(
                 "Invalid ProseMirror node at {path}: \"text\" must be a string"
@@ -224,7 +224,7 @@ fn read_node(value: &JsValue, path: &str) -> Result<Node, AppError> {
 
 /// Convert a ProseMirror document to Markdown, or fail when the value is not
 /// a ProseMirror document at all.
-pub fn to_markdown(doc: &JsValue) -> Result<String, AppError> {
+pub fn to_markdown(doc: &Value) -> Result<String, AppError> {
     let root = read_node(doc, "doc")?;
     if root.kind != NodeKind::Doc {
         return Err(validation(format!(
@@ -378,14 +378,13 @@ fn indent_continuation(text: &str, indent: &str) -> String {
         .join("\n")
 }
 
-fn render_list_items(items: &[Node], marker: impl Fn(&Node, f64) -> String) -> String {
-    let mut index = 0.0;
+fn render_list_items(items: &[Node], marker: impl Fn(&Node, u64) -> String) -> String {
     items
         .iter()
-        .map(|item| {
+        .zip(0..)
+        .map(|(item, index)| {
             let prefix = marker(item, index);
-            index += 1.0;
-            // Every marker is ASCII, so its byte length is its JS length.
+            // Every marker is ASCII, so its byte length is its width.
             let indent = " ".repeat(prefix.len());
             let body = match item.kind {
                 NodeKind::ListItem | NodeKind::TodoItem => render_blocks(&item.content),
@@ -397,39 +396,15 @@ fn render_list_items(items: &[Node], marker: impl Fn(&Node, f64) -> String) -> S
         .join("\n")
 }
 
-/// `"#".repeat(level)` after clamping to 1..=6; `repeat` truncates fractions.
-fn heading_marker(level: f64) -> String {
-    let level = level.clamp(1.0, 6.0);
-    let count = if level < 2.0 {
-        1
-    } else if level < 3.0 {
-        2
-    } else if level < 4.0 {
-        3
-    } else if level < 5.0 {
-        4
-    } else if level < 6.0 {
-        5
-    } else {
-        6
-    };
-    "#".repeat(count)
-}
-
 fn render_block(node: &Node) -> String {
     match &node.kind {
         NodeKind::Paragraph => render_inline(&node.content),
         NodeKind::Heading { level } => {
-            format!(
-                "{} {}",
-                heading_marker(*level),
-                render_inline(&node.content)
-            )
+            format!("{} {}", "#".repeat(*level), render_inline(&node.content))
         }
         NodeKind::BulletList => render_list_items(&node.content, |_, _| "- ".to_owned()),
-        // `start + index` in JavaScript number arithmetic.
         NodeKind::OrderedList { order } => render_list_items(&node.content, |_, index| {
-            format!("{}. ", js_number(order + index))
+            format!("{}. ", order.saturating_add(index))
         }),
         NodeKind::TodoList => render_list_items(&node.content, |item, _| {
             (if item.done { "- [x] " } else { "- [ ] " }).to_owned()

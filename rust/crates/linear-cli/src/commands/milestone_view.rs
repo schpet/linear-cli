@@ -7,7 +7,6 @@ use std::rc::Rc;
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::commands::relative_time::format_relative_time;
 use crate::error::{AppError, AppErrorKind};
@@ -16,9 +15,9 @@ use crate::graphql::operations::milestone_view::{
     DetailIssue, DetailMilestone, DetailVariables, GetMilestoneDetails,
     GetProjectMilestonesForLookup, LookupVariables,
 };
+use crate::graphql::operations::number::Float;
 use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::refs::is_linear_uuid;
 
 pub const CONTEXT: &str = "Failed to fetch milestone details";
@@ -152,7 +151,7 @@ struct JsonMilestone<'a> {
     name: &'a str,
     description: &'a Option<String>,
     target_date: &'a Option<crate::graphql::scalars::TimelessDate>,
-    sort_order: Box<RawValue>,
+    sort_order: &'a Float,
     created_at: &'a crate::graphql::scalars::DateTime,
     updated_at: &'a crate::graphql::scalars::DateTime,
     project: JsonProject<'a>,
@@ -196,7 +195,7 @@ pub fn json(milestone: &DetailMilestone) -> Result<Vec<u8>, AppError> {
         name: &milestone.name,
         description: &milestone.description,
         target_date: &milestone.target_date,
-        sort_order: finite_js_number(milestone.sort_order)?,
+        sort_order: &milestone.sort_order,
         created_at: &milestone.created_at,
         updated_at: &milestone.updated_at,
         project: JsonProject {

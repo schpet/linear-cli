@@ -7,24 +7,15 @@ use crate::{
         schema_introspection::{Model, QUERY},
         transport::{GraphQlTransport, classify_typed},
     },
-    js_value::{JsValue, js_pretty},
 };
 pub const CONTEXT: &str = "Failed to fetch schema";
-pub async fn fetch(transport: &GraphQlTransport) -> Result<JsValue, AppError> {
+pub async fn fetch(transport: &GraphQlTransport) -> Result<serde_json::Value, AppError> {
     let request: GraphQlRequest<()> = GraphQlRequest {
         query: QUERY.to_owned(),
         variables: None,
         operation_name: Some("IntrospectionQuery".into()),
     };
     let response = transport.send_request(&request).await?;
-    // SDK JSON is decoded before its execution result is handled. Preserve its
-    // malformed-error stage, but classify source-valid unsupported codec input
-    // using the same whole-text RawValue boundary as the dynamic API command.
-    if crate::graphql::source_response::has_json_mime(&response.headers) {
-        let text = String::from_utf8_lossy(&response.body);
-        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-        let _ = crate::commands::api::decode(text, true)?;
-    }
     if let Some(error) =
         bulk_error::observe_source_error(&response, &request).map_err(|e| e.into_error())?
     {
@@ -35,9 +26,11 @@ pub async fn fetch(transport: &GraphQlTransport) -> Result<JsValue, AppError> {
     }
     classify_typed(response).map_err(AppError::from)
 }
-pub fn content(value: &JsValue, json: bool) -> Result<String, AppError> {
+pub fn content(value: &serde_json::Value, json: bool) -> Result<String, AppError> {
     if json {
-        Ok(js_pretty(value))
+        serde_json::to_string_pretty(value).map_err(|error| {
+            AppError::new(AppErrorKind::Invariant, "could not serialize schema").with_source(error)
+        })
     } else {
         Model::parse(value)?.print()
     }

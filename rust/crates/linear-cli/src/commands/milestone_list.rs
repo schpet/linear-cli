@@ -5,7 +5,6 @@ use std::future::Future;
 
 use cynic::QueryBuilder;
 use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::commands::display::{display_width, pad, truncate_js};
 use crate::commands::table::underlined_header;
@@ -14,11 +13,11 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
 };
+use crate::graphql::operations::number::Float;
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::platform::collation;
 
 /// The source's single `handleError` prefix for every action failure.
@@ -156,7 +155,7 @@ struct JsonMilestone<'a> {
     id: &'a cynic::Id,
     name: &'a str,
     target_date: &'a Option<TimelessDate>,
-    sort_order: Box<RawValue>,
+    sort_order: &'a Float,
     project: JsonProject<'a>,
 }
 
@@ -175,8 +174,7 @@ fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u
                 id: &milestone.id,
                 name: &milestone.name,
                 target_date: &milestone.target_date,
-                sort_order: finite_js_number(milestone.sort_order)
-                    .map_err(|error| error.with_context(CONTEXT))?,
+                sort_order: &milestone.sort_order,
                 project: JsonProject {
                     id: &milestone.project.id,
                     name: &milestone.project.name,

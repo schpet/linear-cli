@@ -4,7 +4,6 @@
 use crate::{
     error::{AppError, AppErrorKind},
     graphql::schema_defaults,
-    js_value::{JsValue, js_stringify},
 };
 use serde::Deserialize;
 use std::{cmp::Ordering, collections::BTreeMap};
@@ -181,8 +180,8 @@ fn sorted_dedup<T>(values: &[T], get: impl Fn(&T) -> &str) -> Vec<&T> {
     v
 }
 impl Model {
-    pub fn parse(value: &JsValue) -> Result<Self, AppError> {
-        let data: Introspection = serde_json::from_str(&js_stringify(value)).map_err(|e| {
+    pub fn parse(value: &serde_json::Value) -> Result<Self, AppError> {
+        let data = Introspection::deserialize(value).map_err(|e| {
             shape(format!("Invalid or incomplete introspection result: {e}")).with_source(e)
         })?;
         let mut types = BTreeMap::new();

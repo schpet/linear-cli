@@ -225,7 +225,7 @@ fn body(issue: &Issue) -> Result<String, AppError> {
         format!("**State:** {}", issue.state.name),
         format!(
             "**Priority:** {}",
-            super::issue_read::priority(issue.priority)?
+            super::issue_read::priority(issue.priority)
         ),
         format!(
             "**Assignee:** {}",
@@ -246,11 +246,10 @@ fn body(issue: &Issue) -> Result<String, AppError> {
         let (short, _) = super::issue_read::cycle_short(
             Some(c),
             issue.team.active_cycle.as_ref().map(|c| c.number),
-        )?;
-        let number = crate::json_number::finite_js_number(c.number)?;
+        );
         let label = format!(
             "#{}{}",
-            number.get(),
+            c.number,
             c.name.as_ref().map(|n| format!(" {n}")).unwrap_or_default()
         );
         parts.push(format!(

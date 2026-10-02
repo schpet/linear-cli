@@ -1,23 +1,10 @@
 //! Typed selections for issue mine/query/view.
 use crate::graphql::{
+    operations::number::{Float, WholeNumber},
     scalars::{DateTime, DateTimeOrDuration, JsonObject},
     schema,
 };
 use serde::Serialize;
-fn js_float<S: serde::Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
-    crate::json_number::finite_js_number(*v)
-        .map_err(serde::ser::Error::custom)?
-        .serialize(s)
-}
-fn js_optional_float<S: serde::Serializer>(v: &Option<f64>, s: S) -> Result<S::Ok, S::Error> {
-    match v {
-        Some(v) => js_float(v, s),
-        None => s.serialize_none(),
-    }
-}
-fn js_object<S: serde::Serializer>(v: &JsonObject, s: S) -> Result<S::Ok, S::Error> {
-    crate::graphql::bulk_error::JsValue(&serde_json::Value::Object(v.0.clone())).serialize(s)
-}
 #[derive(cynic::InputObject, Clone, Debug, Default)]
 #[cynic(schema = "linear", graphql_type = "IssueFilter")]
 pub struct IssueFilter {
@@ -228,16 +215,14 @@ pub struct GetIssuesForStateIssuesNodesState {
     #[cynic(rename = "type")]
     #[serde(rename = "type")]
     pub r#type: String,
-    #[serde(serialize_with = "js_float")]
-    pub position: f64,
+    pub position: Float,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssuesForStateIssuesNodesCycle {
     pub id: cynic::Id,
-    #[serde(serialize_with = "js_float")]
-    pub number: f64,
+    pub number: WholeNumber,
     pub name: Option<String>,
     pub is_active: bool,
     pub is_next: bool,
@@ -249,8 +234,7 @@ pub struct GetIssuesForStateIssuesNodesCycle {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssuesForStateIssuesNodesTeamActiveCycle {
-    #[serde(serialize_with = "js_float")]
-    pub number: f64,
+    pub number: WholeNumber,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Team")]
@@ -314,10 +298,8 @@ pub struct GetIssuesForStateIssuesNodes {
     pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
-    #[serde(serialize_with = "js_float")]
-    pub priority: f64,
-    #[serde(serialize_with = "js_optional_float")]
-    pub estimate: Option<f64>,
+    pub priority: WholeNumber,
+    pub estimate: Option<Float>,
     pub assignee: Option<GetIssuesForStateIssuesNodesAssignee>,
     pub state: GetIssuesForStateIssuesNodesState,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
@@ -406,11 +388,9 @@ pub struct GetIssuesForQueryIssuesNodes {
     pub identifier: String,
     pub title: String,
     pub url: String,
-    #[serde(serialize_with = "js_float")]
-    pub priority: f64,
+    pub priority: WholeNumber,
     pub priority_label: String,
-    #[serde(serialize_with = "js_optional_float")]
-    pub estimate: Option<f64>,
+    pub estimate: Option<Float>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub state: GetIssuesForStateIssuesNodesState,
@@ -476,11 +456,9 @@ pub struct SearchIssuesSearchIssuesNodes {
     pub identifier: String,
     pub title: String,
     pub url: String,
-    #[serde(serialize_with = "js_float")]
-    pub priority: f64,
+    pub priority: WholeNumber,
     pub priority_label: String,
-    #[serde(serialize_with = "js_optional_float")]
-    pub estimate: Option<f64>,
+    pub estimate: Option<Float>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub state: SearchIssuesSearchIssuesNodesState,
@@ -492,7 +470,6 @@ pub struct SearchIssuesSearchIssuesNodes {
     pub labels: GetIssuesForStateIssuesNodesLabels,
     #[arguments(first : 100)]
     pub inverse_relations: GetIssuesForStateIssuesNodesInverseRelations,
-    #[serde(serialize_with = "js_object")]
     pub metadata: JsonObject,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
@@ -501,8 +478,7 @@ pub struct SearchIssuesSearchIssuesNodes {
 pub struct SearchIssuesSearchIssues {
     pub nodes: Vec<SearchIssuesSearchIssuesNodes>,
     pub page_info: GetIssuesForStateIssuesPageInfo,
-    #[serde(serialize_with = "js_float")]
-    pub total_count: f64,
+    pub total_count: WholeNumber,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(
@@ -618,7 +594,6 @@ pub struct GetIssueDetailsIssueAttachmentsNodes {
     pub url: String,
     pub subtitle: Option<String>,
     pub source_type: Option<String>,
-    #[serde(serialize_with = "js_object")]
     pub metadata: JsonObject,
     pub created_at: DateTime,
 }
@@ -656,8 +631,7 @@ pub struct GetIssueDetailsIssue {
     pub branch_name: String,
     pub state: GetIssueDetailsIssueState,
     pub assignee: Option<GetIssueDetailsIssueAssignee>,
-    #[serde(serialize_with = "js_float")]
-    pub priority: f64,
+    pub priority: WholeNumber,
     pub project: Option<GetIssueDetailsIssueProject>,
     pub project_milestone: Option<GetIssueDetailsIssueProjectMilestone>,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
@@ -733,8 +707,7 @@ pub struct GetIssueDetailsWithCommentsIssue {
     pub branch_name: String,
     pub state: GetIssueDetailsIssueState,
     pub assignee: Option<GetIssueDetailsIssueAssignee>,
-    #[serde(serialize_with = "js_float")]
-    pub priority: f64,
+    pub priority: WholeNumber,
     pub project: Option<GetIssueDetailsIssueProject>,
     pub project_milestone: Option<GetIssueDetailsIssueProjectMilestone>,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,

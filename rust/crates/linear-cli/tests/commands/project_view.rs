@@ -120,7 +120,7 @@ fn schema_invalid_float_fixtures_are_rejected() {
             );
         } else {
             assert!(
-                diagnostic.contains("invalid type: null, expected f64"),
+                diagnostic.contains("invalid type: null, expected a JSON number"),
                 "{id}: {diagnostic}"
             );
         }

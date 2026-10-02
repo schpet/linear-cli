@@ -635,21 +635,34 @@ fn issue_and_project_templates_share_scope_rules_with_exact_project_regression()
     );
 }
 #[test]
-fn fallback_object_own_keys_keep_last_duplicate_and_numeric_enumeration() {
+fn fallback_menu_dedupes_ids_in_order_and_declining_returns_none() {
     let named = |id: &str, name: &str| Named {
         id: id.into(),
         name: name.into(),
     };
+    let options = [named("10", "ten"), named("2", "two"), named("10", "TEN")];
     let mut ui = Prompt::default();
     assert_eq!(
-        create::select_option(
-            &mut ui,
-            "Project",
-            "missing",
-            &[named("10", "ten"), named("2", "two"), named("10", "TEN")]
-        )
-        .unwrap(),
+        create::select_option(&mut ui, "Project", "missing", &options).unwrap(),
+        Some("10".into())
+    );
+    let names: Vec<_> = ui.menus[0].1.iter().map(|o| o.name.as_str()).collect();
+    assert_eq!(names, ["ten", "two", "none of the above"]);
+    let mut ui = Prompt {
+        answers: VecDeque::from(["1".to_owned()]),
+        ..Default::default()
+    };
+    assert_eq!(
+        create::select_option(&mut ui, "Project", "missing", &options).unwrap(),
         Some("2".into())
+    );
+    let mut ui = Prompt {
+        answers: VecDeque::from(["2".to_owned()]),
+        ..Default::default()
+    };
+    assert_eq!(
+        create::select_option(&mut ui, "Project", "missing", &options).unwrap(),
+        None
     );
     let mut ui = Prompt::default();
     assert_eq!(
@@ -662,7 +675,7 @@ fn fallback_object_own_keys_keep_last_duplicate_and_numeric_enumeration() {
         .unwrap(),
         Some("a".into())
     );
-    assert!(ui.messages[0].contains("but new exists"));
+    assert!(ui.messages[0].contains("but old exists"));
 }
 
 #[test]

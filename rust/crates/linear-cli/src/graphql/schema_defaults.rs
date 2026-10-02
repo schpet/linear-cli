@@ -4,8 +4,8 @@
 use crate::{
     error::AppError,
     graphql::schema_introspection::{Kind, Model, TypeRef, name, print_string, shape},
-    js_value::{JsObject, JsValue, js_number},
 };
+use serde_json::{Map, Number, Value};
 use std::collections::BTreeSet;
 
 const MAX_DEFAULT_DEPTH: usize = 128;
@@ -348,17 +348,26 @@ pub fn parse(text: &str) -> Result<Literal, AppError> {
     }
     Ok(value)
 }
-fn untyped(value: &Literal, depth: usize) -> Result<Option<JsValue>, AppError> {
+/// An integer literal stays an integer; any other number must be a finite float.
+fn number(text: &str) -> Option<Value> {
+    text.parse::<i64>().map(Value::from).ok().or_else(|| {
+        text.parse::<f64>()
+            .ok()
+            .and_then(Number::from_f64)
+            .map(Value::Number)
+    })
+}
+fn untyped(value: &Literal, depth: usize) -> Result<Option<Value>, AppError> {
     check_depth(depth)?;
     Ok(match value {
-        Literal::Null => Some(JsValue::Null),
-        Literal::Bool(v) => Some(JsValue::Bool(*v)),
-        Literal::Int(v) | Literal::Float(v) => v.parse::<f64>().ok().map(JsValue::Number),
-        Literal::Enum(v) | Literal::String(v) => Some(JsValue::String(v.clone())),
+        Literal::Null => Some(Value::Null),
+        Literal::Bool(v) => Some(Value::Bool(*v)),
+        Literal::Int(v) | Literal::Float(v) => number(v),
+        Literal::Enum(v) | Literal::String(v) => Some(Value::String(v.clone())),
         Literal::Variable => None,
-        Literal::List(v) => Some(JsValue::Array(
+        Literal::List(v) => Some(Value::Array(
             v.iter()
-                .map(|v| Ok(untyped(v, depth + 1)?.unwrap_or(JsValue::Null)))
+                .map(|v| Ok(untyped(v, depth + 1)?.unwrap_or(Value::Null)))
                 .collect::<Result<_, AppError>>()?,
         )),
         Literal::Object(v) => {
@@ -368,7 +377,7 @@ fn untyped(value: &Literal, depth: usize) -> Result<Option<JsValue>, AppError> {
                     fields.push((key.clone(), value));
                 }
             }
-            Some(JsValue::Object(JsObject::from_created(fields)))
+            Some(Value::Object(fields.into_iter().collect::<Map<_, _>>()))
         }
     })
 }
@@ -378,7 +387,7 @@ fn coerce(
     literal: &Literal,
     depth: usize,
     defaults: &mut BTreeSet<(String, String)>,
-) -> Result<Option<JsValue>, AppError> {
+) -> Result<Option<Value>, AppError> {
     check_depth(depth)?;
     if matches!(literal, Literal::Variable) {
         return Ok(None);
@@ -390,7 +399,7 @@ fn coerce(
         return coerce(model, r.inner()?, literal, depth + 1, defaults);
     }
     if matches!(literal, Literal::Null) {
-        return Ok(Some(JsValue::Null));
+        return Ok(Some(Value::Null));
     }
     if r.kind == Kind::List {
         let inner = r.inner()?;
@@ -401,7 +410,7 @@ fn coerce(
         let mut values = Vec::new();
         for v in list {
             let value = if matches!(v, Literal::Variable) && inner.kind != Kind::NonNull {
-                Some(JsValue::Null)
+                Some(Value::Null)
             } else {
                 coerce(model, inner, &v, depth + 1, defaults)?
             };
@@ -410,7 +419,7 @@ fn coerce(
             };
             values.push(value);
         }
-        return Ok(Some(JsValue::Array(values)));
+        return Ok(Some(Value::Array(values)));
     }
     let t = model.named(r)?;
     if t.kind == Kind::InputObject {
@@ -466,27 +475,29 @@ fn coerce(
                 return Ok(None);
             }
         }
-        return Ok(Some(JsValue::Object(JsObject::from_created(values))));
+        return Ok(Some(Value::Object(
+            values.into_iter().collect::<Map<_, _>>(),
+        )));
     }
     let value = match t.name.as_str() {
         "Int" => match literal {
-            Literal::Int(v) => v.parse::<i32>().ok().map(|v| JsValue::Number(f64::from(v))),
+            Literal::Int(v) => v.parse::<i32>().ok().map(Value::from),
             _ => None,
         },
         "Float" => match literal {
-            Literal::Int(v) | Literal::Float(v) => v.parse::<f64>().ok().map(JsValue::Number),
+            Literal::Int(v) | Literal::Float(v) => number(v),
             _ => None,
         },
         "String" => match literal {
-            Literal::String(v) => Some(JsValue::String(v.clone())),
+            Literal::String(v) => Some(Value::String(v.clone())),
             _ => None,
         },
         "Boolean" => match literal {
-            Literal::Bool(v) => Some(JsValue::Bool(*v)),
+            Literal::Bool(v) => Some(Value::Bool(*v)),
             _ => None,
         },
         "ID" => match literal {
-            Literal::String(v) | Literal::Int(v) => Some(JsValue::String(v.clone())),
+            Literal::String(v) | Literal::Int(v) => Some(Value::String(v.clone())),
             _ => None,
         },
         _ if t.kind == Kind::Enum => match literal {
@@ -497,7 +508,7 @@ fn coerce(
                     .iter()
                     .any(|e| e.name == *v) =>
             {
-                Some(JsValue::String(v.clone()))
+                Some(Value::String(v.clone()))
             }
             _ => None,
         },
@@ -514,22 +525,22 @@ fn integer(text: &str) -> bool {
 fn from_value(
     model: &Model,
     r: &TypeRef,
-    value: &JsValue,
+    value: &Value,
     depth: usize,
 ) -> Result<Option<String>, AppError> {
     check_depth(depth)?;
     if r.kind == Kind::NonNull {
-        if value == &JsValue::Null {
+        if value == &Value::Null {
             return Ok(None);
         }
         return from_value(model, r.inner()?, value, depth + 1);
     }
-    if value == &JsValue::Null {
+    if value == &Value::Null {
         return Ok(Some("null".into()));
     }
     if r.kind == Kind::List {
         let inner = r.inner()?;
-        if let JsValue::Array(values) = value {
+        if let Value::Array(values) = value {
             let mut out = Vec::new();
             for v in values {
                 if let Some(v) = from_value(model, inner, v, depth + 1)? {
@@ -542,7 +553,7 @@ fn from_value(
     }
     let t = model.named(r)?;
     if t.kind == Kind::InputObject {
-        let JsValue::Object(object) = value else {
+        let Value::Object(object) = value else {
             return Ok(None);
         };
         let mut fields = Vec::new();
@@ -560,28 +571,17 @@ fn from_value(
         return Ok(Some(format!("{{{}}}", fields.join(", "))));
     }
     match value {
-        JsValue::Null => Ok(Some("null".into())),
-        JsValue::Bool(v) => Ok(Some(v.to_string())),
-        JsValue::Number(v) => {
-            if !v.is_finite() && t.name == "Float" {
-                return Err(shape(format!(
-                    "Float cannot represent non numeric value: {}",
-                    js_number(*v)
-                )));
-            }
-            if !v.is_finite() {
-                return Err(shape("Cannot convert value to AST."));
-            }
-            Ok(Some(js_number(*v)))
-        }
-        JsValue::String(v) => Ok(Some(
+        Value::Null => Ok(Some("null".into())),
+        Value::Bool(v) => Ok(Some(v.to_string())),
+        Value::Number(v) => Ok(Some(v.to_string())),
+        Value::String(v) => Ok(Some(
             if t.kind == Kind::Enum || (t.name == "ID" && integer(v)) {
                 v.clone()
             } else {
                 print_string(v)
             },
         )),
-        JsValue::Array(_) | JsValue::Object(_) => Err(shape("Cannot convert value to AST.")),
+        Value::Array(_) | Value::Object(_) => Err(shape("Cannot convert value to AST.")),
     }
 }
 pub fn render(model: &Model, r: &TypeRef, value: &Literal) -> Result<Option<String>, AppError> {

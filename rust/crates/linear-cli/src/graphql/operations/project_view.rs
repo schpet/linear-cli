@@ -2,15 +2,11 @@
 
 use serde::Serialize;
 
+use crate::graphql::operations::number::Float;
 use crate::graphql::operations::projects::{ProjectFilter, ProjectUpdateHealthType};
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::schema;
-
-fn js_float<S: serde::Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
-    let raw = crate::json_number::finite_js_number(*value).map_err(serde::ser::Error::custom)?;
-    raw.serialize(serializer)
-}
 
 #[derive(cynic::QueryVariables, Clone, Debug, Eq, PartialEq)]
 pub struct ProjectReferenceVariables {
@@ -119,10 +115,8 @@ pub struct ProjectDetails {
     pub slug_id: String,
     pub icon: Option<String>,
     pub color: String,
-    #[serde(serialize_with = "js_float")]
-    pub progress: f64,
-    #[serde(serialize_with = "js_float")]
-    pub scope: f64,
+    pub progress: Float,
+    pub scope: Float,
     pub url: String,
     pub priority: i32,
     pub health: Option<ProjectUpdateHealthType>,
@@ -198,8 +192,7 @@ pub struct ViewStatus {
     #[cynic(rename = "type")]
     #[serde(rename = "type")]
     pub status_type: crate::graphql::operations::projects::ProjectStatusType,
-    #[serde(serialize_with = "js_float")]
-    pub position: f64,
+    pub position: Float,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -276,11 +269,9 @@ pub struct ViewMilestone {
     pub name: String,
     pub description: Option<String>,
     pub target_date: Option<TimelessDate>,
-    #[serde(serialize_with = "js_float")]
-    pub progress: f64,
+    pub progress: Float,
     pub status: ProjectMilestoneStatus,
-    #[serde(serialize_with = "js_float")]
-    pub sort_order: f64,
+    pub sort_order: Float,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear", graphql_type = "EntityExternalLink")]
@@ -289,8 +280,7 @@ pub struct ViewExternalLink {
     pub id: cynic::Id,
     pub label: String,
     pub url: String,
-    #[serde(serialize_with = "js_float")]
-    pub sort_order: f64,
+    pub sort_order: Float,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear", graphql_type = "Document")]
@@ -299,8 +289,7 @@ pub struct ViewDocument {
     pub id: cynic::Id,
     pub title: String,
     pub url: String,
-    #[serde(serialize_with = "js_float")]
-    pub sort_order: f64,
+    pub sort_order: Float,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ProjectAttachment")]

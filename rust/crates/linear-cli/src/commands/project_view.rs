@@ -16,7 +16,6 @@ use crate::graphql::operations::project_view::{
 };
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::platform::collation;
 use crate::platform::selector::SelectOption;
 
@@ -172,9 +171,6 @@ pub fn json(project: &ProjectDetails) -> Result<Vec<u8>, AppError> {
     Ok(bytes)
 }
 
-fn js_number(value: f64) -> Result<String, AppError> {
-    Ok(finite_js_number(value)?.get().to_owned())
-}
 fn ratio(value: f64) -> String {
     format!("{}%", (value * 100.0 + 0.5).floor())
 }
@@ -226,27 +222,10 @@ fn joined(values: Vec<String>, info: &PageInfo) -> String {
 fn trim_end_js(value: &str) -> &str {
     value.trim_end_matches(|c: char| c.is_whitespace() || c == '\u{feff}')
 }
-fn sorted_by<'a, T>(
-    items: &'a [T],
-    field: &str,
-    name: &str,
-    key: impl Fn(&T) -> f64,
-) -> Result<Vec<&'a T>, AppError> {
-    if items.iter().any(|item| !key(item).is_finite()) {
-        return Err(protocol_error(
-            format!("Linear returned a non-numeric {field} for project {name}."),
-            "Retry, or report this if it keeps happening.",
-        ));
-    }
+fn sorted_by<T>(items: &[T], key: impl Fn(&T) -> f64) -> Vec<&T> {
     let mut ordered: Vec<_> = items.iter().collect();
-    ordered.sort_by(|a, b| {
-        let left = key(a);
-        let right = key(b);
-        let left = if left == 0.0 { 0.0 } else { left };
-        let right = if right == 0.0 { 0.0 } else { right };
-        left.total_cmp(&right)
-    });
-    Ok(ordered)
+    ordered.sort_by(|a, b| key(a).total_cmp(&key(b)));
+    ordered
 }
 fn relation_label(own: &str, other: &str) -> &'static str {
     match (own, other) {
@@ -371,7 +350,7 @@ pub fn markdown<Tz: TimeZone>(
             )
         ));
     }
-    meta.push(format!("**Progress:** {}", ratio(project.progress)));
+    meta.push(format!("**Progress:** {}", ratio(project.progress.get())));
     out.push_str(&format!("\n\n{}", meta.join(" | ")));
     if !project.description.is_empty() {
         out.push_str(&format!("\n\n{}", project.description));
@@ -383,15 +362,12 @@ pub fn markdown<Tz: TimeZone>(
     }
     if !project.project_milestones.nodes.is_empty() {
         out.push_str("\n\n## Milestones\n\n");
-        for milestone in sorted_by(
-            &project.project_milestones.nodes,
-            "milestone sortOrder",
-            &project.name,
-            |item| item.sort_order,
-        )? {
+        for milestone in sorted_by(&project.project_milestones.nodes, |item| {
+            item.sort_order.get()
+        }) {
             let mut parts = vec![
                 milestone_status(&milestone.status).to_owned(),
-                percent(milestone.progress),
+                percent(milestone.progress.get()),
             ];
             if let Some(date) = &milestone.target_date {
                 parts.push(format!("target {}", date.0));
@@ -412,12 +388,7 @@ pub fn markdown<Tz: TimeZone>(
     }
     if !project.external_links.nodes.is_empty() {
         out.push_str("\n\n## Resources\n\n");
-        for link in sorted_by(
-            &project.external_links.nodes,
-            "resource sortOrder",
-            &project.name,
-            |item| item.sort_order,
-        )? {
+        for link in sorted_by(&project.external_links.nodes, |item| item.sort_order.get()) {
             out.push_str(&format!("- **{}**: {}\n", link.label, link.url));
         }
         out.push_str(note(&project.external_links.page_info));
@@ -425,12 +396,7 @@ pub fn markdown<Tz: TimeZone>(
     }
     if !project.documents.nodes.is_empty() {
         out.push_str("\n\n## Documents\n\n");
-        for doc in sorted_by(
-            &project.documents.nodes,
-            "document sortOrder",
-            &project.name,
-            |item| item.sort_order,
-        )? {
+        for doc in sorted_by(&project.documents.nodes, |item| item.sort_order.get()) {
             out.push_str(&format!("- **{}**: {}\n", doc.title, doc.url));
         }
         out.push_str(note(&project.documents.page_info));
@@ -540,8 +506,8 @@ pub fn markdown<Tz: TimeZone>(
             )),
         );
     }
-    if project.scope > 0.0 {
-        push("Scope", Some(js_number(project.scope)?));
+    if project.scope.get() > 0.0 {
+        push("Scope", Some(project.scope.to_string()));
     }
     let project_date = |date: &Option<crate::graphql::scalars::TimelessDate>,
                         resolution: &Option<DateResolutionType>| {

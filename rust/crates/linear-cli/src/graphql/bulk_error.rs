@@ -41,14 +41,7 @@ impl Serialize for JsValue<'_> {
             Value::Null => serializer.serialize_none(),
             Value::Bool(value) => serializer.serialize_bool(*value),
             Value::String(value) => serializer.serialize_str(value),
-            Value::Number(value) => {
-                let number = value.as_f64().ok_or_else(|| {
-                    S::Error::custom("JSON metadata number is not representable as binary64")
-                })?;
-                crate::json_number::finite_js_number(number)
-                    .map_err(S::Error::custom)?
-                    .serialize(serializer)
-            }
+            Value::Number(value) => value.serialize(serializer),
             Value::Array(values) => {
                 let mut sequence = serializer.serialize_seq(Some(values.len()))?;
                 for value in values {

@@ -96,7 +96,7 @@ pub fn choices(
             Ok(SelectOption {
                 label: format!(
                     "{} {}: {}",
-                    issue_read::priority(issue.priority)?,
+                    issue_read::priority(issue.priority),
                     issue.identifier,
                     issue.title
                 ),
@@ -342,7 +342,7 @@ pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, AppError
         if state.state_type == "started"
             && selected
                 .as_ref()
-                .is_none_or(|previous| state.position < previous.position)
+                .is_none_or(|previous| state.position.get() < previous.position.get())
         {
             selected = Some(state);
         }

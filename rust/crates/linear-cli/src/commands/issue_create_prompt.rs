@@ -4,6 +4,7 @@ use super::{
         self as shared, AssignSelf, Backend, CreateSettings, Label, Named, Parent, State, Ui,
     },
 };
+use crate::graphql::operations::number::WholeNumber;
 use crate::platform::network_owner;
 use crate::{error::AppError, graphql::edit::Edit};
 fn option(id: &str, name: &str) -> Named {
@@ -103,7 +104,7 @@ async fn additional<B: Backend, U: Ui>(
             }
             "priority" => {
                 let values = [
-                    (0_i32, "No priority"),
+                    (0_u32, "No priority"),
                     (1, "Urgent"),
                     (2, "High"),
                     (3, "Medium"),
@@ -112,10 +113,10 @@ async fn additional<B: Backend, U: Ui>(
                 let options = values
                     .into_iter()
                     .map(|(value, label)| {
-                        super::issue_read::priority(f64::from(value))
-                            .map(|glyph| option(&value.to_string(), &format!("{glyph} {label}")))
+                        let glyph = super::issue_read::priority(WholeNumber(value));
+                        option(&value.to_string(), &format!("{glyph} {label}"))
                     })
-                    .collect::<Result<Vec<_>, AppError>>()?;
+                    .collect::<Vec<_>>();
                 let value =
                     ui.choose("What priority should this issue have?", &options, 0, false)?;
                 let priority = value.parse::<i32>().map_err(|error| {

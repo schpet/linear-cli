@@ -67,7 +67,7 @@ pub struct Project {
     pub slug_id: String,
     pub icon: Option<String>,
     pub color: String,
-    pub sort_order: f64,
+    pub sort_order: crate::graphql::operations::number::Float,
     pub status: ProjectStatus,
     pub lead: Option<ProjectLead>,
     pub priority: i32,

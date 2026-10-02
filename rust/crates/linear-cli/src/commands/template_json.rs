@@ -1,14 +1,13 @@
 //! Shared GraphQL template JSON projection, preserving C021 field and number bytes.
 
 use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::error::{AppError, AppErrorKind};
+use crate::graphql::operations::number::Float;
 use crate::graphql::operations::templates::{
     InheritedTemplate, Template, TemplateCreator, TemplateTeam,
 };
 use crate::graphql::scalars::{DateTime, Json};
-use crate::json_number::finite_js_number;
 
 /// The source's GraphQL field names, nesting and nulls; `sortOrder` uses the
 /// JavaScript number spelling.
@@ -24,7 +23,7 @@ struct JsonTemplate<'a> {
     color: Option<&'a str>,
     has_form_fields: bool,
     last_applied_at: Option<&'a DateTime>,
-    sort_order: Box<RawValue>,
+    sort_order: &'a Float,
     created_at: &'a DateTime,
     updated_at: &'a DateTime,
     team: Option<&'a TemplateTeam>,
@@ -66,7 +65,7 @@ fn project(template: &Template) -> Result<JsonTemplate<'_>, AppError> {
         color: template.color.as_deref(),
         has_form_fields: template.has_form_fields,
         last_applied_at: template.last_applied_at.as_ref(),
-        sort_order: finite_js_number(template.sort_order)?,
+        sort_order: &template.sort_order,
         created_at: &template.created_at,
         updated_at: &template.updated_at,
         team: template.team.as_ref(),

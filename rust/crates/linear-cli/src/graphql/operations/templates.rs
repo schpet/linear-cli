@@ -4,9 +4,6 @@
 //!
 //! `GetTemplates` sends no variables; `GetTemplate` sends the reference as
 //! typed, case preserved.
-//! `sortOrder` is a `Float!`, so [`Template`] deliberately does not implement
-//! `Serialize`: the shared JSON module formats it so integral values print
-//! without a fractional part.
 
 use serde::Serialize;
 
@@ -50,7 +47,7 @@ pub struct Template {
     pub color: Option<String>,
     pub has_form_fields: bool,
     pub last_applied_at: Option<DateTime>,
-    pub sort_order: f64,
+    pub sort_order: crate::graphql::operations::number::Float,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub team: Option<TemplateTeam>,

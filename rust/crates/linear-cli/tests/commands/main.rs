@@ -33,7 +33,6 @@ mod team_create;
 mod team_list;
 mod team_members;
 mod team_states;
-mod template_data;
 mod template_json;
 mod template_list;
 mod template_view;

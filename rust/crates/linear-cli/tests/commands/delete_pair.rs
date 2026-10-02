@@ -138,15 +138,15 @@ fn raw_bulk_error_body_matches_source_fetch_utf8_replacement_and_bom_removal() {
     }
 }
 #[test]
-fn observed_error_metadata_uses_js_numbers_keys_and_keeps_raw_body() {
+fn observed_error_metadata_keeps_numbers_keys_and_raw_body() {
     let body = r#"{"errors":[{"message":"bad","extensions":{"large":9007199254740993,"zero":-0,"10":"ten","2":"two","after":true}}],"extensions":{"x":1.0}}"#;
     let text = message(200, "APPLICATION/JSON", body)
         .ok()
         .unwrap()
         .unwrap();
-    assert!(text.contains("\"large\":9007199254740992,\"zero\":0"));
+    assert!(text.contains("\"large\":9007199254740993,"));
     assert!(text.find("\"2\":\"two\"").unwrap() < text.find("\"10\":\"ten\"").unwrap());
-    assert!(text.contains("\"extensions\":{\"x\":1}"));
+    assert!(text.contains("\"extensions\":{\"x\":1.0}"));
     let metadata: Value = serde_json::from_str(text.split_once(": ").unwrap().1).unwrap();
     assert_eq!(metadata["response"]["body"], body);
     assert_eq!(metadata["response"]["headers"], json!({}));

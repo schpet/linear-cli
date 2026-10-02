@@ -70,12 +70,7 @@ pub fn attachment(doc: &ListedDocument) -> String {
             .as_deref()
             .filter(|name| !name.is_empty())
             .map_or(String::new(), |name| format!(" — {name}"));
-        let mut number = ryu_js::Buffer::new();
-        return format!(
-            "Cycle: {} #{}{name}",
-            cycle.team.key,
-            number.format(cycle.number)
-        );
+        return format!("Cycle: {} #{}{name}", cycle.team.key, cycle.number);
     }
     if let Some(release) = &doc.release {
         let version = release

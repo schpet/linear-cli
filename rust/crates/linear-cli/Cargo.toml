@@ -22,8 +22,7 @@ pulldown-cmark = { version = "=0.13.4", default-features = false }
 gethostname = "=1.1.0"
 cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order", "float_roundtrip", "raw_value"] }
-ryu-js = "=1.0.3"
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 dotenvy = "0.15"
 toml = { version = "=1.0.3", default-features = false, features = ["parse", "std", "serde", "preserve_order"] }
 reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "gzip", "brotli", "deflate"] }

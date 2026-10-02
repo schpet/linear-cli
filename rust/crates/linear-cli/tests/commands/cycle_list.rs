@@ -6,7 +6,6 @@ use std::rc::Rc;
 use linear_cli::commands::cycle_list::{render_text, run_with};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::cycles::{Cycle, GetTeamCycles};
-use linear_cli::json_number::finite_js_number;
 use serde_json::{Value, json};
 
 fn cycle(
@@ -76,32 +75,14 @@ async fn empty_connection_has_distinct_text_and_json_outputs() {
     );
 }
 
-#[test]
-fn js_numbers_match_text_and_json_examples() {
-    for (number, expected) in [
-        (12.5, "12.5"),
-        (12.0, "12"),
-        (1e21, "1e+21"),
-        (1.2e20, "120000000000000000000"),
-        (1e-7, "1e-7"),
-        (-0.0, "0"),
-    ] {
-        assert_eq!(
-            finite_js_number(number).expect("finite number").get(),
-            expected,
-            "{number:?}"
-        );
-    }
-}
-
 #[tokio::test]
-async fn json_collects_two_pages_sorts_stably_and_preserves_float_spellings() {
+async fn json_collects_two_pages_sorts_stably_with_integer_numbers() {
     let pages = Rc::new(RefCell::new(VecDeque::from([
         page(
             vec![
                 cycle(
                     "past",
-                    json!(12.0),
+                    json!(12),
                     json!("Past"),
                     "2026-01-01T00:00:00.000Z",
                     (false, false, true),
@@ -109,7 +90,7 @@ async fn json_collects_two_pages_sorts_stably_and_preserves_float_spellings() {
                 ),
                 cycle(
                     "fraction",
-                    json!(12.5),
+                    json!(13),
                     json!("Fraction"),
                     "2026-03-01T00:00:00.000Z",
                     (false, false, false),
@@ -122,7 +103,7 @@ async fn json_collects_two_pages_sorts_stably_and_preserves_float_spellings() {
         page(
             vec![cycle(
                 "big",
-                json!(1e21),
+                json!(14),
                 json!("Big"),
                 "2026-03-01T00:00:00.000Z",
                 (false, false, false),
@@ -154,8 +135,8 @@ async fn json_collects_two_pages_sorts_stably_and_preserves_float_spellings() {
     let text = String::from_utf8(output).expect("JSON UTF-8");
     assert!(text.starts_with("{\n  \"nodes\": [\n"));
     assert!(text.ends_with("\n"));
-    assert!(text.contains("\"number\": 12.5"));
-    assert!(text.contains("\"number\": 1e+21"));
+    assert!(text.contains("\"number\": 13,"));
+    assert!(text.contains("\"number\": 14,"));
     assert!(text.contains("\"number\": 12,"));
     let result: Value = serde_json::from_str(&text).expect("JSON shape");
     assert_eq!(result["nodes"][0]["id"], "fraction");

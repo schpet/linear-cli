@@ -112,7 +112,7 @@ fn source_client_error_envelope_and_plain_nonjson_class_are_distinct() {
     assert!(create::client_error_branch(&response));
 }
 #[test]
-fn raw_observer_preserves_server_metadata_js_numbers_and_body() {
+fn raw_observer_preserves_server_metadata_numbers_and_body() {
     let request =
         GraphQlRequest::with_variables(AddProjectToInitiativeForCreate::build(LinkVariables {
             input: InitiativeLinkInput {
@@ -136,10 +136,9 @@ fn raw_observer_preserves_server_metadata_js_numbers_and_body() {
         .unwrap();
     assert!(message.starts_with("line\nbreak: {\"response\":{\"data\":null,\"errors\":"));
     assert!(message.contains("\"2\":2,\"10\":1"));
-    assert!(message.contains("\"large\":9007199254740992"));
-    assert!(message.contains("\"negativeZero\":0"));
+    assert!(message.contains("\"large\":9007199254740993"));
     assert!(message.contains("\"float\":1e-7"));
-    assert!(message.contains("\"x\":0.000001"));
+    assert!(message.contains("\"x\":1e-6"));
     assert!(message.contains("\"headers\":{},\"body\":"));
     assert!(message.contains("\"request\":{\"query\":"));
     assert!(

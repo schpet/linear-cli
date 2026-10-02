@@ -53,7 +53,7 @@ pub struct CycleConnection {
 #[serde(rename_all = "camelCase")]
 pub struct Cycle {
     pub id: cynic::Id,
-    pub number: f64,
+    pub number: crate::graphql::operations::number::WholeNumber,
     pub name: Option<String>,
     pub starts_at: DateTime,
     pub ends_at: DateTime,

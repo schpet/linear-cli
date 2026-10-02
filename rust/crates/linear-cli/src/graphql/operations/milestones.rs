@@ -55,7 +55,7 @@ pub struct ProjectMilestone {
     pub id: cynic::Id,
     pub name: String,
     pub target_date: Option<TimelessDate>,
-    pub sort_order: f64,
+    pub sort_order: crate::graphql::operations::number::Float,
     pub project: MilestoneProjectRef,
 }
 

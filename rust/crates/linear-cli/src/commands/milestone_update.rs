@@ -9,7 +9,6 @@ use crate::graphql::operations::milestone_update::{
 };
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 
 pub const CONTEXT: &str = "Failed to update milestone";
 
@@ -108,8 +107,7 @@ pub fn render(milestone: &UpdatedMilestone) -> Result<Vec<u8>, AppError> {
     }
     output.push_str(&format!(
         "  Sort Order: {}\n  Project: {}\n",
-        finite_js_number(milestone.sort_order)?.get(),
-        milestone.project.name
+        milestone.sort_order, milestone.project.name
     ));
     Ok(output.into_bytes())
 }

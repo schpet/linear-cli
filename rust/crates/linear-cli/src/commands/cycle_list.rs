@@ -2,17 +2,16 @@
 
 use cynic::QueryBuilder;
 use serde::Serialize;
-use serde_json::value::RawValue;
 use std::future::Future;
 
 use crate::commands::display::{display_width, pad, truncate_js};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycles::{self, GetTeamCycles, GetTeamCyclesVariables};
+use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::platform::collation;
 
 pub const CONTEXT: &str = "Failed to list cycles";
@@ -21,7 +20,7 @@ pub const CONTEXT: &str = "Failed to list cycles";
 #[serde(rename_all = "camelCase")]
 struct JsonCycle<'a> {
     id: &'a cynic::Id,
-    number: Box<RawValue>,
+    number: WholeNumber,
     name: &'a Option<String>,
     starts_at: &'a crate::graphql::scalars::DateTime,
     ends_at: &'a crate::graphql::scalars::DateTime,
@@ -44,8 +43,7 @@ fn render_json(nodes: &[cycles::Cycle], page_info: &PageInfo) -> Result<Vec<u8>,
         .map(|cycle| {
             Ok(JsonCycle {
                 id: &cycle.id,
-                number: finite_js_number(cycle.number)
-                    .map_err(|error| error.with_context(CONTEXT))?,
+                number: cycle.number,
                 name: &cycle.name,
                 starts_at: &cycle.starts_at,
                 ends_at: &cycle.ends_at,
@@ -176,11 +174,7 @@ pub fn render_text(
     if nodes.is_empty() {
         return Ok("No cycles found for this team.\n".to_owned());
     }
-    let numbers: Vec<String> = nodes
-        .iter()
-        .map(|cycle| finite_js_number(cycle.number).map(|number| number.get().to_owned()))
-        .collect::<Result<_, _>>()
-        .map_err(|error: AppError| error.with_context(CONTEXT))?;
+    let numbers: Vec<String> = nodes.iter().map(|cycle| cycle.number.to_string()).collect();
     let names: Vec<_> = nodes
         .iter()
         .zip(&numbers)

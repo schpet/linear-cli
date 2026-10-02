@@ -41,5 +41,5 @@ pub struct WorkflowState {
     #[cynic(rename = "type")]
     #[serde(rename = "type")]
     pub state_type: String,
-    pub position: f64,
+    pub position: crate::graphql::operations::number::Float,
 }

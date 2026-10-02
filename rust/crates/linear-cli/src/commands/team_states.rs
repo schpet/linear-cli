@@ -4,16 +4,15 @@ use std::future::Future;
 
 use cynic::QueryBuilder;
 use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::commands::display::{display_width, pad};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::number::Float;
 use crate::graphql::operations::workflow_states::{
     GetWorkflowStates, GetWorkflowStatesVariables, WorkflowState,
 };
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::workflow_states;
 
 pub const CONTEXT: &str = "Failed to fetch workflow states";
@@ -67,19 +66,18 @@ struct JsonState<'a> {
     name: &'a str,
     #[serde(rename = "type")]
     state_type: &'a str,
-    position: Box<RawValue>,
+    position: &'a Float,
 }
 
 fn render_json(states: &[WorkflowState]) -> Result<Vec<u8>, AppError> {
     let nodes = states
         .iter()
         .map(|state| {
-            let position = finite_js_number(state.position)?;
             Ok(JsonState {
                 id: state.id.inner(),
                 name: &state.name,
                 state_type: &state.state_type,
-                position,
+                position: &state.position,
             })
         })
         .collect::<Result<Vec<_>, AppError>>()?;

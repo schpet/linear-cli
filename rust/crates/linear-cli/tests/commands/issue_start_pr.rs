@@ -209,7 +209,9 @@ fn state_chooses_lowest_started_with_stable_ties_and_raw_sdk_not_preferred() {
         id: cynic::Id::new(id),
         name: id.to_owned(),
         state_type: kind.to_owned(),
-        position,
+        position: linear_cli::graphql::operations::number::Float(
+            serde_json::Number::from_f64(position).unwrap(),
+        ),
     };
     let chosen = start::started(vec![
         state("higher", "started", 10.0),
@@ -219,7 +221,6 @@ fn state_chooses_lowest_started_with_stable_ties_and_raw_sdk_not_preferred() {
     ])
     .unwrap();
     assert_eq!(chosen.id.inner(), "first");
-    assert!(start::started(vec![state("bad", "unstarted", f64::NAN)]).is_err());
     assert_eq!(
         start::started(vec![]).unwrap_err().message,
         "No 'started' state found in workflow"

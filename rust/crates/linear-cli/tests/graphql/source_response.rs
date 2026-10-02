@@ -202,6 +202,6 @@ fn graphql_client_metadata_keeps_raw_prefix_body_order_numbers_and_handled_prefe
             "query Sample { viewer { id } }"
         );
         assert!(metadata["request"].get("variables").is_none());
-        assert!(original.contains("9007199254740992"));
+        assert!(original.contains("9007199254740993"));
     }
 }

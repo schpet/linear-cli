@@ -1,12 +1,7 @@
 //! Typed document list/view selections in `--json` output order.
-use crate::graphql::operations::{initiatives::IDComparator, teams::PageInfo};
+use crate::graphql::operations::{initiatives::IDComparator, number::WholeNumber, teams::PageInfo};
 use crate::graphql::{scalars::DateTime, schema};
-use serde::{Serialize, Serializer};
-fn serialize_number<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
-    crate::json_number::finite_js_number(*value)
-        .map_err(serde::ser::Error::custom)?
-        .serialize(serializer)
-}
+use serde::Serialize;
 
 #[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
 #[cynic(schema = "linear", graphql_type = "Project")]
@@ -52,8 +47,7 @@ pub struct CycleTeam {
 #[serde(rename_all = "camelCase")]
 pub struct DocumentCycle {
     pub name: Option<String>,
-    #[serde(serialize_with = "serialize_number")]
-    pub number: f64,
+    pub number: WholeNumber,
     pub team: CycleTeam,
 }
 

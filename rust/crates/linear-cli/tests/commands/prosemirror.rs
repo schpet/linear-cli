@@ -1,16 +1,13 @@
 use linear_cli::commands::prosemirror::to_markdown;
-use linear_cli::commands::template_data::JsValue;
 use linear_cli::error::AppErrorKind;
 use serde_json::{Value, json};
 
 fn markdown(doc: Value) -> String {
-    let value: JsValue = serde_json::from_value(doc).expect("JS value");
-    to_markdown(&value).unwrap_or_else(|error| panic!("{error}"))
+    to_markdown(&doc).unwrap_or_else(|error| panic!("{error}"))
 }
 
 fn error(doc: Value) -> String {
-    let value: JsValue = serde_json::from_value(doc).expect("JS value");
-    let error = to_markdown(&value).expect_err("invalid document");
+    let error = to_markdown(&doc).expect_err("invalid document");
     assert_eq!(error.kind, AppErrorKind::Validation);
     assert_eq!(error.suggestion, None);
     error.message
@@ -216,11 +213,11 @@ fn list_markers_escape_only_at_js_line_starts_before_whitespace() {
 }
 
 #[test]
-fn attributes_follow_the_source_fallbacks() {
+fn attributes_fall_back_when_missing_or_invalid() {
     assert_eq!(
         markdown(doc(vec![
             json!({"type": "heading", "attrs": {"level": 9}, "content": [text("six")]}),
-            json!({"type": "heading", "attrs": {"level": 2.7}, "content": [text("two")]}),
+            json!({"type": "heading", "attrs": {"level": 2}, "content": [text("two")]}),
             json!({"type": "heading", "attrs": {"level": "3"}, "content": [text("one")]}),
             json!({"type": "heading", "attrs": {"level": 0}}),
         ])),
@@ -234,7 +231,7 @@ fn attributes_follow_the_source_fallbacks() {
                 {"type": "list_item", "content": [paragraph(vec![text("b")]), paragraph(vec![text("c")])]}
             ]})
         ])),
-        "1.5. a\n2.5. b\n\n     c"
+        "1. a\n2. b\n\n   c"
     );
     assert_eq!(
         markdown(doc(vec![
@@ -242,7 +239,7 @@ fn attributes_follow_the_source_fallbacks() {
                 {"type": "list_item", "content": [paragraph(vec![text("x")])]}
             ]})
         ])),
-        "1e+21. x"
+        "1. x"
     );
     // Todo markers read done or checked from any child type; a non-item child
     // renders as a block.

@@ -15,14 +15,12 @@ use std::future::Future;
 
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
+use serde_json::{Map, Number, Value};
 
 use crate::auth::CredentialStore;
 use crate::commands::client;
 use crate::commands::prosemirror;
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::template_data::{
-    JsObject, JsValue, js_number, js_stringify, parse_template_data,
-};
 use crate::commands::{template_json, template_list};
 use crate::config::{ConfigOptions, TransportEnvInputs};
 use crate::error::{AppError, AppErrorKind};
@@ -268,13 +266,34 @@ fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template,
     }
 }
 
-/// `text[0].toUpperCase() + text.slice(1)`: an astral first character is a
-/// lone surrogate to JavaScript and stays unchanged.
 fn capitalize(text: &str) -> String {
     let mut chars = text.chars();
     match chars.next() {
-        Some(first) if first.len_utf16() == 1 => first.to_uppercase().chain(chars).collect(),
-        _ => text.to_owned(),
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+/// Decode a template's stringified `templateData` into its top-level object.
+fn parse_template_data(template: &Template) -> Result<Map<String, Value>, AppError> {
+    let subject = format!(
+        "Template data for \"{}\" ({})",
+        template.name,
+        template.id.inner()
+    );
+    let decoded: Value = serde_json::from_str(&template.template_data.0).map_err(|error| {
+        AppError::new(
+            AppErrorKind::Validation,
+            format!("{subject} is not valid JSON"),
+        )
+        .with_source(error)
+    })?;
+    match decoded {
+        Value::Object(object) => Ok(object),
+        _ => Err(AppError::new(
+            AppErrorKind::Validation,
+            format!("{subject} is not a JSON object"),
+        )),
     }
 }
 
@@ -333,7 +352,7 @@ pub fn render_text<Tz: TimeZone>(
     if data.is_empty() {
         lines.push(format!("{INDENT}(nothing)"));
     }
-    lines.extend(render_entries(data.entries().iter(), INDENT)?);
+    lines.extend(render_entries(data.iter(), INDENT)?);
     lines.push(String::new());
     lines.push(FOOTER.to_owned());
     Ok(lines.join("\n"))
@@ -345,7 +364,7 @@ fn is_rich_text_key(key: &str) -> bool {
 
 /// Scalars and references first, then the bodies, so the long part reads last.
 fn render_entries<'a>(
-    entries: impl Iterator<Item = &'a (String, JsValue)> + Clone,
+    entries: impl Iterator<Item = (&'a String, &'a Value)> + Clone,
     indent: &str,
 ) -> Result<Vec<String>, AppError> {
     let mut lines = Vec::new();
@@ -371,46 +390,45 @@ fn indent_block(text: &str, indent: &str) -> String {
         .join("\n")
 }
 
-fn priority_name(value: f64) -> Option<&'static str> {
-    match js_number(value).as_str() {
-        "0" => Some("none"),
-        "1" => Some("urgent"),
-        "2" => Some("high"),
-        "3" => Some("medium"),
-        "4" => Some("low"),
+fn priority_name(value: &Number) -> Option<&'static str> {
+    match value.as_u64()? {
+        0 => Some("none"),
+        1 => Some("urgent"),
+        2 => Some("high"),
+        3 => Some("medium"),
+        4 => Some("low"),
         _ => None,
     }
 }
 
 /// One pre-filled value at any depth.
-fn render_pre_fill(key: &str, value: &JsValue, indent: &str) -> Result<Vec<String>, AppError> {
+fn render_pre_fill(key: &str, value: &Value, indent: &str) -> Result<Vec<String>, AppError> {
     let nested = format!("{indent}{INDENT}");
     Ok(match value {
-        JsValue::Object(_) if is_rich_text_key(key) => {
-            // C022-TEMPLATE-BODY-MARKDOWN: the Markdown itself, not a styled
-            // and reflowed rendering of it.
+        Value::Object(_) if is_rich_text_key(key) => {
+            // The Markdown itself, not a styled and reflowed rendering of it.
             let markdown = prosemirror::to_markdown(value)?;
             vec![format!("{indent}{key}:"), indent_block(&markdown, &nested)]
         }
-        JsValue::Number(number) if key == "priority" => {
-            let label = priority_name(*number)
+        Value::Number(number) if key == "priority" => {
+            let label = priority_name(number)
                 .map(|name| format!(" ({name})"))
                 .unwrap_or_default();
-            vec![format!("{indent}{key}: {}{label}", js_number(*number))]
+            vec![format!("{indent}{key}: {number}{label}")]
         }
-        JsValue::String(text) if text.contains('\n') => vec![
+        Value::String(text) if text.contains('\n') => vec![
             format!("{indent}{key}:"),
             indent_block(text.trim_end(), &nested),
         ],
-        JsValue::String(text) => vec![format!("{indent}{key}: {text}")],
-        JsValue::Number(number) => vec![format!("{indent}{key}: {}", js_number(*number))],
-        JsValue::Bool(_) | JsValue::Null => vec![format!("{indent}{key}: {}", js_stringify(value))],
-        JsValue::Array(items) if items.is_empty() => vec![format!("{indent}{key}: (none)")],
-        JsValue::Array(items) => {
+        Value::String(text) => vec![format!("{indent}{key}: {text}")],
+        Value::Number(number) => vec![format!("{indent}{key}: {number}")],
+        Value::Bool(_) | Value::Null => vec![format!("{indent}{key}: {value}")],
+        Value::Array(items) if items.is_empty() => vec![format!("{indent}{key}: (none)")],
+        Value::Array(items) => {
             let strings: Option<Vec<&str>> = items
                 .iter()
                 .map(|item| match item {
-                    JsValue::String(text) => Some(text.as_str()),
+                    Value::String(text) => Some(text.as_str()),
                     _ => None,
                 })
                 .collect();
@@ -426,33 +444,33 @@ fn render_pre_fill(key: &str, value: &JsValue, indent: &str) -> Result<Vec<Strin
                 }
             }
         }
-        JsValue::Object(object) => {
+        Value::Object(object) => {
             let mut lines = vec![format!("{indent}{key}:")];
-            lines.extend(render_entries(object.entries().iter(), &nested)?);
+            lines.extend(render_entries(object.iter(), &nested)?);
             lines
         }
     })
 }
 
 /// The first non-empty string `title` or `name`.
-fn item_label(item: &JsObject) -> Option<&str> {
-    LABEL_KEYS.iter().find_map(|key| match item.get(key) {
-        Some(JsValue::String(text)) if !text.is_empty() => Some(text.as_str()),
+fn item_label(item: &Map<String, Value>) -> Option<&str> {
+    LABEL_KEYS.iter().find_map(|key| match item.get(*key) {
+        Some(Value::String(text)) if !text.is_empty() => Some(text.as_str()),
         _ => None,
     })
 }
 
 /// An item of a list such as `subIssueData`: its label, then its other fields.
 /// A `title` or `name` equal to the label is not repeated.
-fn render_item(item: &JsValue, indent: &str) -> Result<Vec<String>, AppError> {
-    let JsValue::Object(object) = item else {
-        return Ok(vec![format!("{indent}- {}", js_stringify(item))]);
+fn render_item(item: &Value, indent: &str) -> Result<Vec<String>, AppError> {
+    let Value::Object(object) = item else {
+        return Ok(vec![format!("{indent}- {item}")]);
     };
     let label = item_label(object);
-    let rest = object.entries().iter().filter(|(key, value)| {
+    let rest = object.iter().filter(|(key, value)| {
         !(label.is_some_and(|label| {
             LABEL_KEYS.contains(&key.as_str())
-                && matches!(value, JsValue::String(text) if text == label)
+                && matches!(value, Value::String(text) if text == label)
         }))
     });
     let mut lines = vec![format!("{indent}- {}", label.unwrap_or("(untitled)"))];

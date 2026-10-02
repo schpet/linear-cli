@@ -26,7 +26,7 @@ pub struct IssueDetails {
     pub branch_name: String,
     pub state: State,
     pub assignee: Option<Assignee>,
-    pub priority: f64,
+    pub priority: crate::graphql::operations::number::WholeNumber,
     pub project: Option<Project>,
     pub project_milestone: Option<Milestone>,
     pub cycle: Option<Cycle>,
@@ -72,7 +72,7 @@ pub struct Milestone {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct Cycle {
     pub id: cynic::Id,
-    pub number: f64,
+    pub number: crate::graphql::operations::number::WholeNumber,
     pub name: Option<String>,
     pub is_active: bool,
     pub is_next: bool,
@@ -90,7 +90,7 @@ pub struct Team {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct ActiveCycle {
-    pub number: f64,
+    pub number: crate::graphql::operations::number::WholeNumber,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]

@@ -807,7 +807,6 @@ async fn text_parses_template_data_lazily_with_one_context() {
         ("42", "is not a JSON object"),
         ("null", "is not a JSON object"),
         ("\"{}\"", "is not a JSON object"),
-        // JSON.parse accepts these; Rust rejects them (named text deviations).
         ("{\"value\":1e400}", "is not valid JSON"),
         ("{\"value\":\"\\ud800\"}", "is not valid JSON"),
     ] {
@@ -824,39 +823,33 @@ async fn text_parses_template_data_lazily_with_one_context() {
 }
 
 #[tokio::test]
-async fn pre_fills_follow_js_object_order_and_duplicate_replacement() {
+async fn pre_fills_keep_object_order_and_replace_duplicates_in_place() {
     assert_eq!(
         pre_fills(
             r#"{"b":1,"10":"ten","2":"two","b":2,"01":"zero-one","4294967295":"limit","0":"zero"}"#
         )
         .await,
-        "  0: zero\n  2: two\n  10: ten\n  b: 2\n  01: zero-one\n  4294967295: limit"
+        "  b: 2\n  10: ten\n  2: two\n  01: zero-one\n  4294967295: limit\n  0: zero"
     );
     assert_eq!(
         pre_fills(
             r#"{"b":1,"4294967294":"max-index","-1":"negative","2":"two","4294967295":"over-limit"}"#
         )
         .await,
-        "  2: two\n  4294967294: max-index\n  b: 1\n  -1: negative\n  4294967295: over-limit"
+        "  b: 1\n  4294967294: max-index\n  -1: negative\n  2: two\n  4294967295: over-limit"
     );
     assert_eq!(pre_fills("{}").await, "  (nothing)");
 }
 
 #[tokio::test]
-async fn scalars_use_javascript_number_and_priority_spelling() {
+async fn scalars_keep_number_and_priority_spelling() {
     assert_eq!(
         pre_fills(r#"{"large":1e21,"small":1e-7,"fraction":1.25,"big":9007199254740993,"flag":false,"none":null}"#)
             .await,
-        "  large: 1e+21\n  small: 1e-7\n  fraction: 1.25\n  big: 9007199254740992\n  flag: false\n  none: null"
+        "  large: 1e+21\n  small: 1e-7\n  fraction: 1.25\n  big: 9007199254740993\n  flag: false\n  none: null"
     );
-    assert_eq!(
-        pre_fills(r#"{"priority":-0}"#).await,
-        "  priority: 0 (none)"
-    );
-    assert_eq!(
-        pre_fills(r#"{"priority":4.0}"#).await,
-        "  priority: 4 (low)"
-    );
+    assert_eq!(pre_fills(r#"{"priority":0}"#).await, "  priority: 0 (none)");
+    assert_eq!(pre_fills(r#"{"priority":4}"#).await, "  priority: 4 (low)");
     for (value, expected) in [("5", "5"), ("2.5", "2.5"), ("-1", "-1")] {
         assert_eq!(
             pre_fills(&format!("{{\"priority\":{value}}}")).await,

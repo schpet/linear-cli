@@ -47,7 +47,7 @@ pub struct LookupConnection {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct LookupCycle {
     pub id: cynic::Id,
-    pub number: f64,
+    pub number: crate::graphql::operations::number::WholeNumber,
     pub name: Option<String>,
     pub starts_at: DateTime,
     pub is_next: bool,
@@ -58,7 +58,7 @@ pub struct LookupCycle {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct ActiveCycle {
     pub id: cynic::Id,
-    pub number: f64,
+    pub number: crate::graphql::operations::number::WholeNumber,
     pub name: Option<String>,
 }
 
@@ -82,7 +82,7 @@ pub struct GetCycleDetails {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct DetailCycle {
     pub id: cynic::Id,
-    pub number: f64,
+    pub number: crate::graphql::operations::number::WholeNumber,
     pub name: Option<String>,
     pub description: Option<String>,
     pub starts_at: DateTime,

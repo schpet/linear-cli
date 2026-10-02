@@ -113,7 +113,7 @@ fn malformed_position_and_extra_fields_have_typed_boundaries() {
 }
 
 #[tokio::test]
-async fn javascript_number_bytes_cover_boundaries() {
+async fn positions_keep_their_numbers() {
     let states = response(
         r#"[
       {"id":"a","name":"A","type":"started","position":900},
@@ -132,7 +132,7 @@ async fn javascript_number_bytes_cover_boundaries() {
     for literal in [
         "900",
         "0",
-        "0.000001",
+        "1e-6",
         "1e+21",
         "1e-7",
         "0.30000000000000004",

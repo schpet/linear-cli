@@ -184,7 +184,7 @@ impl Backend for NetworkBackend {
                 id: s.id.into_inner(),
                 name: s.name,
                 kind: s.state_type,
-                position: s.position,
+                position: s.position.get(),
             })
             .collect())
     }

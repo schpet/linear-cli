@@ -1,5 +1,6 @@
 //! Command-local issue read filters, lookups, pagination and presentation.
 use crate::error::{AppError, AppErrorKind};
+use crate::graphql::operations::number::{Float, WholeNumber};
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::{
     bulk_error,
@@ -841,15 +842,12 @@ pub fn sort_mine(rows: &mut [GetIssuesForStateIssuesNodes]) -> Result<(), AppErr
         .first()
         .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
     let collator = crate::platform::collation::root()?;
-    if rows.iter().any(|r| !r.state.position.is_finite()) {
-        return Err(validation("Workflow state position must be finite"));
-    }
     rows.sort_by(|a, b| {
         type_order(&a.state.r#type, &b.state.r#type, &collator).then_with(|| {
             if multi {
                 std::cmp::Ordering::Equal
             } else {
-                b.state.position.total_cmp(&a.state.position)
+                b.state.position.get().total_cmp(&a.state.position.get())
             }
         })
     });
@@ -860,86 +858,72 @@ pub fn sort_query(rows: &mut [GetIssuesForQueryIssuesNodes]) -> Result<(), AppEr
         .first()
         .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
     let collator = crate::platform::collation::root()?;
-    if rows.iter().any(|r| !r.state.position.is_finite()) {
-        return Err(validation("Workflow state position must be finite"));
-    }
     rows.sort_by(|a, b| {
         type_order(&a.state.r#type, &b.state.r#type, &collator).then_with(|| {
             if multi {
                 std::cmp::Ordering::Equal
             } else {
-                b.state.position.total_cmp(&a.state.position)
+                b.state.position.get().total_cmp(&a.state.position.get())
             }
         })
     });
     Ok(())
 }
-pub fn priority(value: f64) -> Result<String, AppError> {
-    Ok(match value {
-        0.0 => "---".to_owned(),
-        1.0 => "⚠⚠⚠".to_owned(),
-        2.0 => "▄▆█".to_owned(),
-        3.0 => "▄▆ ".to_owned(),
-        4.0 => "▄  ".to_owned(),
-        n => crate::json_number::finite_js_number(n)?.get().to_owned(),
-    })
+pub fn priority(value: WholeNumber) -> String {
+    match value.0 {
+        0 => "---".to_owned(),
+        1 => "⚠⚠⚠".to_owned(),
+        2 => "▄▆█".to_owned(),
+        3 => "▄▆ ".to_owned(),
+        4 => "▄  ".to_owned(),
+        n => n.to_string(),
+    }
 }
 pub fn cycle_short(
     cycle: Option<&GetIssuesForStateIssuesNodesCycle>,
-    anchor: Option<f64>,
-) -> Result<(String, &'static str), AppError> {
+    anchor: Option<WholeNumber>,
+) -> (String, &'static str) {
     let Some(c) = cycle else {
-        return Ok(("-".to_owned(), "none"));
+        return ("-".to_owned(), "none");
     };
-    let check = |n: f64, label: &str| {
-        if n.is_finite() && n.fract() == 0.0 && n.abs() <= 9_007_199_254_740_991.0 {
-            Ok(())
-        } else {
-            Err(validation(format!(
-                "Expected {label} to be a safe integer, got {n}"
-            )))
-        }
-    };
-    check(c.number, "cycle number")?;
     if c.is_active {
-        return Ok(("now".to_owned(), "active"));
+        return ("now".to_owned(), "active");
     }
     if c.is_next {
-        return Ok(("+1".to_owned(), "future"));
+        return ("+1".to_owned(), "future");
     }
     if c.is_previous {
-        return Ok(("-1".to_owned(), "past"));
+        return ("-1".to_owned(), "past");
     }
     if let Some(anchor) = anchor {
-        check(anchor, "active cycle number")?;
-        let offset = c.number - anchor;
-        return Ok(if offset == 0.0 {
+        let offset = i64::from(c.number.0) - i64::from(anchor.0);
+        return if offset == 0 {
             ("now".to_owned(), "active")
         } else {
             (
-                format!("{}{offset}", if offset > 0.0 { "+" } else { "" }),
-                if offset > 0.0 { "future" } else { "past" },
+                format!("{}{offset}", if offset > 0 { "+" } else { "" }),
+                if offset > 0 { "future" } else { "past" },
             )
-        });
+        };
     }
-    Ok((
-        format!("#{}", crate::json_number::finite_js_number(c.number)?.get()),
+    (
+        format!("#{}", c.number),
         if c.is_past { "past" } else { "future" },
-    ))
+    )
 }
 #[derive(Clone, Debug)]
 pub struct TableRow {
     pub identifier: String,
     pub title: String,
-    pub priority: f64,
-    pub estimate: Option<f64>,
+    pub priority: WholeNumber,
+    pub estimate: Option<Float>,
     pub initials: Option<String>,
     pub state_name: String,
     pub state_color: String,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub team: String,
     pub cycles_enabled: bool,
-    pub anchor: Option<f64>,
+    pub anchor: Option<WholeNumber>,
     pub labels: Vec<GetIssuesForStateIssuesNodesLabelsNodes>,
     pub blocked: bool,
     pub updated: String,
@@ -1084,7 +1068,7 @@ pub fn table(
     let cycles = rows
         .iter()
         .map(|r| cycle_short(r.cycle.as_ref(), r.anchor))
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<_>>();
     let cw = if show_cycle {
         cycles
             .iter()
@@ -1154,7 +1138,7 @@ pub fn table(
     headers.extend([pad("STATE", sw), pad("UPDATED", uw)]);
     let mut lines = vec![style(&style(&headers.join(" "), "4", color), "1", color)];
     for (i, r) in rows.iter().enumerate() {
-        let mut cells = vec![pad(&priority(r.priority)?, 3), pad(&r.identifier, id)];
+        let mut cells = vec![pad(&priority(r.priority), 3), pad(&r.identifier, id)];
         if team {
             cells.push(pad(&r.team, tw));
         }
@@ -1187,9 +1171,8 @@ pub fn table(
         });
         cells.push(
             r.estimate
-                .map(|n| crate::json_number::finite_js_number(n).map(|n| n.get().to_owned()))
-                .transpose()?
-                .unwrap_or_else(|| "-".to_owned()),
+                .as_ref()
+                .map_or_else(|| "-".to_owned(), ToString::to_string),
         );
         if show_cycle {
             let (c, kind) = cycles

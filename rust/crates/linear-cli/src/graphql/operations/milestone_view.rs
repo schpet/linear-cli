@@ -34,7 +34,7 @@ pub struct DetailMilestone {
     pub name: String,
     pub description: Option<String>,
     pub target_date: Option<TimelessDate>,
-    pub sort_order: f64,
+    pub sort_order: crate::graphql::operations::number::Float,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub project: DetailProject,

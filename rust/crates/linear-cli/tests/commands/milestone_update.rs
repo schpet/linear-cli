@@ -2,6 +2,7 @@ use linear_cli::commands::milestone_update::{self, Options};
 use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::milestone_update::UpdateProjectMilestone;
+use linear_cli::graphql::operations::number::Float;
 use linear_cli::graphql::scalars::TimelessDate;
 use linear_cli::graphql::transport::{
     ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
@@ -114,7 +115,7 @@ fn public_request_rejects_nonfinite_typed_values_before_json_null() {
 }
 
 #[test]
-fn strict_decode_and_js_number_output_use_the_returned_fields() {
+fn strict_decode_and_number_output_use_the_returned_fields() {
     let data = frozen_step("c033-sort-negative-zero")["response"]["data"].clone();
     let decoded: UpdateProjectMilestone =
         parse_response(json!({"data":data}).to_string().as_bytes()).unwrap();
@@ -122,7 +123,7 @@ fn strict_decode_and_js_number_output_use_the_returned_fields() {
     assert_eq!(milestone_update::render(&milestone).unwrap(), format!("✓ Updated milestone: Existing\n  ID: {ID}\n  Target Date: 2026-10-01\n  Sort Order: 1e+21\n  Project: Mobile App\n").as_bytes());
     for date in [None, Some(TimelessDate(String::new()))] {
         milestone.target_date = date;
-        milestone.sort_order = -0.0;
+        milestone.sort_order = Float(0.into());
         assert_eq!(milestone_update::render(&milestone).unwrap(), format!("✓ Updated milestone: Existing\n  ID: {ID}\n  Sort Order: 0\n  Project: Mobile App\n").as_bytes());
     }
     for payload in [
@@ -138,8 +139,6 @@ fn strict_decode_and_js_number_output_use_the_returned_fields() {
             .is_err()
         );
     }
-    milestone.sort_order = f64::INFINITY;
-    assert!(milestone_update::render(&milestone).is_err());
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -106,7 +106,7 @@ async fn repeated_cursor_is_a_protocol_error() {
 #[test]
 fn detail_json_selects_only_wire_fields_and_preserves_null_name() {
     let body = json!({"data":{"cycle":{
-        "id":"cycle-id","number":12.5,"name":null,"description":null,
+        "id":"cycle-id","number":12,"name":null,"description":null,
         "startsAt":"2026-09-01T00:00:00.000Z","endsAt":"2026-09-08T00:00:00.000Z",
         "completedAt":null,"isActive":true,"isFuture":false,"isPast":false,
         "createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-02T00:00:00.000Z",
@@ -117,13 +117,13 @@ fn detail_json_selects_only_wire_fields_and_preserves_null_name() {
     let details: GetCycleDetails = parse_response(body.to_string().as_bytes()).expect("details");
     let cycle = details.cycle.expect("cycle");
     let output = String::from_utf8(json(&cycle).expect("json")).expect("utf8");
-    assert!(output.contains("\"number\": 12.5"));
+    assert!(output.contains("\"number\": 12,"));
     assert!(output.contains("\"name\": null"));
     assert!(output.contains("\"hasNextPage\": true"));
     assert!(!output.contains("serverOnly"));
     assert!(!output.contains("extra"));
     let text = markdown(&cycle, chrono::Utc::now(), &chrono::Utc).expect("markdown");
-    assert!(text.starts_with("# Cycle 12.5\n\n**Number:** 12.5"));
+    assert!(text.starts_with("# Cycle 12\n\n**Number:** 12"));
     assert!(text.ends_with("_No issues in this cycle yet._"));
     assert_eq!(
         serde_json::to_value(detail_request("cycle-id")).expect("request")["variables"],

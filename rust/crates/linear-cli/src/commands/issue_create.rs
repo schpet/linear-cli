@@ -1,6 +1,6 @@
 use super::issue_write::{self as shared, AssignSelf, Backend, CreateSettings, Parent, Ui};
 use crate::{
-    error::AppError,
+    error::{AppError, AppErrorKind},
     graphql::{edit::Edit, scalars::TimelessDate},
 };
 #[derive(Clone, Debug, Default)]
@@ -252,65 +252,52 @@ pub fn interactive_output(issue: &shared::Created, title: &str) -> String {
     )
 }
 
-/// Exact source fallback decision shape, native Select keys/rendering only.
+/// Offers the near matches for a reference that did not resolve. `None` when
+/// there are none or the user declines them all.
 pub fn select_option<U: Ui>(
     ui: &mut U,
     kind: &str,
     original: &str,
     options: &[shared::Named],
 ) -> Result<Option<String>, AppError> {
-    let own = crate::js_value::JsObject::from_created(options.iter().map(|option| {
-        (
-            option.id.clone(),
-            crate::js_value::JsValue::String(option.name.clone()),
-        )
-    }));
-    let options: Vec<shared::Named> = own
-        .entries()
+    let mut seen = std::collections::HashSet::new();
+    let candidates: Vec<&shared::Named> = options
         .iter()
-        .map(|(id, value)| match value {
-            crate::js_value::JsValue::String(name) => shared::Named {
-                id: id.clone(),
-                name: name.clone(),
-            },
-            _ => unreachable!("menu properties are created from strings"),
-        })
+        .filter(|option| seen.insert(option.id.as_str()))
         .collect();
-    let none = "__source_none__";
-    let (message, choices) = match options.as_slice() {
+    let (message, labels): (String, Vec<&str>) = match candidates.as_slice() {
         [] => return Ok(None),
         [only] => (
             format!(
                 "{kind} named {original} does not exist, but {} exists. Is this what you meant?",
                 only.name
             ),
-            vec![
-                shared::Named {
-                    id: only.id.clone(),
-                    name: "yes".to_owned(),
-                },
-                shared::Named {
-                    id: none.to_owned(),
-                    name: "no".to_owned(),
-                },
-            ],
+            vec!["yes", "no"],
         ),
-        many => {
-            let mut choices = many.to_vec();
-            choices.push(shared::Named {
-                id: none.to_owned(),
-                name: "none of the above".to_owned(),
-            });
-            (
-                format!(
-                    "{kind} with {original} does not exist, but the following exist. Is any of these what you meant?"
-                ),
-                choices,
-            )
-        }
+        many => (
+            format!(
+                "{kind} with {original} does not exist, but the following exist. Is any of these what you meant?"
+            ),
+            many.iter()
+                .map(|option| option.name.as_str())
+                .chain(["none of the above"])
+                .collect(),
+        ),
     };
-    let selected = ui.choose(&message, &choices, 0, false)?;
-    Ok((selected != none).then_some(selected))
+    // Menu ids are positions, so no candidate id can be mistaken for the decline entry.
+    let menu: Vec<shared::Named> = labels
+        .iter()
+        .enumerate()
+        .map(|(index, label)| shared::Named {
+            id: index.to_string(),
+            name: (*label).to_owned(),
+        })
+        .collect();
+    let selected = ui.choose(&message, &menu, 0, false)?;
+    let index = selected.parse::<usize>().map_err(|error| {
+        AppError::new(AppErrorKind::Invariant, "menu returned an unknown choice").with_source(error)
+    })?;
+    Ok(candidates.get(index).map(|option| option.id.clone()))
 }
 
 impl From<&crate::cli::issue::IssueCreate> for Fields {

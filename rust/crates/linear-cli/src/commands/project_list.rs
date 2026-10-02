@@ -1,18 +1,17 @@
 //! `project list`: typed project pagination, stable display ordering and the
 //! selected GraphQL connection in JSON or terminal form.
 
-use std::cmp::Ordering;
 use std::future::Future;
 use std::time::SystemTime;
 
 use cynic::QueryBuilder;
 use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::commands::display::{display_width, pad, truncate_js};
 use crate::commands::table::{time_ago, underlined_header, utf16_len};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::number::Float;
 use crate::graphql::operations::projects::{
     GetProjects, GetProjectsVariables, GetViewer, Project, ProjectFilter, ProjectStatusFilter,
     ProjectStatusType, TeamCollectionFilter,
@@ -21,7 +20,6 @@ use crate::graphql::operations::teams::{PageInfo, StringComparator, TeamFilter};
 use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::platform::{collation, opener};
 
 pub const FETCH_CONTEXT: &str = "Failed to fetch projects";
@@ -140,16 +138,6 @@ where
     })?;
 
     let mut projects = pages.nodes;
-    if projects
-        .iter()
-        .any(|project| !project.sort_order.is_finite())
-    {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Linear returned a non-numeric sortOrder for a project.",
-        )
-        .with_suggestion("Retry, or report this if it keeps happening."));
-    }
     if projects.is_empty() {
         if !json {
             return Ok(b"No projects found.\n".to_vec());
@@ -157,14 +145,9 @@ where
     } else {
         let collator = collation::root()?;
         projects.sort_by(|left, right| {
-            let numeric = if left.sort_order < right.sort_order {
-                Ordering::Less
-            } else if left.sort_order > right.sort_order {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            };
-            numeric
+            left.sort_order
+                .get()
+                .total_cmp(&right.sort_order.get())
                 .then_with(|| collator.compare(&left.name, &right.name))
                 .then_with(|| collator.compare(left.id.inner(), right.id.inner()))
         });
@@ -218,7 +201,7 @@ struct JsonProject<'a> {
     slug_id: &'a str,
     icon: Option<&'a str>,
     color: &'a str,
-    sort_order: Box<RawValue>,
+    sort_order: &'a Float,
     status: &'a crate::graphql::operations::projects::ProjectStatus,
     lead: Option<&'a crate::graphql::operations::projects::ProjectLead>,
     priority: i32,
@@ -245,7 +228,7 @@ fn render_json(projects: &[Project], page_info: &PageInfo) -> Result<Vec<u8>, Ap
                 slug_id: &project.slug_id,
                 icon: project.icon.as_deref(),
                 color: &project.color,
-                sort_order: finite_js_number(project.sort_order)?,
+                sort_order: &project.sort_order,
                 status: &project.status,
                 lead: project.lead.as_ref(),
                 priority: project.priority,

@@ -8,7 +8,6 @@ use std::rc::Rc;
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::commands::relative_time::format_relative_time;
 use crate::error::{AppError, AppErrorKind};
@@ -17,26 +16,12 @@ use crate::graphql::operations::cycle_view::{
     ActiveCycle, DetailCycle, DetailVariables, GetCycleDetails, GetTeamCyclesForLookup,
     LookupCycle, LookupVariables,
 };
+use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::transport::{GraphQlTransport, RawHttpResponse};
-use crate::json_number::finite_js_number;
 use crate::refs::{CycleSelector, LinearUrlRef};
 
 pub const CONTEXT: &str = "Failed to fetch cycle details";
 const SIMPLE_SUGGESTION: &str = "Use a cycle number or name instead.";
-
-fn js_number(number: f64) -> Result<String, AppError> {
-    Ok(finite_js_number(number)?.get().to_owned())
-}
-
-fn integer_as_f64(value: impl ToString) -> Result<f64, AppError> {
-    value.to_string().parse::<f64>().map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "could not convert integer to number",
-        )
-        .with_source(error)
-    })
-}
 
 fn protocol(message: String) -> AppError {
     AppError::new(AppErrorKind::Validation, message)
@@ -213,10 +198,9 @@ fn select(
             cycle: CycleSelector::Number(number),
             ..
         }) => {
-            let target_number = integer_as_f64(*number)?;
             return cycles
                 .iter()
-                .find(|cycle| cycle.number == target_number)
+                .find(|cycle| u64::from(cycle.number.0) == *number)
                 .map(|cycle| cycle.id.inner().to_owned())
                 .ok_or_else(|| AppError::not_found("Cycle", &format!("#{number} in team {key}")));
         }
@@ -240,7 +224,7 @@ fn select(
             let suggestion = if let Some(next) = cycles.iter().find(|cycle| cycle.is_next) {
                 format!(
                     "The next cycle (#{}) starts {} — use --cycle next, a cycle number, or a name.",
-                    js_number(next.number)?,
+                    next.number,
                     next.starts_at.0.chars().take(10).collect::<String>()
                 )
             } else {
@@ -277,7 +261,7 @@ fn select(
             .get(1..)
             .and_then(|digits| digits.parse::<u64>().ok());
         let magnitude = magnitude
-            .filter(|value| *value <= 9_007_199_254_740_991)
+            .and_then(|value| i64::try_from(value).ok())
             .ok_or_else(|| protocol(format!("Cycle offset {reference} is out of range")))?;
         let active = active.ok_or_else(|| {
             protocol(format!(
@@ -287,28 +271,24 @@ fn select(
                 "Use 'next', a cycle number, or a cycle name while no cycle is active.",
             )
         })?;
-        let magnitude = integer_as_f64(magnitude)?;
         let signed = if reference.starts_with('-') {
             -magnitude
         } else {
             magnitude
         };
-        let target = active.number + signed;
-        let target_number = js_number(target)?;
+        let target = i64::from(active.number.0).saturating_add(signed);
         return cycles
             .iter()
-            .find(|cycle| cycle.number == target)
+            .find(|cycle| i64::from(cycle.number.0) == target)
             .map(|cycle| cycle.id.inner().to_owned())
-            .ok_or_else(|| {
-                AppError::not_found("Cycle", &format!("{reference} (cycle {target_number})"))
-            });
+            .ok_or_else(|| AppError::not_found("Cycle", &format!("{reference} (cycle {target})")));
     }
     for cycle in cycles {
         if cycle
             .name
             .as_deref()
             .is_some_and(|name| name.to_lowercase() == keyword)
-            || js_number(cycle.number)? == reference
+            || cycle.number.to_string() == reference
         {
             return Ok(cycle.id.inner().to_owned());
         }
@@ -320,7 +300,7 @@ fn select(
 #[serde(rename_all = "camelCase")]
 struct JsonCycle<'a> {
     id: &'a cynic::Id,
-    number: Box<RawValue>,
+    number: WholeNumber,
     name: &'a Option<String>,
     description: &'a Option<String>,
     starts_at: &'a crate::graphql::scalars::DateTime,
@@ -363,7 +343,7 @@ struct JsonState<'a> {
 pub fn json(cycle: &DetailCycle) -> Result<Vec<u8>, AppError> {
     let projected = JsonCycle {
         id: &cycle.id,
-        number: finite_js_number(cycle.number)?,
+        number: cycle.number,
         name: &cycle.name,
         description: &cycle.description,
         starts_at: &cycle.starts_at,
@@ -409,7 +389,7 @@ pub fn markdown<Tz: TimeZone>(
     now: DateTime<Utc>,
     zone: &Tz,
 ) -> Result<String, AppError> {
-    let number = js_number(cycle.number)?;
+    let number = cycle.number;
     let title = cycle
         .name
         .as_deref()
@@ -475,7 +455,7 @@ pub fn markdown<Tz: TimeZone>(
         };
         let completed = count("completed");
         let total = issues.len();
-        let percent = ((integer_as_f64(completed)? / integer_as_f64(total)?) * 100.0 + 0.5).floor();
+        let percent = (completed * 200 + total) / (total * 2);
         lines.extend([
             String::new(),
             "## Issues".to_owned(),

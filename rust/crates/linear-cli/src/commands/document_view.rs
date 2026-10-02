@@ -156,7 +156,6 @@ pub fn markdown<Tz: TimeZone>(
         lines.push(format!("**Team:** {} ({})", team.name, team.key));
     }
     if let Some(cycle) = &document.cycle {
-        let mut number = ryu_js::Buffer::new();
         let name = cycle
             .name
             .as_deref()
@@ -164,8 +163,7 @@ pub fn markdown<Tz: TimeZone>(
             .map_or(String::new(), |name| format!(" - {name}"));
         lines.push(format!(
             "**Cycle:** {} #{}{name}",
-            cycle.team.key,
-            number.format(cycle.number)
+            cycle.team.key, cycle.number
         ));
     }
     if let Some(release) = &document.release {

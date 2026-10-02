@@ -25,6 +25,7 @@ pub mod milestone_delete;
 pub mod milestone_update;
 pub mod milestone_view;
 pub mod milestones;
+pub mod number;
 pub mod organization_members;
 pub mod project_comments;
 pub mod project_delete;

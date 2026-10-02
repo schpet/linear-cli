@@ -124,12 +124,6 @@ pub fn menu_estimate(value: &str) -> Result<Option<i32>, AppError> {
     })
 }
 pub fn default_state(states: &[State]) -> Result<Option<String>, AppError> {
-    if states.iter().any(|state| !state.position.is_finite()) {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Linear returned a non-finite workflow state position",
-        ));
-    }
     let mut lowest: Option<&State> = None;
     for state in states.iter().filter(|state| state.kind == "unstarted") {
         if lowest.is_none_or(|old| state.position < old.position) {
