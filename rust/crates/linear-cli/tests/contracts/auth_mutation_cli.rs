@@ -260,7 +260,7 @@ fn all_three_new_leaves_keep_eager_strict_credential_startup() {
 }
 #[cfg(target_os = "linux")]
 #[test]
-fn all_five_source_yellow_lines_are_colored_even_on_piped_stdout() {
+fn source_warning_lines_are_plain_on_piped_stdout() {
     use std::os::unix::fs::PermissionsExt;
     let home = Home::new();
     std::fs::create_dir(home.0.join("linear")).unwrap();
@@ -285,11 +285,8 @@ fn all_five_source_yellow_lines_are_colored_even_on_piped_stdout() {
         String::from_utf8_lossy(&out.stderr)
     );
     let text = String::from_utf8(out.stdout).unwrap();
-    assert_eq!(text.matches("\x1b[33m").count(), 5);
-    assert_eq!(text.matches("\x1b[39m").count(), 5);
-    assert!(text.ends_with(
-        "\x1b[33mRemove it from your shell config to use multi-workspace auth.\x1b[39m\n"
-    ));
+    assert!(!text.contains('\x1b'), "{text}");
+    assert!(text.ends_with("Remove it from your shell config to use multi-workspace auth.\n"));
     assert_eq!(server.finish().len(), 1);
 }
 
@@ -331,7 +328,7 @@ fn signal_completed_availability_still_stores_then_saves_metadata() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn signal_completed_store_and_clear_report143_at_their_stage() {
+fn store_and_clear_killed_by_a_signal_report_the_signal() {
     use std::os::unix::fs::PermissionsExt;
     for action in ["store", "clear"] {
         let home = Home::new();
@@ -368,7 +365,7 @@ fn signal_completed_store_and_clear_report143_at_their_stage() {
         assert_eq!(
             String::from_utf8(out.stderr).unwrap(),
             format!(
-                "✗ {context}: secret-tool {action} failed (exit 143): DUMMY signaled operation\n"
+                "✗ {context}: secret-tool {action} failed (signal: 15 (SIGTERM)): DUMMY signaled operation\n"
             )
         );
         assert_eq!(

@@ -171,12 +171,17 @@ impl Ctx {
             &self.selection(),
             &self.config.transport_env,
         );
-        self.report_credential_warnings(credentials)?;
+        self.report_credential_warnings()?;
         let client = client?;
         Ok(self.client.get_or_init(|| client))
     }
 
-    fn report_credential_warnings(&self, credentials: &CredentialStore) -> Result<()> {
+    /// Prints, once, the warnings reading credentials produced so far: an
+    /// invalid default, or keyring entries that were missing or unreadable.
+    pub fn report_credential_warnings(&self) -> Result<()> {
+        let Some(credentials) = self.credentials.get() else {
+            return Ok(());
+        };
         for warning in credentials.take_warnings() {
             let line = style::warning(&credential_warning(&warning), self.terminal.stderr_color());
             self.eprint(format!("{line}\n"))?;

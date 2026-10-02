@@ -487,7 +487,7 @@ fn public_binary_selects_fake_keyring_default_and_explicit_workspace() {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
     let root = std::env::temp_dir().join(format!(
-        "linear-c001-keyring-{}-{sequence}",
+        "linear-whoami-keyring-{}-{sequence}",
         std::process::id()
     ));
     let home = root.join("home");
@@ -502,17 +502,18 @@ fn public_binary_selects_fake_keyring_default_and_explicit_workspace() {
     let tool_path = bin.join("secret-tool");
     fs::write(
         &tool_path,
-        b"#!/bin/sh\n[ \"$1 $2 $3 $4\" = 'lookup service linear-cli account' ] || exit 21\nprintf '%s\\n' \"$5\" >> \"$C001_TRACE\"\ncase \"$5\" in\n  first) printf 'lin_api_fake_first\\n';;\n  second) printf 'lin_api_fake_second\\n';;\n  *) exit 1;;\nesac\n",
+        b"#!/bin/sh\n[ \"$1 $2 $3 $4\" = 'lookup service linear-cli account' ] || exit 21\nprintf '%s\\n' \"$5\" >> \"$LOOKUP_TRACE\"\ncase \"$5\" in\n  first) printf 'lin_api_fake_first\\n';;\n  second) printf 'lin_api_fake_second\\n';;\n  *) exit 1;;\nesac\n",
     )
     .expect("synthetic secret-tool");
     fs::set_permissions(&tool_path, fs::Permissions::from_mode(0o700)).expect("executable");
     let trace = root.join("lookup-trace");
 
-    for (args, expected_key) in [
-        (vec!["auth", "whoami"], "lin_api_fake_first"),
+    for (args, expected_key, looked_up) in [
+        (vec!["auth", "whoami"], "lin_api_fake_first", "first"),
         (
             vec!["auth", "whoami", "--workspace", "second"],
             "lin_api_fake_second",
+            "second",
         ),
     ] {
         fs::write(&trace, b"").expect("clear trace");
@@ -524,7 +525,7 @@ fn public_binary_selects_fake_keyring_default_and_explicit_workspace() {
             .env("HOME", &home)
             .env("XDG_CONFIG_HOME", &home)
             .env("PATH", &bin)
-            .env("C001_TRACE", &trace)
+            .env("LOOKUP_TRACE", &trace)
             .env("LINEAR_IGNORE_ENV_FILE", "1")
             .env("LINEAR_GRAPHQL_ENDPOINT", endpoint)
             .env("NO_COLOR", "1")
@@ -548,13 +549,12 @@ fn public_binary_selects_fake_keyring_default_and_explicit_workspace() {
                 .contains(&format!("authorization: {expected_key}")),
             "{args:?}: selected wrong key"
         );
-        let mut calls = fs::read_to_string(&trace)
-            .expect("lookup trace")
-            .lines()
-            .map(str::to_owned)
-            .collect::<Vec<_>>();
-        calls.sort();
-        assert_eq!(calls, ["first", "second"], "{args:?}: eager lookup");
+        let calls = fs::read_to_string(&trace).expect("lookup trace");
+        assert_eq!(
+            calls,
+            format!("{looked_up}\n"),
+            "{args:?}: only the selected key is read"
+        );
         assert_eq!(
             fs::read(&credential_path).expect("credential file"),
             credential_bytes
@@ -567,10 +567,8 @@ fn public_binary_selects_fake_keyring_default_and_explicit_workspace() {
 fn run_public_binary(args: &[&str], vars: &[(&str, &str)]) -> Output {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
-    let root = std::env::temp_dir().join(format!(
-        "linear-c001-public-{}-{sequence}",
-        std::process::id()
-    ));
+    let root =
+        std::env::temp_dir().join(format!("linear-whoami-{}-{sequence}", std::process::id()));
     fs::create_dir(&root).expect("private cwd");
     let mut command = Command::new(env!("CARGO_BIN_EXE_linear"));
     command
@@ -593,7 +591,7 @@ fn run_public_binary(args: &[&str], vars: &[(&str, &str)]) -> Output {
 #[cfg(target_os = "linux")]
 #[test]
 fn public_binary_debug_errors_are_exact_and_do_not_echo_the_key() {
-    const NO_KEY_ERROR: &str = "✗ Failed to get user info: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n";
+    const NO_KEY_ERROR: &str = "✗ Failed to get user info: No API key configured\n  Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n";
     const GRAPHQL_ERROR: &str = "✗ Failed to get user info: Invalid API key\n  debug: GraphQL HTTP 200 OK; errors=1; partial_data=false\n";
     for debug in ["1", "true"] {
         let no_key = run_public_binary(&["auth", "whoami"], &[("LINEAR_DEBUG", debug)]);
@@ -666,6 +664,6 @@ fn public_binary_raw_key_conflicts_with_workspace_after_route() {
     assert!(output.stdout.is_empty());
     assert_eq!(
         output.stderr,
-        b"\xe2\x9c\x97 Failed to get user info: Cannot use --workspace flag when LINEAR_API_KEY environment variable is set. Either unset LINEAR_API_KEY or remove the --workspace flag.\n"
+        "✗ Failed to get user info: Cannot use --workspace while LINEAR_API_KEY is set\n  Unset LINEAR_API_KEY or remove the --workspace flag.\n".as_bytes()
     );
 }

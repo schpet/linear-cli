@@ -110,6 +110,7 @@ fn dispatch_auth_list(
 ) -> Result<()> {
     let config = context.config();
     let rows = auth_list::classify(context.credentials()?);
+    context.report_credential_warnings()?;
     let output = if rows.is_empty() {
         auth_list::EMPTY_OUTPUT.as_bytes().to_vec()
     } else {

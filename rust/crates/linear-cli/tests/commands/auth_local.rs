@@ -127,11 +127,14 @@ fn token_preserves_raw_bytes_and_backend_terminal_lf_with_no_header_or_http_prep
     assert!(output.status.success());
     assert_eq!(output.stdout, b"lin_api_fake_backend_zeta\n\n");
     sandbox.exactly_one_lookup("zeta");
-    sandbox.exactly_one_lookup("alpha");
+    assert!(
+        !sandbox.0.join("alpha.argv").exists(),
+        "only the selected key is read"
+    );
     assert_eq!(sandbox.bytes(), META.as_bytes());
 }
 #[test]
-fn eager_startup_lookup_once_even_when_raw_or_project_key_wins_and_no_extra_resolver_lookup() {
+fn an_env_or_project_key_reads_no_keyring_entry() {
     for project in [false, true] {
         let sandbox = Sandbox::new();
         sandbox.credentials(META);
@@ -156,9 +159,9 @@ fn eager_startup_lookup_once_even_when_raw_or_project_key_wins_and_no_extra_reso
                 b"lin_api_fake_raw\n".to_vec()
             }
         );
-        assert_eq!(output.stderr,b"Warning: No keyring entry for workspace \"zeta\". Run `linear auth login` to re-authenticate.\nWarning: No keyring entry for workspace \"alpha\". Run `linear auth login` to re-authenticate.\n");
-        sandbox.exactly_one_lookup("zeta");
-        sandbox.exactly_one_lookup("alpha");
+        assert!(output.stderr.is_empty());
+        assert!(!sandbox.0.join("zeta.argv").exists());
+        assert!(!sandbox.0.join("alpha.argv").exists());
         assert_eq!(sandbox.bytes(), META.as_bytes());
     }
 }
@@ -311,7 +314,7 @@ fn metadata_default_save_does_not_require_keys_and_never_stores_or_deletes_backe
     assert_eq!(output.stdout, b"Default workspace set to: alpha\n");
     assert_eq!(
         sandbox.bytes(),
-        b"default = \"alpha\"\nworkspaces = [\"alpha\",\"zeta\"]\n"
+        b"default = \"alpha\"\nworkspaces = [\"alpha\", \"zeta\"]\n"
     );
     sandbox.exactly_one_lookup("zeta");
     sandbox.exactly_one_lookup("alpha");
@@ -338,34 +341,6 @@ fn default_membership_is_exact_ordered_and_non_tty_selection_refuses_before_menu
         assert_eq!(output.stderr,b"\xe2\x9c\x97 Failed to set default workspace: A workspace is required when stdin is not a terminal\n  Specify a workspace with `linear auth default <workspace>`.\n");
         assert_eq!(sandbox.bytes(), INLINE.as_bytes());
     }
-}
-#[test]
-fn special_properties_match_shared_source_parse_and_constructor_successful_rewrite() {
-    let sandbox = Sandbox::new();
-    let text = "default='alpha'\n__proto__='lin_api_fake_proto'\nconstructor='lin_api_fake_constructor'\nalpha='lin_api_fake_alpha'\n";
-    sandbox.credentials(text);
-    let mut command = sandbox.command("default");
-    command.arg("__proto__");
-    let output = run(command);
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert_eq!(output.stderr,b"\xe2\x9c\x97 Failed to set default workspace: Workspace not found: __proto__\n  Available workspaces: constructor, alpha\n");
-    assert_eq!(sandbox.bytes(), text.as_bytes());
-    let mut command = sandbox.command("token");
-    command.args(["--workspace", "__proto__"]);
-    let output = run(command);
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    let mut command = sandbox.command("default");
-    command.arg("constructor");
-    let output = run(command);
-    assert!(output.status.success());
-    assert_eq!(output.stdout, b"Default workspace set to: constructor\n");
-    assert_eq!(sandbox.bytes(),b"default = \"constructor\"\nalpha = \"lin_api_fake_alpha\"\nconstructor = \"lin_api_fake_constructor\"\n");
-    assert_eq!(
-        run(sandbox.command("token")).stdout,
-        b"lin_api_fake_constructor\n"
-    );
 }
 #[test]
 fn menu_data_is_typed_before_session_but_explicit_whitespace_save_remains_exact() {

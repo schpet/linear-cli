@@ -603,7 +603,7 @@ impl Sandbox {
     fn new(credentials: Option<&[u8]>) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let root = std::env::temp_dir().join(format!(
-            "linear-c002-public-{}-{}",
+            "linear-auth-list-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
@@ -732,25 +732,23 @@ fn public_binary_policy_failure_is_fatal_before_any_request() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     listener.set_nonblocking(true).expect("nonblocking");
     let endpoint = format!("http://{}/graphql", listener.local_addr().expect("addr"));
-    for (vars, stderr) in [(
-        vec![("SSL_CERT_FILE", "/nonexistent/c002-ca.pem")],
-        "✗ Failed to list workspaces: SSL_CERT_FILE: CA bundle /nonexistent/c002-ca.pem could not be read\n",
-    )] {
-        let mut all = vars.clone();
-        all.push(("LINEAR_GRAPHQL_ENDPOINT", &endpoint));
-        let output = sandbox.run(&["auth", "list"], &all);
-        assert_eq!(output.status.code(), Some(1), "{vars:?}");
-        assert!(output.stdout.is_empty(), "{vars:?}");
-        assert_eq!(
-            String::from_utf8(output.stderr).expect("UTF-8"),
-            stderr,
-            "{vars:?}"
-        );
-        assert!(
-            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
-            "{vars:?}: no request may start"
-        );
-    }
+    let output = sandbox.run(
+        &["auth", "list"],
+        &[
+            ("SSL_CERT_FILE", "/nonexistent/ca.pem"),
+            ("LINEAR_GRAPHQL_ENDPOINT", &endpoint),
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr).expect("UTF-8"),
+        "✗ Failed to list workspaces: SSL_CERT_FILE: CA bundle /nonexistent/ca.pem could not be read\n"
+    );
+    assert!(
+        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+        "no request may start"
+    );
 }
 
 #[cfg(target_os = "linux")]

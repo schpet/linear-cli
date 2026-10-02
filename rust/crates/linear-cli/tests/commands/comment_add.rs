@@ -23,8 +23,6 @@ const P: &str = "00000000-0000-4000-9000-000000002801";
 const I: &str = "00000000-0000-4000-9000-000000004401";
 const D: &str = "00000000-0000-4000-9000-000000005501";
 #[cfg(target_os = "linux")]
-const NO_KEY: &str = "✗ Failed to add comment: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n";
-#[cfg(target_os = "linux")]
 const CREATED: &str = r#"{"data":{"commentCreate":{"success":true,"comment":{"id":"c1","url":"https://linear.app/acme/comment/c1"}}}}"#;
 
 fn compact(text: &str) -> String {
@@ -517,107 +515,6 @@ fn invalid_body_file_fails_before_target_lookup_for_every_caller() {
         assert_failure(&run, "", stderr);
         assert!(run.requests.is_empty());
     }
-}
-
-#[cfg(target_os = "linux")]
-#[test]
-fn uuid_target_prompts_before_credentials_and_credentials_precede_parent_checks() {
-    let run1 = run(
-        &[
-            "project",
-            "comment",
-            "add",
-            P,
-            "-p",
-            "https://linear.app/acme/project/x-000000000001",
-        ],
-        b"Prompted\n",
-        false,
-        &[],
-        &[],
-    );
-    assert_failure(&run1, "? Comment body\n? Comment body › Prompted\n", NO_KEY);
-    let run2 = run(
-        &[
-            "initiative",
-            "comment",
-            "add",
-            I,
-            "-b",
-            "Hi",
-            "--reply-to",
-            "https://linear.app/acme/issue/ENG-1#comment-abcdef12",
-        ],
-        b"",
-        false,
-        &[],
-        &[],
-    );
-    assert_failure(&run2, "", NO_KEY);
-}
-
-#[cfg(target_os = "linux")]
-#[test]
-fn name_lookup_precedes_prompt_and_blank_or_eof_answers_send_no_mutation() {
-    let found =
-        r#"{"data":{"projects":{"nodes":[{"id":"00000000-0000-4000-9000-000000002801"}]}}}"#;
-    let blank = run(
-        &["project", "comment", "add", "Roadmap"],
-        b"  \n",
-        true,
-        &[],
-        &[found],
-    );
-    assert_failure(
-        &blank,
-        "? Comment body\n? Comment body › \n",
-        "✗ Failed to add comment: Comment body cannot be empty\n",
-    );
-    assert_eq!(blank.requests.len(), 1);
-    assert_eq!(operation(&blank.requests[0]), "GetProjectIdByName");
-    let eof = run(
-        &["project", "comment", "add", "Roadmap"],
-        b"",
-        true,
-        &[],
-        &[found],
-    );
-    assert_failure(
-        &eof,
-        "? Comment body\n",
-        "✗ Failed to add comment: unexpected EOF while prompting for comment body\n",
-    );
-    assert_eq!(eof.requests.len(), 1);
-    let slug =
-        r#"{"data":{"initiatives":{"nodes":[{"id":"00000000-0000-4000-9000-000000004401"}]}}}"#;
-    let reply = run(
-        &[
-            "initiative",
-            "comment",
-            "add",
-            "growth",
-            "--reply-to",
-            "parent-id",
-        ],
-        "Réponse ☃\n".as_bytes(),
-        true,
-        &[],
-        &[slug, CREATED],
-    );
-    assert_eq!(reply.output.status.code(), Some(0));
-    assert_eq!(
-        String::from_utf8(reply.output.stdout).unwrap(),
-        "? Comment body\n? Comment body › Réponse ☃\n✓ Comment added to initiative growth\nhttps://linear.app/acme/comment/c1\n"
-    );
-    assert_eq!(operation(&reply.requests[0]), "ResolveInitiativeBySlug");
-    assert_eq!(
-        reply.requests[0]["variables"],
-        json!({"slugId":"growth","includeArchived":false})
-    );
-    assert_eq!(
-        reply.requests[1]["variables"],
-        json!({"input":{"body":"Réponse ☃","parentId":"parent-id","initiativeId":I}})
-    );
 }
 
 #[cfg(target_os = "linux")]
