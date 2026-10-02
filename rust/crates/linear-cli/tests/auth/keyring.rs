@@ -5,7 +5,13 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use linear_cli::auth::keyring::{ProcessKeyringReader, ProcessLookupFailure, ReaderFlavor};
+use linear_cli::auth::keyring::{
+    ProcessKeyringReader, ProcessLookupFailure, ProcessMutationBackend, ReaderFlavor,
+};
+use linear_cli::auth::mutation::KeyringBackend;
+use linear_cli::config::{
+    ChildEnvOverlay, ConfigSecret, OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup,
+};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -193,6 +199,78 @@ fn output_held_open_by_a_descendant_is_read_up_to_the_exit() {
     let _ = Command::new("/bin/kill").arg(pid).status();
     assert_eq!(result.unwrap().unwrap().expose(), "key");
     assert!(started.elapsed() < Duration::from_secs(5));
+}
+
+/// No `.env` values for the keyring tool.
+fn empty_overlay() -> ChildEnvOverlay {
+    let snapshot = ProcessEnvSnapshot::from_vars_os(
+        PathBuf::from("/nonexistent-linear-keyring-test"),
+        OsFamily::Unix,
+        std::iter::empty(),
+    )
+    .unwrap();
+    load_startup(&snapshot, &RealFileSource)
+        .result
+        .unwrap()
+        .child_env
+}
+
+fn backend(sandbox: &Sandbox, flavor: ReaderFlavor) -> ProcessMutationBackend {
+    ProcessMutationBackend::with_executable(
+        flavor,
+        sandbox.executable.clone().into_os_string(),
+        empty_overlay(),
+    )
+}
+
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(future)
+}
+
+#[test]
+fn secret_tool_store_reads_the_secret_from_stdin() {
+    let sandbox = Sandbox::new("printf '%s\\n' \"$@\" > \"$TRACE\"; /bin/cat > \"$TRACE.stdin\"");
+    block_on(
+        backend(&sandbox, ReaderFlavor::SecretTool)
+            .store("demo", &ConfigSecret::new("lin_secret".to_owned())),
+    )
+    .unwrap();
+    assert_eq!(
+        fs::read_to_string(sandbox.root.join("trace")).unwrap(),
+        "store\n--label\nlinear-cli: demo\nservice\nlinear-cli\naccount\ndemo\n"
+    );
+    assert_eq!(
+        fs::read_to_string(sandbox.root.join("trace.stdin")).unwrap(),
+        "lin_secret"
+    );
+}
+
+#[test]
+fn security_delete_of_a_missing_entry_succeeds() {
+    let sandbox = Sandbox::new("printf '%s\\n' \"$@\" > \"$TRACE\"; exit 44");
+    block_on(backend(&sandbox, ReaderFlavor::MacSecurity).delete("demo")).unwrap();
+    assert_eq!(
+        fs::read_to_string(sandbox.root.join("trace")).unwrap(),
+        "delete-generic-password\n-a\ndemo\n-s\nlinear-cli\n"
+    );
+}
+
+#[test]
+fn failed_store_reports_the_exit_status_and_stderr() {
+    let sandbox = Sandbox::new("printf 'no keychain' >&2; exit 3");
+    let error = block_on(
+        backend(&sandbox, ReaderFlavor::SecretTool)
+            .store("demo", &ConfigSecret::new("lin_secret".to_owned())),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "secret-tool store failed (exit 3): no keychain"
+    );
 }
 
 #[path = "mac_reader.rs"]

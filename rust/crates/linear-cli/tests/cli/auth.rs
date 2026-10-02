@@ -106,8 +106,10 @@ fn login_viewer() -> serde_json::Value {
     })
 }
 
+const CREDENTIALS: &str = "home/.config/linear/credentials.toml";
+
 fn credentials_toml(cli: &Cli) -> toml::Table {
-    cli.read("home/.config/linear/credentials.toml")
+    cli.read(CREDENTIALS)
         .parse()
         .expect("credentials file is TOML")
 }
@@ -179,13 +181,12 @@ fn logout_removes_a_workspace() {
 }
 
 #[test]
-fn logout_without_force_needs_a_confirmation() {
-    let cli = Cli::new().credentials(INLINE);
-    cli.run(&["auth", "logout", "acme"]).failure();
-    assert_eq!(token(&cli, &["--workspace", "acme"]), "key-acme");
-    let cli = cli.stdin(b"y\n");
-    cli.run(&["auth", "logout", "acme"]).success();
-    cli.run(&["auth", "token", "--workspace", "acme"]).failure();
+fn logout_without_force_needs_a_terminal() {
+    let cli = Cli::new().credentials(INLINE).stdin(b"y\n");
+    cli.run(&["auth", "logout", "acme"])
+        .failure()
+        .stderr_has("--force");
+    assert_eq!(cli.read(CREDENTIALS), INLINE);
 }
 
 #[test]
@@ -212,4 +213,200 @@ fn list_shows_each_workspace_with_its_organization() {
         .collect();
     keys.sort();
     assert_eq!(keys, ["key-acme", "key-beta"]);
+}
+
+#[test]
+fn login_reads_a_piped_key() {
+    let api = MockLinear::start();
+    api.on("AuthLoginViewer", login_viewer());
+    let cli = Cli::new().endpoint(&api).stdin(b"  lin_piped\n");
+    cli.run(&["auth", "login", "--plaintext"]).success();
+    assert_eq!(
+        api.request("AuthLoginViewer").header("authorization"),
+        Some("lin_piped")
+    );
+    assert_eq!(token(&cli, &[]), "lin_piped");
+}
+
+#[test]
+fn login_rejects_a_key_that_is_only_punctuation_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::new().endpoint(&api);
+    cli.run(&["auth", "login", "--key", " \"!\" ", "--plaintext"])
+        .failure()
+        .stderr_has("No API key provided");
+    assert!(api.requests().is_empty());
+    assert!(!cli.path(CREDENTIALS).exists());
+}
+
+#[test]
+fn login_reports_an_authentication_error_as_an_invalid_key() {
+    let api = MockLinear::start();
+    api.on_raw(
+        "AuthLoginViewer",
+        400,
+        r#"{"errors":[{"message":"Authentication required","extensions":{"code":"AUTHENTICATION_ERROR"}}]}"#,
+    );
+    let cli = Cli::new().endpoint(&api);
+    cli.run(&["auth", "login", "--key", "lin_bad", "--plaintext"])
+        .failure()
+        .stderr_has("Invalid API key");
+    assert!(!cli.path(CREDENTIALS).exists());
+}
+
+#[test]
+fn login_does_not_save_an_unexpected_viewer() {
+    let api = MockLinear::start();
+    let mut viewer = login_viewer();
+    viewer["viewer"]["name"] = json!(null);
+    api.on("AuthLoginViewer", viewer);
+    let cli = Cli::new().endpoint(&api);
+    cli.run(&["auth", "login", "--key", "lin_new", "--plaintext"])
+        .failure();
+    assert!(!cli.path(CREDENTIALS).exists());
+}
+
+#[test]
+fn login_into_plaintext_credentials_suggests_migrating_without_a_terminal() {
+    let api = MockLinear::start();
+    let mut viewer = login_viewer();
+    viewer["viewer"]["organization"]["urlKey"] = json!("gamma");
+    api.on("AuthLoginViewer", viewer);
+    // Linux checks for secret-tool before offering the keyring.
+    let cli = Cli::new()
+        .endpoint(&api)
+        .credentials(INLINE)
+        .stub_bin("secret-tool", "exit 0");
+    cli.run(&["auth", "login", "--key", "key-gamma"])
+        .success()
+        .stdout_has("stored as plaintext to match existing format")
+        .stdout_has("linear auth migrate");
+    assert_eq!(
+        credentials_toml(&cli).get("gamma").and_then(|v| v.as_str()),
+        Some("key-gamma")
+    );
+}
+
+#[test]
+fn login_warns_on_stderr_when_linear_api_key_is_set() {
+    for (name, cli) in [
+        ("env", Cli::new().env("LINEAR_API_KEY", "lin_env")),
+        (
+            "dotenv",
+            Cli::new()
+                .env_remove("LINEAR_IGNORE_ENV_FILE")
+                .file("cwd/.env", "LINEAR_API_KEY=lin_env\n"),
+        ),
+        (
+            "config file",
+            Cli::new().file("cwd/.linear.toml", "api_key = \"lin_toml\"\n"),
+        ),
+    ] {
+        let api = MockLinear::start();
+        api.on("AuthLoginViewer", login_viewer());
+        let run = cli
+            .endpoint(&api)
+            .run(&["auth", "login", "--key", "lin_new", "--plaintext"]);
+        run.success();
+        assert_eq!(
+            run.stderr.contains("LINEAR_API_KEY is set"),
+            name != "config file",
+            "{name}: {run}"
+        );
+        assert!(!run.stdout.contains("LINEAR_API_KEY"), "{name}: {run}");
+    }
+}
+
+#[test]
+fn credential_commands_refuse_an_invalid_credentials_file() {
+    let cli = Cli::new().credentials("workspaces = 23\n");
+    for command in [
+        vec!["auth", "login", "--key", "lin_new"],
+        vec!["auth", "logout", "acme", "--force"],
+        vec!["auth", "migrate"],
+        vec!["auth", "default", "acme"],
+    ] {
+        cli.run(&command)
+            .failure()
+            .stderr_has("invalid credentials file");
+    }
+    assert_eq!(cli.read(CREDENTIALS), "workspaces = 23\n");
+}
+
+#[test]
+fn migrate_reports_keyring_credentials_as_done() {
+    Cli::new()
+        .credentials("default = \"acme\"\nworkspaces = [\"acme\"]\n")
+        .run(&["auth", "migrate"])
+        .success()
+        .stdout_has("already using the system keyring");
+}
+
+/// A fake `secret-tool` that logs each call's action and stdin under `calls/`.
+#[cfg(target_os = "linux")]
+fn secret_tool(cli: Cli, on_store_or_clear: &str) -> Cli {
+    cli.stub_bin(
+        "secret-tool",
+        &format!(
+            "[ \"$#\" -eq 0 ] && exit 2\n\
+             if [ \"$1\" = lookup ]; then printf 'key-%s' \"$5\"; exit 0; fi\n\
+             if [ \"$1\" = store ]; then cat > \"$0.stdin\"; fi\n\
+             {on_store_or_clear}"
+        ),
+    )
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn login_stores_the_key_with_secret_tool() {
+    let api = MockLinear::start();
+    api.on("AuthLoginViewer", login_viewer());
+    let cli = secret_tool(Cli::new().endpoint(&api), "exit 0");
+    cli.run(&["auth", "login", "--key", "lin_new"])
+        .success()
+        .stdout_has("Logged in to workspace: Acme (acme)");
+    assert_eq!(
+        cli.read(CREDENTIALS),
+        "default = \"acme\"\nworkspaces = [\"acme\"]\n"
+    );
+    assert_eq!(cli.read("bin/secret-tool.stdin"), "lin_new");
+    assert_eq!(cli.calls("secret-tool")[1][0], "store");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_keyring_failure_is_not_reported_as_an_invalid_key() {
+    let api = MockLinear::start();
+    api.on("AuthLoginViewer", login_viewer());
+    let cli = secret_tool(
+        Cli::new().endpoint(&api),
+        "echo 'error 401 from the secret service' >&2; exit 3",
+    );
+    let run = cli.run(&["auth", "login", "--key", "lin_new"]);
+    run.failure()
+        .stderr_has("Failed to store API key in system keyring for workspace \"acme\"")
+        .stderr_has("secret-tool store failed (exit 3)");
+    assert!(!run.stderr.contains("Invalid API key"), "{run}");
+    assert!(!cli.path(CREDENTIALS).exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn logout_deletes_the_keyring_entry_first() {
+    let keyring = "default = \"acme\"\nworkspaces = [\"acme\", \"beta\"]\n";
+    let cli = secret_tool(Cli::new().credentials(keyring), "exit 4");
+    cli.run(&["auth", "logout", "beta", "--force"])
+        .failure()
+        .stderr_has("secret-tool clear failed (exit 4)");
+    assert_eq!(cli.read(CREDENTIALS), keyring);
+    let cli = secret_tool(Cli::new().credentials(keyring), "exit 0");
+    cli.run(&["auth", "logout", "beta", "--force"]).success();
+    assert_eq!(
+        cli.read(CREDENTIALS),
+        "default = \"acme\"\nworkspaces = [\"acme\"]\n"
+    );
+    assert_eq!(
+        cli.calls("secret-tool"),
+        [vec!["clear", "service", "linear-cli", "account", "beta"]]
+    );
 }

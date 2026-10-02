@@ -1,247 +1,271 @@
-//! Adding, removing and migrating stored credentials: keyring writes plus
-//! rewriting the credentials file.
-use crate::{
-    auth::{CredentialFormat, CredentialStore},
-    config::ConfigSecret,
-    error::Error,
-};
-use std::{collections::BTreeMap, future::Future, io, path::Path};
+//! Changing stored credentials: keyring writes plus rewriting the credentials
+//! file in one of its two formats.
+use std::collections::BTreeMap;
+use std::fs::OpenOptions;
+use std::future::Future;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
-pub enum MutationFailure {
-    /// A failure whose message `login` inspects (a 401 means an invalid key).
-    Ordinary(String),
-    /// A failure reported as is.
-    Typed(Error),
-}
-impl MutationFailure {
-    pub fn outer(self) -> Error {
-        match self {
-            Self::Ordinary(message) => Error::new(message),
-            Self::Typed(error) => error,
-        }
-    }
-    pub fn login(self) -> Error {
-        match self {
-            Self::Typed(error) => error,
-            Self::Ordinary(message) if message.contains("401") => Error::auth("Invalid API key")
-                .with_hint("Check that your API key is correct and not expired."),
-            Self::Ordinary(message) => Error::new(format!("Failed to authenticate: {message}")),
-        }
-    }
-}
-pub trait CredentialMutationBackend {
+use serde::Serialize;
+
+use crate::auth::{CredentialFormat, CredentialStore};
+use crate::config::ConfigSecret;
+use crate::error::{Error, Result, ResultExt};
+
+/// Stores and deletes API keys in the system keyring.
+pub trait KeyringBackend {
+    /// Whether the keyring can be used at all.
     fn available(&self) -> impl Future<Output = bool>;
-    fn store(
-        &self,
-        workspace: &str,
-        secret: &ConfigSecret,
-    ) -> impl Future<Output = Result<(), MutationFailure>>;
-    fn delete(&self, workspace: &str) -> impl Future<Output = Result<(), MutationFailure>>;
-}
-/// Writes the credentials file, creating its directory first.
-pub trait CredentialMutationFileWriter {
-    fn prepare_directory(&self, path: &Path) -> io::Result<()>;
-    fn write_file(&self, path: &Path, contents: &[u8]) -> io::Result<()>;
-}
-pub struct RealCredentialMutationFileWriter;
-impl CredentialMutationFileWriter for RealCredentialMutationFileWriter {
-    fn prepare_directory(&self, path: &Path) -> io::Result<()> {
-        let parent = path.parent().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "credentials path has no parent",
-            )
-        })?;
-        std::fs::create_dir_all(parent)
-    }
-    fn write_file(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
-        std::fs::write(path, contents)
-    }
+    fn store(&self, workspace: &str, secret: &ConfigSecret) -> impl Future<Output = Result<()>>;
+    /// Deleting a workspace with no entry succeeds.
+    fn delete(&self, workspace: &str) -> impl Future<Output = Result<()>>;
 }
 
-pub struct CredentialMutationState {
+/// The credentials file, edited in memory and written back whole after each
+/// change.
+pub struct Credentials {
+    path: PathBuf,
     format: CredentialFormat,
     workspaces: Vec<String>,
     default: Option<String>,
+    /// Every workspace's key in a plaintext file; empty when the keys live in
+    /// the keyring.
     keys: BTreeMap<String, ConfigSecret>,
 }
-impl std::fmt::Debug for CredentialMutationState {
+
+impl std::fmt::Debug for Credentials {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CredentialMutationState")
+        f.debug_struct("Credentials")
+            .field("path", &self.path)
             .field("format", &self.format)
             .field("workspaces", &self.workspaces)
             .field("default", &self.default)
-            .field("keys", &"<redacted>")
-            .finish()
+            .finish_non_exhaustive()
     }
 }
-impl CredentialMutationState {
-    pub fn from_store(store: &CredentialStore) -> Self {
-        let (format, workspaces, default, keys) = store.mutation_parts();
+
+impl Credentials {
+    /// The credentials in `store`, which was read from `path`. No keyring
+    /// entry is read.
+    pub fn new(store: &CredentialStore, path: &Path) -> Self {
+        let (format, workspaces, default, keys) = store.file_parts();
         Self {
+            path: path.to_owned(),
             format,
             workspaces,
             default,
             keys,
         }
     }
+
     pub fn format(&self) -> CredentialFormat {
         self.format
     }
+
     pub fn workspaces(&self) -> &[String] {
         &self.workspaces
     }
+
+    /// The default workspace; with a single workspace, that one.
     pub fn default(&self) -> Option<&str> {
-        self.default.as_deref()
+        self.default
+            .as_deref()
+            .or(match self.workspaces.as_slice() {
+                [only] => Some(only.as_str()),
+                _ => None,
+            })
     }
+
     pub fn has_workspace(&self, workspace: &str) -> bool {
         self.workspaces.iter().any(|name| name == workspace)
     }
-    fn remember(&mut self, workspace: &str, secret: ConfigSecret) {
-        self.keys.insert(workspace.to_owned(), secret);
-        if !self.has_workspace(workspace) {
-            self.workspaces.push(workspace.to_owned());
-            if self.workspaces.len() == 1 {
-                self.default = Some(workspace.to_owned());
-            }
-        }
+
+    /// Whether `add` keeps the key in the file: with `plaintext`, or when the
+    /// file already holds plaintext keys.
+    pub fn stores_plaintext(&self, plaintext: bool) -> bool {
+        plaintext || (self.format == CredentialFormat::Inline && !self.workspaces.is_empty())
     }
-    fn path<'a>(&self, path: Option<&'a Path>) -> Result<&'a Path, MutationFailure> {
-        path.ok_or_else(|| {
-            MutationFailure::Ordinary("Could not determine credentials path".to_owned())
-        })
-    }
-    fn prepare_path<'a>(
-        &self,
-        path: Option<&'a Path>,
-        writer: &impl CredentialMutationFileWriter,
-    ) -> Result<&'a Path, MutationFailure> {
-        let path = self.path(path)?;
-        writer
-            .prepare_directory(path)
-            .map_err(|error| MutationFailure::Ordinary(error.to_string()))?;
-        Ok(path)
-    }
-    fn save(
-        &self,
-        inline: bool,
-        path: Option<&Path>,
-        writer: &impl CredentialMutationFileWriter,
-    ) -> Result<(), MutationFailure> {
-        let path = self.prepare_path(path, writer)?;
-        let format = if inline {
-            CredentialFormat::Inline
-        } else {
-            CredentialFormat::Metadata
-        };
-        let contents = crate::auth::write::credentials_text(
-            format,
-            self.default(),
-            &self.workspaces,
-            &self.keys,
-        )
-        .map_err(MutationFailure::Typed)?;
-        writer
-            .write_file(path, contents.as_bytes())
-            .map_err(|error| MutationFailure::Ordinary(error.to_string()))
-    }
+
+    /// Adds or replaces `workspace`'s key. A plaintext key added to a
+    /// keyring-backed file turns it into a plaintext file: the other keys are
+    /// read from `store`'s keyring and written to the file.
     pub async fn add(
         &mut self,
         workspace: &str,
         secret: ConfigSecret,
-        plaintext: Option<bool>,
-        path: Option<&Path>,
-        backend: &impl CredentialMutationBackend,
-        writer: &impl CredentialMutationFileWriter,
-    ) -> Result<(), MutationFailure> {
-        let use_inline = plaintext.unwrap_or(self.format == CredentialFormat::Inline);
-        if plaintext == Some(false) && self.format == CredentialFormat::Inline {
-            // Moving an inline store to the keyring stores every key first.
-            self.remember(workspace, secret);
-            for name in &self.workspaces {
-                let Some(key) = self.keys.get(name) else {
-                    continue;
-                };
-                backend
-                    .store(name, key)
-                    .await
-                    .map_err(|failure| store_failure(name, failure))?;
+        plaintext: bool,
+        store: &CredentialStore,
+        keyring: &impl KeyringBackend,
+    ) -> Result<()> {
+        if self.stores_plaintext(plaintext) {
+            if self.format == CredentialFormat::Metadata {
+                for name in self.workspaces.iter().filter(|name| *name != workspace) {
+                    let key = store.key(name).ok_or_else(|| {
+                        Error::new(format!(
+                            "Could not read the API key for workspace \"{name}\" from the system keyring"
+                        ))
+                        .with_hint(format!(
+                            "Log in without --plaintext, or run `linear auth logout {name}` first."
+                        ))
+                    })?;
+                    self.keys.insert(name.clone(), key.clone());
+                }
+                self.format = CredentialFormat::Inline;
             }
-            self.format = CredentialFormat::Metadata;
-            return self.save(false, path, writer);
+            self.keys.insert(workspace.to_owned(), secret);
+        } else {
+            keyring.store(workspace, &secret).await.context(format!(
+                "Failed to store API key in system keyring for workspace \"{workspace}\""
+            ))?;
         }
-        if !use_inline {
-            backend
-                .store(workspace, &secret)
-                .await
-                .map_err(|failure| store_failure(workspace, failure))?;
+        if !self.has_workspace(workspace) {
+            self.workspaces.push(workspace.to_owned());
         }
-        self.remember(workspace, secret);
-        // A plaintext key added to a keyring store does not convert the store.
-        self.save(use_inline, path, writer)
+        if self.workspaces.len() == 1 {
+            self.default = Some(workspace.to_owned());
+        }
+        self.save()
     }
-    pub async fn remove(
-        &mut self,
-        workspace: &str,
-        path: Option<&Path>,
-        backend: &impl CredentialMutationBackend,
-        writer: &impl CredentialMutationFileWriter,
-    ) -> Result<(), MutationFailure> {
+
+    /// Removes `workspace`, deleting its keyring entry first. The next
+    /// workspace becomes the default when the default is removed.
+    pub async fn remove(&mut self, workspace: &str, keyring: &impl KeyringBackend) -> Result<()> {
         if self.format == CredentialFormat::Metadata {
-            backend.delete(workspace).await.map_err(|failure| match failure {
-                MutationFailure::Typed(error) => MutationFailure::Typed(error),
-                MutationFailure::Ordinary(message) => MutationFailure::Ordinary(format!(
-                    "Failed to remove API key from system keyring for workspace \"{workspace}\": {message}")),
-            })?;
+            keyring.delete(workspace).await.context(format!(
+                "Failed to remove API key from system keyring for workspace \"{workspace}\""
+            ))?;
         }
         self.keys.remove(workspace);
         self.workspaces.retain(|name| name != workspace);
-        if self.default() == Some(workspace) {
+        if self.default.as_deref() == Some(workspace) {
             self.default = self.workspaces.first().cloned();
         }
-        self.save(self.format == CredentialFormat::Inline, path, writer)
+        self.save()
     }
-    pub async fn migrate(
-        &mut self,
-        path: Option<&Path>,
-        backend: &impl CredentialMutationBackend,
-        writer: &impl CredentialMutationFileWriter,
-    ) -> Result<Vec<String>, MutationFailure> {
+
+    /// Moves every plaintext key to the keyring and returns the migrated
+    /// workspaces. If one store fails, the entries this call wrote are
+    /// deleted again and the file is left as it was.
+    pub async fn migrate(&mut self, keyring: &impl KeyringBackend) -> Result<Vec<String>> {
         if self.format != CredentialFormat::Inline {
             return Ok(Vec::new());
         }
-        let mut migrated = Vec::<String>::new();
+        let mut migrated: Vec<String> = Vec::new();
         for name in &self.workspaces {
-            let Some(key) = self.keys.get(name) else {
-                continue;
-            };
-            if let Err(failure) = backend.store(name, key).await {
+            let key = self
+                .keys
+                .get(name)
+                .expect("a plaintext credentials file has a key for every workspace");
+            if let Err(error) = keyring.store(name, key).await {
+                let mut error = error.context(format!(
+                    "Failed to store API key in system keyring for workspace \"{name}\""
+                ));
                 for written in &migrated {
-                    // Best effort: remove what this migration stored. Keys that
-                    // existed before and were overwritten are not restored.
-                    let _cleanup_result = backend.delete(written).await;
+                    if let Err(cleanup) = keyring.delete(written).await {
+                        error.push_message(&format!(
+                            "; could not remove the new keyring entry for \"{written}\": {cleanup}"
+                        ));
+                    }
                 }
-                return Err(match store_failure(name, failure) {
-                    MutationFailure::Typed(error) => MutationFailure::Typed(error),
-                    MutationFailure::Ordinary(message) => MutationFailure::Ordinary(format!(
-                        "{message}. Rolled back {} already-written entries.",
-                        migrated.len()
-                    )),
-                });
+                return Err(error);
             }
             migrated.push(name.clone());
         }
         self.format = CredentialFormat::Metadata;
+        self.keys.clear();
         // If saving fails, the keys already stored in the keyring stay there.
-        self.save(false, path, writer)?;
+        self.save()?;
         Ok(migrated)
     }
-}
-fn store_failure(workspace: &str, failure: MutationFailure) -> MutationFailure {
-    match failure {
-        MutationFailure::Typed(error) => MutationFailure::Typed(error),
-        MutationFailure::Ordinary(message) => MutationFailure::Ordinary(format!(
-            "Failed to store API key in system keyring for workspace \"{workspace}\": {message}"
-        )),
+
+    /// Makes `workspace`, which must be stored, the default.
+    pub fn set_default(&mut self, workspace: &str) -> Result<()> {
+        assert!(
+            self.has_workspace(workspace),
+            "only a stored workspace can be the default"
+        );
+        self.default = Some(workspace.to_owned());
+        self.save()
     }
+
+    fn save(&self) -> Result<()> {
+        let contents = self.render()?;
+        write_private(&self.path, contents.as_bytes()).map_err(|error| {
+            Error::new(format!(
+                "Failed to write credentials file at {}: {error}",
+                self.path.display()
+            ))
+            .with_source(error)
+        })
+    }
+
+    /// The file's TOML: `default` first, then either the workspace list or
+    /// one `<workspace> = "<key>"` entry per workspace, sorted by name.
+    fn render(&self) -> Result<String> {
+        let mut names: Vec<&str> = self.workspaces.iter().map(String::as_str).collect();
+        names.sort_unstable();
+        let rendered = match self.format {
+            CredentialFormat::Metadata => toml::to_string(&KeyringFile {
+                default: self.default.as_deref(),
+                workspaces: names,
+            }),
+            CredentialFormat::Inline => {
+                if let Some(reserved) = names
+                    .iter()
+                    .find(|name| matches!(**name, "default" | "workspaces"))
+                {
+                    return Err(Error::new(format!(
+                        "A workspace named \"{reserved}\" cannot be stored in a plaintext credentials file"
+                    )));
+                }
+                let keys = names
+                    .into_iter()
+                    .map(|name| {
+                        let key = self
+                            .keys
+                            .get(name)
+                            .expect("a plaintext credentials file has a key for every workspace");
+                        (name, key.expose())
+                    })
+                    .collect();
+                toml::to_string(&PlaintextFile {
+                    default: self.default.as_deref(),
+                    keys,
+                })
+            }
+        };
+        Ok(rendered.expect("credentials always serialize as TOML"))
+    }
+}
+
+#[derive(Serialize)]
+struct KeyringFile<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default: Option<&'a str>,
+    workspaces: Vec<&'a str>,
+}
+
+#[derive(Serialize)]
+struct PlaintextFile<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default: Option<&'a str>,
+    #[serde(flatten)]
+    keys: BTreeMap<&'a str, &'a str>,
+}
+
+/// Writes `contents` to `path`, creating its directory. A new file is
+/// readable only by its owner; an existing file keeps its permissions.
+fn write_private(path: &Path, contents: &[u8]) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    file.write_all(contents)
 }

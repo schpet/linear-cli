@@ -6,11 +6,9 @@ mod keyring;
 mod path;
 mod resolve;
 
-mod write;
-
 mod source_properties;
 
-mod auth_mutation;
+mod credentials;
 
 mod native_reader_spec;
 

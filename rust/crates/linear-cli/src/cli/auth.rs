@@ -33,7 +33,7 @@ pub enum AuthCommand {
 
 #[derive(Debug, Args)]
 pub struct AuthLogin {
-    #[arg(long = "key", short = 'k', help = "API key (prompted if not provided)", value_name = "key", value_parser = super::nonempty_string)]
+    #[arg(long = "key", short = 'k', help = "API key (prompted for, or read from stdin when it is piped)", value_name = "key", value_parser = super::nonempty_string)]
     pub key: Option<String>,
     #[arg(
         long = "plaintext",

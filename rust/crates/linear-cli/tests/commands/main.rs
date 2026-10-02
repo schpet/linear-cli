@@ -1,5 +1,3 @@
-mod auth_list;
-mod auth_whoami;
 mod comment_add;
 mod cycle_view;
 mod delete_server;
@@ -29,8 +27,6 @@ mod document_reads;
 mod markdown_assets;
 
 mod markdown_download;
-
-mod auth_local;
 
 mod delete_pair;
 

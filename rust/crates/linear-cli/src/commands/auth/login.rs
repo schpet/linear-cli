@@ -1,180 +1,210 @@
-//! `auth login`: read an API key, verify it, then store it.
-use crate::{
-    auth::{
-        CredentialFormat,
-        mutation::{
-            CredentialMutationBackend, CredentialMutationFileWriter, CredentialMutationState,
-            MutationFailure,
-        },
-    },
-    config::{ConfigOptions, ConfigSecret, TransportEnvInputs},
-    error::Error,
-    graphql::{
-        bulk_error::{ObservedExchangeFailure, execute_observed},
-        envelope::GraphQlRequest,
-        operations::auth_login_viewer::AuthLoginViewer,
-        transport::{ApiKey, GraphQlTransport},
-    },
-};
-use cynic::QueryBuilder;
-use std::path::Path;
-pub const CONTEXT: &str = "Failed to login";
-pub const SECRET_MESSAGE: &str = "Enter your Linear API key";
-pub const SECRET_HINT: &str = "Create one at https://linear.app/settings/account/security";
-pub const MIGRATE_MESSAGE: &str =
-    "Migrate all credentials to the system keyring for better security?";
+//! `auth login`: check an API key with Linear, then store it.
+use std::io::Read;
 
-pub fn supplied_key(input: Option<&str>) -> Option<ConfigSecret> {
-    input
-        .map(str::trim)
-        .filter(|key| !key.is_empty())
-        .map(|key| ConfigSecret::new(key.to_owned()))
+use cynic::QueryBuilder;
+use reqwest::StatusCode;
+
+use crate::auth::keyring::native_backend;
+use crate::auth::mutation::{Credentials, KeyringBackend};
+use crate::auth::{ApiKeyInput, CredentialFormat};
+use crate::cli::auth::AuthLogin;
+use crate::config::ConfigSecret;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::envelope::{GraphQlRequest, ResponseGraphQlError};
+use crate::graphql::operations::auth_login_viewer::AuthLoginViewer;
+use crate::graphql::transport::{ApiKey, GraphQlTransport, TransportFailure};
+use crate::platform::prompt::PromptOutcome;
+use crate::platform::style;
+
+const KEY_HINT: &str = "Create one at https://linear.app/settings/account/security";
+
+pub fn run(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
+    login(ctx, args).context("Failed to login")
 }
-pub fn clean_key(key: ConfigSecret) -> Result<ConfigSecret, Error> {
-    let trimmed = key
-        .expose()
-        .trim()
-        .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_');
-    if trimmed.is_empty() {
-        return Err(Error::new("No API key provided").with_hint(SECRET_HINT));
+
+fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
+    let mut credentials = super::credentials(ctx)?;
+    let store = ctx.credentials()?;
+    let backend = native_backend(&ctx.config().child_env);
+    let plaintext = credentials.stores_plaintext(args.plaintext);
+    if !plaintext && !ctx.block_on(backend.available()) {
+        return Err(Error::new("No system keyring found").with_hint(
+            "Pass --plaintext to store the key in the credentials file, or set LINEAR_API_KEY.",
+        ));
     }
-    Ok(ConfigSecret::new(trimmed.to_owned()))
-}
-pub fn prepare_transport(
-    options: &ConfigOptions,
-    env: &TransportEnvInputs,
-    key: &ConfigSecret,
-) -> Result<GraphQlTransport, Error> {
-    let api_key = ApiKey::new(key.expose().to_owned()).map_err(|error| {
-        Error::new("API key cannot be used as an HTTP header").with_source(error)
+    let key = clean_key(match &args.key {
+        Some(key) => ConfigSecret::new(key.clone()),
+        None => read_key(ctx)?,
     })?;
-    GraphQlTransport::new(
-        options.endpoint().value().clone(),
-        api_key,
-        env.production(),
-    )
-    .map_err(Error::from)
-}
-pub async fn authenticate(
-    transport: &GraphQlTransport,
-) -> Result<AuthLoginViewer, MutationFailure> {
-    let mut request = GraphQlRequest::without_variables(AuthLoginViewer::build(()));
-    request.query = request.query.trim_end_matches('\n').to_owned();
-    execute_observed(transport, &request)
-        .await
-        .map_err(|failure| match failure {
-            ObservedExchangeFailure::Ordinary(error) => MutationFailure::Ordinary(error.message),
-            ObservedExchangeFailure::Strict(error) => MutationFailure::Typed(error),
-        })
-}
-fn yellow(value: &str, no_color: bool) -> String {
-    if no_color {
-        value.to_owned()
-    } else {
-        format!("\x1b[33m{value}\x1b[39m")
-    }
-}
-#[derive(Clone, Copy, Debug)]
-pub struct LoginSaveOptions {
-    pub plaintext: bool,
-    pub no_color: bool,
-}
-pub async fn add_authenticated(
-    state: &mut CredentialMutationState,
-    viewer: AuthLoginViewer,
-    key: ConfigSecret,
-    options: LoginSaveOptions,
-    path: Option<&Path>,
-    backend: &impl CredentialMutationBackend,
-    writer: &impl CredentialMutationFileWriter,
-) -> Result<Vec<u8>, MutationFailure> {
-    let LoginSaveOptions {
-        plaintext,
-        no_color,
-    } = options;
-    if !plaintext && state.format() != CredentialFormat::Inline && !backend.available().await {
-        return Err(MutationFailure::Typed(Error::new(
-            "No system keyring found. Use `--plaintext` to store credentials in the config file, or set `LINEAR_API_KEY`.",
-        )));
-    }
-    let org = &viewer.viewer.organization;
-    let existed = state.has_workspace(&org.url_key);
-    // Preserve absence, never Some(false) from clap bool=false.
-    state
-        .add(
-            &org.url_key,
-            key,
-            plaintext.then_some(true),
-            path,
-            backend,
-            writer,
+    let client = GraphQlTransport::new(
+        ctx.options().endpoint().value().clone(),
+        ApiKey::new(key.expose().to_owned()).map_err(|error| {
+            Error::new("API key cannot be used as an HTTP header").with_source(error)
+        })?,
+        ctx.config().transport_env.production(),
+    )?;
+    let request = GraphQlRequest::without_variables(AuthLoginViewer::build(()));
+    let viewer = ctx
+        .spin(true, client.execute::<AuthLoginViewer, _>(&request))
+        .map_err(rejected_key)?
+        .viewer;
+    let organization = &viewer.organization;
+    let existed = credentials.has_workspace(&organization.url_key);
+    let was_keyring = credentials.format() == CredentialFormat::Metadata;
+    ctx.spin(
+        true,
+        credentials.add(&organization.url_key, key, args.plaintext, store, &backend),
+    )?;
+
+    let color = ctx.color();
+    let mut output = if existed {
+        format!(
+            "Updated credentials for workspace: {} ({})\n",
+            organization.name, organization.url_key
         )
-        .await?;
-    let mut output = format!(
-        "{} credentials for workspace: {} ({})\n",
-        "Updated", org.name, org.url_key
-    );
-    if !existed {
-        output = format!("Logged in to workspace: {} ({})\n", org.name, org.url_key);
-    }
-    output.push_str(&format!(
-        "  User: {} <{}>\n",
-        viewer.viewer.name, viewer.viewer.email
-    ));
-    if state.workspaces().len() == 1 {
+    } else {
+        format!(
+            "Logged in to workspace: {} ({})\n",
+            organization.name, organization.url_key
+        )
+    };
+    output.push_str(&format!("  User: {} <{}>\n", viewer.name, viewer.email));
+    if credentials.workspaces().len() == 1 {
         output.push_str("  Set as default workspace\n");
     }
-    if !plaintext && state.format() == CredentialFormat::Inline {
-        output.push_str(&yellow(
+    if plaintext && !args.plaintext {
+        output.push_str(&style::yellow(
             "Note: Credential stored as plaintext to match existing format.",
-            no_color,
+            color,
+        ));
+        output.push('\n');
+    } else if args.plaintext && was_keyring && credentials.workspaces().len() > 1 {
+        output.push_str(&style::yellow(
+            "Note: Every workspace's key is now stored as plaintext in the credentials file.",
+            color,
         ));
         output.push('\n');
     }
-    Ok(output.into_bytes())
+    ctx.print(output)?;
+
+    if plaintext && !args.plaintext {
+        offer_migration(ctx, &mut credentials, &backend)?;
+    }
+    if matches!(ApiKeyInput::from_options(ctx.options()), ApiKeyInput::Raw { value, .. } if !value.expose().is_empty())
+    {
+        let warning = "Warning: LINEAR_API_KEY is set and takes precedence over stored credentials.\nRemove it from your shell config to use multi-workspace auth.";
+        ctx.eprint(format!(
+            "{}\n",
+            style::warning(warning, ctx.terminal().stderr_color())
+        ))?;
+    }
+    Ok(())
 }
-pub async fn offer_migration(
-    state: &CredentialMutationState,
-    backend: &impl CredentialMutationBackend,
-) -> bool {
-    state.format() == CredentialFormat::Inline && backend.available().await
+
+/// The key from a prompt on a terminal, or from stdin when it is piped.
+fn read_key(ctx: &Ctx) -> Result<ConfigSecret> {
+    if !ctx.stdin_tty() {
+        let mut key = String::new();
+        std::io::stdin().read_to_string(&mut key).map_err(|error| {
+            Error::new("Could not read the API key from stdin").with_source(error)
+        })?;
+        return Ok(ConfigSecret::new(key));
+    }
+    let mut session = ctx.prompts()?;
+    let answer = session.secret("Enter your Linear API key", KEY_HINT);
+    match session.finish_result(answer)? {
+        PromptOutcome::Submitted(key) => Ok(key),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
+    }
 }
-pub fn migration_notice(no_color: bool) -> Vec<u8> {
-    format!(
-        "\n{}\n",
-        yellow(
-            "Your credentials are stored as plaintext in the credentials file.",
-            no_color
-        )
-    )
-    .into_bytes()
+
+/// Trims whitespace and pasted punctuation (quotes, brackets) around the key.
+fn clean_key(key: ConfigSecret) -> Result<ConfigSecret> {
+    let trimmed = key
+        .expose()
+        .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_');
+    if trimmed.is_empty() {
+        return Err(Error::new("No API key provided").with_hint(KEY_HINT));
+    }
+    Ok(ConfigSecret::new(trimmed.to_owned()))
 }
-pub async fn migrate(
-    state: &mut CredentialMutationState,
-    path: Option<&Path>,
-    backend: &impl CredentialMutationBackend,
-    writer: &impl CredentialMutationFileWriter,
-) -> Result<Vec<u8>, MutationFailure> {
-    let migrated = state.migrate(path, backend, writer).await?;
-    Ok(format!(
+
+/// Linear refused the key: HTTP 401/403 or an authentication error.
+fn rejected_key(failure: TransportFailure) -> Error {
+    let refused = match &failure {
+        TransportFailure::GraphQl { status, errors, .. } => {
+            refused_status(*status) || errors.iter().any(authentication_error)
+        }
+        TransportFailure::Http { response, .. } => refused_status(response.status),
+        TransportFailure::ResponseTooLarge { status, .. } => refused_status(*status),
+        TransportFailure::RequestBody(_)
+        | TransportFailure::Response(_)
+        | TransportFailure::Timeout { .. }
+        | TransportFailure::Network { .. } => false,
+    };
+    if refused {
+        Error::auth("Invalid API key")
+            .with_hint("Check that your API key is correct and not expired.")
+            .with_source(failure)
+    } else {
+        Error::from(failure)
+    }
+}
+
+fn refused_status(status: StatusCode) -> bool {
+    status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN
+}
+
+fn authentication_error(error: &ResponseGraphQlError) -> bool {
+    error
+        .extensions
+        .as_ref()
+        .and_then(|extensions| extensions.get("code"))
+        .and_then(serde_json::Value::as_str)
+        == Some("AUTHENTICATION_ERROR")
+}
+
+/// Offers to move plaintext keys to the keyring. Only asked on a terminal;
+/// otherwise the command is suggested.
+fn offer_migration(
+    ctx: &Ctx,
+    credentials: &mut Credentials,
+    backend: &impl KeyringBackend,
+) -> Result<()> {
+    if !ctx.block_on(backend.available()) {
+        return Ok(());
+    }
+    let color = ctx.color();
+    let notice = style::yellow(
+        "Your credentials are stored as plaintext in the credentials file.",
+        color,
+    );
+    if !ctx.stdin_tty() {
+        return ctx.print(format!(
+            "\n{notice}\nRun `linear auth migrate` to move them to the system keyring.\n"
+        ));
+    }
+    ctx.print(format!("\n{notice}\n"))?;
+    let mut session = ctx.prompts()?;
+    let answer = session.confirm(
+        "Migrate all credentials to the system keyring for better security?",
+        true,
+    );
+    let migrate = match session.finish_result(answer)? {
+        PromptOutcome::Submitted(answer) => answer,
+        PromptOutcome::Interrupted => return Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => {
+            return Err(Error::new("Unexpected end of input at a prompt"));
+        }
+    };
+    if !migrate {
+        return Ok(());
+    }
+    let migrated = ctx.spin(true, credentials.migrate(backend))?;
+    ctx.print(format!(
         "Migrated {} workspace(s) to system keyring.\n",
         migrated.len()
-    )
-    .into_bytes())
-}
-pub fn environment_warning(options: &ConfigOptions, no_color: bool) -> Result<Vec<u8>, Error> {
-    let input = crate::auth::ApiKeyInput::from_options(options);
-    if !matches!(input, crate::auth::ApiKeyInput::Raw { value, .. } if !value.expose().is_empty()) {
-        return Ok(Vec::new());
-    }
-    let mut output = String::from("\n");
-    for line in [
-        "Warning: LINEAR_API_KEY environment variable is set.",
-        "It takes precedence over stored credentials.",
-        "Remove it from your shell config to use multi-workspace auth.",
-    ] {
-        output.push_str(&yellow(line, no_color));
-        output.push('\n');
-    }
-    Ok(output.into_bytes())
+    ))
 }

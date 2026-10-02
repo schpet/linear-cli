@@ -1,67 +1,73 @@
-use crate::{
-    auth::mutation::{
-        CredentialMutationBackend, CredentialMutationFileWriter, CredentialMutationState,
-        MutationFailure,
-    },
-    error::Error,
-    platform::prompt::{PlainOption, escaped_display},
-};
-use std::path::Path;
-pub const CONTEXT: &str = "Failed to logout";
-pub const SELECT_MESSAGE: &str = "Select workspace to remove";
-pub enum LogoutTarget {
-    Selected(String),
-    Select(Vec<PlainOption>),
+//! `auth logout`: forget a workspace's credential.
+use crate::auth::keyring::native_backend;
+use crate::cli::auth::AuthLogout;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, escaped_display};
+
+pub fn run(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
+    logout(ctx, args).context("Failed to logout")
 }
-pub fn prepare(
-    state: &CredentialMutationState,
-    explicit: Option<&str>,
-) -> Result<LogoutTarget, Error> {
-    if state.workspaces().is_empty() {
+
+fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
+    let mut credentials = super::credentials(ctx)?;
+    if credentials.workspaces().is_empty() {
         return Err(Error::auth("No workspaces configured"));
     }
-    if let Some(name) = explicit.filter(|value| !value.is_empty()) {
-        return selected(state, name);
-    }
-    if let [only] = state.workspaces() {
-        return Ok(LogoutTarget::Selected(only.clone()));
-    }
-    let options = state.workspaces().iter().map(|name| {
-        if name.trim().is_empty() || name.chars().any(char::is_control) {
-            return Err(Error::new("Workspace names containing control characters or only whitespace cannot be selected interactively")
-                .with_hint("Specify the workspace explicitly with `linear auth logout <workspace>`."));
+    let workspace = match (&args.workspace_name, credentials.workspaces()) {
+        (Some(name), _) if !credentials.has_workspace(name) => {
+            return Err(Error::not_found("Workspace", name));
         }
-        Ok(PlainOption { label: if state.default() == Some(name.as_str()) {
-            format!("{} (default)", escaped_display(name))
-        } else { escaped_display(name) }, value: name.clone(), script_token: name.clone() })
-    }).collect::<Result<Vec<_>, Error>>()?;
-    Ok(LogoutTarget::Select(options))
-}
-pub fn selected(state: &CredentialMutationState, name: &str) -> Result<LogoutTarget, Error> {
-    if !state.has_workspace(name) {
-        return Err(Error::not_found("Workspace", name));
-    }
-    Ok(LogoutTarget::Selected(name.to_owned()))
-}
-pub fn confirm_message(name: &str) -> String {
-    format!(
+        (Some(name), _) => name.clone(),
+        (None, [only]) => only.clone(),
+        (None, workspaces) => {
+            if !ctx.stdin_tty() {
+                return Err(Error::new("No workspace given")
+                    .with_hint("Name it: `linear auth logout <workspace>`."));
+            }
+            pick(ctx, workspaces, credentials.default())?
+        }
+    };
+    let question = format!(
         "Remove credentials for workspace \"{}\"?",
-        escaped_display(name)
-    )
-}
-pub async fn remove(
-    state: &mut CredentialMutationState,
-    name: &str,
-    path: Option<&Path>,
-    backend: &impl CredentialMutationBackend,
-    writer: &impl CredentialMutationFileWriter,
-) -> Result<Vec<u8>, MutationFailure> {
-    state.remove(name, path, backend, writer).await?;
-    let mut output = format!("Removed credentials for workspace: {name}\n");
-    if !state.workspaces().is_empty()
-        && let Some(default) = state.default().filter(|name| !name.is_empty())
-    {
+        escaped_display(&workspace)
+    );
+    if !args.force && !ctx.confirm(&question, "--force")? {
+        return ctx.print("Logout canceled\n");
+    }
+    let backend = native_backend(&ctx.config().child_env);
+    ctx.spin(true, credentials.remove(&workspace, &backend))?;
+    let mut output = format!("Removed credentials for workspace: {workspace}\n");
+    if let Some(default) = credentials.default() {
         output.push_str(&format!("  Default workspace is now: {default}\n"));
     }
-    Ok(output.into_bytes())
+    ctx.print(output)
+}
+
+fn pick(ctx: &Ctx, workspaces: &[String], default: Option<&str>) -> Result<String> {
+    super::selectable(workspaces, "logout")?;
+    let options: Vec<_> = workspaces
+        .iter()
+        .map(|name| PlainOption {
+            label: if default == Some(name.as_str()) {
+                format!("{} (default)", escaped_display(name))
+            } else {
+                escaped_display(name)
+            },
+            value: name.clone(),
+            script_token: name.clone(),
+        })
+        .collect();
+    let mut session = ctx.prompts()?;
+    let picked = session.select(&PlainSelect {
+        message: "Select workspace to remove",
+        options: &options,
+        default_index: 0,
+        default_hint: None,
+    });
+    match session.finish_result(picked)? {
+        PromptOutcome::Submitted(workspace) => Ok(workspace),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
+    }
 }

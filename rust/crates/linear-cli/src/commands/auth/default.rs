@@ -1,73 +1,69 @@
-//! Default selection uses loaded membership; only changed targets write the file.
-use crate::auth::CredentialStore;
-use crate::auth::write::{CredentialFileWriter, prepare_default_write};
-use crate::error::Error;
-use crate::platform::prompt::PlainOption;
-use std::path::Path;
+//! `auth default`: choose the workspace used when none is named.
+use crate::cli::auth::AuthDefault;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
 
-pub const CONTEXT: &str = "Failed to set default workspace";
-
-#[derive(Debug)]
-pub enum DefaultAction {
-    Output(Vec<u8>),
-    Select(Vec<PlainOption>),
-    Save(String),
+pub fn run(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
+    set_default(ctx, args).context("Failed to set default workspace")
 }
 
-pub fn prepare(store: &CredentialStore, target: Option<&str>) -> Result<DefaultAction, Error> {
-    match store.workspaces() {
+fn set_default(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
+    let mut credentials = super::credentials(ctx)?;
+    let workspaces = credentials.workspaces();
+    match workspaces {
         [] => {
             return Err(Error::auth("No workspaces configured")
-                .with_hint("Run `linear auth login` to add a workspace"));
+                .with_hint("Run `linear auth login` to add a workspace."));
         }
-        [only] => {
-            return Ok(DefaultAction::Output(
-                format!("Only one workspace configured: {only}\n").into_bytes(),
-            ));
-        }
+        [only] => return ctx.print(format!("Only one workspace configured: {only}\n")),
         _ => {}
     }
-    let Some(target) = target.filter(|target| !target.is_empty()) else {
-        let options = store.workspaces().iter().map(|name| {
-            // Refuse user data before constructing the session/entering raw mode.
-            if name.trim().is_empty() || name.chars().any(char::is_control) {
-                return Err(Error::new("Workspace names containing control characters or only whitespace cannot be selected interactively")
-                    .with_hint("Specify a workspace explicitly with `linear auth default <workspace>`."));
+    let target = match &args.workspace_name {
+        Some(target) => {
+            if !credentials.has_workspace(target) {
+                return Err(Error::not_found("Workspace", target)
+                    .with_hint(format!("Available workspaces: {}", workspaces.join(", "))));
             }
-            Ok(PlainOption {
-                label: if store.default() == Some(name.as_str()) { format!("{name} (current)") } else { name.clone() },
-                value: name.clone(),
-                script_token: name.clone(),
-            })
-        }).collect::<Result<Vec<_>, Error>>()?;
-        return Ok(DefaultAction::Select(options));
+            target.clone()
+        }
+        None => pick(ctx, workspaces, credentials.default())?,
     };
-    if !store.workspaces().iter().any(|name| name == target) {
-        return Err(Error::not_found("Workspace", target).with_hint(format!(
-            "Available workspaces: {}",
-            store.workspaces().join(", ")
-        )));
+    if credentials.default() == Some(target.as_str()) {
+        return ctx.print(format!("\"{target}\" is already the default workspace\n"));
     }
-    if store.default() == Some(target) {
-        return Ok(DefaultAction::Output(
-            format!("\"{target}\" is already the default workspace\n").into_bytes(),
-        ));
-    }
-    Ok(DefaultAction::Save(target.to_owned()))
+    credentials.set_default(&target)?;
+    ctx.print(format!("Default workspace set to: {target}\n"))
 }
 
-pub fn save(
-    store: &CredentialStore,
-    target: &str,
-    path: Option<&Path>,
-    writer: &impl CredentialFileWriter,
-) -> Result<Vec<u8>, Error> {
-    let plan = prepare_default_write(store, target, path)?;
-    plan.save(writer)?;
-    Ok(format!("Default workspace set to: {target}\n").into_bytes())
-}
-
-pub fn non_tty_error() -> Error {
-    Error::new("A workspace is required when stdin is not a terminal")
-        .with_hint("Specify a workspace with `linear auth default <workspace>`.")
+fn pick(ctx: &Ctx, workspaces: &[String], current: Option<&str>) -> Result<String> {
+    if !ctx.stdin_tty() {
+        return Err(Error::new("No workspace given")
+            .with_hint("Name it: `linear auth default <workspace>`."));
+    }
+    super::selectable(workspaces, "default")?;
+    let options: Vec<_> = workspaces
+        .iter()
+        .map(|name| PlainOption {
+            label: if current == Some(name.as_str()) {
+                format!("{name} (current)")
+            } else {
+                name.clone()
+            },
+            value: name.clone(),
+            script_token: name.clone(),
+        })
+        .collect();
+    let mut session = ctx.prompts()?;
+    let picked = session.select(&PlainSelect {
+        message: "Select default workspace",
+        options: &options,
+        default_index: 0,
+        default_hint: None,
+    });
+    match session.finish_result(picked)? {
+        PromptOutcome::Submitted(workspace) => Ok(workspace),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
+    }
 }

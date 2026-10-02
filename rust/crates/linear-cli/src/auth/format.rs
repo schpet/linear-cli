@@ -283,8 +283,9 @@ impl CredentialStore {
         self.warnings.take()
     }
 
-    /// Every workspace's key, reading the keyring as needed, for rewriting the file.
-    pub(crate) fn mutation_parts(
+    /// The file as read: its format, workspaces, the default it names (if
+    /// any) and its plaintext keys. No keyring entry is read.
+    pub(crate) fn file_parts(
         &self,
     ) -> (
         CredentialFormat,
@@ -292,16 +293,11 @@ impl CredentialStore {
         Option<String>,
         BTreeMap<String, ConfigSecret>,
     ) {
-        let keys = self
-            .workspaces
-            .iter()
-            .filter_map(|workspace| Some((workspace.clone(), self.key(workspace)?.clone())))
-            .collect();
         (
             self.format,
             self.workspaces.clone(),
             self.default.clone(),
-            keys,
+            self.inline_keys.clone(),
         )
     }
 }

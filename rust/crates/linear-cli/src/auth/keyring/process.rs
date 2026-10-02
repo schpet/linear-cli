@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
 use super::{KeyringReader, ReaderFlavor};
-use crate::auth::mutation::MutationFailure;
+use crate::auth::mutation::KeyringBackend;
 use crate::auth::{LookupFailureCategory, LookupResult};
 use crate::config::{ChildEnvOverlay, ConfigSecret};
 use crate::error::Error;
@@ -228,97 +228,115 @@ impl KeyringReader for ProcessKeyringReader {
 /// Stores and deletes API keys with the platform's keyring tool. The child
 /// sees the `.env` overlay, like every other subprocess.
 pub struct ProcessMutationBackend {
-    pub overlay: ChildEnvOverlay,
+    flavor: ReaderFlavor,
+    executable: OsString,
+    overlay: ChildEnvOverlay,
 }
 
 impl ProcessMutationBackend {
-    #[cfg(target_os = "linux")]
-    const FLAVOR: ReaderFlavor = ReaderFlavor::SecretTool;
-    #[cfg(not(target_os = "linux"))]
-    const FLAVOR: ReaderFlavor = ReaderFlavor::MacSecurity;
+    pub fn new(flavor: ReaderFlavor, overlay: ChildEnvOverlay) -> Self {
+        Self::with_executable(flavor, OsString::from(flavor.executable()), overlay)
+    }
 
-    fn tool_name() -> &'static str {
-        match Self::FLAVOR {
+    /// Runs `executable` instead of the platform tool, with the same
+    /// arguments and input.
+    pub fn with_executable(
+        flavor: ReaderFlavor,
+        executable: OsString,
+        overlay: ChildEnvOverlay,
+    ) -> Self {
+        Self {
+            flavor,
+            executable,
+            overlay,
+        }
+    }
+
+    fn tool_name(&self) -> &'static str {
+        match self.flavor {
             ReaderFlavor::SecretTool => "secret-tool",
             ReaderFlavor::MacSecurity => "security",
         }
     }
 
-    async fn run(&self, args: &[String], input: Option<&[u8]>) -> Result<Output, MutationFailure> {
+    async fn run(&self, args: &[String], input: Option<&[u8]>) -> Result<Output, Error> {
         if args.iter().any(|arg| arg.contains('\0')) {
-            return Err(MutationFailure::Typed(Error::new(
+            return Err(Error::new(
                 "Keyring arguments cannot contain a NUL character",
-            )));
+            ));
         }
-        let executable = Self::FLAVOR.executable();
-        let mut command = Command::new(executable);
+        let mut command = Command::new(&self.executable);
         command.args(args).envs(self.overlay.iter());
         run(&mut command, input, DEFAULT_TIMEOUT)
             .await
             .map_err(|error| match error {
-                RunError::Spawn(error) => MutationFailure::Ordinary(match Self::FLAVOR {
-                    ReaderFlavor::SecretTool => format!(
-                        "Could not run secret-tool. Install libsecret (e.g. apt install libsecret-tools, pacman -S libsecret).\nAlternatively, set the LINEAR_API_KEY environment variable.\n  ({error})"
-                    ),
-                    ReaderFlavor::MacSecurity => format!(
-                        "Could not run {executable}. Is this a macOS system?\n  ({error})"
-                    ),
-                }),
-                RunError::Io(error) => MutationFailure::Ordinary(format!(
-                    "{} failed: {error}",
-                    Self::tool_name()
-                )),
-                RunError::Timeout => MutationFailure::Ordinary(format!(
+                RunError::Spawn(error) => {
+                    let message =
+                        format!("Could not run {}", self.executable.to_string_lossy());
+                    let hint = match self.flavor {
+                        ReaderFlavor::SecretTool => {
+                            "Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set LINEAR_API_KEY."
+                        }
+                        ReaderFlavor::MacSecurity => "Set LINEAR_API_KEY instead.",
+                    };
+                    Error::new(format!("{message}: {error}"))
+                        .with_hint(hint)
+                        .with_source(error)
+                }
+                RunError::Io(error) => {
+                    Error::new(format!("{} failed: {error}", self.tool_name())).with_source(error)
+                }
+                RunError::Timeout => Error::new(format!(
                     "{} did not finish within {} seconds",
-                    Self::tool_name(),
+                    self.tool_name(),
                     DEFAULT_TIMEOUT.as_secs()
                 )),
             })
     }
 
     /// Fails unless the tool exited with one of `accepted`.
-    fn check(output: &Output, action: &str, accepted: &[i32]) -> Result<(), MutationFailure> {
+    fn check(&self, output: &Output, action: &str, accepted: &[i32]) -> Result<(), Error> {
         let code = output.status.code();
         if code.is_some_and(|code| accepted.contains(&code)) {
             return Ok(());
         }
         let status = code.map_or_else(|| output.status.to_string(), |code| format!("exit {code}"));
         let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(MutationFailure::Ordinary(format!(
+        Err(Error::new(format!(
             "{} {action} failed ({status}): {}",
-            Self::tool_name(),
+            self.tool_name(),
             stderr.trim()
         )))
     }
 }
 
-impl crate::auth::mutation::CredentialMutationBackend for ProcessMutationBackend {
+impl KeyringBackend for ProcessMutationBackend {
     async fn available(&self) -> bool {
-        match Self::FLAVOR {
+        match self.flavor {
             ReaderFlavor::SecretTool => self.run(&[], None).await.is_ok(),
             ReaderFlavor::MacSecurity => true,
         }
     }
 
-    async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<(), MutationFailure> {
-        let args = Self::FLAVOR.store_arguments(workspace, secret);
+    async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<(), Error> {
+        let args = self.flavor.store_arguments(workspace, secret);
         // secret-tool reads the secret from stdin; `security` takes it as an
         // argument.
-        let input = match Self::FLAVOR {
+        let input = match self.flavor {
             ReaderFlavor::SecretTool => Some(secret.expose().as_bytes()),
             ReaderFlavor::MacSecurity => None,
         };
         let output = self.run(&args, input).await?;
-        Self::check(&output, Self::FLAVOR.store_action(), &[0])
+        self.check(&output, self.flavor.store_action(), &[0])
     }
 
-    async fn delete(&self, workspace: &str) -> Result<(), MutationFailure> {
-        let args = Self::FLAVOR.delete_arguments(workspace);
+    async fn delete(&self, workspace: &str) -> Result<(), Error> {
+        let args = self.flavor.delete_arguments(workspace);
         let output = self.run(&args, None).await?;
-        let accepted: &[i32] = match Self::FLAVOR {
+        let accepted: &[i32] = match self.flavor {
             ReaderFlavor::SecretTool => &[0],
             ReaderFlavor::MacSecurity => &[0, MAC_NOT_FOUND],
         };
-        Self::check(&output, Self::FLAVOR.delete_action(), accepted)
+        self.check(&output, self.flavor.delete_action(), accepted)
     }
 }
