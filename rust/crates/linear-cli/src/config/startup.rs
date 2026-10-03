@@ -48,7 +48,7 @@ impl ChildEnvOverlay {
     }
 
     /// No `.env` values.
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn empty() -> Self {
         Self {
             os: OsFamily::Unix,
