@@ -13,8 +13,8 @@ use crate::{config::ConfigOptions, error::Error, graphql::operations::issue as o
 pub struct NetworkBackend {
     pub client: LinearClient,
     pub options: ConfigOptions,
-    pub cli_workspace: Option<String>,
-    pub default_workspace: Option<String>,
+    /// The workspace parent and team URLs are checked against.
+    pub workspace: Option<String>,
 }
 fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
     rows.sort_by(|left, right| {
@@ -24,12 +24,7 @@ fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
 }
 impl NetworkBackend {
     fn scope<'a>(&'a self, key: &'a crate::auth::ApiKeyInput<'a>) -> refs::WorkspaceScope<'a> {
-        refs::WorkspaceScope {
-            cli_workspace: self.cli_workspace.as_deref(),
-            sourced_workspace: self.options.workspace().map(|v| v.value().as_str()),
-            default_workspace: self.default_workspace.as_deref(),
-            api_key: key.clone(),
-        }
+        refs::WorkspaceScope::new(self.workspace.as_deref(), key.clone())
     }
     async fn parent_reference(&self, reference: &str) -> Result<String, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);

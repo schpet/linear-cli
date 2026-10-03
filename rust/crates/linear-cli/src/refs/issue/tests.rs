@@ -5,12 +5,7 @@ use crate::refs::WorkspaceScope;
 #[test]
 fn identifiers_numbers_and_urls_become_references() {
     let key = ApiKeyInput::Absent;
-    let scope = WorkspaceScope {
-        api_key: key.clone(),
-        cli_workspace: Some("acme"),
-        sourced_workspace: None,
-        default_workspace: None,
-    };
+    let scope = WorkspaceScope::new(Some("acme"), key.clone());
     for (input, team, expected) in [
         (None, None, IssueReference::Inferred),
         (Some(""), Some("ENG"), IssueReference::Unresolved),

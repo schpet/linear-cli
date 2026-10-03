@@ -32,8 +32,7 @@ fn team_url_prepares_the_canonical_team_reference() {
     let spec = case("url-accepted");
     let key = ApiKeyInput::Absent;
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some("acme");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("acme");
     let actual = expect_team_url(argument(&spec), &scope).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(actual.as_deref(), first_reference(&spec));
 }
@@ -46,7 +45,7 @@ fn malformed_url_escape_is_unsupported() {
         source: OptionSource::Env,
     };
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_error("malformed-escape", &scope);
 }
 
@@ -54,8 +53,7 @@ fn malformed_url_escape_is_unsupported() {
 fn workspace_suggestions_use_key_provenance_even_for_empty_values() {
     let absent = ApiKeyInput::Absent;
     let mut scope = absent_scope(&absent);
-    scope.sourced_workspace = Some("acme");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_error("suggest-plain", &scope);
 
     let empty = ConfigSecret::new(String::new());
@@ -66,7 +64,7 @@ fn workspace_suggestions_use_key_provenance_even_for_empty_values() {
         },
     };
     let mut scope = absent_scope(&key);
-    scope.sourced_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_error("suggest-raw-empty", &scope);
 }
 
@@ -78,19 +76,13 @@ fn a_foreign_url_fails_before_key_checks_and_an_empty_config_workspace_falls_bac
         source: OptionSource::Env,
     };
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_error("foreign-before-key", &scope);
 
     let fake = ConfigSecret::new("lin_api_fake_project".to_owned());
-    let key = ApiKeyInput::Sourced {
-        value: &fake,
-        source: OptionSource::ProjectConfig {
-            path: PathBuf::from("/fake/linear.toml"),
-        },
-    };
+    let key = ApiKeyInput::Sourced { value: &fake };
     let mut scope = absent_scope(&key);
-    scope.sourced_workspace = Some("");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("");
     assert_url_prepared("workspace-empty-config", &scope);
 }
 
@@ -98,7 +90,7 @@ fn a_foreign_url_fails_before_key_checks_and_an_empty_config_workspace_falls_bac
 fn team_urls_are_normalized_and_foreign_urls_name_the_workspace() {
     let key = ApiKeyInput::Absent;
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_eq!(
         expect_team_url("linear.app/acme/team/eng", &scope).unwrap_or_else(|e| panic!("{e}")),
         Some("ENG".to_owned())
@@ -156,8 +148,7 @@ fn team_urls_are_normalized_and_foreign_urls_name_the_workspace() {
 fn url_preparation_tracks_request_variables_across_normalization() {
     let key = ApiKeyInput::Absent;
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some("acme");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("acme");
     for name in [
         "dot-segment",
         "escaped-segment",
@@ -181,14 +172,9 @@ fn url_preparation_tracks_request_variables_across_normalization() {
     }
 
     let fake = ConfigSecret::new("lin_api_fake_project".to_owned());
-    let key = ApiKeyInput::Sourced {
-        value: &fake,
-        source: OptionSource::ProjectConfig {
-            path: PathBuf::from("/fake/linear.toml"),
-        },
-    };
+    let key = ApiKeyInput::Sourced { value: &fake };
     let mut scope = absent_scope(&key);
-    scope.sourced_workspace = Some("project");
+    scope.workspace = Some("project");
     assert_url_prepared("workspace-config", &scope);
 }
 
@@ -215,7 +201,7 @@ fn lookalike_urls_are_plain_text_and_dot_segments_are_refused() {
     }
     // Dot segments past the team key and unknown descendants are refused
     // before any team lookup.
-    scope.cli_workspace = Some("acme");
+    scope.workspace = Some("acme");
     for name in ["dot-parent", "dot-percent", "unsupported-foreign"] {
         assert_url_error(name, &scope);
     }
@@ -225,14 +211,13 @@ fn lookalike_urls_are_plain_text_and_dot_segments_are_refused() {
 fn workspace_names_are_trimmed_and_case_folded() {
     let key = ApiKeyInput::Absent;
     let mut scope = absent_scope(&key);
-    scope.cli_workspace = Some(" Å ");
+    scope.workspace = Some(" Å ");
     assert_eq!(
         expect_team_url("https://linear.app/å/team/eng", &scope)
             .unwrap_or_else(|error| panic!("{error}")),
         Some("ENG".to_owned())
     );
-    scope.cli_workspace = Some(" ");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some(" ");
     assert_eq!(
         expect_team_url("https://linear.app/foreign/team/eng", &scope)
             .unwrap_or_else(|error| panic!("{error}")),
@@ -241,46 +226,22 @@ fn workspace_names_are_trimmed_and_case_folded() {
 }
 
 #[test]
-fn scope_uses_the_sourced_workspace() {
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: None,
-        sourced_workspace: Some(("acme", OptionSource::Env)),
-    };
-    let scope = WorkspaceScope::new(inputs, None);
-    let error = expect_team_url("https://linear.app/foreign/team/eng", &scope)
-        .err()
-        .unwrap_or_else(|| panic!("sourced workspace mismatch"));
-    assert!(error.message().contains("this is the \"acme\" workspace"));
-}
-
-#[test]
 fn workspace_mismatch_hints_name_where_the_key_came_from() {
     let fake = ConfigSecret::new("lin_api_fake_project".to_owned());
     let empty = ConfigSecret::new(String::new());
-    let config_source = OptionSource::ProjectConfig {
-        path: PathBuf::from("/fake/linear.toml"),
-    };
-    let sourced = ApiKeyInput::Sourced {
-        value: &fake,
-        source: config_source.clone(),
-    };
-    let empty_sourced = ApiKeyInput::Sourced {
-        value: &empty,
-        source: config_source,
-    };
+    let sourced = ApiKeyInput::Sourced { value: &fake };
+    let empty_sourced = ApiKeyInput::Sourced { value: &empty };
 
     let mut scope = absent_scope(&sourced);
-    scope.sourced_workspace = Some("project");
+    scope.workspace = Some("project");
     assert_url_error("suggest-config-key", &scope);
 
     let mut scope = absent_scope(&empty_sourced);
-    scope.sourced_workspace = Some("acme");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_error("suggest-config-empty-key", &scope);
 
     let mut scope = absent_scope(&sourced);
-    scope.default_workspace = Some("ghost");
+    scope.workspace = Some("ghost");
     assert_url_error("unvalidated-default", &scope);
 }
 
@@ -292,45 +253,34 @@ fn cli_then_env_then_default_workspace_with_trimming_and_case_folding() {
         source: OptionSource::Env,
     };
     let absent = ApiKeyInput::Absent;
-    let sourced = ApiKeyInput::Sourced {
-        value: &fake,
-        source: OptionSource::ProjectConfig {
-            path: PathBuf::from("/fake/linear.toml"),
-        },
-    };
+    let sourced = ApiKeyInput::Sourced { value: &fake };
 
     let mut scope = absent_scope(&raw);
-    scope.sourced_workspace = Some(" Acme ");
+    scope.workspace = Some(" Acme ");
     assert_url_error("workspace-env-mismatch-case", &scope);
 
     let mut scope = absent_scope(&raw);
-    scope.cli_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_error("wrong-kind-foreign", &scope);
 
     let mut scope = absent_scope(&absent);
-    scope.cli_workspace = Some("acme");
-    scope.sourced_workspace = Some("beta");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("acme");
     assert_url_prepared("workspace-cli-over-env", &scope);
 
     let mut scope = absent_scope(&sourced);
-    scope.cli_workspace = Some("cli");
-    scope.sourced_workspace = Some("project");
+    scope.workspace = Some("cli");
     assert_url_prepared("workspace-cli-precedes-config", &scope);
 
     let mut scope = absent_scope(&absent);
-    scope.sourced_workspace = Some(" Beta ");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some(" Beta ");
     assert_url_prepared("workspace-env-trim-case", &scope);
 
     let mut scope = absent_scope(&raw);
-    scope.sourced_workspace = Some("");
-    scope.default_workspace = Some("acme");
+    scope.workspace = Some("");
     assert_url_prepared("workspace-env-empty", &scope);
 
     let mut scope = absent_scope(&sourced);
-    scope.cli_workspace = Some("   ");
-    scope.sourced_workspace = Some("acme");
+    scope.workspace = Some("   ");
     assert_url_prepared("workspace-whitespace-cli", &scope);
 }
 

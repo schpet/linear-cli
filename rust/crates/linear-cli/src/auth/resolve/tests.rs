@@ -9,223 +9,171 @@ use crate::config::{
     ConfigInputs, OptionInputs, OsFamily, RawConfigFile, SelectedEnv, parse_config_tier,
 };
 
-/// Workspaces `a` (key `ka`, the default) and `b` (no keyring entry).
+/// Workspaces `a` (key `ka`, the default), `b` (no keyring entry) and `c`
+/// (an empty keyring entry).
 fn store() -> CredentialStore {
     canned_store(
-        manifest("workspaces=['a','b']\ndefault='a'").expect("manifest"),
-        &[("a", hit("ka")), ("b", LookupResult::Miss)],
+        manifest("workspaces=['a','b','c']\ndefault='a'").expect("manifest"),
+        &[("a", hit("ka")), ("b", LookupResult::Miss), ("c", hit(""))],
     )
 }
+
+fn inputs<'a>(
+    api_key: ApiKeyInput<'a>,
+    cli_workspace: Option<&'a str>,
+    sourced_workspace: Option<&'a str>,
+) -> CredentialSelectionInputs<'a> {
+    CredentialSelectionInputs {
+        api_key,
+        cli_workspace,
+        sourced_workspace: sourced_workspace.map(|workspace| (workspace, OptionSource::Env)),
+    }
+}
+
+/// The selection, with the selected key spelled out.
+fn outcome(inputs: &CredentialSelectionInputs<'_>, store: &CredentialStore) -> String {
+    match resolve(inputs, store) {
+        CredentialSelection::Selected { secret, workspace } => {
+            format!("{} from {workspace:?}", secret.expose())
+        }
+        CredentialSelection::NoKey => "no key".to_owned(),
+        CredentialSelection::EnvWorkspaceConflict { source } => format!("conflict ({source:?})"),
+        CredentialSelection::Unavailable {
+            workspace,
+            choice,
+            stored,
+        } => format!("{workspace} unavailable ({choice:?}, stored: {stored})"),
+    }
+}
+
 #[test]
-fn raw_config_cli_workspace_and_default_precedence() {
+fn configured_api_keys_come_first() {
     let store = store();
     let raw = ConfigSecret::new("raw".to_owned());
+    let raw = || ApiKeyInput::Raw {
+        value: &raw,
+        source: OptionSource::Env,
+    };
     let sourced = ConfigSecret::new("sourced".to_owned());
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Raw {
-            value: &raw,
-            source: OptionSource::Env,
-        },
-        cli_workspace: Some("b"),
-        sourced_workspace: None,
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::EnvWorkspaceConflict
-    ));
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Raw {
-            value: &raw,
-            source: OptionSource::Env,
-        },
-        cli_workspace: None,
-        sourced_workspace: None,
-    };
-    assert!(
-        matches!(resolve(&inputs, &store), CredentialSelection::Selected { secret, source: CredentialSource::Raw(OptionSource::Env) } if secret.expose() == "raw")
+    let sourced = || ApiKeyInput::Sourced { value: &sourced };
+    assert_eq!(
+        outcome(&inputs(raw(), None, Some("b")), &store),
+        "raw from None"
     );
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Sourced {
-            value: &sourced,
-            source: OptionSource::ProjectConfig {
-                path: PathBuf::from("/repo/linear.toml"),
-            },
-        },
-        cli_workspace: Some("b"),
-        sourced_workspace: None,
-    };
-    assert!(
-        matches!(resolve(&inputs, &store), CredentialSelection::Selected { secret, source: CredentialSource::Sourced(_) } if secret.expose() == "sourced")
+    assert_eq!(
+        outcome(&inputs(raw(), Some("a"), None), &store),
+        "conflict (Env)"
     );
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: None,
-        sourced_workspace: None,
-    };
-    assert!(
-        matches!(resolve(&inputs, &store), CredentialSelection::Selected { secret, source: CredentialSource::DefaultWorkspace { .. } } if secret.expose() == "ka")
+    // A key from a config file outranks --workspace.
+    assert_eq!(
+        outcome(&inputs(sourced(), Some("b"), None), &store),
+        "sourced from None"
     );
 }
 
 #[test]
-fn empty_raw_shadows_config_and_workspace_fallbacks_are_exact() {
+fn empty_api_keys_fall_through_to_stored_credentials() {
     let store = store();
     let empty = ConfigSecret::new(String::new());
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Raw {
-            value: &empty,
-            source: OptionSource::ProjectEnv {
-                path: PathBuf::from("/repo/.env"),
-            },
-        },
-        cli_workspace: Some("b"),
-        sourced_workspace: None,
+    let raw = ApiKeyInput::Raw {
+        value: &empty,
+        source: OptionSource::Env,
     };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::MissingExplicitWorkspace { workspace: "b" }
-    ));
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: Some(""),
-        sourced_workspace: Some(("b", OptionSource::Env)),
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::Selected {
-            source: CredentialSource::DefaultWorkspace { .. },
-            ..
-        }
-    ));
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: Some("A"),
-        sourced_workspace: None,
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::MissingExplicitWorkspace { workspace: "A" }
-    ));
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: None,
-        sourced_workspace: Some(("", OptionSource::Env)),
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::Selected {
-            source: CredentialSource::DefaultWorkspace { .. },
-            ..
-        }
-    ));
+    assert_eq!(
+        outcome(&inputs(raw, None, None), &store),
+        "ka from Some(\"a\")"
+    );
+    let sourced = ApiKeyInput::Sourced { value: &empty };
+    assert_eq!(
+        outcome(&inputs(sourced, Some("a"), None), &store),
+        "ka from Some(\"a\")"
+    );
 }
 
 #[test]
-fn no_key_is_a_normal_outcome() {
-    let store = canned_store(manifest("").expect("manifest"), &[]);
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: None,
-        sourced_workspace: None,
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::NoKey
-    ));
-}
-
-#[test]
-fn successful_workspace_selections_and_empty_cached_keys() {
+fn the_flag_then_the_configured_then_the_default_workspace_is_used() {
     let store = store();
-    let explicit = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: Some("a"),
-        sourced_workspace: None,
-    };
-    assert!(
-        matches!(resolve(&explicit, &store), CredentialSelection::Selected { secret, source: CredentialSource::ExplicitWorkspace { workspace } } if secret.expose() == "ka" && workspace == "a")
+    let absent = || ApiKeyInput::Absent;
+    assert_eq!(
+        outcome(&inputs(absent(), Some("a"), Some("b")), &store),
+        "ka from Some(\"a\")"
     );
-    let sourced = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: None,
-        sourced_workspace: Some((
-            "a",
-            OptionSource::ProjectConfig {
-                path: PathBuf::from("/repo/linear.toml"),
-            },
-        )),
-    };
-    assert!(
-        matches!(resolve(&sourced, &store), CredentialSelection::Selected { secret, source: CredentialSource::SourcedWorkspace { workspace, source: OptionSource::ProjectConfig { .. } } } if secret.expose() == "ka" && workspace == "a")
+    assert_eq!(
+        outcome(&inputs(absent(), None, Some("a")), &store),
+        "ka from Some(\"a\")"
     );
-    let empty_sourced_key = ConfigSecret::new(String::new());
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Sourced {
-            value: &empty_sourced_key,
-            source: OptionSource::ProjectConfig {
-                path: PathBuf::from("/repo/linear.toml"),
-            },
-        },
-        cli_workspace: None,
-        sourced_workspace: None,
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::Selected {
-            source: CredentialSource::DefaultWorkspace { .. },
-            ..
-        }
-    ));
-    let raw = ConfigSecret::new("lin_api_fake_unique_marker".to_owned());
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Raw {
-            value: &raw,
-            source: OptionSource::ProjectEnv {
-                path: PathBuf::from("/repo/.env"),
-            },
-        },
-        cli_workspace: Some("a"),
-        sourced_workspace: None,
-    };
-    assert!(matches!(
-        resolve(&inputs, &store),
-        CredentialSelection::EnvWorkspaceConflict
-    ));
-    let inputs = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Raw {
-            value: &raw,
-            source: OptionSource::Env,
-        },
-        cli_workspace: None,
-        sourced_workspace: None,
-    };
-    assert!(!format!("{:?}", resolve(&inputs, &store)).contains("lin_api_fake_unique_marker"));
+    assert_eq!(
+        outcome(&inputs(absent(), None, None), &store),
+        "ka from Some(\"a\")"
+    );
+    // Empty names count as unset.
+    assert_eq!(
+        outcome(&inputs(absent(), Some(""), Some("")), &store),
+        "ka from Some(\"a\")"
+    );
 }
 
 #[test]
-fn empty_default_cache_yields_no_key_and_empty_explicit_cache_is_missing() {
-    let store = canned_store(
-        manifest("workspaces=['a']\ndefault='a'").expect("manifest"),
-        &[("a", hit(""))],
+fn a_chosen_workspace_without_a_usable_key_never_falls_back() {
+    let store = store();
+    let absent = || ApiKeyInput::Absent;
+    assert_eq!(
+        outcome(&inputs(absent(), Some("b"), None), &store),
+        "b unavailable (Flag, stored: true)"
     );
-    let default = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: None,
-        sourced_workspace: None,
+    assert_eq!(
+        outcome(&inputs(absent(), Some("A"), None), &store),
+        "A unavailable (Flag, stored: false)"
+    );
+    assert_eq!(
+        outcome(&inputs(absent(), None, Some("b")), &store),
+        "b unavailable (Configured(Env), stored: true)"
+    );
+    assert_eq!(
+        outcome(&inputs(absent(), None, Some("zzz")), &store),
+        "zzz unavailable (Configured(Env), stored: false)"
+    );
+    assert_eq!(
+        outcome(&inputs(absent(), Some("c"), None), &store),
+        "c unavailable (Flag, stored: true)"
+    );
+    let default_c = canned_store(
+        manifest("workspaces=['c']").expect("manifest"),
+        &[("c", hit(""))],
+    );
+    assert_eq!(
+        outcome(&inputs(absent(), None, None), &default_c),
+        "c unavailable (Default, stored: true)"
+    );
+}
+
+#[test]
+fn no_stored_workspace_is_no_key() {
+    let empty = canned_store(manifest("").expect("manifest"), &[]);
+    assert_eq!(
+        outcome(&inputs(ApiKeyInput::Absent, None, None), &empty),
+        "no key"
+    );
+    let no_default = canned_store(
+        manifest("workspaces=['a','b']").expect("manifest"),
+        &[("a", hit("ka"))],
+    );
+    assert_eq!(
+        outcome(&inputs(ApiKeyInput::Absent, None, None), &no_default),
+        "no key"
+    );
+}
+
+#[test]
+fn debug_output_redacts_the_key() {
+    let store = store();
+    let raw = ConfigSecret::new("lin_api_fake_unique_marker".to_owned());
+    let raw = ApiKeyInput::Raw {
+        value: &raw,
+        source: OptionSource::Env,
     };
-    assert!(matches!(
-        resolve(&default, &store),
-        CredentialSelection::NoKey
-    ));
-    let explicit = CredentialSelectionInputs {
-        api_key: ApiKeyInput::Absent,
-        cli_workspace: Some("a"),
-        sourced_workspace: None,
-    };
-    assert!(matches!(
-        resolve(&explicit, &store),
-        CredentialSelection::MissingExplicitWorkspace { workspace: "a" }
-    ));
+    let selection = resolve(&inputs(raw, None, None), &store);
+    assert!(!format!("{selection:?}").contains("lin_api_fake_unique_marker"));
 }
 
 #[test]
@@ -291,10 +239,7 @@ fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     .expect("project options");
     assert!(matches!(
         ApiKeyInput::from_options(&options),
-        ApiKeyInput::Sourced {
-            source: OptionSource::ProjectConfig { .. },
-            ..
-        }
+        ApiKeyInput::Sourced { .. }
     ));
     let options = ConfigOptions::from_inputs(OptionInputs {
         env: &make_env(&[]),
@@ -305,9 +250,6 @@ fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     .expect("global options");
     assert!(matches!(
         ApiKeyInput::from_options(&options),
-        ApiKeyInput::Sourced {
-            source: OptionSource::GlobalConfig { .. },
-            ..
-        }
+        ApiKeyInput::Sourced { .. }
     ));
 }

@@ -77,8 +77,7 @@ pub(super) fn backend(ctx: &Ctx) -> Result<NetworkBackend> {
     Ok(NetworkBackend {
         client: ctx.client()?.clone(),
         options: ctx.options().clone(),
-        cli_workspace: ctx.workspace().map(str::to_owned),
-        default_workspace: ctx.credentials()?.default().map(str::to_owned),
+        workspace: ctx.scope()?.workspace.map(str::to_owned),
     })
 }
 

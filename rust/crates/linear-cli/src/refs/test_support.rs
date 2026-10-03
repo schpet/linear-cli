@@ -38,10 +38,5 @@ pub(crate) fn first_reference(spec: &Value) -> Option<&str> {
 
 /// A scope with no workspace configured anywhere.
 pub(crate) fn absent_scope<'a>(key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
-    WorkspaceScope {
-        cli_workspace: None,
-        sourced_workspace: None,
-        default_workspace: None,
-        api_key: key.clone(),
-    }
+    WorkspaceScope::new(None, key.clone())
 }

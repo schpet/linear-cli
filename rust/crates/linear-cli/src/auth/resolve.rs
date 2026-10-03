@@ -12,7 +12,6 @@ pub enum ApiKeyInput<'a> {
     },
     Sourced {
         value: &'a ConfigSecret,
-        source: OptionSource,
     },
     Absent,
 }
@@ -29,10 +28,9 @@ impl<'a> ApiKeyInput<'a> {
                 value: selected.value(),
                 source: source.clone(),
             },
-            source @ (OptionSource::ProjectConfig { .. } | OptionSource::GlobalConfig { .. }) => {
+            OptionSource::ProjectConfig { .. } | OptionSource::GlobalConfig { .. } => {
                 Self::Sourced {
                     value: selected.value(),
-                    source: source.clone(),
                 }
             }
             OptionSource::Cli => unreachable!("no command-line flag sets the API key"),
@@ -46,120 +44,128 @@ pub struct CredentialSelectionInputs<'a> {
     pub sourced_workspace: Option<(&'a str, OptionSource)>,
 }
 
+/// How the workspace whose stored key a command uses was chosen.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum CredentialSource {
-    Raw(OptionSource),
-    Sourced(OptionSource),
-    ExplicitWorkspace {
-        workspace: String,
-    },
-    SourcedWorkspace {
-        workspace: String,
-        source: OptionSource,
-    },
-    DefaultWorkspace {
-        workspace: String,
-    },
+pub enum WorkspaceChoice {
+    /// The global `--workspace` flag.
+    Flag,
+    /// The `workspace` option, from the environment or a config file.
+    Configured(OptionSource),
+    /// The credentials file's default workspace.
+    Default,
 }
 
 pub enum CredentialSelection<'a> {
     Selected {
         secret: &'a ConfigSecret,
-        source: CredentialSource,
+        /// The stored credential's workspace; `None` for an API key from the
+        /// environment or a config file, whose workspace is not known locally.
+        workspace: Option<&'a str>,
     },
     NoKey,
-    EnvWorkspaceConflict,
-    MissingExplicitWorkspace {
+    /// `--workspace` was passed while `LINEAR_API_KEY` is set (from `source`).
+    EnvWorkspaceConflict {
+        source: OptionSource,
+    },
+    /// The chosen workspace has no usable key: it is not stored, or its
+    /// keyring entry is missing or unreadable.
+    Unavailable {
         workspace: &'a str,
+        choice: WorkspaceChoice,
+        stored: bool,
     },
 }
 impl fmt::Debug for CredentialSelection<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Selected { source, .. } => f
+            Self::Selected { workspace, .. } => f
                 .debug_struct("Selected")
                 .field("secret", &"<redacted>")
-                .field("source", source)
+                .field("workspace", workspace)
                 .finish(),
             Self::NoKey => f.write_str("NoKey"),
-            Self::EnvWorkspaceConflict => f.write_str("EnvWorkspaceConflict"),
-            Self::MissingExplicitWorkspace { workspace } => f
-                .debug_struct("MissingExplicitWorkspace")
+            Self::EnvWorkspaceConflict { source } => f
+                .debug_struct("EnvWorkspaceConflict")
+                .field("source", source)
+                .finish(),
+            Self::Unavailable {
+                workspace,
+                choice,
+                stored,
+            } => f
+                .debug_struct("Unavailable")
                 .field("workspace", workspace)
+                .field("choice", choice)
+                .field("stored", stored)
                 .finish(),
         }
     }
 }
 
-fn truthy(value: &str) -> bool {
-    !value.is_empty()
-}
-
-/// Resolve a key without HTTP-header transformation or any backend interaction.
+/// Chooses the key a command uses: an API key from the environment or a
+/// config file, else the stored key of the `--workspace` workspace, the
+/// configured workspace, or the default workspace, in that order. Once a
+/// workspace is chosen its key must be usable; there is no fallback to
+/// another workspace's key.
 pub fn resolve<'a>(
     inputs: &CredentialSelectionInputs<'a>,
     store: &'a CredentialStore,
 ) -> CredentialSelection<'a> {
-    let cli = inputs.cli_workspace.filter(|value| truthy(value));
+    let present = |value: &&str| !value.is_empty();
+    let cli = inputs.cli_workspace.filter(present);
     match &inputs.api_key {
-        ApiKeyInput::Raw { value, source } if truthy(value.expose()) => {
+        ApiKeyInput::Raw { value, source } if !value.expose().is_empty() => {
             if cli.is_some() {
-                return CredentialSelection::EnvWorkspaceConflict;
+                return CredentialSelection::EnvWorkspaceConflict {
+                    source: source.clone(),
+                };
             }
             return CredentialSelection::Selected {
                 secret: value,
-                source: CredentialSource::Raw(source.clone()),
+                workspace: None,
             };
         }
-        ApiKeyInput::Sourced { value, source } if truthy(value.expose()) => {
+        ApiKeyInput::Sourced { value, .. } if !value.expose().is_empty() => {
             return CredentialSelection::Selected {
                 secret: value,
-                source: CredentialSource::Sourced(source.clone()),
+                workspace: None,
             };
         }
         ApiKeyInput::Raw { .. } | ApiKeyInput::Sourced { .. } | ApiKeyInput::Absent => {}
     }
-    if let Some(workspace) = cli {
-        if let Some(secret) = store
-            .key(workspace)
-            .filter(|secret| truthy(secret.expose()))
-        {
-            return CredentialSelection::Selected {
-                secret,
-                source: CredentialSource::ExplicitWorkspace {
-                    workspace: workspace.to_owned(),
-                },
-            };
-        }
-        return CredentialSelection::MissingExplicitWorkspace { workspace };
-    }
-    if let Some((workspace, source)) = &inputs.sourced_workspace
-        && truthy(workspace)
-        && let Some(secret) = store
-            .key(workspace)
-            .filter(|secret| truthy(secret.expose()))
+    let chosen = cli
+        .map(|workspace| (workspace, WorkspaceChoice::Flag))
+        .or_else(|| {
+            inputs
+                .sourced_workspace
+                .as_ref()
+                .filter(|(workspace, _)| present(workspace))
+                .map(|(workspace, source)| {
+                    (*workspace, WorkspaceChoice::Configured(source.clone()))
+                })
+        })
+        .or_else(|| {
+            store
+                .default()
+                .map(|workspace| (workspace, WorkspaceChoice::Default))
+        });
+    let Some((workspace, choice)) = chosen else {
+        return CredentialSelection::NoKey;
+    };
+    match store
+        .key(workspace)
+        .filter(|secret| !secret.expose().is_empty())
     {
-        return CredentialSelection::Selected {
+        Some(secret) => CredentialSelection::Selected {
             secret,
-            source: CredentialSource::SourcedWorkspace {
-                workspace: (*workspace).to_owned(),
-                source: source.clone(),
-            },
-        };
+            workspace: Some(workspace),
+        },
+        None => CredentialSelection::Unavailable {
+            workspace,
+            choice,
+            stored: store.workspaces().iter().any(|name| name == workspace),
+        },
     }
-    if let Some(workspace) = store.default()
-        && let Some(secret) = store
-            .key(workspace)
-            .filter(|secret| truthy(secret.expose()))
-    {
-        return CredentialSelection::Selected {
-            secret,
-            source: CredentialSource::DefaultWorkspace {
-                workspace: workspace.to_owned(),
-            },
-        };
-    }
-    CredentialSelection::NoKey
 }
 
 #[cfg(test)]

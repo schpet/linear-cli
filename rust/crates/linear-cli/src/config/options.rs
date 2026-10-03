@@ -103,7 +103,7 @@ impl OptionSource {
         }
     }
 
-    fn label(&self) -> String {
+    pub fn label(&self) -> String {
         match self {
             Self::Cli => "command line".to_owned(),
             Self::Env => "process environment".to_owned(),

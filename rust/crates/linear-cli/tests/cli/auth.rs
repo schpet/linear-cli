@@ -410,3 +410,55 @@ fn logout_deletes_the_keyring_entry_first() {
         [vec!["clear", "service", "linear-cli", "account", "beta"]]
     );
 }
+
+#[test]
+fn a_configured_workspace_without_credentials_never_falls_back_to_the_default() {
+    let cli = Cli::new()
+        .credentials(INLINE)
+        .file("cwd/.linear.toml", "workspace = \"ghost\"\n");
+    let run = cli.run(&["auth", "token"]);
+    run.failure()
+        .stderr_has("Workspace \"ghost\" (workspace set in project config")
+        .stderr_has("not found in credentials");
+    assert!(!run.stdout.contains("key-beta"), "{run}");
+    let run = Cli::new()
+        .credentials(INLINE)
+        .env("LINEAR_WORKSPACE", "ghost")
+        .run(&["auth", "token"]);
+    run.failure()
+        .stderr_has("(workspace set in process environment)");
+}
+
+#[test]
+fn a_dotenv_api_key_conflict_names_the_file() {
+    Cli::new()
+        .credentials(INLINE)
+        .file("cwd/.env", "LINEAR_API_KEY=lin_env\n")
+        .env_remove("LINEAR_IGNORE_ENV_FILE")
+        .run(&["auth", "token", "--workspace", "acme"])
+        .failure()
+        .stderr_has("Cannot use --workspace while LINEAR_API_KEY is set in ")
+        .stderr_has(".env");
+}
+
+#[test]
+fn urls_are_checked_against_the_workspace_of_the_credential_in_use() {
+    // An API key from the environment belongs to no stored workspace, so the
+    // stored default does not decide which URLs are foreign.
+    let api = MockLinear::start();
+    api.on(
+        "ResolveInitiativeBySlug",
+        json!({ "initiatives": { "nodes": [] } }),
+    );
+    let url = "https://linear.app/acme/initiative/roadmap-1a2b3c4d5e6f";
+    let run = Cli::for_api(&api)
+        .credentials("default = \"other\"\nother = \"key-other\"\n")
+        .run(&["initiative", "view", url]);
+    assert!(!run.stderr.contains("That URL is for"), "{run}");
+    // The default workspace's stored key is in use: its URLs are local.
+    Cli::new()
+        .credentials("default = \"other\"\nother = \"key-other\"\n")
+        .run(&["initiative", "view", url])
+        .failure()
+        .stderr_has("That URL is for the \"acme\" workspace, but this is the \"other\" workspace.");
+}

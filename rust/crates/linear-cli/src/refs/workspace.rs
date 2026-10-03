@@ -1,32 +1,22 @@
-use crate::auth::{ApiKeyInput, CredentialSelectionInputs};
+use crate::auth::ApiKeyInput;
 use crate::error::Error;
 
 use super::url::{LinearUrlKind, LinearUrlParse, LinearUrlRef, parse_linear_url};
 
-/// Local workspace knowledge for checking Linear URLs. No process state is read.
+/// The active workspace, for checking that Linear URLs belong to it. No
+/// process state is read.
 pub struct WorkspaceScope<'a> {
-    pub cli_workspace: Option<&'a str>,
-    pub sourced_workspace: Option<&'a str>,
-    pub default_workspace: Option<&'a str>,
+    pub workspace: Option<&'a str>,
     pub api_key: ApiKeyInput<'a>,
 }
 
 impl<'a> WorkspaceScope<'a> {
-    pub fn new(inputs: CredentialSelectionInputs<'a>, default_workspace: Option<&'a str>) -> Self {
-        Self {
-            cli_workspace: inputs.cli_workspace,
-            sourced_workspace: inputs.sourced_workspace.map(|(value, _)| value),
-            default_workspace,
-            api_key: inputs.api_key,
-        }
+    pub fn new(workspace: Option<&'a str>, api_key: ApiKeyInput<'a>) -> Self {
+        Self { workspace, api_key }
     }
 
     fn effective_workspace(&self) -> Option<&str> {
-        let selected = self
-            .cli_workspace
-            .or(self.sourced_workspace)
-            .or(self.default_workspace)?;
-        let trimmed = selected.trim();
+        let trimmed = self.workspace?.trim();
         (!trimmed.is_empty()).then_some(trimmed)
     }
 

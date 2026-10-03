@@ -9,10 +9,10 @@ use std::path::{Path, PathBuf};
 use crate::auth::keyring;
 use crate::auth::{
     self, ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialStore,
-    CredentialWarning, LookupFailureCategory,
+    CredentialWarning, LookupFailureCategory, WorkspaceChoice,
 };
 use crate::client::{ApiKey, LinearClient};
-use crate::config::{ConfigOptions, ConfigSecret, NetworkEnv, StartupConfig};
+use crate::config::{ConfigOptions, ConfigSecret, NetworkEnv, OptionSource, StartupConfig};
 use crate::error::{Error, Result};
 use crate::graphql::operations::user::GetViewer;
 use crate::platform::markdown_terminal::{self, RenderOptions};
@@ -149,11 +149,19 @@ impl Ctx {
         selection_inputs(self.options(), self.workspace())
     }
 
-    /// Local workspace knowledge for checking Linear URLs against the active workspace.
+    /// The workspace Linear URLs are checked against: the workspace of the
+    /// stored credential in use or, with an API key from the environment or
+    /// a config file, the configured `workspace` option (if any).
     pub fn scope(&self) -> Result<WorkspaceScope<'_>> {
+        let (_, stored) = self.credential()?;
+        let workspace = stored.or_else(|| {
+            self.options()
+                .workspace()
+                .map(|value| value.value().as_str())
+        });
         Ok(WorkspaceScope::new(
-            self.selection(),
-            self.credentials()?.default(),
+            workspace,
+            ApiKeyInput::from_options(self.options()),
         ))
     }
 
@@ -169,9 +177,15 @@ impl Ctx {
     /// The API key commands authenticate with, after reporting any
     /// credential warnings.
     pub fn api_key(&self) -> Result<&ConfigSecret> {
-        let key = select_key(&self.selection(), self.credentials()?);
+        Ok(self.credential()?.0)
+    }
+
+    /// The key commands authenticate with and the stored workspace it belongs
+    /// to, after reporting any credential warnings.
+    fn credential(&self) -> Result<(&ConfigSecret, Option<&str>)> {
+        let selected = select_credential(&self.selection(), self.credentials()?);
         self.report_credential_warnings()?;
-        key
+        selected
     }
 
     /// Prints, once, the warnings reading credentials produced so far: an
@@ -376,21 +390,64 @@ pub fn select_key<'a>(
     inputs: &CredentialSelectionInputs<'a>,
     credentials: &'a CredentialStore,
 ) -> Result<&'a ConfigSecret> {
+    Ok(select_credential(inputs, credentials)?.0)
+}
+
+/// The API key `inputs` select and the stored workspace it belongs to, or why
+/// there is none.
+fn select_credential<'a>(
+    inputs: &CredentialSelectionInputs<'a>,
+    credentials: &'a CredentialStore,
+) -> Result<(&'a ConfigSecret, Option<&'a str>)> {
     match auth::resolve(inputs, credentials) {
-        CredentialSelection::Selected { secret, .. } => Ok(secret),
+        CredentialSelection::Selected { secret, workspace } => Ok((secret, workspace)),
         CredentialSelection::NoKey => Err(Error::auth("No API key configured").with_hint(
             "Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
         )),
-        CredentialSelection::EnvWorkspaceConflict => Err(Error::new(
-            "Cannot use --workspace while LINEAR_API_KEY is set",
-        )
-        .with_hint("Unset LINEAR_API_KEY or remove the --workspace flag.")),
-        CredentialSelection::MissingExplicitWorkspace { workspace } => Err(Error::auth(format!(
-            "Workspace \"{workspace}\" not found in credentials"
+        CredentialSelection::EnvWorkspaceConflict { source } => {
+            let place = match source {
+                OptionSource::ProjectEnv { path } => format!(" in {}", path.display()),
+                OptionSource::Cli
+                | OptionSource::Env
+                | OptionSource::ProjectConfig { .. }
+                | OptionSource::GlobalConfig { .. } => String::new(),
+            };
+            Err(Error::new(format!(
+                "Cannot use --workspace while LINEAR_API_KEY is set{place}"
+            ))
+            .with_hint("Unset LINEAR_API_KEY or remove the --workspace flag."))
+        }
+        CredentialSelection::Unavailable {
+            workspace,
+            choice,
+            stored: true,
+        } => Err(Error::new(format!(
+            "No usable API key for workspace \"{workspace}\"{}",
+            chosen_by(&choice)
+        ))
+        .with_hint(format!(
+            "Run `linear auth login` to store its key again, or `linear auth logout {workspace}` to forget it."
+        ))),
+        CredentialSelection::Unavailable {
+            workspace,
+            choice,
+            stored: false,
+        } => Err(Error::new(format!(
+            "Workspace \"{workspace}\"{} not found in credentials",
+            chosen_by(&choice)
         ))
         .with_hint(
             "Run `linear auth login` to add it, or `linear auth list` to see configured workspaces.",
         )),
+    }
+}
+
+/// Where a chosen workspace came from, as a phrase after its name.
+fn chosen_by(choice: &WorkspaceChoice) -> String {
+    match choice {
+        WorkspaceChoice::Flag => String::new(),
+        WorkspaceChoice::Configured(source) => format!(" (workspace set in {})", source.label()),
+        WorkspaceChoice::Default => " (the default workspace)".to_owned(),
     }
 }
 

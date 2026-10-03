@@ -14,7 +14,9 @@ pub use format::{
 };
 pub use keyring::LookupFailureCategory;
 pub use path::credentials_path;
-pub use resolve::{ApiKeyInput, CredentialSelection, CredentialSelectionInputs, resolve};
+pub use resolve::{
+    ApiKeyInput, CredentialSelection, CredentialSelectionInputs, WorkspaceChoice, resolve,
+};
 
 #[cfg(test)]
 pub(crate) mod test_support;
