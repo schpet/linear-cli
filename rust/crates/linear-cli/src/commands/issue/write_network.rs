@@ -6,8 +6,7 @@ use crate::{
     config::ConfigOptions,
     error::Error,
     graphql::{
-        bulk_error, envelope::GraphQlRequest, operations::issue_write as ops,
-        transport::GraphQlTransport,
+        envelope::GraphQlRequest, operations::issue_write as ops, transport::GraphQlTransport,
     },
     refs,
 };
@@ -28,14 +27,7 @@ async fn fetch<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<V>,
 ) -> Result<T, Error> {
-    bulk_error::execute_observed(transport, request)
-        .await
-        .map_err(|failure| match failure {
-            bulk_error::ObservedExchangeFailure::Strict(error) => error,
-            bulk_error::ObservedExchangeFailure::Ordinary(error) => {
-                Error::new(error.preferred_message.unwrap_or(error.message))
-            }
-        })
+    Ok(transport.execute(request).await?)
 }
 fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
     rows.sort_by(|left, right| {
@@ -397,20 +389,16 @@ impl Backend for NetworkBackend {
         let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
-        let response = match self.transport.send_request(&req).await {
-            Ok(response) => response,
+        let data: OptionalParent = match self.transport.execute(&req).await {
+            Ok(data) => data,
+            Err(crate::graphql::transport::TransportFailure::Response(error)) => {
+                return Err(Error::new(
+                    "Linear returned parent issue metadata with an unexpected shape",
+                )
+                .with_source(error));
+            }
             Err(_) => return Ok(None),
         };
-        match bulk_error::observe_source_error(&response, &req) {
-            Ok(Some(_)) => return Ok(None),
-            Ok(None) => (),
-            Err(_error) => return Ok(None),
-        }
-        let data: OptionalParent =
-            crate::graphql::transport::classify_typed(response).map_err(|error| {
-                Error::new("Linear returned parent issue metadata with an unexpected shape")
-                    .with_source(error)
-            })?;
         let Some(data) = data.issue else {
             return Ok(None);
         };

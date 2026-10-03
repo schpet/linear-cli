@@ -3,10 +3,7 @@ use linear_cli::{
     commands::{issue::pull_request as pr, issue::start},
     config::{ChildEnvOverlay, FileKind, FileSource, OsFamily, ProcessEnvSnapshot},
     error::Error,
-    graphql::{
-        bulk_error::{ObservedExchangeFailure, SourceException, SourceExceptionKind},
-        operations::workflow_states::WorkflowState,
-    },
+    graphql::operations::workflow_states::WorkflowState,
     platform::{
         gh_script::GhRunner,
         vcs_script::{Captured, ChildOutcome, CommandSpec, ProcessRunner, Program},
@@ -229,15 +226,6 @@ fn state_chooses_lowest_started_with_stable_ties_and_raw_sdk_not_preferred() {
     assert_eq!(
         start::started(vec![]).unwrap_err().message(),
         "No 'started' state found in workflow"
-    );
-    let failure = ObservedExchangeFailure::Ordinary(SourceException {
-        kind: SourceExceptionKind::Client,
-        message: "raw SDK query+metadata".into(),
-        preferred_message: Some("preferred".into()),
-    });
-    assert_eq!(
-        start::post_failure(failure),
-        "ClientError: raw SDK query+metadata"
     );
     let wire = serde_json::to_value(start::update_request("ENG-1", "state1")).unwrap();
     assert_eq!(wire["operationName"], "UpdateIssueState");

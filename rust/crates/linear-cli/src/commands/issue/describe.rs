@@ -5,7 +5,6 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        bulk_error::{self, ObservedExchangeFailure},
         operations::issue_details::{GetIssueDetails, IssueDetails},
         transport::GraphQlTransport,
     },
@@ -25,20 +24,10 @@ fn describe(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
         args.references,
     ))
 }
-pub fn exchange_failure(failure: ObservedExchangeFailure) -> Error {
-    match failure {
-        ObservedExchangeFailure::Strict(error) => error,
-        ObservedExchangeFailure::Ordinary(error) => {
-            Error::new(error.preferred_message.unwrap_or(error.message))
-        }
-    }
-}
 pub async fn fetch(transport: &GraphQlTransport, identifier: &str) -> Result<IssueDetails, Error> {
     let mut request = details::request(identifier.to_owned());
     request.query = request.query.trim_end_matches('\n').to_owned();
-    let response: GetIssueDetails = bulk_error::execute_observed(transport, &request)
-        .await
-        .map_err(exchange_failure)?;
+    let response: GetIssueDetails = transport.execute(&request).await?;
     Ok(response.issue)
 }
 pub fn format(identifier: &str, title: &str, url: &str, references: bool) -> Vec<u8> {

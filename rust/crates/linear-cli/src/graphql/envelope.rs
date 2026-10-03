@@ -214,20 +214,19 @@ fn classify_json_error(error: serde_json::Error) -> ResponseError {
 
 /// The message shown for GraphQL errors.
 ///
-/// Prefers the first error's `extensions.userPresentableMessage`, then its
-/// `message`; returns `None` for an empty error list.
+/// The first error's `extensions.userPresentableMessage`, else its
+/// `message`, skipping errors where both are empty; `None` when none has one.
 pub fn graphql_message(errors: &[ResponseGraphQlError]) -> Option<String> {
-    let first = errors.first()?;
-    let presentable = first
-        .extensions
-        .as_ref()
-        .and_then(|extensions| extensions.get("userPresentableMessage"))
-        .and_then(Value::as_str)
-        .filter(|message| !message.is_empty());
-    match presentable {
-        Some(message) => Some(message.to_owned()),
-        None => Some(first.message.clone()),
-    }
+    errors.iter().find_map(|error| {
+        error
+            .extensions
+            .as_ref()
+            .and_then(|extensions| extensions.get("userPresentableMessage"))
+            .and_then(Value::as_str)
+            .filter(|message| !message.is_empty())
+            .or_else(|| Some(error.message.as_str()).filter(|message| !message.is_empty()))
+            .map(str::to_owned)
+    })
 }
 
 /// Whether GraphQL errors describe a missing entity.

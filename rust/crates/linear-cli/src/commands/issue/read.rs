@@ -8,10 +8,7 @@ use crate::graphql::operations::number::{Float, WholeNumber};
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::{
-    bulk_error,
-    envelope::GraphQlRequest,
-    operations::issue_read::*,
-    transport::{GraphQlTransport, classify_typed},
+    envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport,
 };
 use crate::platform::style;
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
@@ -25,19 +22,16 @@ pub async fn exchange<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<V>,
 ) -> Result<T, Error> {
-    let response = transport.send_request(request).await.map_err(Error::from)?;
-    if let Some(error) = bulk_error::observe_source_error(&response, request)
-        .map_err(bulk_error::BulkExchangeFailure::into_error)?
-    {
-        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
-    }
-    classify_typed(response).map_err(|error| match error {
-        crate::graphql::transport::TransportFailure::Response(
-            crate::graphql::envelope::ResponseError::UnexpectedShape(error),
-        ) => Error::new("Linear returned issue read data with an unexpected shape")
-            .with_source(error),
-        error => Error::from(error),
-    })
+    transport
+        .execute(request)
+        .await
+        .map_err(|error| match error {
+            crate::graphql::transport::TransportFailure::Response(
+                crate::graphql::envelope::ResponseError::UnexpectedShape(error),
+            ) => Error::new("Linear returned issue read data with an unexpected shape")
+                .with_source(error),
+            error => Error::from(error),
+        })
 }
 fn validation(message: impl Into<String>) -> Error {
     Error::new(message)

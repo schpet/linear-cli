@@ -546,14 +546,6 @@ async fn full_mutation_decode_precedes_false_null_and_preserves_raw_first_error(
         assert_ne!(error.message(), "Issue creation failed");
         assert_eq!(server.join().unwrap().len(), 1);
     }
-    let (backend, server) = network(vec![json!({"errors":[{"message":""},{"message":"later"}]})]);
-    let error = backend
-        .update("opaque".into(), IssueUpdateInput::default())
-        .await
-        .err()
-        .unwrap();
-    assert!(error.message().contains("later"));
-    assert_eq!(server.join().unwrap().len(), 1);
 }
 #[test]
 fn issue_and_project_templates_share_scope_rules_with_exact_project_regression() {

@@ -6,7 +6,6 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        bulk_error::{self, ObservedExchangeFailure, SourceExceptionKind},
         envelope::GraphQlRequest,
         operations::{
             issue_read::*,
@@ -371,19 +370,6 @@ pub fn update_request(identifier: &str, state_id: &str) -> GraphQlRequest<Variab
     request.query = request.query.trim_end_matches('\n').to_owned();
     request
 }
-pub fn post_failure(error: ObservedExchangeFailure) -> String {
-    match error {
-        ObservedExchangeFailure::Strict(error) => format!("Error: {}", error),
-        ObservedExchangeFailure::Ordinary(error) => format!(
-            "{}: {}",
-            match error.kind {
-                SourceExceptionKind::Plain => "Error",
-                SourceExceptionKind::Client => "ClientError",
-            },
-            error.message
-        ),
-    }
-}
 pub async fn update_state(
     transport: &GraphQlTransport,
     team: &str,
@@ -391,14 +377,15 @@ pub async fn update_state(
 ) -> Result<Vec<u8>, String> {
     let mut request = crate::workflow_states::request(team.to_owned());
     request.query = request.query.trim_end_matches('\n').to_owned();
-    let response: GetWorkflowStates = bulk_error::execute_observed(transport, &request)
+    let response: GetWorkflowStates = transport
+        .execute(&request)
         .await
-        .map_err(post_failure)?;
-    let state = started(response.team.states.nodes).map_err(|error| format!("Error: {}", error))?;
-    let response: UpdateIssueState =
-        bulk_error::execute_observed(transport, &update_request(identifier, state.id.inner()))
-            .await
-            .map_err(post_failure)?;
+        .map_err(|failure| Error::from(failure).to_string())?;
+    let state = started(response.team.states.nodes).map_err(|error| error.to_string())?;
+    let response: UpdateIssueState = transport
+        .execute(&update_request(identifier, state.id.inner()))
+        .await
+        .map_err(|failure| Error::from(failure).to_string())?;
     // The `success` flag is not reported; the whole payload is still decoded.
     let _reported_success = response.issue_update.success;
     Ok(format!("✓ Issue state updated to '{}'\n", state.name).into_bytes())

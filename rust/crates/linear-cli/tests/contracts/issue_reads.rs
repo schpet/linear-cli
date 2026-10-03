@@ -159,7 +159,7 @@ fn invalid_configured_sort_fails_at_startup() {
     assert_eq!(output.status.code(), Some(0));
 }
 #[test]
-fn handled_raw_error_fallback_keeps_empty_first_and_nonjson_body_without_class_prefix() {
+fn errors_skip_an_empty_first_message_and_name_the_http_status() {
     for (status, mime, body) in [
         (
             200,
@@ -179,12 +179,7 @@ fn handled_raw_error_fallback_keeps_empty_first_and_nonjson_body_without_class_p
         assert!(output.stdout.is_empty());
         let stderr = String::from_utf8(output.stderr).unwrap();
         assert!(stderr.starts_with("✗ Failed to query issues: "));
-        assert!(stderr.contains("request") && stderr.contains("GetIssuesForQuery"));
-        assert!(stderr.contains(if status == 500 {
-            "raw fixture failure"
-        } else {
-            "boom"
-        }));
+        assert!(stderr.contains(if status == 500 { "500" } else { "boom" }));
         assert!(!stderr.contains("ClientError:"));
         assert_eq!(server.finish().len(), 1);
     }

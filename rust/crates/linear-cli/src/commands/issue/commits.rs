@@ -5,8 +5,8 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        bulk_error::{self, ObservedExchangeFailure},
-        transport::GraphQlTransport,
+        envelope::is_not_found,
+        transport::{GraphQlTransport, TransportFailure},
     },
     platform::vcs_script::{self, ChildOutcome, CommandSpec, ProcessRunner, Program},
 };
@@ -75,7 +75,8 @@ impl<'de> Deserialize<'de> for LookupIssue {
 pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), Error> {
     let mut request = super::id::request(identifier);
     request.query = request.query.trim_end_matches('\n').to_owned();
-    let result: Lookup = bulk_error::execute_observed(transport, &request)
+    let result: Lookup = transport
+        .execute(&request)
         .await
         .map_err(|failure| lookup_failure(failure, identifier))?;
     if result
@@ -88,15 +89,12 @@ pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<()
         Err(Error::not_found("Issue", identifier))
     }
 }
-pub fn lookup_failure(failure: ObservedExchangeFailure, identifier: &str) -> Error {
-    match failure {
-        ObservedExchangeFailure::Strict(error) => error,
-        ObservedExchangeFailure::Ordinary(error) if error.is_not_found() => {
+pub fn lookup_failure(failure: TransportFailure, identifier: &str) -> Error {
+    match &failure {
+        TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
             Error::not_found("Issue", identifier)
         }
-        ObservedExchangeFailure::Ordinary(error) => {
-            Error::new(error.preferred_message.unwrap_or(error.message))
-        }
+        _ => Error::from(failure),
     }
 }
 pub fn revset(identifier: &str) -> String {

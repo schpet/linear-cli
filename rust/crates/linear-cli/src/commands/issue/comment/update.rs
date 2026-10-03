@@ -4,10 +4,9 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        bulk_error,
         envelope::{GraphQlRequest, ResponseError},
         operations::comment_update::*,
-        transport::{GraphQlTransport, TransportFailure, classify_typed},
+        transport::{GraphQlTransport, TransportFailure},
     },
     platform::prompt::Text,
     refs::{reject_comment_url, reject_linear_url},
@@ -82,24 +81,23 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
     request: &GraphQlRequest<V>,
     mutation: bool,
 ) -> Result<T, Error> {
-    let response = transport.send_request(request).await?;
-    if let Some(error) =
-        bulk_error::observe_source_error(&response, request).map_err(|error| error.into_error())?
-    {
-        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
-    }
-    classify_typed(response).map_err(|error| match error {
-        TransportFailure::Response(ResponseError::UnexpectedShape(source)) => Error::new(format!(
-            "Linear returned an unexpected response: {source}{}",
-            if mutation {
-                "; update outcome unknown; do not retry automatically"
-            } else {
-                "; no update attempted"
+    transport
+        .execute(request)
+        .await
+        .map_err(|error| match error {
+            TransportFailure::Response(ResponseError::UnexpectedShape(source)) => {
+                Error::new(format!(
+                    "Linear returned an unexpected response: {source}{}",
+                    if mutation {
+                        "; update outcome unknown; do not retry automatically"
+                    } else {
+                        "; no update attempted"
+                    }
+                ))
+                .with_source(source)
             }
-        ))
-        .with_source(source),
-        error => Error::from(error),
-    })
+            error => Error::from(error),
+        })
 }
 pub async fn existing_body(transport: &GraphQlTransport, id: &str) -> Result<String, Error> {
     let result: GetComment = exchange(transport, &get_request(id), false).await?;

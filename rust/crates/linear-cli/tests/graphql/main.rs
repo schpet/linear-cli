@@ -15,8 +15,6 @@ mod transport;
 mod union;
 mod wire;
 
-mod source_response;
-
 /// An envelope for an arbitrary GraphQL document.
 fn raw_request(
     document: &str,
