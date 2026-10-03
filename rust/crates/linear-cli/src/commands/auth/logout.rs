@@ -14,11 +14,12 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
     if credentials.workspaces().is_empty() {
         return Err(Error::auth("No workspaces configured"));
     }
-    let workspace = match (&args.workspace_name, credentials.workspaces()) {
+    let named = super::named_workspace(ctx, args.workspace_name.as_deref())?;
+    let workspace = match (named, credentials.workspaces()) {
         (Some(name), _) if !credentials.has_workspace(name) => {
             return Err(Error::not_found("Workspace", name));
         }
-        (Some(name), _) => name.clone(),
+        (Some(name), _) => name.to_owned(),
         (None, [only]) => only.clone(),
         (None, workspaces) => {
             if !ctx.interactive() {

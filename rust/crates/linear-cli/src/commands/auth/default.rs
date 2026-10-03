@@ -19,13 +19,13 @@ fn set_default(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
         [only] => return ctx.print(format!("Only one workspace configured: {only}\n")),
         _ => {}
     }
-    let target = match &args.workspace_name {
+    let target = match super::named_workspace(ctx, args.workspace_name.as_deref())? {
         Some(target) => {
             if !credentials.has_workspace(target) {
                 return Err(Error::not_found("Workspace", target)
                     .with_hint(format!("Available workspaces: {}", workspaces.join(", "))));
             }
-            target.clone()
+            target.to_owned()
         }
         None => pick(ctx, workspaces, credentials.default())?,
     };

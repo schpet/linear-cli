@@ -181,6 +181,22 @@ fn logout_removes_a_workspace() {
 }
 
 #[test]
+fn logout_and_default_take_the_workspace_from_either_spelling() {
+    let cli = Cli::new().credentials(INLINE);
+    cli.run(&["auth", "default", "--workspace", "beta"])
+        .success()
+        .stdout_has("beta");
+    cli.run(&["auth", "logout", "acme", "--workspace", "beta", "--yes"])
+        .failure()
+        .stderr_has("Two different workspaces");
+    cli.run(&["auth", "logout", "--workspace", "acme", "--yes"])
+        .success()
+        .stdout_has("acme");
+    let file = credentials_toml(&cli);
+    assert!(file.get("acme").is_none());
+}
+
+#[test]
 fn logout_without_yes_needs_a_terminal() {
     let cli = Cli::new().credentials(INLINE).stdin(b"y\n");
     cli.run(&["auth", "logout", "acme"])

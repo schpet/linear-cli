@@ -38,7 +38,7 @@ pub struct AuthLogin {
 
 #[derive(Debug, Args)]
 pub struct AuthLogout {
-    /// Workspace to log out of; asked for when several are stored
+    /// Workspace to log out of [default: --workspace, or asked for when several are stored]
     #[arg(value_name = "WORKSPACE")]
     pub workspace_name: Option<String>,
     #[command(flatten)]
@@ -50,7 +50,7 @@ pub struct AuthList {}
 
 #[derive(Debug, Args)]
 pub struct AuthDefault {
-    /// Workspace to make the default; asked for when omitted
+    /// Workspace to make the default [default: --workspace, or asked for]
     #[arg(value_name = "WORKSPACE")]
     pub workspace_name: Option<String>,
 }
