@@ -4,6 +4,7 @@ use crate::{
     commands::issue::details,
     ctx::Ctx,
     error::{Result, ResultExt},
+    platform::terminal_text::single_line,
 };
 pub fn run(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
     describe(ctx, args).context("Failed to get issue description")
@@ -13,10 +14,18 @@ fn describe(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
     let identifier = super::require(ctx, args.issue_id.as_deref())?;
     let client = ctx.client()?;
     let detail = ctx.spin(true, details::fetch(client, identifier.clone()))?;
+    if !ctx.stdout_tty() {
+        return ctx.print(format(
+            &identifier,
+            &detail.title,
+            &detail.url,
+            args.references,
+        ));
+    }
     ctx.print(format(
         &identifier,
-        &detail.title,
-        &detail.url,
+        &single_line(&detail.title),
+        &single_line(&detail.url),
         args.references,
     ))
 }

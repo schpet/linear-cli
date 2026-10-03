@@ -678,3 +678,30 @@ fn start_does_not_treat_a_revision_expression_as_a_branch() {
         .stderr_has("not a valid branch name");
     assert_eq!(api.operations(), ["GetIssueDetails"]);
 }
+
+#[test]
+fn describe_preserves_exact_remote_text_when_piped() {
+    for title in [
+        "Plain café",
+        "ok café\u{1b}]0;owned\u{7}\u{1b}[2J\u{9b}31mred\u{8}\u{7f}\r\n\tend",
+    ] {
+        for (flags, magic) in [(Vec::new(), "Fixes"), (vec!["--references"], "References")] {
+            let api = MockLinear::start();
+            let mut reply = details();
+            let url = format!("{URL}\u{1b}[2J");
+            reply["issue"]["title"] = json!(title);
+            reply["issue"]["url"] = json!(url);
+            api.on("GetIssueDetails", reply);
+            let mut args = vec!["issue", "describe", "ENG-7"];
+            args.extend(flags);
+            let run = Cli::for_api(&api).run(&args);
+            run.success();
+            assert_eq!(
+                run.stdout,
+                format!("ENG-7 {title}\n\nLinear-issue: {magic} ENG-7\nLinear-issue-url: {url}\n")
+            );
+            assert_eq!(api.operations(), ["GetIssueDetails"]);
+            assert_eq!(api.variables("GetIssueDetails"), json!({"id": "ENG-7"}));
+        }
+    }
+}
