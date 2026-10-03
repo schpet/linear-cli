@@ -128,3 +128,63 @@ fn renamed_and_hidden_flags_still_parse() {
     parses(&["team", "create", "--no-interactive"]);
     parses(&["--no-interactive", "issue", "list"]);
 }
+
+/// Every command, depth first, with its path.
+fn commands() -> Vec<(String, clap::Command)> {
+    fn walk(path: String, command: clap::Command, out: &mut Vec<(String, clap::Command)>) {
+        for sub in command.get_subcommands() {
+            walk(format!("{path} {}", sub.get_name()), sub.clone(), out);
+        }
+        out.push((path, command));
+    }
+    let mut command = Cli::command();
+    command.build();
+    let mut out = Vec::new();
+    walk("linear".to_owned(), command, &mut out);
+    out
+}
+
+#[test]
+fn reserved_short_flags_keep_one_meaning_everywhere() {
+    for (path, command) in commands() {
+        for arg in command.get_arguments() {
+            let Some(long) = arg.get_long() else { continue };
+            let expected = match long {
+                "yes" => Some('y'),
+                "interactive" => Some('i'),
+                "json" => Some('j'),
+                _ => None,
+            };
+            if let Some(short) = arg.get_short() {
+                for (reserved, owner) in [('y', "yes"), ('i', "interactive"), ('j', "json")] {
+                    assert!(
+                        short != reserved || long == owner,
+                        "{path}: -{short} is --{long}, but -{reserved} is reserved for --{owner}"
+                    );
+                }
+            }
+            if let Some(expected) = expected {
+                assert_eq!(arg.get_short(), Some(expected), "{path} --{long}");
+            }
+        }
+    }
+}
+
+#[test]
+fn every_argument_and_command_has_help() {
+    for (path, command) in commands() {
+        if path != "linear" {
+            assert!(command.get_about().is_some(), "{path} has no about");
+        }
+        for arg in command.get_arguments() {
+            if arg.is_hide_set() || ["help", "version"].contains(&arg.get_id().as_str()) {
+                continue;
+            }
+            assert!(
+                arg.get_help().is_some(),
+                "{path} {} has no help",
+                arg.get_id()
+            );
+        }
+    }
+}

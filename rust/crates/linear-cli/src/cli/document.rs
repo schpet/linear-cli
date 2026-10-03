@@ -54,7 +54,7 @@ pub struct DocumentList {
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub release: Option<String>,
     /// Print JSON
-    #[arg(long)]
+    #[arg(long, short)]
     pub json: bool,
     /// Maximum number of documents to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "50")]
@@ -73,7 +73,7 @@ pub struct DocumentView {
     #[arg(long, short)]
     pub web: bool,
     /// Print JSON
-    #[arg(long)]
+    #[arg(long, short)]
     pub json: bool,
     /// Keep remote image and file URLs instead of downloading them
     #[arg(long)]
