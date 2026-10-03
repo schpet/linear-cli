@@ -1,9 +1,7 @@
 //! `issue start`: create or switch the VCS branch, then move the issue to a started state.
 use crate::{
     cli::issue::IssueStart,
-    commands::{
-        issue::read as issue_read, team::states as team_states, team_key::configured_team_key,
-    },
+    commands::{issue::read as issue_read, team_key::configured_team_key},
     config::{ChildEnvOverlay, Vcs},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
@@ -449,7 +447,7 @@ pub async fn update_state(
     team: &str,
     identifier: &str,
 ) -> Result<Vec<u8>, String> {
-    let mut request = team_states::request(team.to_owned());
+    let mut request = crate::workflow_states::request(team.to_owned());
     request.query = request.query.trim_end_matches('\n').to_owned();
     let response: GetWorkflowStates = bulk_error::execute_observed(transport, &request)
         .await

@@ -1,5 +1,4 @@
 //! `team states`: a team's workflow states in display order.
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use super::TeamArg;
@@ -7,11 +6,8 @@ use crate::cli::team::TeamStates;
 use crate::commands::display::{display_width, pad};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::number::Float;
-use crate::graphql::operations::workflow_states::{
-    GetWorkflowStates, GetWorkflowStatesVariables, WorkflowState,
-};
+use crate::graphql::operations::workflow_states::{GetWorkflowStates, WorkflowState};
 use crate::platform::style;
 use crate::workflow_states;
 
@@ -24,7 +20,7 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     let client = ctx.client()?;
     let mut states = ctx.spin(!args.json, async {
         let key = team.key(client).await?;
-        let response: GetWorkflowStates = client.execute(&request(key)).await?;
+        let response: GetWorkflowStates = client.execute(&workflow_states::request(key)).await?;
         Ok::<_, Error>(response.team.states.nodes)
     })?;
     workflow_states::sort(&mut states);
@@ -33,13 +29,6 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     } else {
         ctx.print(render_text(&states, ctx.color()))
     }
-}
-
-/// The workflow states of the team with key `team_key`.
-pub fn request(team_key: String) -> GraphQlRequest<GetWorkflowStatesVariables> {
-    GraphQlRequest::with_variables(GetWorkflowStates::build(GetWorkflowStatesVariables {
-        team_key,
-    }))
 }
 
 #[derive(Serialize)]

@@ -5,7 +5,7 @@ mod delete;
 mod id;
 mod list;
 mod members;
-pub mod states;
+mod states;
 
 use crate::cli::team::TeamCommand;
 use crate::commands::team_key::configured_team_key;

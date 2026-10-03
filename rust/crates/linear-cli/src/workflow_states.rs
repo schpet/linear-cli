@@ -1,8 +1,13 @@
-//! Shared display ordering for a team's workflow states.
+//! A team's workflow states: the request and the shared display ordering.
 
 use std::cmp::Ordering;
 
-use crate::graphql::operations::workflow_states::WorkflowState;
+use cynic::QueryBuilder;
+
+use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::workflow_states::{
+    GetWorkflowStates, GetWorkflowStatesVariables, WorkflowState,
+};
 use crate::platform::collation;
 
 const KNOWN_TYPES: [&str; 7] = [
@@ -14,6 +19,13 @@ const KNOWN_TYPES: [&str; 7] = [
     "canceled",
     "duplicate",
 ];
+
+/// The workflow states of the team with key `team_key`.
+pub fn request(team_key: String) -> GraphQlRequest<GetWorkflowStatesVariables> {
+    GraphQlRequest::with_variables(GetWorkflowStates::build(GetWorkflowStatesVariables {
+        team_key,
+    }))
+}
 
 pub fn sort(states: &mut [WorkflowState]) {
     states.sort_by(|left, right| {
