@@ -123,13 +123,8 @@ async fn additional<B: Backend, U: Ui>(
             }
             "labels" => (),
             "estimate" => {
-                let check = |raw: &str| estimate(raw).map(drop);
-                let answer =
-                    ui.text(Text::new("Estimate (leave blank for none)").with_check(&check))?;
-                more.estimate = (!answer.is_empty())
-                    .then(|| estimate(&answer))
-                    .transpose()
-                    .map_err(shared::validation)?;
+                more.estimate =
+                    ui.parsed(Text::new("Estimate (leave blank for none)"), &estimate)?;
             }
             "project" => {
                 let projects = backend.projects(team.key.clone()).await?;

@@ -144,6 +144,17 @@ impl Ui for Script {
         let raw = self.answers.pop_front().expect("an answer");
         text.answer(raw).map_err(Error::new)
     }
+    fn parsed<T>(
+        &mut self,
+        text: Text<'_>,
+        parse: &dyn Fn(&str) -> Result<T, String>,
+    ) -> Result<Option<T>, Error> {
+        let answer = self.text(text)?;
+        if answer.is_empty() {
+            return Ok(None);
+        }
+        parse(&answer).map(Some).map_err(Error::new)
+    }
     fn choose(
         &mut self,
         message: &str,

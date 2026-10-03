@@ -164,6 +164,12 @@ pub trait Backend: Clone + Send + 'static {
 pub trait Ui {
     /// The checked, trimmed answer to `text`.
     fn text(&mut self, text: Text<'_>) -> Result<String, Error>;
+    /// What `parse` makes of the answer to `text`; `None` when left blank.
+    fn parsed<T>(
+        &mut self,
+        text: Text<'_>,
+        parse: &dyn Fn(&str) -> Result<T, String>,
+    ) -> Result<Option<T>, Error>;
     /// The id of the picked option; the list starts on the one at `default`.
     fn choose(&mut self, message: &str, options: &[Named], default: usize)
     -> Result<String, Error>;

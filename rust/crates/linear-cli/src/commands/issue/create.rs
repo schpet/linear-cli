@@ -136,6 +136,14 @@ impl Ui for Prompts<'_> {
         self.ask(|prompter| prompter.text(text))
     }
 
+    fn parsed<T>(
+        &mut self,
+        text: Text<'_>,
+        parse: &dyn Fn(&str) -> std::result::Result<T, String>,
+    ) -> Result<Option<T>> {
+        self.ask(|prompter| prompter.parsed(text, parse))
+    }
+
     fn choose(&mut self, message: &str, options: &[Named], default: usize) -> Result<String> {
         let choices = options
             .iter()
