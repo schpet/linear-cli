@@ -1,10 +1,13 @@
+use std::path::Path;
+
 use serde_json::json;
 
 use super::{CommentTarget, build_input, check_parent, resolve_body};
 
 #[test]
 fn body_text_is_kept_exactly_and_blank_text_is_refused() {
-    let error = resolve_body(Some("x"), Some("/definitely/missing")).expect_err("conflict");
+    let error =
+        resolve_body(Some("x"), Some(Path::new("/definitely/missing"))).expect_err("conflict");
     assert_eq!(
         error.message(),
         "Cannot specify both --body and --body-file"
@@ -27,7 +30,7 @@ fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
     let write = |name: &str, bytes: &[u8]| {
         let path = dir.path().join(name);
         std::fs::write(&path, bytes).expect("write body file");
-        path.to_str().expect("UTF-8 temp path").to_owned()
+        path
     };
     let text = write(
         "text.md",
@@ -39,7 +42,10 @@ fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
     );
     let blank = write("blank.md", b"\xef\xbb\xbf \n");
     let error = resolve_body(None, Some(&blank)).expect_err("blank file");
-    assert_eq!(error.message(), format!("Body file is empty: {blank}"));
+    assert_eq!(
+        error.message(),
+        format!("Body file is empty: {}", blank.display())
+    );
     for (name, bytes) in [
         ("truncated.md", &b"x\xe2\x82"[..]),
         ("surrogate.md", b"a\xed\xa0\x80b"),
@@ -50,11 +56,10 @@ fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
         assert_eq!(error.message(), "Body file must be valid UTF-8", "{name}");
     }
     let missing = dir.path().join("missing.md");
-    let missing = missing.to_str().expect("UTF-8 temp path");
-    let error = resolve_body(None, Some(missing)).expect_err("missing file");
+    let error = resolve_body(None, Some(&missing)).expect_err("missing file");
     assert_eq!(
         error.message(),
-        format!("Failed to read body file: {missing}")
+        format!("Failed to read body file: {}", missing.display())
     );
 }
 

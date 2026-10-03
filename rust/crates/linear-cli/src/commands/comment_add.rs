@@ -1,6 +1,8 @@
 //! Shared `comment add` steps: body flags, the body prompt check, the single
 //! `AddComment` mutation and its output. Each target command resolves its own
 //! target and then calls these in order.
+use std::path::Path;
+
 use crate::client::LinearClient;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
@@ -27,7 +29,7 @@ fn is_blank(value: &str) -> bool {
 
 /// Turn `--body` / `--body-file` into a body, or `None` so the caller prompts.
 /// Supplied text is returned unchanged; blank supplied input is an error.
-pub fn resolve_body(body: Option<&str>, body_file: Option<&str>) -> Result<Option<String>, Error> {
+pub fn resolve_body(body: Option<&str>, body_file: Option<&Path>) -> Result<Option<String>, Error> {
     match (body, body_file) {
         (Some(_), Some(_)) => Err(Error::new("Cannot specify both --body and --body-file")),
         (None, Some(path)) => read_body_file(path).map(Some),
@@ -39,19 +41,20 @@ pub fn resolve_body(body: Option<&str>, body_file: Option<&str>) -> Result<Optio
 }
 
 /// Invalid UTF-8 is rejected rather than replaced, so a comment never silently changes.
-fn read_body_file(path: &str) -> Result<String, Error> {
+fn read_body_file(path: &Path) -> Result<String, Error> {
+    let shown = path.display();
     let content = text_input::read_file(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::InvalidData {
             Error::new("Body file must be valid UTF-8")
-                .with_hint(format!("Re-save {path} as UTF-8 text, or use --body."))
+                .with_hint(format!("Re-save {shown} as UTF-8 text, or use --body."))
                 .with_source(error)
         } else {
-            Error::new(format!("Failed to read body file: {path}"))
+            Error::new(format!("Failed to read body file: {shown}"))
                 .with_hint(format!("Error: {error}"))
         }
     })?;
     if is_blank(&content) {
-        return Err(Error::new(format!("Body file is empty: {path}"))
+        return Err(Error::new(format!("Body file is empty: {shown}"))
             .with_hint("Write the comment into the file, or use --body."));
     }
     Ok(content)

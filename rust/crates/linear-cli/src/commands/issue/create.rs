@@ -197,7 +197,7 @@ pub struct Fields {
     pub priority: Option<Priority>,
     pub estimate: Option<i32>,
     pub description: Option<String>,
-    pub description_file: Option<String>,
+    pub description_file: Option<std::path::PathBuf>,
     pub labels: Vec<String>,
     pub team: Option<String>,
     pub project: Option<String>,

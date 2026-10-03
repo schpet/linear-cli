@@ -1,5 +1,6 @@
-use clap::Args;
-use clap::builder::NonEmptyStringValueParser;
+use std::path::PathBuf;
+
+use clap::{Args, ValueHint};
 
 #[derive(Debug, Args)]
 pub struct Schema {
@@ -7,6 +8,6 @@ pub struct Schema {
     #[arg(long)]
     pub json: bool,
     /// Write the schema to this file instead of stdout
-    #[arg(long, short, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub output: Option<String>,
+    #[arg(long, short, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub output: Option<PathBuf>,
 }

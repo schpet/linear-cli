@@ -1,4 +1,6 @@
 //! Helpers shared by the document commands.
+use std::path::Path;
+
 use crate::client::{LinearClient, RequestError};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
@@ -40,12 +42,12 @@ pub async fn attach(
     Ok(())
 }
 
-pub fn read_file(path: &str) -> Result<String> {
+pub fn read_file(path: &Path) -> Result<String> {
     text_input::read_file(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            Error::not_found("File", path)
+            Error::not_found("File", &path.display().to_string())
         } else {
-            Error::new(format!("Failed to read {path}: {error}")).with_source(error)
+            Error::new(format!("Failed to read {}: {error}", path.display())).with_source(error)
         }
     })
 }

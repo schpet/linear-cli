@@ -1,5 +1,7 @@
+use std::path::PathBuf;
+
 use clap::builder::NonEmptyStringValueParser;
-use clap::{Args, Subcommand, ValueEnum};
+use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
 
@@ -36,8 +38,8 @@ pub struct StatusUpdateArgs {
     #[arg(long, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new(), conflicts_with = "body_file")]
     pub body: Option<String>,
     /// Read the update from a Markdown file
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub body_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub body_file: Option<PathBuf>,
     /// How the work is going
     #[arg(long)]
     pub health: Option<Health>,

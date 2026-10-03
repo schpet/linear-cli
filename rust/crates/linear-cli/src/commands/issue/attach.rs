@@ -19,7 +19,7 @@ pub fn run(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
 
 fn attach_file(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
     let identifier = super::require(ctx, Some(&args.issue_id))?;
-    upload::validate_file(Path::new(&args.filepath))?;
+    upload::validate_file(&args.filepath)?;
     let client = ctx.client()?;
     let issue_uuid = ctx.spin(true, lookup(client, &identifier))?;
     let file = upload_file(ctx, &args.filepath, args.public)?;
@@ -42,8 +42,7 @@ fn attach_file(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
 }
 
 /// Uploads one file, printing its result (and any warning) as soon as it is done.
-pub(super) fn upload_file(ctx: &Ctx, path: &str, public: bool) -> Result<UploadedFile> {
-    let path = Path::new(path);
+pub(super) fn upload_file(ctx: &Ctx, path: &Path, public: bool) -> Result<UploadedFile> {
     let file = upload::prepare(path, public)?;
     let client = ctx.client()?;
     let message = format!("Uploading {}...", file.filename);
@@ -105,7 +104,7 @@ fn quote_shell(value: &str) -> String {
 fn attach_output(
     attachment: &CreatedAttachment,
     identifier: &str,
-    path: &str,
+    path: &Path,
     file: &UploadedFile,
 ) -> Vec<u8> {
     let mut output = outcome::done(
@@ -115,7 +114,7 @@ fn attach_output(
         Some(&attachment.url),
     );
     if file.file.content_type.starts_with("image/") {
-        output.push_str(&format!("Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add {identifier} --attach {}{}\n",quote_shell(path),if file.file.public{" --public"}else{""}));
+        output.push_str(&format!("Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add {identifier} --attach {}{}\n",quote_shell(&path.to_string_lossy()),if file.file.public{" --public"}else{""}));
     }
     output.into_bytes()
 }

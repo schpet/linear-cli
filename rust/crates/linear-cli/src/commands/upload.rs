@@ -3,7 +3,7 @@ use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::operations::upload::{FileUpload, FileUploadVariables, UploadFileHeader};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 pub const MAX_FILE_SIZE: u64 = 100 * 1024 * 1024;
 pub const PUBLIC_SUGGESTION: &str = "Linear only allows public uploads for raster images (png, jpeg, gif, webp, bmp, tiff). Remove --public to upload privately.";
 pub fn mime_type(path: &Path) -> &'static str {
@@ -97,9 +97,8 @@ pub fn validate_file(path: &Path) -> Result<std::fs::Metadata, Error> {
 }
 /// This deliberately does NOT prevalidate file sizes; sizes are checked
 /// during each sequential upload, so earlier uploads may already have succeeded.
-pub fn prevalidate(paths: &[String], public: bool) -> Result<(), Error> {
+pub fn prevalidate(paths: &[PathBuf], public: bool) -> Result<(), Error> {
     for path in paths {
-        let path = Path::new(path);
         validate_file(path)?;
         resolve_public(mime_type(path), public)?;
     }

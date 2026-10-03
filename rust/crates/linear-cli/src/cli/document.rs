@@ -1,5 +1,7 @@
+use std::path::PathBuf;
+
 use clap::builder::NonEmptyStringValueParser;
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueHint};
 
 use super::LINEAR_MARKDOWN;
 
@@ -87,8 +89,8 @@ pub struct DocumentCreate {
     #[arg(long, short, value_name = "MARKDOWN", value_parser = NonEmptyStringValueParser::new())]
     pub content: Option<String>,
     /// Read the document from a Markdown file
-    #[arg(long, short = 'f', value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub content_file: Option<String>,
+    #[arg(long, short = 'f', value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub content_file: Option<PathBuf>,
     /// Attach the document to a project (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
@@ -127,8 +129,8 @@ pub struct DocumentUpdate {
     #[arg(long, short, value_name = "MARKDOWN", value_parser = NonEmptyStringValueParser::new())]
     pub content: Option<String>,
     /// Read the new text from a Markdown file
-    #[arg(long, short = 'f', value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub content_file: Option<String>,
+    #[arg(long, short = 'f', value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub content_file: Option<PathBuf>,
     /// New icon (an emoji)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
@@ -194,8 +196,8 @@ pub struct DocumentCommentAdd {
     #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
     /// Read the comment from a Markdown file
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub body_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub body_file: Option<PathBuf>,
     /// Reply to this top-level comment (by ID)
     #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,

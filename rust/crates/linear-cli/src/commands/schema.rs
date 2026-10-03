@@ -23,9 +23,13 @@ fn write_schema(ctx: &Ctx, args: &Schema) -> Result<()> {
     match &args.output {
         Some(path) => {
             std::fs::write(path, content).map_err(|error| {
-                Error::new(format!("Failed to write schema: {path}: {error}")).with_source(error)
+                Error::new(format!(
+                    "Failed to write schema: {}: {error}",
+                    path.display()
+                ))
+                .with_source(error)
             })?;
-            ctx.print(format!("Schema written to {path}\n"))
+            ctx.print(format!("Schema written to {}\n", path.display()))
         }
         None => ctx.print(content),
     }

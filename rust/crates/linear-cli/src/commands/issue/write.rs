@@ -55,9 +55,11 @@ pub fn validation(message: impl Into<String>) -> Error {
     Error::new(message)
 }
 /// The description from `--description` or `--description-file`; an empty
-/// value counts as not given.
-pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<String>, Error> {
-    let file = file.filter(|path| !path.is_empty());
+/// `--description` counts as not given.
+pub fn description(
+    inline: Option<&str>,
+    file: Option<&std::path::Path>,
+) -> Result<Option<String>, Error> {
     if inline.is_some_and(|text| !text.is_empty()) && file.is_some() {
         return Err(validation(
             "Cannot specify both --description and --description-file",
@@ -68,9 +70,12 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
         Some(path) => crate::commands::text_input::read_file(path)
             .map(Some)
             .map_err(|error| {
-                validation(format!("Failed to read description file: {path}"))
-                    .with_hint(format!("Error: {error}"))
-                    .with_source(error)
+                validation(format!(
+                    "Failed to read description file: {}",
+                    path.display()
+                ))
+                .with_hint(format!("Error: {error}"))
+                .with_source(error)
             }),
     }
 }

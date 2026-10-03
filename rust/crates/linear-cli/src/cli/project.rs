@@ -1,6 +1,8 @@
+use std::path::PathBuf;
+
 use chrono::NaiveDate;
 use clap::builder::NonEmptyStringValueParser;
-use clap::{Args, Subcommand, ValueEnum};
+use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
 use super::values::UserRef;
@@ -85,14 +87,14 @@ pub struct ProjectFields {
     #[arg(long, short, conflicts_with = "description_file")]
     pub description: Option<String>,
     /// Read the summary from a file
-    #[arg(long, short = 'f', value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub description_file: Option<String>,
+    #[arg(long, short = 'f', value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub description_file: Option<PathBuf>,
     /// Project overview, in Markdown
     #[arg(long, value_name = "MARKDOWN", conflicts_with = "content_file")]
     pub content: Option<String>,
     /// Read the overview from a Markdown file
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub content_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub content_file: Option<PathBuf>,
     /// Project status
     #[arg(long, short, ignore_case = true)]
     pub status: Option<Status>,
@@ -236,8 +238,8 @@ pub struct ProjectCommentAdd {
     #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
     /// Read the comment from a Markdown file
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub body_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub body_file: Option<PathBuf>,
     /// Reply to this top-level comment (by ID)
     #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,

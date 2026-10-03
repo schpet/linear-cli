@@ -1,4 +1,6 @@
 //! Inputs and lookups shared by `project create` and `project update`.
+use std::path::Path;
+
 use crate::graphql::operations::common::NameVariables;
 use futures_util::future::try_join_all;
 
@@ -52,9 +54,13 @@ pub fn content(fields: &ProjectFields) -> Result<Option<String>> {
     }
 }
 
-fn read(path: &str, what: &str) -> Result<String> {
+fn read(path: &Path, what: &str) -> Result<String> {
     text_input::read_file(path).map_err(|error| {
-        Error::new(format!("Failed to read {what} file {path}: {error}")).with_source(error)
+        Error::new(format!(
+            "Failed to read {what} file {}: {error}",
+            path.display()
+        ))
+        .with_source(error)
     })
 }
 

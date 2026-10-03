@@ -1,5 +1,7 @@
 //! `document create`: fields from flags, stdin, an editor or prompts, then
 //! one mutation.
+use std::path::Path;
+
 use crate::cli::document::DocumentCreate;
 use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
@@ -223,7 +225,7 @@ fn prompt_content(
             }
             Content::File => {
                 let path = prompter.text(Text::new("File path").required())?;
-                Some(read_file(&path)?)
+                Some(read_file(Path::new(&path))?)
             }
             Content::Editor => {
                 let label = editor.expect("the editor option is offered only with an editor");

@@ -1,6 +1,8 @@
+use std::path::PathBuf;
+
 use chrono::{DateTime, NaiveDate, Utc};
 use clap::builder::NonEmptyStringValueParser;
-use clap::{Args, Subcommand, ValueEnum};
+use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
 use super::values::UserRef;
@@ -281,7 +283,7 @@ pub struct IssuePullRequest {
     #[arg(long, value_name = "BRANCH")]
     pub head: Option<String>,
     /// Start the body from this template file; the issue URL is appended
-    #[arg(long, short = 'T', value_name = "FILE")]
+    #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub template: Option<String>,
     /// Ignore the pr_template setting
     #[arg(long)]
@@ -319,8 +321,8 @@ pub struct IssueCreate {
     #[arg(long, short)]
     pub description: Option<String>,
     /// Read the description from a Markdown file
-    #[arg(long, value_name = "FILE")]
-    pub description_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub description_file: Option<PathBuf>,
     /// Team (key, name, or ID); defaults to the configured team
     #[arg(long)]
     pub team: Option<String>,
@@ -391,8 +393,8 @@ pub struct IssueUpdate {
     #[arg(long, short)]
     pub description: Option<String>,
     /// Read the new description from a Markdown file
-    #[arg(long, value_name = "FILE")]
-    pub description_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub description_file: Option<PathBuf>,
     /// Move the issue to this team (key, name, or ID)
     #[arg(long)]
     pub team: Option<String>,
@@ -488,8 +490,8 @@ pub struct IssueCommentAdd {
     #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
     /// Read the comment from a Markdown file
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub body_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub body_file: Option<PathBuf>,
     /// Reply to this top-level comment (by ID)
     #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
@@ -497,8 +499,8 @@ pub struct IssueCommentAdd {
     #[arg(long, hide = true, value_name = "UUID", value_parser = NonEmptyStringValueParser::new())]
     pub id: Option<String>,
     /// Upload a file and link it in the comment (images render inline); repeatable
-    #[arg(long, short, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub attach: Vec<String>,
+    #[arg(long, short, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub attach: Vec<PathBuf>,
     /// Make uploaded files public instead of visible to workspace members only
     #[arg(long)]
     pub public: bool,
@@ -520,8 +522,8 @@ pub struct IssueCommentUpdate {
     #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
     /// Read the new text from a Markdown file
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub body_file: Option<String>,
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub body_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -543,8 +545,8 @@ pub struct IssueAttach {
     #[arg(value_name = "ISSUE")]
     pub issue_id: String,
     /// File to upload
-    #[arg(value_name = "FILE")]
-    pub filepath: String,
+    #[arg(value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub filepath: PathBuf,
     /// Attachment title [default: the file name]
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,

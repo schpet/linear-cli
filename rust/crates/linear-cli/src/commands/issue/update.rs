@@ -40,7 +40,7 @@ pub struct Fields {
     pub estimate: Option<i32>,
     pub clear_estimate: bool,
     pub description: Option<String>,
-    pub description_file: Option<String>,
+    pub description_file: Option<std::path::PathBuf>,
     pub labels: Option<Vec<String>>,
     pub add_labels: Option<Vec<String>>,
     pub remove_labels: Option<Vec<String>>,
