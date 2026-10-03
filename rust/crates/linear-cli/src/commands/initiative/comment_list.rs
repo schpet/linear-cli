@@ -3,10 +3,8 @@ use crate::cli::initiative::InitiativeCommentList;
 use crate::commands::comments::{self, CommentSource};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::comments::CommentConnection;
-use crate::graphql::operations::initiative_comments::{
-    GetInitiativeComments, GetInitiativeCommentsVariables,
-};
+use crate::graphql::operations::comment::CommentConnection;
+use crate::graphql::operations::comment::{GetInitiativeComments, GetInitiativeCommentsVariables};
 
 pub fn run(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
     list(ctx, args).context("Failed to list comments")

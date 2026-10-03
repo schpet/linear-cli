@@ -5,7 +5,7 @@ use crate::commands::bulk::{self, BulkOutcome, BulkResult, Verb};
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::team_delete::{
+use crate::graphql::operations::team::{
     DeleteTeam, GetTeamIssuesForMove, IdVariables, MoveIssue, MoveIssueToTeam, MovePageVariables,
     MoveVariables,
 };

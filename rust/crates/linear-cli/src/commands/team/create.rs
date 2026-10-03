@@ -4,7 +4,7 @@ use crate::cli::team::TeamCreate;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::team_create::{
+use crate::graphql::operations::team::{
     CreateTeam, CreateTeamVariables, CreatedTeam, TeamCreateInput,
 };
 use crate::platform::prompt::{Choice, Prompter, Text};

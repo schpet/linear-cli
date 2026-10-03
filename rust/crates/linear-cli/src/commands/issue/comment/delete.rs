@@ -2,7 +2,7 @@
 use crate::cli::issue::IssueCommentDelete;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::comment_delete::{DeleteComment, DeleteCommentVariables};
+use crate::graphql::operations::comment::{DeleteComment, DeleteCommentVariables};
 use crate::refs::{reject_comment_url, reject_linear_url};
 
 pub fn run(ctx: &Ctx, args: &IssueCommentDelete) -> Result<()> {

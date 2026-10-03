@@ -8,11 +8,11 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::milestone_view::{
+use crate::graphql::operations::milestone::{
     DetailMilestone, DetailVariables, GetMilestoneDetails,
 };
-use crate::graphql::operations::number::Float;
 use crate::graphql::pagination::{self, Page};
+use crate::graphql::scalars::Float;
 use crate::refs::{
     is_linear_uuid, prepare_project_lookup, reject_linear_url, resolve_project_with_transport,
 };

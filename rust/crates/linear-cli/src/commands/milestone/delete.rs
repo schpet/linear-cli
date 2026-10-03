@@ -3,7 +3,7 @@ use crate::cli::milestone::MilestoneDelete;
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::milestone_delete::{
+use crate::graphql::operations::milestone::{
     DeleteProjectMilestone, DeleteProjectMilestoneVariables,
 };
 use crate::refs::reject_linear_url;

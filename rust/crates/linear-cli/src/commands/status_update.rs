@@ -9,9 +9,9 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::initiatives::InitiativeUpdateHealthType;
-use crate::graphql::operations::projects::ProjectUpdateHealthType;
-use crate::graphql::operations::update_create::{
+use crate::graphql::operations::initiative::InitiativeUpdateHealthType;
+use crate::graphql::operations::project::ProjectUpdateHealthType;
+use crate::graphql::operations::status_update::{
     CreateInitiativeUpdate, CreateProjectUpdate, InitiativeHealthInput, InitiativeInput,
     InitiativeVariables, ProjectHealthInput, ProjectInput, ProjectVariables,
 };

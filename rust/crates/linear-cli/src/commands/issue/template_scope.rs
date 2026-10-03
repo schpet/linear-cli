@@ -1,5 +1,5 @@
 //! Proposed extraction from project_write's template section, not whole-file copy.
-use crate::{error::Error, graphql::operations::templates::Template};
+use crate::{error::Error, graphql::operations::template::Template};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TemplateScope {
     Issue,

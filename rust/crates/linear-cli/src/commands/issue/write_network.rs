@@ -3,8 +3,8 @@ use super::{
     write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
 };
 use crate::client::LinearClient;
-use crate::graphql::operations::issue_id::{GetIssueId, Variables as GetIssueIdVariables};
-use crate::{config::ConfigOptions, error::Error, graphql::operations::issue_write as ops, refs};
+use crate::graphql::operations::issue::{GetIssueId, IdVariables as GetIssueIdVariables};
+use crate::{config::ConfigOptions, error::Error, graphql::operations::issue as ops, refs};
 
 #[derive(Clone)]
 pub struct NetworkBackend {
@@ -101,7 +101,7 @@ impl Backend for NetworkBackend {
             .collect())
     }
     async fn viewer(&self) -> Result<String, Error> {
-        use crate::graphql::operations::initiatives::{GetViewerId, GetViewerIdVariables};
+        use crate::graphql::operations::initiative::{GetViewerId, GetViewerIdVariables};
         let data: GetViewerId = self.client.query(GetViewerIdVariables {}).await?;
         Ok(data.viewer.id.into_inner())
     }
@@ -117,9 +117,7 @@ impl Backend for NetworkBackend {
         crate::commands::user::resolve(&self.client, &reference, "User").await
     }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
-        use crate::graphql::operations::workflow_states::{
-            GetWorkflowStates, GetWorkflowStatesVariables,
-        };
+        use crate::graphql::operations::team::{GetWorkflowStates, GetWorkflowStatesVariables};
         let data: GetWorkflowStates = self
             .client
             .query(GetWorkflowStatesVariables { team_key })
@@ -256,8 +254,8 @@ impl Backend for NetworkBackend {
     }
     async fn projects(&self, team_key: String) -> Result<Vec<Named>, Error> {
         use crate::graphql::operations::{
-            projects::{ProjectFilter, TeamCollectionFilter},
-            teams::{StringComparator, TeamFilter},
+            project::{ProjectFilter, TeamCollectionFilter},
+            team::{StringComparator, TeamFilter},
         };
         let filter = ProjectFilter {
             accessible_teams: Some(TeamCollectionFilter {
@@ -340,17 +338,16 @@ impl Backend for NetworkBackend {
     async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, Error> {
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
-        let data: ops::GetParentIssueData =
-            match self.client.query(ops::IssueVariables { id }).await {
-                Ok(data) => data,
-                Err(crate::client::RequestError::Response(error)) => {
-                    return Err(Error::new(
-                        "Linear returned parent issue metadata with an unexpected shape",
-                    )
-                    .with_source(error));
-                }
-                Err(_) => return Ok(None),
-            };
+        let data: ops::GetParentIssueData = match self.client.query(ops::IdVariables { id }).await {
+            Ok(data) => data,
+            Err(crate::client::RequestError::Response(error)) => {
+                return Err(Error::new(
+                    "Linear returned parent issue metadata with an unexpected shape",
+                )
+                .with_source(error));
+            }
+            Err(_) => return Ok(None),
+        };
         let Some(data) = data.issue else {
             return Ok(None);
         };
@@ -364,14 +361,14 @@ impl Backend for NetworkBackend {
         }))
     }
     async fn issue_project(&self, id: String) -> Result<Option<String>, Error> {
-        let data: ops::GetIssueProjectId = self.client.query(ops::IssueVariables { id }).await?;
+        let data: ops::GetIssueProjectId = self.client.query(ops::IdVariables { id }).await?;
         Ok(data
             .issue
             .and_then(|i| i.project)
             .map(|p| p.id.into_inner()))
     }
     async fn create(&self, input: Input) -> Result<Created, Error> {
-        use crate::graphql::operations::issue_create::{CreateIssue, CreateIssueVariables};
+        use crate::graphql::operations::issue::{CreateIssue, CreateIssueVariables};
         let data: CreateIssue = self.client.mutate(CreateIssueVariables { input }).await?;
         if !data.issue_create.success {
             return Err(Error::new("Issue creation failed"));
@@ -389,9 +386,9 @@ impl Backend for NetworkBackend {
     async fn update(
         &self,
         id: String,
-        input: crate::graphql::operations::issue_update::IssueUpdateInput,
+        input: crate::graphql::operations::issue::IssueUpdateInput,
     ) -> Result<Updated, Error> {
-        use crate::graphql::operations::issue_update::{UpdateIssue, UpdateIssueVariables};
+        use crate::graphql::operations::issue::{UpdateIssue, UpdateIssueVariables};
         let data: UpdateIssue = self
             .client
             .mutate(UpdateIssueVariables { id, input })
@@ -413,7 +410,7 @@ impl Backend for NetworkBackend {
 impl Templates for NetworkBackend {
     async fn issue_template(&self, reference: String, team_id: String) -> Result<String, Error> {
         use super::template_scope::{self, TemplateScope};
-        use crate::graphql::operations::templates::GetTemplates;
+        use crate::graphql::operations::template::GetTemplates;
         refs::reject_linear_url(&reference, "a template name or UUID")?;
         let team_ids = [team_id];
         let template = if refs::is_linear_uuid(&reference) {

@@ -8,12 +8,12 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::{json, user};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::initiatives::{
+use crate::graphql::operations::initiative::{
     GetInitiatives, GetInitiativesVariables, IDComparator, Initiative, InitiativeFilter,
     InitiativeOwner, InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType,
     NullableUserFilter,
 };
-use crate::graphql::operations::teams::StringComparator;
+use crate::graphql::operations::team::StringComparator;
 use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::platform::{collation, style};
 

@@ -6,7 +6,7 @@ use crate::{
     cli::{issue::IssueUpdate, values::Priority},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{edit::Edit, operations::issue_update::IssueUpdateInput, scalars::TimelessDate},
+    graphql::{edit::Edit, operations::issue::IssueUpdateInput, scalars::TimelessDate},
 };
 
 pub fn run(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {

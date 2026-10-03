@@ -3,7 +3,7 @@ use crate::cli::milestone::MilestoneCreate;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::milestone_create::{
+use crate::graphql::operations::milestone::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, CreatedMilestone,
     ProjectMilestoneCreateInput,
 };

@@ -6,7 +6,7 @@ use crate::commands::confirm;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::label_delete::{
+use crate::graphql::operations::label::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
 };
 use crate::platform::prompt::Choice;

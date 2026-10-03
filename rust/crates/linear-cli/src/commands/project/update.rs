@@ -11,10 +11,10 @@ use crate::commands::project::write;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::edit::Edit;
-use crate::graphql::operations::project_write::{
+use crate::graphql::operations::project::{
     AddProjectToInitiative, GetProjectInitiativeLinksForUpdate, GetProjectLabelsForUpdate,
     GetProjectTeamsForUpdate, IdVariables, InitiativeLinkInput, LinkVariables, PageVariables,
-    ProjectLabel, ProjectTeam, ProjectUpdateInput, RemoveProjectFromInitiative, UpdateProject,
+    ProjectLabel, ProjectUpdateInput, RemoveProjectFromInitiative, TeamRef, UpdateProject,
     UpdateProjectVariables,
 };
 use crate::graphql::pagination::{self, Page};
@@ -316,7 +316,7 @@ fn no_overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result
     Ok(())
 }
 
-async fn current_teams(client: &LinearClient, id: &str) -> Result<Vec<ProjectTeam>> {
+async fn current_teams(client: &LinearClient, id: &str) -> Result<Vec<TeamRef>> {
     let mut teams = pagination::collect(None, |after, _first| {
         let variables = PageVariables {
             id: id.to_owned(),

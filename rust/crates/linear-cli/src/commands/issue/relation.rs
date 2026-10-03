@@ -4,9 +4,9 @@ use crate::client::LinearClient;
 use crate::commands::issue::id;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue_relations::{
+use crate::graphql::operations::issue::{
     ApiRelationType, CreateIssueRelation, CreateVariables, DeleteIssueRelation, DeleteVariables,
-    FindIssueRelation, IssueVariables, ListIssueRelations, ListedIssue, RelationInput,
+    FindIssueRelation, ListIssueRelations, ListedIssue, RelationInput, RelationsVariables,
 };
 
 pub fn list(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
@@ -101,7 +101,7 @@ pub fn list_output(issue: &ListedIssue) -> Vec<u8> {
 }
 async fn fetch_list(client: &LinearClient, identifier: &str) -> Result<Vec<u8>> {
     let data: ListIssueRelations = client
-        .query(IssueVariables {
+        .query(RelationsVariables {
             issue_id: identifier.to_owned(),
         })
         .await
@@ -141,7 +141,7 @@ async fn remove(
 ) -> Result<Vec<u8>, Error> {
     let input = lookup_pair(client, kind, a, b).await?;
     let data: FindIssueRelation = client
-        .query(IssueVariables {
+        .query(RelationsVariables {
             issue_id: input.issue_id.clone(),
         })
         .await?;

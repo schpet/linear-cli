@@ -21,7 +21,7 @@ use super::{
     HttpBodyShape, LinearClient, RawHttpResponse, RequestError, ResponseCap, classify_typed,
 };
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
-use crate::graphql::operations::teams::{GetTeams, GetTeamsVariables};
+use crate::graphql::operations::team::{GetTeams, GetTeamsVariables};
 
 const FAKE_KEY: &str = "lin_api_fake";
 

@@ -3,7 +3,7 @@ use crate::cli::initiative::{InitiativeAddProject, InitiativeRemoveProject};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::initiative_projects::{
+use crate::graphql::operations::initiative::{
     AddProjectToInitiative, AddVariables, GetInitiativeProjectLinks, IdVariables,
     InitiativeToProjectCreateInput, LinksVariables, RemoveProjectFromInitiative,
 };

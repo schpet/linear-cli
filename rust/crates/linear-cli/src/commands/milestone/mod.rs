@@ -9,7 +9,7 @@ use crate::cli::milestone::MilestoneCommand;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::milestone_view::{GetProjectMilestonesForLookup, LookupVariables};
+use crate::graphql::operations::milestone::{GetProjectMilestonesForLookup, LookupVariables};
 
 pub fn run(ctx: &Ctx, command: &MilestoneCommand) -> Result<()> {
     match command {

@@ -7,7 +7,7 @@ use super::*;
 use crate::auth::ApiKeyInput;
 use crate::error::ErrorKind;
 use crate::graphql::envelope::{GraphQlRequest, parse_response};
-use crate::graphql::operations::team_resolver::{
+use crate::graphql::operations::team::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
 };
 use crate::refs::WorkspaceScope;

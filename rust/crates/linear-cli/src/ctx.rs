@@ -315,7 +315,7 @@ impl Ctx {
             return Ok(workspace);
         }
         let client = self.client()?;
-        self.block_on(crate::graphql::operations::viewer::url_key(client))
+        self.block_on(crate::graphql::operations::user::url_key(client))
     }
 
     /// Stdin and stdout are both terminals. This is the one condition under

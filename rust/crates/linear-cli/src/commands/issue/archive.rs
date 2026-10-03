@@ -6,7 +6,7 @@ use crate::{
     commands::team_key::configured_team_key,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::operations::issue_archive_delete::*,
+    graphql::operations::issue::*,
     refs::{self, IssueReference, WorkspaceScope},
 };
 

@@ -1,12 +1,15 @@
-//! Exact name-or-version release lookup, one page at a time.
+//! Release lookup by name or version.
+
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
+
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct ResolveReleasesVariables {
     pub input: String,
     pub first: i32,
     pub after: Option<String>,
 }
+
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
@@ -17,12 +20,14 @@ pub struct ResolveReleases {
     #[arguments(filter: { or: [{ name: { eqIgnoreCase: $input } }, { version: { eq: $input } }] }, first: $first, after: $after)]
     pub releases: ReleaseConnection,
 }
+
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ReleaseConnection")]
 pub struct ReleaseConnection {
     pub nodes: Vec<ReleaseNode>,
     pub page_info: PageInfo,
 }
+
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Release")]
 pub struct ReleaseNode {

@@ -14,7 +14,7 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::comments::{
+use crate::graphql::operations::comment::{
     CommentBotActor, CommentConnection, CommentExternalUser, CommentNode, CommentParent,
     CommentUser,
 };

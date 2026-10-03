@@ -10,7 +10,7 @@ use crate::cli::config::Config;
 use crate::config::{RealFileSource, repo_root};
 use crate::ctx::{self, Ctx};
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::viewer;
+use crate::graphql::operations::user;
 use crate::platform::prompt::Choice;
 use crate::refs::{
     ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup, resolve_team_with_transport,
@@ -68,7 +68,7 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
     ctx.report_credential_warnings()?;
     let client = ctx::connect(ctx.options(), key?, &ctx.config().transport_env)?;
     let (url_key, team) = ctx.spin(true, async {
-        let url_key = viewer::url_key(&client).await?;
+        let url_key = user::url_key(&client).await?;
         let team = match &team {
             Some(lookup) => Team::Given(resolve_team_with_transport(lookup, &client).await?),
             None => Team::Choose(fetch_all_teams_with_transport(&client).await?),

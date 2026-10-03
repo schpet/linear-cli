@@ -2,7 +2,7 @@
 use crate::cli::milestone::MilestoneUpdate;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::milestone_update::{
+use crate::graphql::operations::milestone::{
     ProjectMilestoneUpdateInput, UpdateProjectMilestone, UpdateProjectMilestoneVariables,
     UpdatedMilestone,
 };

@@ -9,7 +9,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::graphql_message;
-use crate::graphql::operations::auth_list::AuthListViewer;
+use crate::graphql::operations::user::AuthListViewer;
 use crate::platform::style;
 
 const EMPTY: &str = "No workspaces configured\nRun `linear auth login` to add a workspace\n";

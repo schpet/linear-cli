@@ -13,12 +13,12 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::cycle_view::{
+use crate::graphql::operations::cycle::{
     ActiveCycle, DetailCycle, DetailVariables, GetCycleDetails, GetTeamCyclesForLookup,
     LookupCycle, LookupVariables,
 };
-use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::pagination::Pages;
+use crate::graphql::scalars::WholeNumber;
 use crate::refs::{
     CycleSelector, LinearUrlKind, LinearUrlRef, expect_url_kind, prepare_team_lookup,
     resolve_team_with_transport,

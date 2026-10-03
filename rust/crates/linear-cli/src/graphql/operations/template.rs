@@ -1,13 +1,9 @@
-//! `GetTemplates`: the unpaginated workspace template list used by
-//! `template list` and `template view`'s name lookup, and `GetTemplate`: one
-//! template by ID. Both select the shared `Template` fragment.
-//!
-//! `GetTemplates` sends no variables; `GetTemplate` sends the reference as
-//! typed, case preserved.
+//! Issue and project templates.
 
 use serde::Serialize;
 
-use crate::graphql::scalars::{DateTime, Json};
+use crate::graphql::scalars::DateTime;
+use crate::graphql::scalars::Json;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
@@ -47,7 +43,7 @@ pub struct Template {
     pub color: Option<String>,
     pub has_form_fields: bool,
     pub last_applied_at: Option<DateTime>,
-    pub sort_order: crate::graphql::operations::number::Float,
+    pub sort_order: crate::graphql::scalars::Float,
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub team: Option<TemplateTeam>,

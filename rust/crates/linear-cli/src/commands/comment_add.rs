@@ -5,7 +5,7 @@ use crate::client::LinearClient;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::comment_create::{
+use crate::graphql::operations::comment::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
 };

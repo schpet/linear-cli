@@ -8,7 +8,8 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use serde::Serialize;
-use serde::ser::{Error as _, Serializer};
+use serde::ser::Error as _;
+use serde::ser::Serializer;
 
 use crate::error::Error;
 use crate::graphql::scalars::DateTime;

@@ -12,7 +12,7 @@ use crate::config::ConfigSecret;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::ResponseGraphQlError;
-use crate::graphql::operations::auth_login_viewer::AuthLoginViewer;
+use crate::graphql::operations::user::AuthLoginViewer;
 use crate::platform::style;
 
 const KEY_HINT: &str = "Create one at https://linear.app/settings/account/security";

@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 
 use super::resolve_id_with;
 use crate::graphql::envelope::parse_response;
-use crate::graphql::operations::cycle_view::GetTeamCyclesForLookup;
+use crate::graphql::operations::cycle::GetTeamCyclesForLookup;
 use crate::refs::{CycleSelector, LinearUrlRef};
 
 fn node(id: &str, number: Value, name: Value) -> Value {

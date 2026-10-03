@@ -3,10 +3,8 @@ use crate::cli::document::DocumentCommentList;
 use crate::commands::comments::{self, CommentSource};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::comments::CommentConnection;
-use crate::graphql::operations::document_comments::{
-    GetDocumentComments, GetDocumentCommentsVariables,
-};
+use crate::graphql::operations::comment::CommentConnection;
+use crate::graphql::operations::comment::{GetDocumentComments, GetDocumentCommentsVariables};
 
 pub fn run(ctx: &Ctx, args: &DocumentCommentList) -> Result<()> {
     list(ctx, args).context("Failed to list comments")

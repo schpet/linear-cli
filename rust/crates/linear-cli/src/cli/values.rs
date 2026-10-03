@@ -2,7 +2,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use clap::ValueEnum;
 
-use crate::graphql::operations::number::Float;
+use crate::graphql::scalars::Float;
 
 /// A `YYYY-MM-DD` calendar date.
 pub fn date(value: &str) -> Result<NaiveDate, String> {
@@ -85,7 +85,7 @@ pub enum InitiativeStatus {
     Completed,
 }
 
-impl From<InitiativeStatus> for crate::graphql::operations::initiatives::InitiativeStatus {
+impl From<InitiativeStatus> for crate::graphql::operations::initiative::InitiativeStatus {
     fn from(status: InitiativeStatus) -> Self {
         match status {
             InitiativeStatus::Planned => Self::Planned,

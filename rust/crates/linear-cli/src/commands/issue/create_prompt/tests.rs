@@ -9,7 +9,7 @@ use crate::commands::issue::write::{
     AssignSelf, Backend, CreateSettings, Created, Label, Named, Parent, State, Team, Ui, Updated,
 };
 use crate::error::Error;
-use crate::graphql::operations::issue_update::IssueUpdateInput;
+use crate::graphql::operations::issue::IssueUpdateInput;
 use crate::platform::prompt::Text;
 
 /// Answers the lookups an interactive create makes and records which ran.

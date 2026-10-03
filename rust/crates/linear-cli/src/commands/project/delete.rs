@@ -3,7 +3,7 @@ use crate::cli::project::ProjectDelete;
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::project_delete::{DeleteProject, DeleteProjectVariables};
+use crate::graphql::operations::project::{DeleteProject, DeleteProjectVariables};
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
 pub fn run(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {

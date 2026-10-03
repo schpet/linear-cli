@@ -5,8 +5,8 @@ use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::documents::*;
-use crate::graphql::operations::initiatives::IDComparator;
+use crate::graphql::operations::document::*;
+use crate::graphql::operations::initiative::IDComparator;
 use crate::refs::{
     self, InitiativeReference, LinearUrlKind, LinearUrlRef, PreparedTeamLookup, ProjectReference,
 };

@@ -2,7 +2,7 @@
 
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::operations::project_view::{
+use crate::graphql::operations::project::{
     GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
 };
 

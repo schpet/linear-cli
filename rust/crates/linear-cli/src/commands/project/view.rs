@@ -11,7 +11,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::project_view::{
+use crate::graphql::operations::project::{
     DateResolutionType, GetProjectDetails, GetProjectIssuesPage, GetProjectsForPicker,
     PickerProject, PickerVariables, ProjectDetails, ProjectDetailsVariables,
     ProjectIssuesVariables, ProjectMilestoneStatus, ViewInverseRelation, ViewRelation,
@@ -203,7 +203,7 @@ fn milestone_status(value: &ProjectMilestoneStatus) -> &str {
         ProjectMilestoneStatus::Unknown(other) => other,
     }
 }
-fn display_name(user: Option<&crate::graphql::operations::project_view::ViewUser>) -> Option<&str> {
+fn display_name(user: Option<&crate::graphql::operations::project::ViewUser>) -> Option<&str> {
     user.map(|user| {
         if user.display_name.is_empty() {
             user.name.as_str()
@@ -240,8 +240,8 @@ fn relation_label(own: &str, other: &str) -> &'static str {
     }
 }
 fn milestone_note(
-    own: Option<&crate::graphql::operations::project_view::ViewMilestoneRef>,
-    other: Option<&crate::graphql::operations::project_view::ViewMilestoneRef>,
+    own: Option<&crate::graphql::operations::project::ViewMilestoneRef>,
+    other: Option<&crate::graphql::operations::project::ViewMilestoneRef>,
 ) -> String {
     let mut parts = Vec::new();
     if let Some(own) = own {

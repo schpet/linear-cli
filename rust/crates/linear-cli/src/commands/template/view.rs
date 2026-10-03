@@ -14,7 +14,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::template::json as template_json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::templates::{
+use crate::graphql::operations::template::{
     GetTemplate, GetTemplateVariables, GetTemplates, Template,
 };
 use crate::platform::collation;

@@ -8,7 +8,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::teams::{self, GetTeams, GetTeamsVariables};
+use crate::graphql::operations::team::{self, GetTeams, GetTeamsVariables};
 use crate::graphql::pagination::{self, Page};
 use crate::platform::{collation, style};
 
@@ -33,7 +33,7 @@ fn list(ctx: &Ctx, args: &TeamList) -> Result<()> {
 }
 
 /// Every team that is not archived, sorted by name.
-async fn fetch(client: &LinearClient) -> Result<Vec<teams::Team>> {
+async fn fetch(client: &LinearClient) -> Result<Vec<team::Team>> {
     let teams = pagination::collect(None, |after, first| {
         let variables = GetTeamsVariables {
             filter: None,
@@ -61,7 +61,7 @@ async fn fetch(client: &LinearClient) -> Result<Vec<teams::Team>> {
     Ok(teams)
 }
 
-fn render_text(teams: &[teams::Team], now: SystemTime) -> Table {
+fn render_text(teams: &[team::Team], now: SystemTime) -> Table {
     let mut table = Table::new([
         Column::fixed("KEY"),
         Column::flexible("NAME"),

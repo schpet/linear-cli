@@ -7,8 +7,8 @@ use crate::commands::json;
 use crate::commands::status_update::{self, Row, UpdateHealth};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::project_updates::{
-    ListProjectUpdates, ListProjectUpdatesVariables, UpdateNode,
+use crate::graphql::operations::status_update::{
+    ListProjectUpdates, ListProjectUpdatesVariables, ProjectUpdateNode,
 };
 use crate::graphql::pagination::{self, Page};
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
@@ -82,7 +82,7 @@ struct JsonUser<'a> {
     display_name: &'a str,
 }
 
-fn render_json(updates: &[UpdateNode]) -> Vec<u8> {
+fn render_json(updates: &[ProjectUpdateNode]) -> Vec<u8> {
     let updates: Vec<_> = updates
         .iter()
         .map(|node| JsonUpdate {
@@ -100,7 +100,7 @@ fn render_json(updates: &[UpdateNode]) -> Vec<u8> {
     json::render(&updates)
 }
 
-fn author(node: &UpdateNode) -> &str {
+fn author(node: &ProjectUpdateNode) -> &str {
     node.user.as_ref().map_or("", |user| {
         if user.display_name.is_empty() {
             &user.name

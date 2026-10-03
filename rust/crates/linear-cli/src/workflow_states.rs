@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 
 use crate::client::{LinearClient, RequestError};
-use crate::graphql::operations::workflow_states::{
+use crate::graphql::operations::team::{
     GetWorkflowStates, GetWorkflowStatesVariables, WorkflowState,
 };
 use crate::platform::collation;

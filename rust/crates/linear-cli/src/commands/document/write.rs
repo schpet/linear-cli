@@ -6,7 +6,7 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::document_write::*;
+use crate::graphql::operations::document::*;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::editor;
 use crate::platform::prompt::{Choice, Prompter, Text};

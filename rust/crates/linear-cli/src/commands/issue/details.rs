@@ -2,7 +2,7 @@
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::issue_details::{GetIssueDetails, IssueDetails, Variables};
+use crate::graphql::operations::issue::{GetIssueDetails, IdVariables, IssueDetails};
 
 #[derive(Clone, Copy)]
 pub enum Field {
@@ -30,6 +30,6 @@ fn print(ctx: &Ctx, issue_id: Option<&str>, field: Field) -> Result<()> {
 }
 
 pub async fn fetch(client: &LinearClient, id: String) -> Result<IssueDetails> {
-    let result: GetIssueDetails = client.query(Variables { id }).await?;
+    let result: GetIssueDetails = client.query(IdVariables { id }).await?;
     Ok(result.issue)
 }

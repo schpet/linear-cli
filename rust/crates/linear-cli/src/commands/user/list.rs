@@ -9,7 +9,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::organization_members::{
+use crate::graphql::operations::user::{
     GetOrganizationMembers, GetOrganizationMembersVariables, User,
 };
 use crate::graphql::pagination::{self, Page};

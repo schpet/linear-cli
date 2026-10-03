@@ -4,7 +4,7 @@ use crate::client::LinearClient;
 use crate::commands::issue::id;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue_link::{AttachmentLinkURL, Variables};
+use crate::graphql::operations::issue::{AttachmentLinkURL, LinkVariables};
 
 pub fn run(ctx: &Ctx, args: &IssueLink) -> Result<()> {
     link(ctx, args).context("Failed to link URL")
@@ -49,7 +49,7 @@ pub async fn submit(
 ) -> Result<Vec<u8>, Error> {
     let issue_id = id::fetch(client, identifier).await?;
     let result: AttachmentLinkURL = client
-        .mutate(Variables {
+        .mutate(LinkVariables {
             issue_id,
             url: url.to_owned(),
             title: title.map(str::to_owned),

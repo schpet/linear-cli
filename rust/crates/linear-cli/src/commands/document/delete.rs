@@ -4,7 +4,7 @@ use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::document_delete::{
+use crate::graphql::operations::document::{
     DeleteDocument, DocumentDetails, GetDocumentForDelete, IdVariables,
 };
 

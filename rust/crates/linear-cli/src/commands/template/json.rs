@@ -3,10 +3,10 @@
 use serde::Serialize;
 
 use crate::commands::json;
-use crate::graphql::operations::number::Float;
-use crate::graphql::operations::templates::{
+use crate::graphql::operations::template::{
     InheritedTemplate, Template, TemplateCreator, TemplateTeam,
 };
+use crate::graphql::scalars::Float;
 use crate::graphql::scalars::{DateTime, Json};
 
 /// A template with its GraphQL field names, nesting and nulls.

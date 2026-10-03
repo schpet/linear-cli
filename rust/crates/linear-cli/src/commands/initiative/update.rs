@@ -6,12 +6,12 @@ use crate::cli::values::{date, hex_color};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::initiative_update::{
+use crate::graphql::operations::initiative::DetailVariables;
+use crate::graphql::operations::initiative::InitiativeStatus;
+use crate::graphql::operations::initiative::{
     CurrentInitiative, GetInitiativeForUpdate, InitiativeUpdateInput, UpdateInitiative,
     UpdateVariables, UpdatedInitiative,
 };
-use crate::graphql::operations::initiative_view::DetailVariables;
-use crate::graphql::operations::initiatives::InitiativeStatus;
 use crate::graphql::scalars::TimelessDate;
 use crate::platform::prompt::{Choice, Prompter, Text};
 

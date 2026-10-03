@@ -1,7 +1,7 @@
 //! `auth whoami`: the authenticated user and their workspace.
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::auth_whoami::AuthStatus;
+use crate::graphql::operations::user::AuthStatus;
 
 pub fn run(ctx: &Ctx) -> Result<()> {
     whoami(ctx).context("Failed to get user info")

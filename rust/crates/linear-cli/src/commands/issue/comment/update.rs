@@ -4,7 +4,7 @@ use crate::{
     cli::issue::IssueCommentUpdate,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::operations::comment_update::*,
+    graphql::operations::comment::*,
     platform::prompt::Text,
     refs::{reject_comment_url, reject_linear_url},
 };

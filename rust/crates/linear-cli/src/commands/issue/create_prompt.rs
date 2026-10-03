@@ -3,7 +3,7 @@ use super::{
     write::{self as shared, AssignSelf, Backend, CreateSettings, Label, Named, Parent, State, Ui},
 };
 use crate::cli::values::estimate;
-use crate::graphql::operations::number::WholeNumber;
+use crate::graphql::scalars::WholeNumber;
 use crate::platform::prompt::Text;
 use crate::{error::Error, graphql::edit::Edit};
 fn option(id: &str, name: &str) -> Named {

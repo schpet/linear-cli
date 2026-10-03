@@ -2,7 +2,7 @@
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue_id::{GetIssueId, Variables};
+use crate::graphql::operations::issue::{GetIssueId, IdVariables};
 
 /// Prints the issue the current git branch or jj change names.
 pub fn run(ctx: &Ctx) -> Result<()> {
@@ -14,7 +14,7 @@ pub fn run(ctx: &Ctx) -> Result<()> {
 
 pub async fn fetch(client: &LinearClient, identifier: &str) -> Result<String, Error> {
     let result: GetIssueId = client
-        .query(Variables {
+        .query(IdVariables {
             id: identifier.to_owned(),
         })
         .await

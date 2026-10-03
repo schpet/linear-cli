@@ -13,13 +13,13 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::number::Float;
-use crate::graphql::operations::projects::{
+use crate::graphql::operations::project::{
     GetProjects, GetProjectsVariables, Project, ProjectFilter, ProjectStatusFilter,
     ProjectStatusType, TeamCollectionFilter,
 };
-use crate::graphql::operations::teams::{StringComparator, TeamFilter};
+use crate::graphql::operations::team::{StringComparator, TeamFilter};
 use crate::graphql::pagination::{self, Page};
+use crate::graphql::scalars::Float;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::platform::{collation, style};
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
@@ -141,10 +141,10 @@ struct JsonProject<'a> {
     icon: Option<&'a str>,
     color: &'a str,
     sort_order: &'a Float,
-    status: &'a crate::graphql::operations::projects::ProjectStatus,
-    lead: Option<&'a crate::graphql::operations::projects::ProjectLead>,
+    status: &'a crate::graphql::operations::project::ProjectStatus,
+    lead: Option<&'a crate::graphql::operations::project::ProjectLead>,
     priority: i32,
-    health: Option<&'a crate::graphql::operations::projects::ProjectUpdateHealthType>,
+    health: Option<&'a crate::graphql::operations::project::ProjectUpdateHealthType>,
     start_date: Option<&'a TimelessDate>,
     target_date: Option<&'a TimelessDate>,
     started_at: Option<&'a DateTime>,
@@ -153,7 +153,7 @@ struct JsonProject<'a> {
     created_at: &'a DateTime,
     updated_at: &'a DateTime,
     url: &'a str,
-    teams: &'a crate::graphql::operations::projects::ProjectTeams,
+    teams: &'a crate::graphql::operations::project::ProjectTeams,
 }
 
 fn render_json(projects: &[Project]) -> Vec<u8> {

@@ -1,4 +1,6 @@
-//! The two distinct selections used by `cycle view`.
+//! Cycle operations: team cycle lists, lookups and details.
+
+use serde::Serialize;
 
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
@@ -49,7 +51,7 @@ pub struct LookupConnection {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct LookupCycle {
     pub id: cynic::Id,
-    pub number: crate::graphql::operations::number::WholeNumber,
+    pub number: crate::graphql::scalars::WholeNumber,
     pub name: Option<String>,
     pub starts_at: DateTime,
     pub is_next: bool,
@@ -60,7 +62,7 @@ pub struct LookupCycle {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct ActiveCycle {
     pub id: cynic::Id,
-    pub number: crate::graphql::operations::number::WholeNumber,
+    pub number: crate::graphql::scalars::WholeNumber,
     pub name: Option<String>,
 }
 
@@ -84,7 +86,7 @@ pub struct GetCycleDetails {
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 pub struct DetailCycle {
     pub id: cynic::Id,
-    pub number: crate::graphql::operations::number::WholeNumber,
+    pub number: crate::graphql::scalars::WholeNumber,
     pub name: Option<String>,
     pub description: Option<String>,
     pub starts_at: DateTime,
@@ -129,4 +131,59 @@ pub struct DetailState {
     pub name: String,
     #[cynic(rename = "type")]
     pub state_type: String,
+}
+
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct GetTeamCyclesVariables {
+    pub team_id: String,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub first: Option<i32>,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetTeamCyclesVariables"
+)]
+pub struct GetTeamCycles {
+    #[arguments(id: $team_id)]
+    pub team: TeamCycles,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Team",
+    variables = "GetTeamCyclesVariables"
+)]
+pub struct TeamCycles {
+    pub id: cynic::Id,
+    pub name: String,
+    #[arguments(first: $first, after: $after)]
+    pub cycles: CycleConnection,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(schema = "linear")]
+pub struct CycleConnection {
+    pub nodes: Vec<Cycle>,
+    pub page_info: PageInfo,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
+#[cynic(schema = "linear")]
+#[serde(rename_all = "camelCase")]
+pub struct Cycle {
+    pub id: cynic::Id,
+    pub number: crate::graphql::scalars::WholeNumber,
+    pub name: Option<String>,
+    pub starts_at: DateTime,
+    pub ends_at: DateTime,
+    pub completed_at: Option<DateTime>,
+    pub is_active: bool,
+    pub is_future: bool,
+    pub is_past: bool,
 }

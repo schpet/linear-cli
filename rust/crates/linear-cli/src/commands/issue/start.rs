@@ -7,9 +7,9 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::{
+        issue::{UpdateIssueState, UpdateIssueStateVariables},
         issue_read::*,
-        issue_start_state::{UpdateIssueState, Variables},
-        workflow_states::WorkflowState,
+        team::WorkflowState,
     },
     platform::{
         prompt::Choice,
@@ -362,7 +362,7 @@ pub async fn update_state(
         .map_err(|failure| Error::from(failure).to_string())?;
     let state = started(states).map_err(|error| error.to_string())?;
     let response: UpdateIssueState = client
-        .mutate(Variables {
+        .mutate(UpdateIssueStateVariables {
             issue_id: identifier.to_owned(),
             state_id: state.id.inner().to_owned(),
         })

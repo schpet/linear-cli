@@ -8,11 +8,11 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::initiative_view::{
+use crate::graphql::operations::initiative::{
     DetailVariables, GetInitiativeDetails, InitiativeDetails,
 };
-use crate::graphql::operations::initiatives::{InitiativeStatus, InitiativeUpdateHealthType};
-use crate::graphql::operations::projects::ProjectStatusType;
+use crate::graphql::operations::initiative::{InitiativeStatus, InitiativeUpdateHealthType};
+use crate::graphql::operations::project::ProjectStatusType;
 
 pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     view(ctx, args).context("Failed to view initiative")

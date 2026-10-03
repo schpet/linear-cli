@@ -12,7 +12,7 @@ use crate::commands::{
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::{
-    operations::documents::*,
+    operations::document::*,
     pagination::{self, Page, PageInfo},
 };
 use crate::platform::style;

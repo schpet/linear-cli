@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use clap::{Args, Subcommand};
 
 use super::values::InitiativeStatus;
-use crate::graphql::operations::number::Float;
+use crate::graphql::scalars::Float;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]

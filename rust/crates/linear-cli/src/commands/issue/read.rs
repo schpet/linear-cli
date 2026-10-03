@@ -6,9 +6,9 @@ use crate::commands::relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::error::Error;
 use crate::graphql::operations::issue_read::*;
-use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
+use crate::graphql::scalars::WholeNumber;
 use crate::platform::style;
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -320,7 +320,7 @@ pub async fn project_id(
     client: &LinearClient,
     reference: &ProjectReference,
 ) -> Result<Option<String>, Error> {
-    use crate::graphql::operations::project_view::{
+    use crate::graphql::operations::project::{
         GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
     };
     let slug = match reference {

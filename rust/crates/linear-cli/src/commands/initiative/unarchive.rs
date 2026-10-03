@@ -3,8 +3,8 @@ use crate::cli::initiative::InitiativeUnarchive;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::initiative_unarchive::{
-    DetailVariables, GetInitiativeForUnarchive, UnarchiveDetail, UnarchiveInitiative,
+use crate::graphql::operations::initiative::{
+    ArchivedLookupVariables, GetInitiativeForUnarchive, UnarchiveDetail, UnarchiveInitiative,
     UnarchiveVariables,
 };
 
@@ -52,7 +52,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
 
 async fn details(client: &LinearClient, id: &str, original: &str) -> Result<UnarchiveDetail> {
     let data: GetInitiativeForUnarchive = client
-        .query(DetailVariables {
+        .query(ArchivedLookupVariables {
             id: cynic::Id::new(id),
         })
         .await?;

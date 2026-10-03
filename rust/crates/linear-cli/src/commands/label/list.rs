@@ -7,10 +7,10 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::issue_labels::{
+use crate::graphql::operations::label::{
     GetIssueLabels, GetIssueLabelsVariables, IssueLabel, IssueLabelFilter, NullableTeamFilter,
 };
-use crate::graphql::operations::teams::StringComparator;
+use crate::graphql::operations::team::StringComparator;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::{collation, style};
 use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};

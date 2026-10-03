@@ -7,7 +7,7 @@ use crate::client::LinearClient;
 use crate::commands::json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::documents::*;
+use crate::graphql::operations::document::*;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::markdown_assets;
 

@@ -6,7 +6,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::template::json as template_json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::templates::{GetTemplates, Template};
+use crate::graphql::operations::template::{GetTemplates, Template};
 use crate::platform::collation;
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 

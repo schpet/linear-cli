@@ -9,11 +9,11 @@ use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::project_write::{
+use crate::graphql::operations::project::ProjectStatusType;
+use crate::graphql::operations::project::{
     AddProjectToInitiative, CreateProject, CreateProjectVariables, CreatedProject,
     InitiativeLinkInput, LinkVariables, ProjectCreateInput,
 };
-use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::scalars::TimelessDate;
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;

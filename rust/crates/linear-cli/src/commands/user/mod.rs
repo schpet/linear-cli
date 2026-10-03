@@ -5,7 +5,7 @@ use crate::cli::user::UserCommand;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::initiatives::{
+use crate::graphql::operations::initiative::{
     GetViewerId, GetViewerIdVariables, LookupUser, LookupUserNode, LookupUserVariables,
 };
 

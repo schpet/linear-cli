@@ -7,7 +7,7 @@ use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::milestones::{
+use crate::graphql::operations::milestone::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
 };
 use crate::graphql::pagination::{self, Page};

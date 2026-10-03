@@ -7,7 +7,7 @@ use crate::client::LinearClient;
 use crate::commands::color;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::initiative_create::{
+use crate::graphql::operations::initiative::{
     CreateInitiative, CreateInitiativeVariables, CreatedInitiative, InitiativeCreateInput,
 };
 use crate::graphql::scalars::TimelessDate;

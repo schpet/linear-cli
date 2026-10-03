@@ -7,8 +7,8 @@ use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::number::Float;
-use crate::graphql::operations::workflow_states::WorkflowState;
+use crate::graphql::operations::team::WorkflowState;
+use crate::graphql::scalars::Float;
 use crate::workflow_states;
 
 pub fn run(ctx: &Ctx, args: &TeamStates) -> Result<()> {

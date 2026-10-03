@@ -5,7 +5,7 @@ use std::future::Future;
 
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::operations::team_resolver::{
+use crate::graphql::operations::team::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables, TeamNode,
 };
 use crate::graphql::pagination::{self, Page};

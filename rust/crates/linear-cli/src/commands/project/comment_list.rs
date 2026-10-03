@@ -3,10 +3,8 @@ use crate::cli::project::ProjectCommentList;
 use crate::commands::comments::{self, CommentSource};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::comments::CommentConnection;
-use crate::graphql::operations::project_comments::{
-    GetProjectComments, GetProjectCommentsVariables,
-};
+use crate::graphql::operations::comment::CommentConnection;
+use crate::graphql::operations::comment::{GetProjectComments, GetProjectCommentsVariables};
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
 pub fn run(ctx: &Ctx, args: &ProjectCommentList) -> Result<()> {

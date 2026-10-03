@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    graphql::{edit::Edit, operations::issue_update::IssueUpdateInput},
+    graphql::{edit::Edit, operations::issue::IssueUpdateInput},
     platform::prompt::Text,
 };
 use std::future::Future;

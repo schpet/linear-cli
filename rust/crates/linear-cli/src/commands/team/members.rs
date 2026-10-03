@@ -5,8 +5,8 @@ use crate::client::LinearClient;
 use crate::commands::user;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::organization_members::User;
-use crate::graphql::operations::team_members::{GetTeamMembers, GetTeamMembersVariables};
+use crate::graphql::operations::team::{GetTeamMembers, GetTeamMembersVariables};
+use crate::graphql::operations::user::User;
 use crate::graphql::pagination::{self, Page};
 
 pub fn run(ctx: &Ctx, args: &TeamMembers) -> Result<()> {

@@ -7,12 +7,12 @@ use crate::commands::issue::template_scope::{self, TemplateScope};
 use crate::commands::project::collections::ResolvedRef;
 use crate::commands::text_input;
 use crate::error::{Error, Result};
-use crate::graphql::operations::project_write::{
+use crate::graphql::operations::project::ProjectStatusType;
+use crate::graphql::operations::project::{
     GetInitiativeByIdForUpdate, GetProjectLabelIdByName, GetProjectStatuses, InitiativeIdVariables,
-    NameVariables, ProjectStatus,
+    NameVariables, StatusOption,
 };
-use crate::graphql::operations::projects::ProjectStatusType;
-use crate::graphql::operations::templates::GetTemplates;
+use crate::graphql::operations::template::GetTemplates;
 use crate::refs::{
     self, InitiativeReference, PreparedTeamLookup, ResolvedTeam, WorkspaceScope,
     prepare_initiative_lookup, prepare_team_lookup, reject_linear_url,
@@ -66,7 +66,7 @@ pub fn plain_references<'a>(
 }
 
 /// The workspace's project statuses.
-pub async fn statuses(client: &LinearClient) -> Result<Vec<ProjectStatus>> {
+pub async fn statuses(client: &LinearClient) -> Result<Vec<StatusOption>> {
     let data: GetProjectStatuses = client.query(()).await?;
     Ok(data.project_statuses.nodes)
 }

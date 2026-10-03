@@ -5,9 +5,7 @@ use std::future::Future;
 
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::operations::releases::{
-    ReleaseNode, ResolveReleases, ResolveReleasesVariables,
-};
+use crate::graphql::operations::release::{ReleaseNode, ResolveReleases, ResolveReleasesVariables};
 use crate::graphql::pagination::{self, Page};
 
 pub async fn resolve(client: &LinearClient, input: &str) -> Result<String, Error> {

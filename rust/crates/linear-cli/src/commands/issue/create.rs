@@ -209,7 +209,7 @@ pub struct Fields {
     pub use_default_template: bool,
     pub no_interactive: bool,
 }
-pub type Input = crate::graphql::operations::issue_create::IssueCreateInput;
+pub type Input = crate::graphql::operations::issue::IssueCreateInput;
 impl Fields {
     pub fn local(&self) -> Result<Option<String>, Error> {
         shared::description(

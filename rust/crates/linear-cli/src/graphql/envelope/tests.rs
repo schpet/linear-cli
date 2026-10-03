@@ -1,6 +1,6 @@
 use super::{GraphQlRequest, ResponseError, graphql_message, is_not_found, parse_response};
 use crate::graphql::operations::agent_session::GetAgentSessionDetails;
-use crate::graphql::operations::issue_update::UpdateIssue;
+use crate::graphql::operations::issue::UpdateIssue;
 use serde_json::Value;
 
 const SUCCESS_BODY: &str = r#"{"data":{"issueUpdate":{"success":true,"issue":{"id":"i1","identifier":"ENG-1","url":"https://linear.app/x/issue/ENG-1","title":"T"}}}}"#;
@@ -220,7 +220,7 @@ fn unknown_top_level_envelope_keys_are_tolerated() {
 fn request_envelope_carries_query_variables_and_operation_name() {
     use cynic::QueryBuilder;
 
-    use crate::graphql::operations::teams::{GetTeams, GetTeamsVariables};
+    use crate::graphql::operations::team::{GetTeams, GetTeamsVariables};
 
     let operation = GetTeams::build(GetTeamsVariables {
         filter: None,
@@ -239,7 +239,7 @@ fn request_envelope_carries_query_variables_and_operation_name() {
 fn request_envelope_without_variables_omits_the_variables_key() {
     use cynic::QueryBuilder;
 
-    use crate::graphql::operations::viewer::GetViewer;
+    use crate::graphql::operations::user::GetViewer;
 
     let request = GraphQlRequest::new(GetViewer::build(())).expect("no variables");
     assert_eq!(request.variables, None);
