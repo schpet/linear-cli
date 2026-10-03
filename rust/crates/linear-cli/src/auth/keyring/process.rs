@@ -10,6 +10,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
+use super::process_spec::UnquotableValue;
 use super::{KeyringReader, ReaderFlavor};
 use crate::auth::mutation::KeyringBackend;
 use crate::auth::{LookupFailureCategory, LookupResult};
@@ -319,14 +320,14 @@ impl KeyringBackend for ProcessMutationBackend {
     }
 
     async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<(), Error> {
-        let args = self.flavor.store_arguments(workspace, secret);
-        // secret-tool reads the secret from stdin; `security` takes it as an
-        // argument.
-        let input = match self.flavor {
-            ReaderFlavor::SecretTool => Some(secret.expose().as_bytes()),
-            ReaderFlavor::MacSecurity => None,
-        };
-        let output = self.run(&args, input).await?;
+        let command = self
+            .flavor
+            .store_command(workspace, secret)
+            .map_err(|UnquotableValue| {
+                Error::new("The API key or workspace name has characters the keychain tool cannot take")
+                    .with_hint("Linear API keys and workspace names use only letters, digits, '_', '-' and '.'.")
+            })?;
+        let output = self.run(&command.arguments, Some(&command.input)).await?;
         self.check(&output, self.flavor.store_action(), &[0])
     }
 

@@ -22,18 +22,19 @@ fn flavor_argv_preserves_literal_workspace_and_existing_mutation_policy() {
         ["lookup", "service", "linear-cli", "account", workspace]
     );
     let secret = ConfigSecret::new("dummy key\n中".to_owned());
+    assert!(
+        ReaderFlavor::MacSecurity
+            .store_command(workspace, &secret)
+            .is_err()
+    );
+    let plain = ConfigSecret::new("lin_api_ab-1.2".to_owned());
+    let mac = ReaderFlavor::MacSecurity
+        .store_command("acme-co", &plain)
+        .unwrap();
+    assert_eq!(mac.arguments, ["-i"]);
     assert_eq!(
-        ReaderFlavor::MacSecurity.store_arguments(workspace, &secret),
-        [
-            "add-generic-password",
-            "-a",
-            workspace,
-            "-s",
-            "linear-cli",
-            "-w",
-            "dummy key\n中",
-            "-U"
-        ]
+        String::from_utf8(mac.input).unwrap(),
+        "add-generic-password -U -a acme-co -s linear-cli -w lin_api_ab-1.2\n"
     );
     assert_eq!(
         ReaderFlavor::MacSecurity.delete_arguments(workspace),
@@ -45,8 +46,12 @@ fn flavor_argv_preserves_literal_workspace_and_existing_mutation_policy() {
             "linear-cli"
         ]
     );
+    let secret_tool = ReaderFlavor::SecretTool
+        .store_command(workspace, &secret)
+        .unwrap();
+    assert_eq!(secret_tool.input, "dummy key\n中".as_bytes());
     assert_eq!(
-        ReaderFlavor::SecretTool.store_arguments(workspace, &secret),
+        secret_tool.arguments,
         vec![
             "store".to_owned(),
             "--label".to_owned(),

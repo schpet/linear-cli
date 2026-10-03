@@ -2,6 +2,16 @@
 //! plus the workspace name.
 use crate::config::ConfigSecret;
 
+/// A keyring tool invocation that receives the secret on stdin.
+pub struct StoreCommand {
+    pub arguments: Vec<String>,
+    pub input: Vec<u8>,
+}
+
+/// The workspace or secret holds characters `security -i` would need quoted.
+#[derive(Debug)]
+pub struct UnquotableValue;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReaderFlavor {
     SecretTool,
@@ -39,30 +49,48 @@ impl ReaderFlavor {
             Self::MacSecurity => "add-generic-password",
         }
     }
-    pub fn store_arguments(self, workspace: &str, secret: &ConfigSecret) -> Vec<String> {
+    /// How to store `secret`: the tool's arguments and its stdin. The secret
+    /// never appears in the arguments, where other users could see it.
+    pub fn store_command(
+        self,
+        workspace: &str,
+        secret: &ConfigSecret,
+    ) -> Result<StoreCommand, UnquotableValue> {
         match self {
-            Self::SecretTool => vec![
-                "store".to_owned(),
-                "--label".to_owned(),
-                format!("linear-cli: {workspace}"),
-                "service".to_owned(),
-                "linear-cli".to_owned(),
-                "account".to_owned(),
-                workspace.to_owned(),
-            ],
-            Self::MacSecurity => [
-                "add-generic-password",
-                "-a",
-                workspace,
-                "-s",
-                "linear-cli",
-                "-w",
-                secret.expose(),
-                "-U",
-            ]
-            .into_iter()
-            .map(str::to_owned)
-            .collect(),
+            Self::SecretTool => Ok(StoreCommand {
+                arguments: vec![
+                    "store".to_owned(),
+                    "--label".to_owned(),
+                    format!("linear-cli: {workspace}"),
+                    "service".to_owned(),
+                    "linear-cli".to_owned(),
+                    "account".to_owned(),
+                    workspace.to_owned(),
+                ],
+                input: secret.expose().as_bytes().to_vec(),
+            }),
+            // `security -i` runs commands read from stdin, splitting each line
+            // on whitespace. Values are limited to characters that never need
+            // quoting there; API keys and workspace slugs always are.
+            Self::MacSecurity => {
+                let plain = |value: &str| {
+                    !value.is_empty()
+                        && value
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+                };
+                if !plain(workspace) || !plain(secret.expose()) {
+                    return Err(UnquotableValue);
+                }
+                Ok(StoreCommand {
+                    arguments: vec!["-i".to_owned()],
+                    input: format!(
+                        "add-generic-password -U -a {workspace} -s linear-cli -w {}\n",
+                        secret.expose()
+                    )
+                    .into_bytes(),
+                })
+            }
         }
     }
     pub const fn delete_action(self) -> &'static str {

@@ -250,6 +250,36 @@ fn secret_tool_store_reads_the_secret_from_stdin() {
 }
 
 #[test]
+fn security_store_passes_the_secret_on_stdin() {
+    let sandbox = Sandbox::new("printf '%s\\n' \"$@\" > \"$TRACE\"; /bin/cat > \"$TRACE.stdin\"");
+    block_on(
+        backend(&sandbox, ReaderFlavor::MacSecurity)
+            .store("demo", &ConfigSecret::new("lin_secret".to_owned())),
+    )
+    .unwrap();
+    assert_eq!(
+        fs::read_to_string(sandbox.root.join("trace")).unwrap(),
+        "-i\n"
+    );
+    assert_eq!(
+        fs::read_to_string(sandbox.root.join("trace.stdin")).unwrap(),
+        "add-generic-password -U -a demo -s linear-cli -w lin_secret\n"
+    );
+}
+
+#[test]
+fn security_store_refuses_values_that_would_need_quoting() {
+    let sandbox = Sandbox::new("printf 'ran' > \"$TRACE\"");
+    let error = block_on(
+        backend(&sandbox, ReaderFlavor::MacSecurity)
+            .store("demo", &ConfigSecret::new("two words".to_owned())),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("keychain tool"), "{error}");
+    assert!(!sandbox.root.join("trace").exists());
+}
+
+#[test]
 fn security_delete_of_a_missing_entry_succeeds() {
     let sandbox = Sandbox::new("printf '%s\\n' \"$@\" > \"$TRACE\"; exit 44");
     block_on(backend(&sandbox, ReaderFlavor::MacSecurity).delete("demo")).unwrap();
