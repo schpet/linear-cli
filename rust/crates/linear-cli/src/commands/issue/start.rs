@@ -215,9 +215,10 @@ impl<'a> Repo<'a> {
 
     fn git_branch_exists(&self, branch: &str) -> Result<bool> {
         let mut command = self.command("git");
-        command.args(["rev-parse", "--verify", "--quiet", branch]);
+        let reference = format!("refs/heads/{branch}");
+        command.args(["show-ref", "--verify", "--quiet", &reference]);
         let output = process::output(&mut command)?;
-        // With --quiet, a missing ref exits 1 and nothing else does.
+        // Missing or invalid local ref names exit 1 with --verify --quiet.
         match output.status.code() {
             Some(0) => Ok(true),
             Some(1) => Ok(false),

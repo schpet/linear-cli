@@ -34,7 +34,7 @@ fn git(cli: Cli, branch: &str) -> Cli {
         &format!(
             "case \"$1 $2\" in\n\
              'symbolic-ref --quiet') echo '{branch}' ;;\n\
-             'rev-parse --verify') exit 1 ;;\n\
+             'show-ref --verify') exit 1 ;;\n\
              'checkout -b') echo \"Switched to a new branch '$3'\" >&2 ;;\n\
              *) exit 1 ;;\n\
              esac"
@@ -173,6 +173,12 @@ fn start_creates_the_issue_branch_and_marks_it_started() {
         "{:?}",
         cli.calls("git")
     );
+    assert!(calls(&cli, "git").contains(&vec![
+        "show-ref".to_owned(),
+        "--verify".to_owned(),
+        "--quiet".to_owned(),
+        "refs/heads/eng-7-repair-the-widget".to_owned(),
+    ]));
     assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-7" }));
     assert_eq!(
         api.variables("GetWorkflowStates"),
@@ -553,4 +559,122 @@ fn pull_request_with_an_empty_title_uses_the_issue_title() {
     let cli = gh(Cli::for_api(&api));
     cli.run(&["issue", "pr", "ENG-7", "--title", ""]).success();
     assert_eq!(cli.calls("gh")[0][3], "ENG-7 Repair the widget");
+}
+
+#[test]
+fn start_creates_a_local_branch_when_only_another_revision_has_its_name() {
+    for branch in ["release", "deadbeef", "origin/release"] {
+        let api = MockLinear::start();
+        api.on("GetIssueDetails", details())
+            .on("GetWorkflowStates", states())
+            .on(
+                "UpdateIssueState",
+                json!({"issueUpdate": {"success": true}}),
+            );
+        let cli = Cli::for_api(&api).stub_bin(
+            "git",
+            "case \"$1 $2\" in
+ 'rev-parse --verify') exit 0 ;;
+ 'show-ref --verify') exit 1 ;;
+ 'checkout -b') exit 0 ;;
+ *) exit 1 ;;
+ esac",
+        );
+        cli.run(&["issue", "start", "ENG-7", "--branch", branch])
+            .success()
+            .stdout_has("Created and switched");
+        assert_eq!(
+            calls(&cli, "git"),
+            [
+                vec![
+                    "show-ref".to_owned(),
+                    "--verify".to_owned(),
+                    "--quiet".to_owned(),
+                    format!("refs/heads/{branch}")
+                ],
+                vec![
+                    "checkout".to_owned(),
+                    "-b".to_owned(),
+                    branch.to_owned(),
+                    "HEAD".to_owned()
+                ],
+            ]
+        );
+        assert_eq!(
+            api.operations(),
+            ["GetIssueDetails", "GetWorkflowStates", "UpdateIssueState"]
+        );
+        assert_eq!(
+            api.variables("UpdateIssueState"),
+            json!({"issueId": "ENG-7", "stateId": "state-progress"})
+        );
+    }
+}
+
+#[test]
+fn start_still_requires_a_terminal_when_a_local_branch_exists() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = Cli::for_api(&api).stub_bin(
+        "git",
+        "case \"$1 $2\" in
+ 'rev-parse --verify' | 'show-ref --verify') exit 0 ;;
+ *) exit 1 ;;
+ esac",
+    );
+    cli.run(&["issue", "start", "ENG-7"])
+        .failure()
+        .stderr_has("--branch with a new name");
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
+    assert!(
+        !calls(&cli, "git")
+            .iter()
+            .any(|args| args.first().is_some_and(|arg| arg == "checkout"))
+    );
+}
+
+#[test]
+fn start_preserves_unexpected_git_probe_failures() {
+    for status in [2, 128] {
+        let api = MockLinear::start();
+        api.on("GetIssueDetails", details());
+        let cli = Cli::for_api(&api).stub_bin(
+            "git",
+            &format!(
+                "case \"$1 $2\" in
+ 'rev-parse --verify' | 'show-ref --verify') echo 'fatal: corrupt refs' >&2; exit {status} ;;
+ *) exit 1 ;;
+ esac"
+            ),
+        );
+        cli.run(&["issue", "start", "ENG-7"])
+            .failure()
+            .stderr_has("Failed to check if branch exists")
+            .stderr_has("fatal: corrupt refs");
+        assert_eq!(api.operations(), ["GetIssueDetails"]);
+        assert!(
+            !calls(&cli, "git")
+                .iter()
+                .any(|args| args.first().is_some_and(|arg| arg == "checkout"))
+        );
+    }
+}
+
+#[test]
+fn start_does_not_treat_a_revision_expression_as_a_branch() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = Cli::for_api(&api).stub_bin(
+        "git",
+        "case \"$1 $2\" in
+ 'rev-parse --verify') exit 0 ;;
+ 'show-ref --verify') exit 1 ;;
+ 'checkout -b') echo 'fatal: not a valid branch name' >&2; exit 128 ;;
+ *) exit 1 ;;
+ esac",
+    );
+    cli.run(&["issue", "start", "ENG-7", "--branch", "main~0"])
+        .failure()
+        .stderr_has("not a valid branch name");
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
 }
