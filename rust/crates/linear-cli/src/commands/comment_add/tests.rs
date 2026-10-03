@@ -29,7 +29,10 @@ fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
         std::fs::write(&path, bytes).expect("write body file");
         path.to_str().expect("UTF-8 temp path").to_owned()
     };
-    let text = write("text.md", b"\xef\xbb\xbf# Title\r\n\n  \xe2\x98\x83 *md* \n");
+    let text = write(
+        "text.md",
+        b"\xef\xbb\xbf# Title\r\n\n  \xe2\x98\x83 *md* \n",
+    );
     assert_eq!(
         resolve_body(None, Some(&text)).expect("body"),
         Some("# Title\r\n\n  ☃ *md* \n".to_owned())

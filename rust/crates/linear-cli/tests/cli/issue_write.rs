@@ -730,3 +730,24 @@ fn archive_bulk_reports_unusable_references_and_archives_the_rest() {
         .collect();
     assert_eq!(ids, [json!("ENG-1"), json!("ENG-1")]);
 }
+
+#[test]
+fn update_refuses_to_add_and_remove_the_same_label() {
+    let api = MockLinear::start();
+    expect_own_team(&api);
+    api.on("GetIssueLabelIdByNameForTeam", label("label-bug", "Bug"))
+        .on("GetIssueLabelIdByNameForTeam", label("label-bug", "Bug"));
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "update",
+            "ENG-1",
+            "--add-label",
+            "Bug",
+            "--remove-label",
+            "bug",
+        ])
+        .failure()
+        .stderr_has("Cannot add and remove the same label in one update");
+    assert!(!api.operations().contains(&"UpdateIssue".to_owned()));
+}

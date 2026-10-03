@@ -313,3 +313,6 @@ pub async fn prompt<B: Backend, U: Ui>(
         },
     })
 }
+
+#[cfg(test)]
+mod tests;

@@ -80,12 +80,7 @@ impl ProcessRunner for Script {
 
 #[test]
 fn an_existing_branch_gets_the_first_free_suffix() {
-    let mut git = Script::new(vec![
-        exit(0, b""),
-        exit(0, b""),
-        exit(1, b""),
-        exit(0, b""),
-    ]);
+    let mut git = Script::new(vec![exit(0, b""), exit(0, b""), exit(1, b""), exit(0, b"")]);
     let output = existing_git(
         &mut git,
         ExistingBranch::Suffix,

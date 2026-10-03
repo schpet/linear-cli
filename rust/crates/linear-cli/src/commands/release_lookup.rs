@@ -104,7 +104,10 @@ mod tests {
         parse_response(body.to_string().as_bytes()).expect("release page")
     }
 
-    async fn resolve(input: &str, pages: Vec<ResolveReleases>) -> (Result<String, Error>, Vec<Option<String>>) {
+    async fn resolve(
+        input: &str,
+        pages: Vec<ResolveReleases>,
+    ) -> (Result<String, Error>, Vec<Option<String>>) {
         let mut pages = VecDeque::from(pages);
         let mut cursors = Vec::new();
         let result = resolve_with(input, |request| {
@@ -141,7 +144,10 @@ mod tests {
         )
         .await;
         let error = result.expect_err("ambiguous");
-        assert!(error.message().contains("matches multiple releases"), "{error}");
+        assert!(
+            error.message().contains("matches multiple releases"),
+            "{error}"
+        );
         assert_eq!(error.hint(), Some("Pass the release UUID instead."));
     }
 

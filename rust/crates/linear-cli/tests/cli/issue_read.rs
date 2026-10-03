@@ -795,11 +795,18 @@ fn mine_orders_by_state_type_then_position_within_one_team() {
             None,
         ),
     );
-    let run = Cli::for_api(&api)
-        .env("LINEAR_TEAM_ID", "ENG")
-        .run(&["issue", "mine", "--all-states", "--no-pager"]);
+    let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&[
+        "issue",
+        "mine",
+        "--all-states",
+        "--no-pager",
+    ]);
     let stdout = &run.success().stdout;
-    let position = |id: &str| stdout.find(id).unwrap_or_else(|| panic!("{id} in {stdout}"));
+    let position = |id: &str| {
+        stdout
+            .find(id)
+            .unwrap_or_else(|| panic!("{id} in {stdout}"))
+    };
     let order = ["ENG-4", "ENG-2", "ENG-3", "ENG-1"].map(position);
     assert!(order.is_sorted(), "{stdout}");
 }

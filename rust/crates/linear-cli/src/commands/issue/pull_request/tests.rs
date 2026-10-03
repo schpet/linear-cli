@@ -17,7 +17,10 @@ fn templates_must_be_readable_utf8_text_files() {
     {
         let link = dir.path().join("link");
         std::os::unix::fs::symlink(&file, &link).expect("symlink");
-        assert_eq!(read_template(&link).expect("linked template"), "Summary\r\n");
+        assert_eq!(
+            read_template(&link).expect("linked template"),
+            "Summary\r\n"
+        );
     }
     for (path, reason) in [
         (dir.path().join("missing"), "does not exist"),
@@ -29,7 +32,10 @@ fn templates_must_be_readable_utf8_text_files() {
     }
     std::fs::write(&file, b"Summary\xff").expect("write template");
     let error = read_template(&file).expect_err("invalid UTF-8");
-    assert!(error.message().ends_with("is not valid UTF-8 text"), "{error}");
+    assert!(
+        error.message().ends_with("is not valid UTF-8 text"),
+        "{error}"
+    );
     std::fs::write(&file, b"Summary\0").expect("write template");
     let error = read_template(&file).expect_err("binary");
     assert!(error.message().ends_with("is not a text file"), "{error}");
