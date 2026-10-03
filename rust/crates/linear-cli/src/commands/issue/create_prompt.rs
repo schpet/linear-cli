@@ -150,7 +150,6 @@ struct More {
 }
 pub struct Interactive {
     pub input: Input,
-    pub title: String,
     pub start: bool,
 }
 /// Asks for a new issue's fields, looking up the team's states, labels and
@@ -288,7 +287,6 @@ pub async fn prompt<B: Backend, U: Ui>(
     )?;
     let project = project.or_else(|| parent_data.and_then(|Parent { project_id, .. }| project_id));
     Ok(Interactive {
-        title: title.clone(),
         start,
         input: Input {
             title: Edit::Set(title),

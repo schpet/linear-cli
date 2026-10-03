@@ -2,6 +2,7 @@
 use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueCommentUpdate,
+    commands::outcome,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::comment::*,
@@ -94,5 +95,5 @@ pub async fn submit(client: &LinearClient, id: &str, body: String) -> Result<Vec
         .comment_update
         .comment
         .ok_or_else(|| Error::new("Comment update failed - no comment returned"))?;
-    Ok(format!("✓ Comment updated\n{}\n", comment.url).into_bytes())
+    Ok(outcome::done("Updated", "comment", id, Some(&comment.url)).into_bytes())
 }

@@ -2,9 +2,10 @@
 use crate::cli::issue::IssueLink;
 use crate::client::LinearClient;
 use crate::commands::issue::id;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue::{AttachmentLinkURL, LinkVariables};
+use crate::graphql::operations::issue::{AttachmentLinkURL, LinkVariables, LinkedAttachment};
 
 pub fn run(ctx: &Ctx, args: &IssueLink) -> Result<()> {
     link(ctx, args).context("Failed to link URL")
@@ -14,8 +15,13 @@ fn link(ctx: &Ctx, args: &IssueLink) -> Result<()> {
     let (issue, url) = inputs(&args.url_or_issue_id, args.url.as_deref())?;
     let identifier = super::require(ctx, issue)?;
     let client = ctx.client()?;
-    let output = ctx.block_on(submit(client, &identifier, url, args.title.as_deref()))?;
-    ctx.print(output)
+    let attachment = ctx.block_on(submit(client, &identifier, url, args.title.as_deref()))?;
+    ctx.print(outcome::done(
+        "Linked",
+        "issue",
+        &format!("{identifier} to {}", attachment.title),
+        Some(&attachment.url),
+    ))
 }
 
 const URL_SUGGESTION: &str = "Provide a URL starting with http:// or https://.";
@@ -41,12 +47,12 @@ pub fn inputs<'a>(
     }
     Ok((issue, url))
 }
-pub async fn submit(
+async fn submit(
     client: &LinearClient,
     identifier: &str,
     url: &str,
     title: Option<&str>,
-) -> Result<Vec<u8>, Error> {
+) -> Result<LinkedAttachment, Error> {
     let issue_id = id::fetch(client, identifier).await?;
     let result: AttachmentLinkURL = client
         .mutate(LinkVariables {
@@ -56,11 +62,7 @@ pub async fn submit(
         })
         .await?;
     if !result.attachment_link_url.success {
-        return Err(Error::new("Failed to link URL to issue"));
+        return Err(Error::new("Linear did not link the URL to the issue"));
     }
-    Ok(format!(
-        "✓ Linked to {identifier}: {}\n",
-        result.attachment_link_url.attachment.title
-    )
-    .into_bytes())
+    Ok(result.attachment_link_url.attachment)
 }

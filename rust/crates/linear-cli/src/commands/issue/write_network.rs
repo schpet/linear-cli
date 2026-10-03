@@ -318,7 +318,7 @@ impl Backend for NetworkBackend {
         use crate::graphql::operations::issue::{CreateIssue, CreateIssueVariables};
         let data: CreateIssue = self.client.mutate(CreateIssueVariables { input }).await?;
         if !data.issue_create.success {
-            return Err(Error::new("Issue creation failed"));
+            return Err(Error::new("Linear did not create the issue"));
         }
         let issue = data
             .issue_create
@@ -326,6 +326,7 @@ impl Backend for NetworkBackend {
             .ok_or_else(|| Error::new("Issue creation failed - no issue returned"))?;
         Ok(Created {
             identifier: issue.identifier,
+            title: issue.title,
             url: issue.url,
         })
     }
@@ -340,7 +341,7 @@ impl Backend for NetworkBackend {
             .mutate(UpdateIssueVariables { id, input })
             .await?;
         if !data.issue_update.success {
-            return Err(Error::new("Issue update failed"));
+            return Err(Error::new("Linear did not update the issue"));
         }
         let issue = data
             .issue_update

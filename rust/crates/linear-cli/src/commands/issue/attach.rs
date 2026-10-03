@@ -4,6 +4,7 @@ use std::path::Path;
 
 use crate::cli::issue::IssueAttach;
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::commands::upload::{self, UploadedFile};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -41,7 +42,7 @@ fn attach_file(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
 }
 
 /// Uploads one file, printing its result (and any warning) as soon as it is done.
-pub(crate) fn upload_file(ctx: &Ctx, path: &str, public: bool) -> Result<UploadedFile> {
+pub(super) fn upload_file(ctx: &Ctx, path: &str, public: bool) -> Result<UploadedFile> {
     let path = Path::new(path);
     let file = upload::prepare(path, public)?;
     let client = ctx.client()?;
@@ -52,34 +53,6 @@ pub(crate) fn upload_file(ctx: &Ctx, path: &str, public: bool) -> Result<Uploade
         ctx.eprint(warning)?;
     }
     Ok(uploaded)
-}
-pub fn validate_comment_id(id: Option<&str>) -> Result<(), Error> {
-    if let Some(id) = id {
-        let bytes = id.as_bytes();
-        if !(crate::refs::is_linear_uuid(id)
-            && bytes.get(14) == Some(&b'4')
-            && matches!(bytes.get(19), Some(b'8' | b'9' | b'a' | b'A' | b'b' | b'B')))
-        {
-            return Err(Error::new(format!("Invalid comment ID: {id}"))
-                .with_hint("--id must be a v4 UUID, like 123e4567-e89b-42d3-a456-426614174000."));
-        }
-    }
-    Ok(())
-}
-pub fn compose_body(text: Option<&str>, files: &[UploadedFile]) -> String {
-    let links = files
-        .iter()
-        .map(upload::markdown)
-        .collect::<Vec<_>>()
-        .join("\n");
-    [text.unwrap_or(""), &links]
-        .into_iter()
-        .filter(|x| !x.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n\n")
-}
-pub fn comment_output(identifier: &str, url: &str) -> Vec<u8> {
-    format!("✓ Comment added to {identifier}\n{url}\n").into_bytes()
 }
 async fn lookup(client: &LinearClient, identifier: &str) -> Result<String, Error> {
     let data: GetIssueId = client
@@ -114,7 +87,7 @@ async fn attach(
         })
         .await?;
     if !data.attachment_create.success {
-        return Err(Error::new("Failed to create attachment"));
+        return Err(Error::new("Linear did not create the attachment"));
     }
     Ok(data.attachment_create.attachment)
 }
@@ -135,9 +108,11 @@ fn attach_output(
     path: &str,
     file: &UploadedFile,
 ) -> Vec<u8> {
-    let mut output = format!(
-        "✓ Sidebar link attachment created: {}\n{}\n",
-        attachment.title, attachment.url
+    let mut output = outcome::done(
+        "Attached",
+        "file",
+        &format!("{} to issue {identifier}", attachment.title),
+        Some(&attachment.url),
     );
     if file.file.content_type.starts_with("image/") {
         output.push_str(&format!("Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add {identifier} --attach {}{}\n",quote_shell(path),if file.file.public{" --public"}else{""}));

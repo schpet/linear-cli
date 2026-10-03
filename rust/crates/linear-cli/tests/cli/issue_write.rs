@@ -13,7 +13,7 @@ fn created(identifier: &str) -> Value {
         "issueCreate": {
             "success": true,
             "issue": {
-                "id": "issue-new-id", "identifier": identifier,
+                "id": "issue-new-id", "identifier": identifier, "title": "New issue",
                 "url": format!("https://linear.app/acme/issue/{identifier}/new"),
                 "team": { "key": "ENG" }
             }
@@ -182,7 +182,7 @@ fn create_uses_the_configured_team_and_default_template() {
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&["issue", "create", "--no-interactive", "-t", "Plain"])
         .success()
-        .stdout_has("https://linear.app/acme/issue/ENG-7/new");
+        .stdout_has("✓ Created issue ENG-7: New issue\nhttps://linear.app/acme/issue/ENG-7/new\n");
     assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
     assert_eq!(
         input(&api, "CreateIssue"),
@@ -318,7 +318,8 @@ fn create_reports_an_unsuccessful_mutation() {
     Cli::for_api(&api)
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&["issue", "create", "--no-interactive", "-t", "x"])
-        .failure();
+        .failure()
+        .stderr_has("Linear did not create the issue");
 }
 
 #[test]
@@ -434,7 +435,7 @@ fn update_with_every_field_sends_resolved_ids() {
             "New body",
         ])
         .success()
-        .stdout_has("APP-3");
+        .stdout_has("✓ Updated issue APP-3: Renamed\nhttps://linear.app/acme/issue/APP-3/x\n");
     let request = api.variables("UpdateIssue");
     assert_eq!(request["id"], "ENG-1");
     assert_eq!(
@@ -559,8 +560,7 @@ fn archive_by_url_with_confirm() {
             "-y",
         ])
         .success()
-        .stdout_has("ENG-1")
-        .stdout_has("Old work");
+        .stdout_has("✓ Archived issue ENG-1: Old work\n");
     assert_eq!(api.variables("GetIssueSummary"), json!({ "id": "ENG-1" }));
     assert_eq!(api.variables("ArchiveIssue"), json!({ "id": "ENG-1" }));
 }
@@ -628,7 +628,7 @@ fn delete_with_confirm() {
     Cli::for_api(&api)
         .run(&["issue", "delete", "eng-3", "--confirm"])
         .success()
-        .stdout_has("ENG-3");
+        .stdout_has("✓ Deleted issue ENG-3: Mistake\n");
     assert_eq!(api.variables("GetIssueSummary"), json!({ "id": "ENG-3" }));
     assert_eq!(api.variables("DeleteIssue"), json!({ "id": "ENG-3" }));
 }

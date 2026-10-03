@@ -38,12 +38,13 @@ pub fn open(url: &str, app: bool) -> Result<(), Error> {
         .stderr(Stdio::null())
         .status()
         .map_err(|error| {
-            let message = if error.kind() == std::io::ErrorKind::NotFound {
-                format!("Failed to spawn '{program}': entity not found")
+            if error.kind() == std::io::ErrorKind::NotFound {
+                Error::new(format!("Could not find `{program}` to open the URL"))
+                    .with_hint(format!("Install {program} or add it to PATH."))
+                    .with_source(error)
             } else {
-                format!("Failed to spawn '{program}': {error}")
-            };
-            Error::new(message).with_source(error)
+                Error::new(format!("Failed to run `{program}`: {error}")).with_source(error)
+            }
         })?;
     // Explorer commonly reports exit code 1 after handing a URL to the shell.
     // Its process exit does not tell us whether the handoff succeeded.

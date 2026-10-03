@@ -42,8 +42,7 @@ fn add_posts_the_body_to_the_issue() {
             "Looks **good**",
         ])
         .success()
-        .stdout_has("ENG-1")
-        .stdout_has("https://linear.app/acme/comment-new");
+        .stdout_has("✓ Added comment to issue ENG-1\nhttps://linear.app/acme/comment-new\n");
     assert_eq!(
         api.variables("AddComment"),
         json!({ "input": { "body": "Looks **good**", "issueId": "ENG-1" } })
@@ -236,7 +235,9 @@ fn update_sends_the_new_body() {
             "issue", "comment", "update", COMMENT_ID, "--body", "New body",
         ])
         .success()
-        .stdout_has("https://linear.app/acme/comment-updated");
+        .stdout_has(&format!(
+            "✓ Updated comment {COMMENT_ID}\nhttps://linear.app/acme/comment-updated\n"
+        ));
     assert_eq!(
         api.variables("UpdateComment"),
         json!({ "id": COMMENT_ID, "input": { "body": "New body" } })
@@ -295,7 +296,7 @@ fn delete_removes_the_comment() {
     Cli::for_api(&api)
         .run(&["issue", "comment", "delete", COMMENT_ID])
         .success()
-        .stdout_has("deleted");
+        .stdout_has(&format!("✓ Deleted comment {COMMENT_ID}\n"));
     assert_eq!(api.variables("DeleteComment"), json!({ "id": COMMENT_ID }));
 }
 

@@ -120,6 +120,7 @@ pub struct CreatePayload {
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct CreatedIssue {
     pub identifier: String,
+    pub title: String,
     pub url: String,
 }
 

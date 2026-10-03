@@ -34,6 +34,7 @@ pub struct Parent {
 #[derive(Clone, Debug)]
 pub struct Created {
     pub identifier: String,
+    pub title: String,
     pub url: String,
 }
 #[derive(Clone, Debug)]
@@ -52,16 +53,16 @@ pub struct CreateSettings {
 pub fn validation(message: impl Into<String>) -> Error {
     Error::new(message)
 }
-pub fn truthy(value: Option<&str>) -> Option<&str> {
-    value.filter(|value| !value.is_empty())
-}
+/// The description from `--description` or `--description-file`; an empty
+/// value counts as not given.
 pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<String>, Error> {
-    if truthy(inline).is_some() && truthy(file).is_some() {
+    let file = file.filter(|path| !path.is_empty());
+    if inline.is_some_and(|text| !text.is_empty()) && file.is_some() {
         return Err(validation(
             "Cannot specify both --description and --description-file",
         ));
     }
-    match truthy(file) {
+    match file {
         None => Ok(inline.map(str::to_owned)),
         Some(path) => crate::commands::text_input::read_file(path)
             .map(Some)

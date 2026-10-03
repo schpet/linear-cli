@@ -2,7 +2,7 @@
 use crate::cli::issue::IssueCommentAdd;
 use crate::commands::comment_add::{self, CommentTarget};
 use crate::commands::issue::attach;
-use crate::commands::upload;
+use crate::commands::upload::{self, UploadedFile};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 
@@ -11,7 +11,7 @@ pub fn run(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
 }
 
 fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
-    attach::validate_comment_id(args.id.as_deref())?;
+    validate_comment_id(args.id.as_deref())?;
     let text = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
     comment_add::check_parent(args.parent.as_deref())?;
     let identifier = crate::commands::issue::require(ctx, args.issue_id.as_deref())?;
@@ -29,7 +29,7 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
         .iter()
         .map(|path| attach::upload_file(ctx, path, args.public))
         .collect::<Result<Vec<_>>>()?;
-    let body = attach::compose_body(text.as_deref(), &files);
+    let body = compose_body(text.as_deref(), &files);
     let input = comment_add::build_input(
         CommentTarget::Issue {
             issue_id: identifier.clone(),
@@ -40,5 +40,32 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
     );
     let client = ctx.client()?;
     let comment = ctx.spin(true, comment_add::create(client, input))?;
-    ctx.print(attach::comment_output(&identifier, &comment.url))
+    ctx.print(comment_add::output("issue", &identifier, &comment))
+}
+
+fn validate_comment_id(id: Option<&str>) -> Result<(), Error> {
+    if let Some(id) = id {
+        let bytes = id.as_bytes();
+        if !(crate::refs::is_linear_uuid(id)
+            && bytes.get(14) == Some(&b'4')
+            && matches!(bytes.get(19), Some(b'8' | b'9' | b'a' | b'A' | b'b' | b'B')))
+        {
+            return Err(Error::new(format!("Invalid comment ID: {id}"))
+                .with_hint("--id must be a v4 UUID, like 123e4567-e89b-42d3-a456-426614174000."));
+        }
+    }
+    Ok(())
+}
+
+fn compose_body(text: Option<&str>, files: &[UploadedFile]) -> String {
+    let links = files
+        .iter()
+        .map(upload::markdown)
+        .collect::<Vec<_>>()
+        .join("\n");
+    [text.unwrap_or(""), &links]
+        .into_iter()
+        .filter(|x| !x.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }

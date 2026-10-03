@@ -1,31 +1,33 @@
 //! `linear issue`: issues and everything attached to them.
-pub mod agent_session;
-pub mod archive;
-pub mod attach;
-pub mod comment;
-pub mod commits;
-pub mod create;
-pub mod create_prompt;
-pub mod describe;
-pub mod details;
-pub mod filter;
-pub mod id;
-pub mod link;
-pub mod list_view;
+mod agent_session;
+mod archive;
+mod archive_or_delete;
+mod attach;
+mod comment;
+mod commits;
+mod create;
+mod create_prompt;
+mod delete;
+mod describe;
+mod details;
+mod filter;
+mod id;
+mod link;
+mod list_view;
 mod mine;
-pub mod pull_request;
+mod pull_request;
 mod query;
-pub mod read;
-pub mod relation;
-pub mod start;
-pub mod update;
-pub mod view;
-pub mod write;
-pub mod write_network;
+mod read;
+mod relation;
+mod start;
+mod title;
+mod update;
+mod url;
+mod view;
+mod write;
+mod write_network;
 
-use crate::cli::issue::{
-    IssueAgentSessionCommand, IssueCommand, IssueCommentCommand, IssueRelationCommand,
-};
+use crate::cli::issue::IssueCommand;
 use crate::commands::team_key::configured_team_key;
 use crate::config::Vcs;
 use crate::ctx::Ctx;
@@ -37,36 +39,22 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         IssueCommand::Id(_) => id::run(ctx),
         IssueCommand::Mine(args) => mine::run(ctx, args),
         IssueCommand::Query(args) => query::run(ctx, args),
-        IssueCommand::Title(args) => {
-            details::run(ctx, args.issue_id.as_deref(), details::Field::Title)
-        }
-        IssueCommand::Url(args) => details::run(ctx, args.issue_id.as_deref(), details::Field::Url),
+        IssueCommand::Title(args) => title::run(ctx, args),
+        IssueCommand::Url(args) => url::run(ctx, args),
         IssueCommand::Start(args) => start::run(ctx, args),
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
         IssueCommand::Commits(args) => commits::run(ctx, args),
         IssueCommand::PullRequest(args) => pull_request::run(ctx, args),
-        IssueCommand::Archive(args) => archive::archive(ctx, args),
-        IssueCommand::Delete(args) => archive::delete(ctx, args),
+        IssueCommand::Archive(args) => archive::run(ctx, args),
+        IssueCommand::Delete(args) => delete::run(ctx, args),
         IssueCommand::Create(args) => create::run(ctx, args),
         IssueCommand::Update(args) => update::run(ctx, args),
-        IssueCommand::Comment(group) => match &group.command {
-            IssueCommentCommand::Add(args) => comment::add::run(ctx, args),
-            IssueCommentCommand::Delete(args) => comment::delete::run(ctx, args),
-            IssueCommentCommand::Update(args) => comment::update::run(ctx, args),
-            IssueCommentCommand::List(args) => comment::list::run(ctx, args),
-        },
+        IssueCommand::Comment(args) => comment::run(ctx, &args.command),
         IssueCommand::Attach(args) => attach::run(ctx, args),
         IssueCommand::Link(args) => link::run(ctx, args),
-        IssueCommand::Relation(group) => match &group.command {
-            IssueRelationCommand::Add(args) => relation::add(ctx, args),
-            IssueRelationCommand::Delete(args) => relation::delete(ctx, args),
-            IssueRelationCommand::List(args) => relation::list(ctx, args),
-        },
-        IssueCommand::AgentSession(group) => match &group.command {
-            IssueAgentSessionCommand::List(args) => agent_session::list(ctx, args),
-            IssueAgentSessionCommand::View(args) => agent_session::view(ctx, args),
-        },
+        IssueCommand::Relation(args) => relation::run(ctx, &args.command),
+        IssueCommand::AgentSession(args) => agent_session::run(ctx, &args.command),
     }
 }
 

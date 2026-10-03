@@ -1,5 +1,6 @@
 //! `issue comment delete`: delete a comment by its UUID.
 use crate::cli::issue::IssueCommentDelete;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::comment::{DeleteComment, DeleteCommentVariables};
@@ -21,5 +22,5 @@ fn delete(ctx: &Ctx, args: &IssueCommentDelete) -> Result<()> {
     if !result.comment_delete.success {
         return Err(Error::new("Linear did not delete the comment"));
     }
-    ctx.print("✓ Comment deleted\n")
+    ctx.print(outcome::done("Deleted", "comment", id, None))
 }

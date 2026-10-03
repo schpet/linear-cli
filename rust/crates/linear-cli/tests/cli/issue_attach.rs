@@ -39,8 +39,9 @@ fn attach_uploads_the_file_and_creates_an_attachment() {
         .file("cwd/notes.txt", "some notes\n")
         .run(&["issue", "attach", "eng-1", "notes.txt"])
         .success()
-        .stdout_has("notes.txt")
-        .stdout_has("https://uploads.linear.app/acme/notes.txt");
+        .stdout_has(
+            "✓ Attached file notes.txt to issue ENG-1\nhttps://uploads.linear.app/acme/notes.txt\n",
+        );
     assert_eq!(api.variables("GetIssueId"), json!({ "id": "ENG-1" }));
     assert_eq!(
         api.variables("FileUpload"),
@@ -142,8 +143,7 @@ fn link_attaches_a_url_with_an_optional_title() {
             "Design doc",
         ])
         .success()
-        .stdout_has("ENG-1")
-        .stdout_has("Design doc");
+        .stdout_has("✓ Linked issue ENG-1 to Design doc\nhttps://example.com/a\n");
     assert_eq!(api.variables("GetIssueId"), json!({ "id": "ENG-1" }));
     assert_eq!(
         api.variables("AttachmentLinkURL"),
@@ -187,8 +187,7 @@ fn relation_add_creates_the_relation_in_the_right_direction() {
     let cli = Cli::for_api(&api);
     cli.run(&["issue", "relation", "add", "eng-1", "blocks", "eng-2"])
         .success()
-        .stdout_has("ENG-1")
-        .stdout_has("ENG-2");
+        .stdout_has("✓ Created relation ENG-1 blocks ENG-2\n");
     assert_eq!(
         api.variables("CreateIssueRelation"),
         json!({ "input": { "issueId": ISSUE_1, "relatedIssueId": ISSUE_2, "type": "blocks" } })
@@ -240,7 +239,7 @@ fn relation_delete_finds_and_deletes_the_matching_relation() {
     Cli::for_api(&api)
         .run(&["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"])
         .success()
-        .stdout_has("ENG-1");
+        .stdout_has("✓ Deleted relation ENG-1 blocks ENG-2\n");
     assert_eq!(
         api.variables("FindIssueRelation"),
         json!({ "issueId": ISSUE_1 })

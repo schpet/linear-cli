@@ -4,7 +4,7 @@ use super::write::{self as shared, Backend, CreateSettings, Named, Parent, Ui};
 use super::write_network::NetworkBackend;
 use crate::{
     cli::{issue::IssueCreate, values::Priority},
-    commands::team_key::configured_team_key,
+    commands::{outcome, team_key::configured_team_key},
     config::AssignSelf,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
@@ -47,12 +47,12 @@ fn create_with(
 ) -> Result<Option<String>> {
     let backend = backend(ctx)?;
     let settings = settings(ctx);
-    let (input, title, start) = if interactive {
+    let (input, start) = if interactive {
         let prompted = ctx.block_on(super::create_prompt::prompt(
             &backend, ui, &settings, fields,
         ))?;
         ui.output("Creating issue...\n\n")?;
-        (prompted.input, Some(prompted.title), prompted.start)
+        (prompted.input, prompted.start)
     } else {
         let fallback = !fields.no_interactive && ctx.interactive();
         let assembled = ctx.block_on(flag_input(
@@ -65,13 +65,10 @@ fn create_with(
         ))?;
         ui.pause();
         ui.output(&flag_header(&assembled.team_display))?;
-        (assembled.input, None, fields.start)
+        (assembled.input, fields.start)
     };
     let issue = ctx.spin(!interactive, backend.create(input))?;
-    ctx.print(match &title {
-        Some(title) => interactive_output(&issue, title),
-        None => flag_output(&issue),
-    })?;
+    ctx.print(output(&issue))?;
     Ok(start.then(|| issue.identifier.clone()))
 }
 
@@ -214,22 +211,22 @@ impl Fields {
     pub fn full_interactive(&self, description: Option<&str>, terminal: bool) -> bool {
         terminal
             && !self.no_interactive
-            && shared::truthy(self.title.as_deref()).is_none()
-            && shared::truthy(self.assignee.as_deref()).is_none()
+            && self.title.as_deref().is_none_or(str::is_empty)
+            && self.assignee.as_deref().is_none_or(str::is_empty)
             && self.due_date.is_none()
             && self.priority.is_none()
             && self.estimate.is_none()
-            && shared::truthy(description).is_none()
+            && description.is_none_or(str::is_empty)
             && self.labels.is_empty()
-            && shared::truthy(self.team.as_deref()).is_none()
-            && shared::truthy(self.state.as_deref()).is_none()
-            && shared::truthy(self.milestone.as_deref()).is_none()
-            && shared::truthy(self.cycle.as_deref()).is_none()
+            && self.team.as_deref().is_none_or(str::is_empty)
+            && self.state.as_deref().is_none_or(str::is_empty)
+            && self.milestone.as_deref().is_none_or(str::is_empty)
+            && self.cycle.as_deref().is_none_or(str::is_empty)
             && !self.start
             && self.template.is_none()
     }
     pub fn require_flag_title(&self) -> Result<(), Error> {
-        if shared::truthy(self.title.as_deref()).is_none() && self.template.is_none() {
+        if self.title.as_deref().is_none_or(str::is_empty) && self.template.is_none() {
             return Err(shared::validation("Title is required when not using interactive mode")
                 .with_hint("Use --title, pass --template to take the title from a template, or run without any flags (or only --parent/--project) for interactive mode."));
         }
@@ -249,7 +246,7 @@ pub async fn parent<B: Backend>(
     backend: &B,
     reference: Option<&str>,
 ) -> Result<(Option<String>, Option<Parent>), Error> {
-    match shared::truthy(reference) {
+    match reference.filter(|reference| !reference.is_empty()) {
         None => Ok((None, None)),
         Some(reference) => {
             let id = backend.parent_id(reference.to_owned()).await?;
@@ -349,7 +346,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
     } else {
         None
     };
-    if let Some(value) = shared::truthy(assignee.as_deref()) {
+    if let Some(value) = assignee.as_deref().filter(|value| !value.is_empty()) {
         assignee_id = Some(backend.user(value.to_owned()).await?)
     }
     let mut label_ids = Vec::new();
@@ -421,13 +418,12 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
 pub fn flag_header(team: &str) -> String {
     format!("Creating issue in {team}\n\n")
 }
-pub fn flag_output(issue: &shared::Created) -> String {
-    format!("{}\n", issue.url)
-}
-pub fn interactive_output(issue: &shared::Created, title: &str) -> String {
-    format!(
-        "✓ Created issue {}: {title}\n{}\n",
-        issue.identifier, issue.url
+fn output(issue: &shared::Created) -> String {
+    outcome::done(
+        "Created",
+        "issue",
+        &format!("{}: {}", issue.identifier, issue.title),
+        Some(&issue.url),
     )
 }
 

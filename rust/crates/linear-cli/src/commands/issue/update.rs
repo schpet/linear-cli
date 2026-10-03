@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 
 use crate::{
     cli::{issue::IssueUpdate, values::Priority},
+    commands::outcome,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{edit::Edit, operations::issue::IssueUpdateInput, scalars::TimelessDate},
@@ -234,9 +235,11 @@ pub fn header(issue_id: &str) -> String {
     format!("Updating issue {issue_id}\n\n")
 }
 pub fn output(issue: &shared::Updated) -> String {
-    format!(
-        "✓ Updated issue {}: {}\n{}\n",
-        issue.identifier, issue.title, issue.url
+    outcome::done(
+        "Updated",
+        "issue",
+        &format!("{}: {}", issue.identifier, issue.title),
+        Some(&issue.url),
     )
 }
 

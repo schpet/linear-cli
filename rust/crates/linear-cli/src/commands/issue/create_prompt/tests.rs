@@ -215,7 +215,6 @@ async fn a_submitted_issue_gets_trimmed_text_the_first_unstarted_state_and_its_c
     )
     .await
     .expect("issue input");
-    assert_eq!(created.title, "Title 界");
     assert!(!created.start);
     let input = input(created);
     assert_eq!(input["title"], "Title 界");
