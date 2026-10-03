@@ -34,7 +34,8 @@ pub fn description(fields: &ProjectFields) -> Result<Option<String>> {
         None => fields.description.clone(),
     };
     if let Some(description) = &description {
-        let length = description.chars().count();
+        // Linear's server counts the limit in UTF-16 code units.
+        let length = description.encode_utf16().count();
         if length > DESCRIPTION_LIMIT {
             return Err(Error::new(format!(
                 "Project description is {length} characters, over Linear's limit of {DESCRIPTION_LIMIT}"

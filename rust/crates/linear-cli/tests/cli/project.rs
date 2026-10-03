@@ -298,6 +298,27 @@ fn create_reads_bodies_from_files_and_reports_the_url() {
 }
 
 #[test]
+fn create_counts_the_description_limit_in_utf16_units() {
+    let api = MockLinear::start();
+    // 128 characters, but 256 UTF-16 units: over Linear's 255 limit.
+    let description = "🚀".repeat(128);
+    Cli::for_api(&api)
+        .run(&[
+            "project",
+            "create",
+            "-n",
+            "X",
+            "-t",
+            "SRC",
+            "--description",
+            &description,
+        ])
+        .failure()
+        .stderr_has("over Linear's limit of 255");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn create_adds_the_project_to_an_initiative() {
     let initiative = "00000000-0000-4000-9000-000000002509";
     let api = MockLinear::start();
