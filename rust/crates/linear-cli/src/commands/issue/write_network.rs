@@ -356,7 +356,6 @@ impl Backend for NetworkBackend {
         Ok(Created {
             identifier: issue.identifier,
             url: issue.url,
-            team_key: issue.team.key,
         })
     }
     async fn update(

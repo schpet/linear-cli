@@ -11,7 +11,7 @@ fn details() -> Value {
         "url": URL, "branchName": "eng-7-repair-the-widget",
         "state": { "name": "Todo", "color": "#123456" }, "assignee": null, "priority": 2,
         "project": null, "projectMilestone": null, "cycle": null,
-        "team": { "activeCycle": null }, "labels": { "nodes": [] }, "parent": null,
+        "team": { "key": "ENG", "activeCycle": null }, "labels": { "nodes": [] }, "parent": null,
         "children": { "nodes": [] }, "attachments": { "nodes": [] }, "documents": { "nodes": [] }
     } })
 }
@@ -155,7 +155,7 @@ fn start_creates_the_issue_branch_and_marks_it_started() {
             "UpdateIssueState",
             json!({ "issueUpdate": { "success": true } }),
         );
-    let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
+    let cli = git(Cli::for_api(&api), "main");
     cli.run(&["issue", "start", "ENG-7"])
         .success()
         .stdout_has("eng-7-repair-the-widget")
@@ -209,15 +209,51 @@ fn start_accepts_a_custom_branch_and_base_ref() {
 }
 
 #[test]
-fn start_still_succeeds_when_the_state_update_fails() {
+fn start_fails_after_preparing_the_branch_when_the_state_update_fails() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details())
         .on_error("GetWorkflowStates", "Team not found");
-    let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
+    let cli = git(Cli::for_api(&api), "main");
     cli.run(&["issue", "start", "ENG-7"])
-        .success()
-        .stderr_has("Team not found");
+        .failure()
+        .stdout_has("Created and switched to branch")
+        .stderr_has("Could not move the issue to a started state")
+        .stderr_has("Team not found")
+        .stderr_has("The branch is ready");
     assert!(calls(&cli, "git").iter().any(|args| args[0] == "checkout"));
+}
+
+#[test]
+fn start_fails_when_linear_does_not_update_the_state() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details())
+        .on("GetWorkflowStates", states())
+        .on(
+            "UpdateIssueState",
+            json!({ "issueUpdate": { "success": false } }),
+        );
+    let cli = jj(Cli::for_api(&api));
+    cli.run(&["issue", "start", "ENG-7"])
+        .failure()
+        .stderr_has("Linear did not update the issue")
+        .stderr_has("The jj change is ready");
+}
+
+#[test]
+fn start_uses_the_workflow_states_of_the_issue_team() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details())
+        .on("GetWorkflowStates", states())
+        .on(
+            "UpdateIssueState",
+            json!({ "issueUpdate": { "success": true } }),
+        );
+    let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "OPS"), "main");
+    cli.run(&["issue", "start", "ENG-7"]).success();
+    assert_eq!(
+        api.variables("GetWorkflowStates"),
+        json!({ "teamKey": "ENG", "first": 100 })
+    );
 }
 
 #[test]
@@ -229,7 +265,7 @@ fn start_with_jj_makes_a_new_described_change() {
             "UpdateIssueState",
             json!({ "issueUpdate": { "success": true } }),
         );
-    let cli = jj(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"));
+    let cli = jj(Cli::for_api(&api));
     cli.run(&["issue", "start", "ENG-7"]).success();
     let jj = calls(&cli, "jj");
     assert!(jj.contains(&vec!["new".to_owned()]), "{jj:?}");
@@ -248,12 +284,37 @@ fn start_with_jj_makes_a_new_described_change() {
 }
 
 #[test]
-fn start_without_a_team_fails_before_any_request() {
+fn start_with_a_bare_number_and_no_team_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = git(Cli::for_api(&api), "main");
-    cli.run(&["issue", "start", "ENG-7"]).failure();
+    cli.run(&["issue", "start", "7"])
+        .failure()
+        .stderr_has("Issue number 7 needs a team");
     assert!(api.requests().is_empty());
     assert!(calls(&cli, "git").is_empty());
+}
+
+#[test]
+fn start_rejects_an_unrecognized_issue_id_without_a_picker() {
+    let api = MockLinear::start();
+    let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
+    for input in ["not-an-issue", ""] {
+        cli.run(&["issue", "start", input])
+            .failure()
+            .stderr_has("Not an issue ID");
+    }
+    assert!(api.requests().is_empty());
+    assert!(calls(&cli, "git").is_empty());
+}
+
+#[test]
+fn start_without_an_issue_or_team_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["issue", "start"])
+        .failure()
+        .stderr_has("No team is configured");
+    assert!(api.requests().is_empty());
 }
 
 fn gh(cli: Cli) -> Cli {

@@ -20,25 +20,36 @@ pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 }
 
 fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
+    if args.all_assignees && args.unassigned {
+        return Err(Error::new(
+            "Cannot specify both --all-assignees and --unassigned",
+        ));
+    }
     let team = configured_team_key(ctx.options());
-    let team = team_and_flags(team.as_deref(), args.all_assignees, args.unassigned)?;
     // Start never infers the issue from the VCS: without one it offers a picker.
-    let identifier = match args.issue_id.as_deref().filter(|value| !value.is_empty()) {
-        Some(input) => match prepare_issue_reference(Some(input), Some(team), &ctx.scope()?)? {
-            IssueReference::Identifier(identifier) => Some(identifier),
-            IssueReference::Unresolved => None,
-            IssueReference::Inferred => unreachable!("a given reference is never inferred"),
-        },
-        None => None,
-    };
-    let identifier = match identifier {
-        Some(identifier) => identifier,
-        None => pick(ctx, team, args)?,
+    let identifier = match args.issue_id.as_deref() {
+        Some(input) => {
+            match prepare_issue_reference(Some(input), team.as_deref(), &ctx.scope()?)? {
+                IssueReference::Identifier(identifier) => identifier,
+                IssueReference::Unresolved => {
+                    return Err(Error::new(format!("Not an issue ID: {input}")).with_hint(
+                    "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
+                ));
+                }
+                IssueReference::Inferred => unreachable!("a given reference is never inferred"),
+            }
+        }
+        None => {
+            let team = team.ok_or_else(|| {
+                Error::new("No team is configured to pick an issue from")
+                    .with_hint("Pass an issue ID, or run `linear config` to set a team.")
+            })?;
+            pick(ctx, &team, args)?
+        }
     };
     work_on(
         ctx,
         &identifier,
-        team,
         args.branch.as_deref(),
         args.from_ref.as_deref(),
     )
@@ -51,10 +62,11 @@ fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
     let client = ctx.client()?;
     let issues = ctx.spin(
         true,
-        list(
+        issue_read::mine(
             client,
             filter(team, args.all_assignees, args.unassigned),
             priority,
+            None,
         ),
     )?;
     ctx.prompter()?
@@ -62,12 +74,11 @@ fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
 }
 
 /// Switches the working copy to the issue (a git branch or a jj change), then
-/// moves the issue to a started state. The state change is best effort: the
-/// VCS work is already done and is never rolled back.
+/// moves the issue to its team's first started state. The working copy is
+/// never rolled back when the state change fails.
 pub(crate) fn work_on(
     ctx: &Ctx,
     identifier: &str,
-    team: &str,
     branch: Option<&str>,
     from_ref: Option<&str>,
 ) -> Result<()> {
@@ -75,7 +86,8 @@ pub(crate) fn work_on(
     let details = ctx.spin(true, super::details::fetch(client, identifier.to_owned()))?;
     let repo = Repo::new(ctx);
     ctx.flush()?;
-    let output = match super::vcs(ctx) {
+    let vcs = super::vcs(ctx);
+    let output = match vcs {
         Vcs::Git => {
             let branch = branch
                 .filter(|value| !value.is_empty())
@@ -98,10 +110,20 @@ pub(crate) fn work_on(
         }
     };
     ctx.print(output)?;
-    match ctx.spin(true, update_state(client, team, identifier)) {
-        Ok(output) => ctx.print(output),
-        Err(message) => ctx.eprint(format!("Failed to update issue state: {message}\n")),
-    }
+    let state = ctx
+        .spin(true, mark_started(client, &details.team.key, identifier))
+        .map_err(|error| {
+            let prepared = match vcs {
+                Vcs::Git => "The branch is ready",
+                Vcs::Jj => "The jj change is ready",
+            };
+            error
+                .context("Could not move the issue to a started state")
+                .with_hint(format!(
+                    "{prepared}; set the state with `linear issue update {identifier} --state <state>`."
+                ))
+        })?;
+    ctx.print(format!("✓ Issue state updated to '{state}'\n"))
 }
 
 fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
@@ -115,18 +137,7 @@ fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
     )
 }
 
-pub fn team_and_flags(team: Option<&str>, all: bool, unassigned: bool) -> Result<&str, Error> {
-    let team = team
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| Error::new("Could not determine team ID"))?;
-    if all && unassigned {
-        return Err(Error::new(
-            "Cannot specify both --all-assignees and --unassigned",
-        ));
-    }
-    Ok(team)
-}
-pub fn filter(team: &str, all: bool, unassigned: bool) -> IssueFilter {
+fn filter(team: &str, all: bool, unassigned: bool) -> IssueFilter {
     IssueFilter {
         team: Some(TeamFilter {
             key: Some(StringComparator {
@@ -157,13 +168,6 @@ pub fn filter(team: &str, all: bool, unassigned: bool) -> IssueFilter {
         },
         ..Default::default()
     }
-}
-pub async fn list(
-    client: &LinearClient,
-    filter: IssueFilter,
-    priority: bool,
-) -> Result<Vec<ListedIssue>, Error> {
-    issue_read::mine(client, filter, priority, None).await
 }
 fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
     if issues.is_empty() {
@@ -273,40 +277,29 @@ impl<'a> Repo<'a> {
     }
 }
 
-pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
-    crate::refs::workflow_states::sort(&mut states);
-    let mut selected: Option<WorkflowState> = None;
-    for state in states {
-        if state.state_type == "started"
-            && selected
-                .as_ref()
-                .is_none_or(|previous| state.position.get() < previous.position.get())
-        {
-            selected = Some(state);
-        }
-    }
-    selected.ok_or_else(|| Error::new("No 'started' state found in workflow"))
+/// The started state with the lowest position: the first step of active work.
+fn first_started(states: Vec<WorkflowState>) -> Result<WorkflowState> {
+    states
+        .into_iter()
+        .filter(|state| state.state_type == "started")
+        .min_by(|a, b| a.position.get().total_cmp(&b.position.get()))
+        .ok_or_else(|| Error::new("The issue's team has no started workflow state"))
 }
 
-pub async fn update_state(
-    client: &LinearClient,
-    team: &str,
-    identifier: &str,
-) -> Result<Vec<u8>, String> {
-    let states = crate::refs::workflow_states::fetch(client, team.to_owned())
-        .await
-        .map_err(|failure| failure.to_string())?;
-    let state = started(states).map_err(|error| error.to_string())?;
+/// Moves the issue to its team's first started state, returning the state's name.
+async fn mark_started(client: &LinearClient, team: &str, identifier: &str) -> Result<String> {
+    let states = crate::refs::workflow_states::fetch(client, team.to_owned()).await?;
+    let state = first_started(states)?;
     let response: UpdateIssueState = client
         .mutate(UpdateIssueStateVariables {
             issue_id: identifier.to_owned(),
             state_id: state.id.inner().to_owned(),
         })
-        .await
-        .map_err(|failure| failure.to_string())?;
-    // The `success` flag is not reported; the whole payload is still decoded.
-    let _reported_success = response.issue_update.success;
-    Ok(format!("✓ Issue state updated to '{}'\n", state.name).into_bytes())
+        .await?;
+    if !response.issue_update.success {
+        return Err(Error::new("Linear did not update the issue"));
+    }
+    Ok(state.name)
 }
 
 #[cfg(test)]

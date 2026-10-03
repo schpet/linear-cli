@@ -182,9 +182,11 @@ fn view_reports_api_errors() {
 
 #[test]
 fn title_and_url_print_single_fields() {
+    let mut issue = issue(false);
+    issue["team"]["key"] = json!("ENG");
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details(issue(false)))
-        .on("GetIssueDetails", details(issue(false)));
+    api.on("GetIssueDetails", details(issue.clone()))
+        .on("GetIssueDetails", details(issue));
     let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "eng");
     assert_eq!(
         cli.run(&["issue", "title", "1"])

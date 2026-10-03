@@ -39,7 +39,6 @@ pub struct Parent {
 pub struct Created {
     pub identifier: String,
     pub url: String,
-    pub team_key: String,
 }
 #[derive(Clone, Debug)]
 pub struct Updated {

@@ -170,7 +170,6 @@ pub struct CreatePayload {
 pub struct CreatedIssue {
     pub identifier: String,
     pub url: String,
-    pub team: TeamKey,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
@@ -186,6 +185,7 @@ pub struct IssueDetails {
     pub title: String,
     pub url: String,
     pub branch_name: String,
+    pub team: TeamKey,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]

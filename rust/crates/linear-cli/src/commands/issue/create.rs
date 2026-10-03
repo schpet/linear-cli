@@ -31,20 +31,20 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     let start = create_with(ctx, &mut ui, &fields, description, interactive)?;
     // The spinner stops before `--start` runs version control commands.
     drop(ui);
-    if let Some((identifier, team)) = start {
-        super::start::work_on(ctx, &identifier, &team, None, None)?;
+    if let Some(identifier) = start {
+        super::start::work_on(ctx, &identifier, None, None)?;
     }
     Ok(())
 }
 
-/// Creates the issue; returns the issue and team to start work on with `--start`.
+/// Creates the issue; returns the issue to start work on with `--start`.
 fn create_with(
     ctx: &Ctx,
     ui: &mut Prompts<'_>,
     fields: &Fields,
     description: Option<String>,
     interactive: bool,
-) -> Result<Option<(String, String)>> {
+) -> Result<Option<String>> {
     let backend = backend(ctx)?;
     let settings = settings(ctx);
     let (input, title, start) = if interactive {
@@ -72,7 +72,7 @@ fn create_with(
         Some(title) => interactive_output(&issue, title),
         None => flag_output(&issue),
     })?;
-    Ok(start.then(|| (issue.identifier.clone(), issue.team_key.clone())))
+    Ok(start.then(|| issue.identifier.clone()))
 }
 
 /// The API backend issue creation and updates resolve names through.
