@@ -13,9 +13,9 @@ pub struct Issue {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
-    /// List your issues
-    #[command(visible_aliases = ["list", "l"])]
-    Mine(IssueMine),
+    /// List issues, assigned to you by default
+    #[command(visible_aliases = ["mine", "l"])]
+    List(IssueList),
     /// Find issues by filters or full-text search
     #[command(visible_alias = "q")]
     Query(IssueQuery),
@@ -73,7 +73,7 @@ pub enum IssueCommand {
 pub struct IssueId {}
 
 #[derive(Debug, Args)]
-pub struct IssueMine {
+pub struct IssueList {
     /// Show issues in this state: a type (triage, backlog, unstarted, started,
     /// completed, canceled), name, or ID; repeatable
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new(), default_values = ["unstarted"])]
@@ -87,6 +87,31 @@ pub struct IssueMine {
     /// Show this team's issues (key, name, or ID); defaults to the configured team
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
+    #[command(flatten)]
+    pub filters: IssueFilters,
+    /// Open the list in the browser
+    #[arg(long, short)]
+    pub web: bool,
+    /// Open the list in the Linear app
+    #[arg(long, short)]
+    pub app: bool,
+    /// Do not page long output
+    #[arg(long)]
+    pub no_pager: bool,
+}
+
+/// Filters `issue list` and `issue query` share.
+#[derive(Debug, Args)]
+pub struct IssueFilters {
+    /// Show only issues assigned to this user (username, email, name, or @me)
+    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
+    pub assignee: Option<String>,
+    /// Show issues of every assignee
+    #[arg(long, short = 'A', conflicts_with_all = ["assignee", "unassigned"])]
+    pub all_assignees: bool,
+    /// Show only unassigned issues
+    #[arg(long, short = 'U', conflicts_with = "assignee")]
+    pub unassigned: bool,
     /// Show only this project's issues (ID, slug, or name)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
@@ -103,33 +128,24 @@ pub struct IssueMine {
     /// Show only issues with this label; repeat to require several
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
-    /// Maximum number of issues to show (a number or `all`)
-    #[arg(long, value_parser = super::limit::parse, default_value = "50")]
-    pub limit: super::Limit,
     /// Show only issues created after this date (YYYY-MM-DD or RFC 3339)
     #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
     pub created_after: Option<DateTime<Utc>>,
     /// Show only issues updated after this date (YYYY-MM-DD or RFC 3339)
     #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
     pub updated_after: Option<DateTime<Utc>>,
-    #[arg(long, hide = true, value_parser = NonEmptyStringValueParser::new())]
-    pub assignee: Option<String>,
-    #[arg(long, short = 'A', hide = true)]
-    pub all_assignees: bool,
-    #[arg(long, short = 'U', hide = true)]
-    pub unassigned: bool,
-    /// Open the list in the browser
-    #[arg(long, short)]
-    pub web: bool,
-    /// Open the list in the Linear app
-    #[arg(long, short)]
-    pub app: bool,
-    /// Do not page long output
-    #[arg(long)]
-    pub no_pager: bool,
+    /// Maximum number of issues to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "50")]
+    pub limit: super::Limit,
 }
 
+// Every assignee and every state are what `issue query` shows by default;
+// the flags stay accepted but are not offered.
 #[derive(Debug, Args)]
+#[command(
+    mut_arg("all_assignees", |arg| arg.hide(true)),
+    mut_arg("all_states", |arg| arg.hide(true)),
+)]
 pub struct IssueQuery {
     /// Search issue titles and descriptions for this text
     #[arg(long, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new(), conflicts_with = "milestone")]
@@ -147,44 +163,13 @@ pub struct IssueQuery {
     /// completed, canceled), name, or ID; repeatable
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub state: Vec<String>,
-    #[arg(long, conflicts_with = "state", hide = true)]
+    #[arg(long, conflicts_with = "state")]
     pub all_states: bool,
-    /// Show only issues assigned to this user (username, email, name, or @me)
-    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub assignee: Option<String>,
-    #[arg(long, short = 'A', conflicts_with_all = ["assignee", "unassigned"], hide = true)]
-    pub all_assignees: bool,
-    /// Show only unassigned issues
-    #[arg(long, short = 'U', conflicts_with = "assignee")]
-    pub unassigned: bool,
     /// Sort order, except with --search [default: the issue_sort setting, or priority]
     #[arg(long, conflicts_with = "search")]
     pub sort: Option<crate::config::IssueSort>,
-    /// Show only this project's issues (ID, slug, or name)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
-    pub project: Option<String>,
-    /// Show only issues in projects with this project label
-    #[arg(long, value_name = "LABEL", conflicts_with_all = ["project", "milestone"], value_parser = NonEmptyStringValueParser::new())]
-    pub project_label: Option<String>,
-    /// Show only this cycle's issues: a name, number, `active`, `next`,
-    /// `previous`, or an offset like +1
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
-    pub cycle: Option<String>,
-    /// Show only this milestone's issues (ID, or name with --project)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
-    pub milestone: Option<String>,
-    /// Show only issues with this label; repeat to require several
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
-    pub label: Vec<String>,
-    /// Maximum number of issues to show (a number or `all`)
-    #[arg(long, value_parser = super::limit::parse, default_value = "50")]
-    pub limit: super::Limit,
-    /// Show only issues created after this date (YYYY-MM-DD or RFC 3339)
-    #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
-    pub created_after: Option<DateTime<Utc>>,
-    /// Show only issues updated after this date (YYYY-MM-DD or RFC 3339)
-    #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
-    pub updated_after: Option<DateTime<Utc>>,
+    #[command(flatten)]
+    pub filters: IssueFilters,
     /// Include archived issues
     #[arg(long)]
     pub include_archived: bool,

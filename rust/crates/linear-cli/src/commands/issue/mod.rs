@@ -37,7 +37,7 @@ use crate::refs::{IssueReference, prepare_issue_reference};
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
         IssueCommand::Id(_) => id::run(ctx),
-        IssueCommand::Mine(args) => mine::run(ctx, args),
+        IssueCommand::List(args) => mine::run(ctx, args),
         IssueCommand::Query(args) => query::run(ctx, args),
         IssueCommand::Title(args) => title::run(ctx, args),
         IssueCommand::Url(args) => url::run(ctx, args),

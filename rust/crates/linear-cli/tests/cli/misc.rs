@@ -72,9 +72,8 @@ fn completion_requests_skip_hidden_flags_and_configuration() {
     let cli = Cli::new()
         .env("COMPLETE", "fish")
         .file("cwd/.linear.toml", "issue_sort = \"sideways\"\n");
-    let flags = fish_candidates(&cli, &["issue", "mine", "--a"]);
-    assert!(flags.contains(&"--all-states".to_owned()), "{flags:?}");
-    assert!(!flags.contains(&"--assignee".to_owned()), "{flags:?}");
+    let flags = fish_candidates(&cli, &["issue", "query", "--al"]);
+    assert_eq!(flags, ["--all-teams"]);
 }
 
 #[test]

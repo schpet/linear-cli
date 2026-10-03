@@ -24,11 +24,11 @@ pub struct LabelList {
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Show only workspace labels
-    #[arg(long, conflicts_with_all = ["team", "all"])]
+    #[arg(long, conflicts_with_all = ["team", "all_teams"])]
     pub workspace_only: bool,
     /// Show workspace labels and every team's labels
-    #[arg(long, conflicts_with = "team")]
-    pub all: bool,
+    #[arg(long, alias = "all", conflicts_with = "team")]
+    pub all_teams: bool,
     /// Maximum number of labels to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,

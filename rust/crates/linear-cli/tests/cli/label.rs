@@ -93,9 +93,9 @@ fn list_scopes_to_the_configured_team_plus_workspace_labels() {
 fn list_scope_flags_conflict() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
-    cli.run(&["label", "list", "--workspace-only", "--all"])
+    cli.run(&["label", "list", "--workspace-only", "--all-teams"])
         .usage_error();
-    cli.run(&["label", "list", "--all", "--team", "ENG"])
+    cli.run(&["label", "list", "--all-teams", "--team", "ENG"])
         .usage_error();
 }
 
@@ -105,7 +105,7 @@ fn list_all_ignores_the_configured_team() {
     api.on("GetIssueLabels", labels(vec![], Value::Null, false));
     Cli::for_api(&api)
         .env("LINEAR_TEAM_ID", "ENG")
-        .run(&["label", "list", "--all", "--json"])
+        .run(&["label", "list", "--all-teams", "--json"])
         .success();
     assert_eq!(api.variables("GetIssueLabels"), json!({ "first": 100 }));
 }

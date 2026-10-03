@@ -34,10 +34,10 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
     let scope = if args.workspace_only {
         Scope::Workspace
     } else {
-        // --team, then the configured team unless --all.
+        // --team, then the configured team unless --all-teams.
         let team = match &args.team {
             Some(team) => Some(team.clone()),
-            None if args.all => None,
+            None if args.all_teams => None,
             None => configured_team_key(ctx.options()),
         };
         match team {

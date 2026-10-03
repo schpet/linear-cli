@@ -260,7 +260,7 @@ fn identifiers(json: &Value) -> Vec<String> {
 }
 
 #[test]
-fn mine_lists_my_unstarted_issues_in_the_configured_team() {
+fn list_lists_my_unstarted_issues_in_the_configured_team() {
     let api = MockLinear::start();
     api.on(
         "GetIssuesForState",
@@ -287,7 +287,7 @@ fn mine_lists_my_unstarted_issues_in_the_configured_team() {
 }
 
 #[test]
-fn mine_sends_filters() {
+fn list_sends_filters() {
     let api = MockLinear::start();
     api.on("GetIssuesForState", issues(vec![], None));
     let project = "f0000000-0000-4000-8000-000000000002";
@@ -296,7 +296,7 @@ fn mine_sends_filters() {
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&[
             "issue",
-            "mine",
+            "list",
             "--project",
             project,
             "--milestone",
@@ -336,7 +336,7 @@ fn mine_sends_filters() {
 }
 
 #[test]
-fn mine_unlimited_follows_pages() {
+fn list_unlimited_follows_pages() {
     let api = MockLinear::start();
     api.on(
         "GetIssuesForState",
@@ -350,7 +350,7 @@ fn mine_unlimited_follows_pages() {
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&[
             "issue",
-            "mine",
+            "list",
             "--all-states",
             "--limit",
             "all",
@@ -378,7 +378,7 @@ fn mine_unlimited_follows_pages() {
 }
 
 #[test]
-fn mine_resolves_team_cycle_and_state_names() {
+fn list_resolves_team_cycle_and_state_names() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved("team-eng", "ENG", "Engineering"))
         .on(
@@ -408,7 +408,7 @@ fn mine_resolves_team_cycle_and_state_names() {
         .on("GetIssuesForState", issues(vec![], None));
     Cli::for_api(&api)
         .run(&[
-            "issue", "mine", "--team", "eng", "--cycle", "active", "--state", "started", "--state",
+            "issue", "list", "--team", "eng", "--cycle", "active", "--state", "started", "--state",
             "Ready",
         ])
         .success();
@@ -436,13 +436,63 @@ fn mine_resolves_team_cycle_and_state_names() {
 }
 
 #[test]
-fn mine_rejects_a_url_that_is_not_a_cycle() {
+fn list_filters_by_another_assignee_or_none() {
+    let api = MockLinear::start();
+    api.on(
+        "LookupUser",
+        json!({ "users": { "nodes": [{
+            "id": "user-ada", "email": "ada@example.com", "displayName": "ada", "name": "Ada Lovelace"
+        }] } }),
+    )
+    .on("GetIssuesForState", issues(vec![], None))
+    .on("GetIssuesForState", issues(vec![], None))
+    .on("GetIssuesForState", issues(vec![], None));
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    let assignee = |args: &[&str]| {
+        let mut argv = vec!["issue", "list"];
+        argv.extend(args);
+        cli.run(&argv).success();
+        let requests = api.requests();
+        let last = requests
+            .iter()
+            .rev()
+            .find(|r| r.operation.as_deref() == Some("GetIssuesForState"))
+            .expect("an issue list request");
+        last.variables["filter"].get("assignee").cloned()
+    };
+    assert_eq!(
+        assignee(&["--assignee", "ada"]),
+        Some(json!({ "id": { "eq": "user-ada" } }))
+    );
+    assert_eq!(assignee(&["-U"]), Some(json!({ "null": true })));
+    assert_eq!(assignee(&["--all-assignees"]), None);
+    assert_eq!(api.variables("LookupUser"), json!({ "input": "ada" }));
+}
+
+#[test]
+fn list_assignee_filters_conflict_with_each_other() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    for args in [
+        &["--assignee", "ada", "--unassigned"][..],
+        &["--assignee", "ada", "-A"],
+        &["-A", "-U"],
+    ] {
+        let mut argv = vec!["issue", "list"];
+        argv.extend(args);
+        cli.run(&argv).usage_error();
+    }
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn list_rejects_a_url_that_is_not_a_cycle() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved("team-eng", "ENG", "Engineering"));
     Cli::for_api(&api)
         .run(&[
             "issue",
-            "mine",
+            "list",
             "--team",
             "eng",
             "--cycle",
@@ -453,18 +503,18 @@ fn mine_rejects_a_url_that_is_not_a_cycle() {
 }
 
 #[test]
-fn mine_validation_fails_before_any_request() {
+fn list_validation_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
-    cli.run(&["issue", "mine"])
+    cli.run(&["issue", "list"])
         .failure()
         .stderr_has("No team given and no default team configured")
         .stderr_has("--team");
     let cli = cli.env("LINEAR_TEAM_ID", "ENG");
-    cli.run(&["issue", "mine", "--created-after", "nope"])
+    cli.run(&["issue", "list", "--created-after", "nope"])
         .usage_error()
         .stderr_has("--created-after");
-    cli.run(&["issue", "mine", "--sort", "bogus"]).usage_error();
+    cli.run(&["issue", "list", "--sort", "bogus"]).usage_error();
     assert!(api.requests().is_empty());
 }
 
@@ -821,7 +871,7 @@ fn list_limit_must_be_a_whole_number() {
 }
 
 #[test]
-fn mine_orders_by_state_type_then_position_within_one_team() {
+fn list_orders_by_state_type_then_position_within_one_team() {
     let api = MockLinear::start();
     let issue_at = |number: u32, state_type: &str, position: f64| {
         let mut issue = list_issue(number, "ENG", state_type);
@@ -842,7 +892,7 @@ fn mine_orders_by_state_type_then_position_within_one_team() {
     );
     let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&[
         "issue",
-        "mine",
+        "list",
         "--all-states",
         "--no-pager",
     ]);

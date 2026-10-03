@@ -36,11 +36,12 @@ impl Scope {
 }
 
 fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
-    if args
+    let filters = &args.filters;
+    if filters
         .milestone
         .as_deref()
         .is_some_and(|milestone| !is_linear_uuid(milestone))
-        && args.project.is_none()
+        && filters.project.is_none()
     {
         return Err(Error::new("--milestone requires --project to be set").with_hint(
             "Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly.",
@@ -69,7 +70,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     } else {
         explicit_teams(ctx, args)?
     };
-    if args.cycle.is_some() && scope.several() {
+    if filters.cycle.is_some() && scope.several() {
         return Err(Error::new("--cycle requires a single team scope").with_hint(
             "Use --team <key, name, or ID> to specify exactly one team when filtering by cycle.",
         ));
@@ -79,11 +80,11 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
         &args.state,
         scope.keys.as_deref(),
     ))?;
-    let project = filter::resolve_project(ctx, client, args.project.as_deref())?;
+    let project = filter::resolve_project(ctx, client, filters.project.as_deref())?;
     let cycle = filter::resolve_cycle(
         ctx,
         client,
-        args.cycle.as_deref(),
+        filters.cycle.as_deref(),
         scope
             .keys
             .as_ref()
@@ -91,22 +92,22 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             .map(String::as_str),
         scope.team_id.as_deref(),
     )?;
-    let milestone = args
+    let milestone = filters
         .milestone
         .as_deref()
         .map(|milestone| ctx.block_on(filter::milestone_id(client, milestone, project.as_deref())))
         .transpose()?;
     let priority = read::priority_sort(ctx, args.sort);
     let show_team = scope.several();
-    let show_assignee = args.assignee.is_none() && !args.unassigned;
+    let show_assignee = filters.assignee.is_none() && !filters.unassigned;
     let output = ctx.spin(!args.json, async {
         let mut filter = IssueFilter {
             team: scope.keys.as_deref().map(filter::query_team_filter),
             state,
             assignee: filter::assignee_filter(
                 client,
-                args.assignee.as_deref(),
-                args.unassigned,
+                filters.assignee.as_deref(),
+                filters.unassigned,
                 false,
             )
             .await?,
@@ -115,12 +116,12 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
         filter::entity_filters(
             &mut filter,
             project,
-            args.project_label.as_deref(),
+            filters.project_label.as_deref(),
             cycle,
             milestone,
-            &args.label,
+            &filters.label,
         );
-        filter::apply_dates(&mut filter, args.created_after, args.updated_after);
+        filter::apply_dates(&mut filter, filters.created_after, filters.updated_after);
         // A filter without any condition is sent as no filter at all.
         let empty = serde_json::to_value(&filter)
             .expect("filters always serialize")
@@ -133,7 +134,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                     client,
                     filter,
                     term.to_owned(),
-                    args.limit.max(),
+                    filters.limit.max(),
                     args.include_archived,
                     args.search_comments,
                 )
@@ -148,7 +149,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                     client,
                     filter,
                     priority,
-                    args.limit.max(),
+                    filters.limit.max(),
                     args.include_archived,
                 )
                 .await?;
