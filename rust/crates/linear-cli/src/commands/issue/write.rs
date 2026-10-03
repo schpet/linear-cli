@@ -100,9 +100,7 @@ pub fn edit<T>(clear: bool, value: Option<T>) -> Edit<T> {
         Edit::set_or_unchanged(value)
     }
 }
-/// The concrete network adapter must preserve command-local captured Client
-/// preferred/errors[0]/raw observation before full selected-model decode.
-/// No generic transport/friendly-error wrapper is allowed here.
+/// The Linear lookups and mutations issue create and update resolve names through.
 pub trait Backend: Clone + Send + 'static {
     fn team(&self, reference: String) -> impl Future<Output = Result<Team, Error>> + Send;
     fn find_team(
