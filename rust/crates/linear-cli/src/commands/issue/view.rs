@@ -610,7 +610,10 @@ pub fn terminal(
     }
     let threads = threads(&issue.comments.nodes, show_resolved)?;
     let header = |c: &Comment, suffix: &str, indent: &str| {
-        let author = format!("@{}", author(c));
+        let author = format!(
+            "@{}",
+            crate::platform::terminal_text::single_line(author(c))
+        );
         let date = format!("commented {}", date(c, now));
         format!(
             "{indent}{} {}{}",

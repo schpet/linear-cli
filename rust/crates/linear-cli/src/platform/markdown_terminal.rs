@@ -16,6 +16,8 @@ use pulldown_cmark::{
 use reqwest::Url;
 use unicode_width::UnicodeWidthStr;
 
+use crate::platform::terminal_text;
+
 /// Renderer width when a terminal reports no usable size.
 pub const FALLBACK_COLUMNS: NonZeroU16 = NonZeroU16::MIN.saturating_add(79);
 
@@ -53,8 +55,9 @@ impl RenderOptions {
 
 /// Renders Markdown for a terminal. Nonempty output ends with a line feed.
 pub fn render(markdown: &str, options: &RenderOptions) -> String {
+    let markdown = terminal_text::multiline(markdown);
     let parser = Parser::new_ext(
-        markdown,
+        &markdown,
         Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS,
     );
     let mut renderer = Renderer::new(options);
@@ -715,6 +718,20 @@ mod tests {
 
     fn plain(markdown: &str) -> String {
         render(markdown, &options(false))
+    }
+
+    #[test]
+    fn control_characters_in_the_source_never_reach_the_terminal() {
+        let styled = render(
+            "Hi \u{1b}]8;;https://evil\u{7}there\n\n[x](https://a/\u{1b}[2J)",
+            &options(true),
+        );
+        assert!(!styled.contains("evil\u{7}"), "{styled:?}");
+        assert!(!styled.contains("\u{1b}[2J"), "{styled:?}");
+        assert!(
+            styled.contains("Hi \u{FFFD}]8;;https://evil\u{FFFD}there"),
+            "{styled:?}"
+        );
     }
 
     #[test]

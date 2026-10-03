@@ -4,8 +4,10 @@
 //! When stdout is a terminal narrower than the table, the flexible columns
 //! give up width (widest first, never below [`FLEX_MIN`]) and their cells are
 //! cut at a character boundary with `…`. Piped output is never truncated.
+use std::borrow::Cow;
+
 use crate::ctx::Ctx;
-use crate::platform::style;
+use crate::platform::{style, terminal_text};
 use unicode_width::UnicodeWidthChar;
 
 /// Flexible columns keep at least this many terminal columns (or their full
@@ -47,7 +49,7 @@ pub struct Cell {
 impl Cell {
     pub fn styled(text: impl Into<String>, paint: impl Fn(&str, bool) -> String + 'static) -> Self {
         Self {
-            text: text.into(),
+            text: cell_text(text.into()),
             paint: Some(Box::new(paint)),
         }
     }
@@ -56,9 +58,18 @@ impl Cell {
 impl<T: Into<String>> From<T> for Cell {
     fn from(text: T) -> Self {
         Self {
-            text: text.into(),
+            text: cell_text(text.into()),
             paint: None,
         }
+    }
+}
+
+/// Cell text on one line with no control characters, so a remote value can
+/// neither break the row nor reach the terminal as an escape sequence.
+fn cell_text(text: String) -> String {
+    match terminal_text::single_line(&text) {
+        Cow::Borrowed(_) => text,
+        Cow::Owned(clean) => clean,
     }
 }
 
@@ -234,6 +245,20 @@ mod tests {
             Cell::styled("t2", style::gray),
         ]);
         table
+    }
+
+    #[test]
+    fn remote_cell_text_stays_on_one_line_without_escape_sequences() {
+        let mut table = Table::new([Column::fixed("TITLE"), Column::fixed("ID")]);
+        table.row([
+            Cell::from("Fix\nthe \u{1b}[31mbug\u{1b}[0m"),
+            Cell::styled("t\r1", style::gray),
+        ]);
+        assert_eq!(
+            table.render(None, false),
+            "TITLE                 ID\n\
+             Fix the \u{FFFD}[31mbug\u{FFFD}[0m  t 1\n"
+        );
     }
 
     #[test]

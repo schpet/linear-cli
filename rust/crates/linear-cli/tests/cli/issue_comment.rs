@@ -407,6 +407,29 @@ fn list_text_shows_threads() {
 }
 
 #[test]
+fn list_text_neutralizes_terminal_escape_sequences() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueComments",
+        comments_page(
+            vec![comment(
+                "c1",
+                "Looks fine\u{1b}]0;pwned\u{7}\u{1b}[2J",
+                "eve\u{1b}[8m",
+                None,
+            )],
+            Value::Null,
+            false,
+        ),
+    );
+    let run = Cli::for_api(&api).run(&["issue", "comment", "list", "ENG-7"]);
+    run.success()
+        .stdout_has("Looks fine\u{FFFD}]0;pwned\u{FFFD}\u{FFFD}[2J")
+        .stdout_has("@eve\u{FFFD}[8m");
+    assert!(!run.stdout.contains('\u{1b}'), "{run}");
+}
+
+#[test]
 fn every_comment_command_refuses_a_non_utf8_body_file_before_any_request() {
     for target in [
         &["project", "comment", "add", "roadmap"][..],

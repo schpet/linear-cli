@@ -19,6 +19,7 @@ use crate::graphql::operations::comment::{
 };
 use crate::graphql::pagination::{self, Page};
 use crate::platform::style::bold;
+use crate::platform::terminal_text::{multiline, single_line};
 
 /// A comments query for one kind of entity.
 pub trait CommentSource: QueryBuilder<Self::Variables> + DeserializeOwned {
@@ -140,7 +141,7 @@ fn indent(text: &str) -> String {
 fn header(node: &CommentNode, verb: &str, now: DateTime<Utc>, color: bool) -> String {
     format!(
         "{} {verb} {} [{}]",
-        bold(&format!("@{}", author(node)), color),
+        bold(&format!("@{}", single_line(author(node))), color),
         ago(node.created_at.0, now, &Local),
         node.id.inner()
     )
@@ -167,10 +168,10 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
         output.push('\n');
         if let Some(quote) = &root.quoted_text {
             output.push_str("> ");
-            output.push_str(quote);
+            output.push_str(&multiline(quote));
             output.push('\n');
         }
-        output.push_str(&root.body);
+        output.push_str(&multiline(&root.body));
         output.push('\n');
         if let Some(siblings) = replies.get_mut(root.id.inner())
             && !siblings.is_empty()
@@ -181,10 +182,10 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
                 output.push_str(&indent(&header(reply, "replied", now, color)));
                 output.push('\n');
                 if let Some(quote) = &reply.quoted_text {
-                    output.push_str(&indent(&format!("> {quote}")));
+                    output.push_str(&indent(&format!("> {}", multiline(quote))));
                     output.push('\n');
                 }
-                output.push_str(&indent(&reply.body));
+                output.push_str(&indent(&multiline(&reply.body)));
                 output.push('\n');
             }
         }
@@ -200,10 +201,10 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
         )));
         output.push('\n');
         if let Some(quote) = &reply.quoted_text {
-            output.push_str(&indent(&format!("> {quote}")));
+            output.push_str(&indent(&format!("> {}", multiline(quote))));
             output.push('\n');
         }
-        output.push_str(&indent(&reply.body));
+        output.push_str(&indent(&multiline(&reply.body)));
         output.push_str("\n\n");
     }
     output

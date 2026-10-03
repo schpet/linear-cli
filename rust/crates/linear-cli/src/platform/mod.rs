@@ -15,4 +15,5 @@ pub mod process;
 pub mod prompt;
 pub mod spinner;
 pub mod style;
+pub mod terminal_text;
 pub mod vcs;
