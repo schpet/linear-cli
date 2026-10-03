@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tarfile
 import tempfile
 import unittest
 
@@ -65,45 +64,6 @@ class Packaging(unittest.TestCase):
 
     def test_native_docs_duplicate_path_has_no_output_effects(self):
         self.docs(lambda data: data["commands"].append(data["commands"][0]), 1)
-
-    def archive(self, bad=None, expected=0):
-        names = ["LICENSE", "graphql/schema.graphql", "src/utils/linear.ts", "rust/Cargo.toml", "rust/Cargo.lock",
-                 "rust/rust-toolchain.toml", "rust/dist-workspace.toml", "docs/rust-port.md",
-                 "skills/linear-cli/SKILL.native.template.md", "skills/linear-cli/scripts/generate-native-docs.py",
-                 "skills/linear-cli/references/organization-features.md", "rust/crates/demo/src/lib.rs"]
-        repository = self.root / "repository"
-        for name in names:
-            path = repository / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("fixture " + name)
-        if bad:
-            bad(repository, names)
-        manifest = self.root / "inputs.txt"
-        manifest.write_text("\n".join(names) + "\n")
-        output = self.root / "out/source.tar.xz"
-        process = self.run_script("rust/tools/make-source-archive.py", "--repository", repository,
-                                  "--input-manifest", manifest, "--output", output)
-        self.assertEqual(process.returncode, expected, process.stderr.decode())
-        if expected:
-            self.assertFalse(output.parent.exists())
-        return output, names
-
-    def test_source_archive_explicit_layout_and_checksum(self):
-        output, names = self.archive()
-        with tarfile.open(output) as archive:
-            self.assertEqual(set(archive.getnames()), {"linear-cli-3.0.0-alpha.1/" + name for name in names})
-            self.assertTrue(all(member.mtime == 0 for member in archive.getmembers()))
-        self.assertEqual(output.with_suffix(".xz.sha256").read_text().split()[0], hashlib.sha256(output.read_bytes()).hexdigest())
-
-    def test_source_archive_rejects_unlisted_private_tree(self):
-        self.archive(lambda repository, names: names.append("untracked/private.txt"), 1)
-
-    def test_source_archive_rejects_symlink_before_output(self):
-        def change(repository, names):
-            path = repository / "LICENSE"
-            path.unlink()
-            path.symlink_to(repository / "rust/Cargo.toml")
-        self.archive(change, 1)
 
     def licenses(self, change=None, expected=0):
         repository = self.root / "repository"

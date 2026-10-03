@@ -1,6 +1,0 @@
-﻿# Body
-
-+++ [Detail]
-
-text
-+++
