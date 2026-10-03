@@ -119,12 +119,7 @@ impl Backend for NetworkBackend {
                 "Valid states: {}. Run `linear team states {team_key}` to list them.",
                 states
                     .iter()
-                    .map(|s| format!(
-                        "{} ({})",
-                        serde_json::to_string(&s.name)
-                            .unwrap_or_else(|_| unreachable!("string serialization cannot fail")),
-                        s.kind
-                    ))
+                    .map(|s| format!("{} ({})", crate::commands::json::quoted(&s.name), s.kind))
                     .collect::<Vec<_>>()
                     .join(", ")
             )

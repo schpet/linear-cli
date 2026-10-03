@@ -1243,3 +1243,40 @@ fn cache_file_reads_preserve_missing_paths_and_follow_directory_symlinks() {
         ]
     );
 }
+
+#[test]
+fn missing_state_hints_quote_names_in_single_and_multiple_team_scopes() {
+    for command in ["list", "query"] {
+        let api = MockLinear::start();
+        if command == "list" {
+            api.on("ResolveTeam", resolved("team-eng", "ENG", "Engineering"));
+        }
+        api.on("GetWorkflowStatesInScope", json!({ "workflowStates": {
+            "nodes": [
+                { "id": "say", "name": "Say \"hi\"", "type": "started", "team": { "key": if command == "list" { "ENG" } else { "OPS" } } },
+                { "id": "bell", "name": "Bell\u{7}", "type": "unstarted", "team": { "key": "ENG" } },
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+        } }));
+        let scope = if command == "list" {
+            vec!["--team", "ENG"]
+        } else {
+            vec!["--all-teams"]
+        };
+        let mut argv = vec!["issue", command, "--state", "Absent"];
+        argv.extend(scope);
+        let run = Cli::for_api(&api).run(&argv);
+        let expected = if command == "list" {
+            r#"Valid states: "Bell\u0007" (unstarted), "Say \"hi\"" (started)."#
+        } else {
+            r#"Valid states: "Bell\u0007" (unstarted, ENG), "Say \"hi\"" (started, OPS)."#
+        };
+        run.failure().stderr_has(expected);
+        assert!(!run.stderr.contains('\u{7}'));
+        assert!(
+            api.operations()
+                .iter()
+                .all(|op| op == "ResolveTeam" || op == "GetWorkflowStatesInScope")
+        );
+    }
+}

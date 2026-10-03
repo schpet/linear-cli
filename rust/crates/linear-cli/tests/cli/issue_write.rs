@@ -785,3 +785,36 @@ fn delete_bulk_skips_issues_whose_lookup_fails() {
     run.failure().stdout_has("Rate limit exceeded");
     assert_eq!(api.operations(), ["GetIssueSummary"]);
 }
+
+#[test]
+fn missing_state_hints_quote_names_before_issue_mutations() {
+    for command in ["create", "update"] {
+        let api = MockLinear::start();
+        let reply = json!({ "team": { "states": { "nodes": [
+            { "id": "say", "name": "Say \"hi\"", "type": "started", "position": 2 },
+            { "id": "bell", "name": "Bell\u{7}", "type": "unstarted", "position": 1 },
+        ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } });
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+            .on("GetWorkflowStates", reply);
+        let argv = if command == "create" {
+            vec![
+                "issue",
+                "create",
+                "--no-interactive",
+                "-t",
+                "Title",
+                "--team",
+                "ENG",
+                "--state",
+                "Absent",
+            ]
+        } else {
+            vec!["issue", "update", "ENG-1", "--state", "Absent"]
+        };
+        let run = Cli::for_api(&api).run(&argv);
+        run.failure()
+            .stderr_has(r#"Valid states: "Say \"hi\"" (started), "Bell\u0007" (unstarted)."#);
+        assert!(!run.stderr.contains('\u{7}'));
+        assert_eq!(api.operations(), ["ResolveTeam", "GetWorkflowStates"]);
+    }
+}

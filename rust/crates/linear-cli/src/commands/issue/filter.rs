@@ -136,19 +136,17 @@ pub async fn state_filter(
             let listed = states
                 .iter()
                 .map(|s| {
-                    let name = serde_json::to_string(&s.name).map_err(|error| {
-                        Error::new("Could not serialize workflow state name").with_source(error)
-                    })?;
-                    Ok(format!(
+                    let name = crate::commands::json::quoted(&s.name);
+                    format!(
                         "{name} ({})",
                         if keys.is_some_and(|keys| keys.len() == 1) {
                             s.r#type.clone()
                         } else {
                             format!("{}, {}", s.r#type, s.team.key)
                         }
-                    ))
+                    )
                 })
-                .collect::<Result<Vec<_>, Error>>()?
+                .collect::<Vec<_>>()
                 .join(", ");
             return Err(Error::not_found(
                 "Workflow state",
