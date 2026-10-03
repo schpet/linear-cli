@@ -119,36 +119,6 @@ fn scope() -> Reply {
         json!({"teams":{"nodes":[{"id":"team-id","key":"ENG","name":"Engineering"}]}}),
     )
 }
-fn state() -> Reply {
-    Reply::data(
-        "GetWorkflowStatesInScope",
-        json!({"workflowStates":{"nodes":[{"id":"state-id","name":"Ready","type":"unstarted","team":{"key":"ENG"}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}),
-    )
-}
-fn project() -> Reply {
-    Reply::data(
-        "GetProjectIdByName",
-        json!({"projects":{"nodes":[{"id":"project-id"}]}}),
-    )
-}
-fn cycle() -> Reply {
-    Reply::data(
-        "GetTeamCyclesForLookup",
-        json!({"team":{"key":"ENG","cyclesEnabled":true,"cycles":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}},"activeCycle":{"id":"cycle-id","number":7,"name":"Current"}}}),
-    )
-}
-fn milestone() -> Reply {
-    Reply::data(
-        "GetProjectMilestonesForLookup",
-        json!({"project":{"projectMilestones":{"nodes":[{"id":"milestone-id","name":"M1"}]}}}),
-    )
-}
-fn user() -> Reply {
-    Reply::data(
-        "LookupUser",
-        json!({"users":{"nodes":[{"id":"user-id","email":"user@example.invalid","displayName":"Dummy","name":"dummy"}]}}),
-    )
-}
 fn invoke(server: &Server, args: &[&str], sort: Option<&str>) -> std::process::Output {
     let sandbox = super::sandbox::BinarySandbox::new();
     let mut command = sandbox.command();
@@ -187,84 +157,6 @@ fn invalid_configured_sort_fails_at_startup() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(0));
-}
-#[test]
-fn date_failures_drop_only_final_issue_read_after_source_resolvers() {
-    for mode in ["mine", "query", "search"] {
-        let mut replies = if mode == "mine" {
-            vec![scope(), project(), cycle(), milestone(), state()]
-        } else {
-            vec![scope(), state(), project(), cycle(), milestone(), user()]
-        };
-        let expected = replies.iter().map(|r| r.operation).collect::<Vec<_>>();
-        let server = Server::new(std::mem::take(&mut replies));
-        let mut args = vec![
-            "issue",
-            if mode == "mine" { "mine" } else { "query" },
-            "--team",
-            "eng",
-            "--state",
-            "Ready",
-            "--project",
-            "Plan",
-            "--cycle",
-            "active",
-            "--milestone",
-            "M1",
-            "--created-after",
-            "2026-02-30",
-            "--updated-after",
-            "yesterday",
-        ];
-        if mode != "mine" {
-            args.extend(["--assignee", "dummy", "--json"]);
-        }
-        if mode == "search" {
-            args.extend(["--search", " term "]);
-        }
-        let output = invoke(&server, &args, None);
-        assert_eq!(output.status.code(), Some(1));
-        assert!(output.stdout.is_empty());
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(stderr.contains("Invalid date for --created-after: \"2026-02-30\""));
-        assert!(!stderr.contains("--updated-after:"));
-        let requests = server.finish();
-        assert_eq!(
-            requests
-                .iter()
-                .map(|r| r["operationName"].as_str().unwrap())
-                .collect::<Vec<_>>(),
-            expected
-        );
-    }
-}
-#[test]
-fn earlier_resolver_failure_precedes_date_validation() {
-    let server = Server::new(vec![Reply {
-        operation: "ResolveTeam",
-        status: 200,
-        mime: "application/json",
-        body: "{\"errors\":[{\"message\":\"resolver failed\"}]}".to_owned(),
-    }]);
-    let output = invoke(
-        &server,
-        &[
-            "issue",
-            "query",
-            "--team",
-            "eng",
-            "--created-after",
-            "yesterday",
-            "--json",
-        ],
-        None,
-    );
-    assert_eq!(output.status.code(), Some(1));
-    assert_eq!(
-        String::from_utf8(output.stderr).unwrap(),
-        "✗ Failed to query issues: resolver failed\n"
-    );
-    assert_eq!(server.finish().len(), 1);
 }
 #[test]
 fn handled_raw_error_fallback_keeps_empty_first_and_nonjson_body_without_class_prefix() {

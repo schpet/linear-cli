@@ -97,11 +97,7 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
             milestone,
             &args.label,
         );
-        read::apply_dates(
-            &mut filter,
-            args.created_after.as_deref(),
-            args.updated_after.as_deref(),
-        )?;
+        read::apply_dates(&mut filter, args.created_after, args.updated_after);
         read::mine(client, filter, priority, args.limit.0).await
     })?;
     let rows = rows.into_iter().map(TableRow::from).collect::<Vec<_>>();

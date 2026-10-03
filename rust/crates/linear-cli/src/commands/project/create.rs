@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use cynic::MutationBuilder;
 
 use crate::cli::project::{ProjectCreate, Status};
+use crate::cli::values::Priority;
 use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -16,6 +17,7 @@ use crate::graphql::operations::project_write::{
     InitiativeLinkInput, LinkVariables, ProjectCreateInput,
 };
 use crate::graphql::operations::projects::ProjectStatusType;
+use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::output::StdoutWriter;
 use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
@@ -142,9 +144,9 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             content,
             lead_id,
             status_id,
-            start_date: draft.start_date.map(write::date),
-            target_date: draft.target_date.map(write::date),
-            priority: fields.priority.map(write::priority),
+            start_date: draft.start_date.map(TimelessDate::from),
+            target_date: draft.target_date.map(TimelessDate::from),
+            priority: fields.priority.map(Priority::number),
             label_ids: (!label_ids.is_empty()).then_some(label_ids),
             member_ids: (!member_ids.is_empty()).then_some(member_ids),
             icon: args.icon.clone(),

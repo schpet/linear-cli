@@ -1,9 +1,8 @@
 //! Inputs and lookups shared by `project create` and `project update`.
-use chrono::NaiveDate;
 use cynic::QueryBuilder;
 use futures_util::future::try_join_all;
 
-use crate::cli::project::{Priority, ProjectFields, Status};
+use crate::cli::project::{ProjectFields, Status};
 use crate::commands::issue::template_scope::{self, TemplateScope};
 use crate::commands::project::collections::ResolvedRef;
 use crate::commands::text_input;
@@ -18,7 +17,6 @@ use crate::graphql::operations::project_write::{
 };
 use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::operations::templates::GetTemplates;
-use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     self, InitiativeReference, PreparedTeamLookup, ResolvedTeam, WorkspaceScope,
@@ -69,20 +67,6 @@ pub fn plain_references<'a>(
     values
         .into_iter()
         .try_for_each(|value| reject_linear_url(value, what))
-}
-
-pub fn priority(priority: Priority) -> i32 {
-    match priority {
-        Priority::None => 0,
-        Priority::Urgent => 1,
-        Priority::High => 2,
-        Priority::Medium => 3,
-        Priority::Low => 4,
-    }
-}
-
-pub fn date(date: NaiveDate) -> TimelessDate {
-    TimelessDate(date.format("%Y-%m-%d").to_string())
 }
 
 /// The workspace's project statuses.

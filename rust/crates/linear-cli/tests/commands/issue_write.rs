@@ -348,28 +348,13 @@ async fn update_label_dedupe_overlap_stops_before_project_parent_and_mutation() 
     );
 }
 #[tokio::test]
-async fn update_late_parent_before_fractional_integer_refusal() {
-    let backend = Fake::default();
-    let fields = update::Fields {
-        parent: Some("ENG-9".into()),
-        priority: Some(2.5),
-        ..Default::default()
-    };
-    assert!(
-        update::input(&backend, "ENG-1", &fields, None)
-            .await
-            .is_err()
-    );
-    assert_eq!(backend.calls(), ["Team:ENG", "Parent:ENG-9"]);
-}
-#[tokio::test]
 async fn update_clear_wire_order_and_lossy_file_success_are_independent_of_parser_only_controls() {
     let backend = Fake::default();
     let fields = update::Fields {
         unassign: true,
         clear_due_date: true,
         clear_parent: true,
-        priority: Some(0.0),
+        priority: Some(linear_cli::cli::values::Priority::None),
         clear_estimate: true,
         clear_project: true,
         clear_milestone: true,
@@ -396,7 +381,6 @@ fn integer_menu_source_prefix_and_default_state_stable_lowest() {
         assert_eq!(shared::menu_estimate(input).expect("parse"), expected)
     }
     assert!(shared::menu_estimate("2147483648").is_err());
-    assert!(shared::integer(Some(2.5), "priority").is_err());
     let state = |id: &str, kind: &str, position| State {
         id: id.into(),
         name: id.into(),

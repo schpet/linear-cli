@@ -36,7 +36,7 @@ fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
                 input: ProjectMilestoneUpdateInput {
                     name: args.name.clone(),
                     description: args.description.clone(),
-                    target_date: args.target_date.map(|date| TimelessDate(date.to_string())),
+                    target_date: args.target_date.map(TimelessDate::from),
                     sort_order: args.sort_order.clone(),
                     project_id,
                 },

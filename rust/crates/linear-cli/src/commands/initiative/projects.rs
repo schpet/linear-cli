@@ -35,7 +35,7 @@ fn add_project(ctx: &Ctx, args: &InitiativeAddProject) -> Result<()> {
         input: InitiativeToProjectCreateInput {
             initiative_id: link.initiative_id.clone(),
             project_id: link.project_id.clone(),
-            sort_order: args.sort_order,
+            sort_order: args.sort_order.clone(),
         },
     }));
     let result: AddProjectToInitiative = ctx.spin(true, client.execute(&request))?;

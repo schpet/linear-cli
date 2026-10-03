@@ -100,9 +100,9 @@ pub struct ProjectFields {
     pub status: Option<Status>,
     #[arg(long = "lead", short = 'l', help = "Project lead (username, email, or @me)", value_name = "lead", value_parser = super::nonempty_string)]
     pub lead: Option<String>,
-    #[arg(long = "start-date", help = "Start date (YYYY-MM-DD)", value_name = "startDate", value_parser = date)]
+    #[arg(long = "start-date", help = "Start date (YYYY-MM-DD)", value_name = "startDate", value_parser = super::values::date)]
     pub start_date: Option<NaiveDate>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = date)]
+    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
     #[arg(
         long = "priority",
@@ -110,7 +110,7 @@ pub struct ProjectFields {
         value_name = "priority",
         ignore_case = true
     )]
-    pub priority: Option<Priority>,
+    pub priority: Option<super::values::Priority>,
 }
 
 /// A project status, by its kind.
@@ -128,26 +128,6 @@ pub enum Status {
     Canceled,
     #[value(name = "backlog")]
     Backlog,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
-pub enum Priority {
-    #[value(name = "none")]
-    None,
-    #[value(name = "urgent")]
-    Urgent,
-    #[value(name = "high")]
-    High,
-    #[value(name = "medium")]
-    Medium,
-    #[value(name = "low")]
-    Low,
-}
-
-/// A `YYYY-MM-DD` calendar date.
-fn date(value: &str) -> Result<NaiveDate, String> {
-    NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .map_err(|_| format!("expected a date like 2025-01-31, got {value:?}"))
 }
 
 #[derive(Debug, Args)]

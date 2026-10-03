@@ -182,7 +182,7 @@ fn list_rejects_an_unknown_status_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["initiative", "list", "--status", "someday"])
-        .failure()
+        .usage_error()
         .stderr_has("someday");
     assert!(api.requests().is_empty());
 }
@@ -349,13 +349,13 @@ fn create_validates_flags_before_any_request() {
         .failure()
         .stderr_has("--name");
     cli.run(&["initiative", "create", "-n", "X", "--status", "someday"])
-        .failure()
+        .usage_error()
         .stderr_has("someday");
     cli.run(&["initiative", "create", "-n", "X", "--color", "blue"])
-        .failure()
+        .usage_error()
         .stderr_has("hex");
     cli.run(&["initiative", "create", "-n", "X", "--target-date", "soon"])
-        .failure()
+        .usage_error()
         .stderr_has("YYYY-MM-DD");
     assert!(api.requests().is_empty());
 }
@@ -438,13 +438,13 @@ fn update_validates_flags_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["initiative", "update", ID, "--status", "someday"])
-        .failure()
+        .usage_error()
         .stderr_has("someday");
     cli.run(&["initiative", "update", ID, "--color", "blue"])
-        .failure()
+        .usage_error()
         .stderr_has("hex");
     cli.run(&["initiative", "update", ID, "--target-date", "2026-02-30"])
-        .failure()
+        .usage_error()
         .stderr_has("YYYY-MM-DD");
     assert!(api.requests().is_empty());
 }

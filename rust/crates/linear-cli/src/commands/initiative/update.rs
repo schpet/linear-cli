@@ -1,9 +1,11 @@
 //! `initiative update`: fields from flags or prompts, then one mutation.
 use std::io::{Read, Write};
 
+use chrono::NaiveDate;
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::initiative::InitiativeUpdate;
+use crate::cli::values::{date, hex_color};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -13,6 +15,7 @@ use crate::graphql::operations::initiative_update::{
 };
 use crate::graphql::operations::initiative_view::DetailVariables;
 use crate::graphql::operations::initiatives::InitiativeStatus;
+use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{
     PlainOption, PlainSelect, PromptOutcome, PromptSession, escaped_display,
@@ -29,19 +32,12 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     let flags = Changes {
         name: args.name.clone(),
         description: args.description.clone(),
-        status: args
-            .status
-            .as_deref()
-            .map(super::parse_status)
-            .transpose()?,
+        status: args.status.map(Into::into),
         owner: args.owner.clone(),
-        target_date: args.target_date.clone(),
-        color: args.color.as_deref().map(super::parse_color).transpose()?,
+        target_date: args.target_date,
+        color: args.color.clone(),
         icon: args.icon.clone(),
     };
-    if let Some(date) = &flags.target_date {
-        super::parse_target_date(date)?;
-    }
     super::check_owner(flags.owner.as_deref())?;
     let prompting = flags.is_empty();
     if prompting && !args.interactive {
@@ -76,12 +72,6 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         if changes.is_empty() {
             return ctx.print("No changes specified\n");
         }
-        if let Some(date) = &changes.target_date {
-            super::parse_target_date(date)?;
-        }
-        if let Some(color) = &changes.color {
-            super::parse_color(color)?;
-        }
         (id, changes)
     } else {
         let id = ctx.spin(
@@ -111,7 +101,7 @@ struct Changes {
     description: Option<String>,
     status: Option<InitiativeStatus>,
     owner: Option<String>,
-    target_date: Option<String>,
+    target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
 }
@@ -133,7 +123,7 @@ impl Changes {
             description: self.description,
             status: self.status,
             owner_id,
-            target_date: self.target_date.map(crate::graphql::scalars::TimelessDate),
+            target_date: self.target_date.map(TimelessDate::from),
             color: self.color,
             icon: self.icon,
         }
@@ -231,14 +221,14 @@ fn prompt<R: Read, W: Write>(
         .map_or("", |date| date.0.as_str());
     let value =
         answer!(session.text_with_display_default("Target date (YYYY-MM-DD):", text(default)));
-    if value != default {
-        changes.target_date = (!value.is_empty()).then_some(value);
+    if value != default && !value.is_empty() {
+        changes.target_date = Some(date(&value).map_err(Error::new)?);
     }
     let default = current.color.as_deref().unwrap_or("");
     let value =
         answer!(session.text_with_display_default("Color (hex, e.g., #5E6AD2):", text(default)));
-    if value != default {
-        changes.color = (!value.is_empty()).then_some(value);
+    if value != default && !value.is_empty() {
+        changes.color = Some(hex_color(&value).map_err(Error::new)?);
     }
     Ok(PromptOutcome::Submitted(changes))
 }

@@ -435,7 +435,7 @@ fn mine_validation_fails_before_any_request() {
     cli.run(&["issue", "mine"]).failure().stderr_has("--team");
     let cli = cli.env("LINEAR_TEAM_ID", "ENG");
     cli.run(&["issue", "mine", "--created-after", "nope"])
-        .failure()
+        .usage_error()
         .stderr_has("--created-after");
     cli.run(&["issue", "mine", "--sort", "bogus"]).usage_error();
     assert!(api.requests().is_empty());

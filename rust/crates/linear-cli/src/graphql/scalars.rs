@@ -31,6 +31,12 @@ pub struct Duration(pub String);
 #[cynic(graphql_type = "TimelessDate")]
 pub struct TimelessDate(pub String);
 
+impl From<chrono::NaiveDate> for TimelessDate {
+    fn from(date: chrono::NaiveDate) -> Self {
+        Self(date.format("%Y-%m-%d").to_string())
+    }
+}
+
 /// ISO 8601 date or duration, kept as the exact wire string.
 #[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
 #[cynic(graphql_type = "TimelessDateOrDuration")]

@@ -1,4 +1,8 @@
+use chrono::NaiveDate;
 use clap::{Args, Subcommand};
+
+use super::values::InitiativeStatus;
+use crate::graphql::operations::number::Float;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -33,8 +37,15 @@ pub enum InitiativeCommand {
 
 #[derive(Debug, Args)]
 pub struct InitiativeList {
-    #[arg(long = "status", short = 's', help = "Filter by status (active, planned, completed)", value_name = "status", value_parser = super::nonempty_string)]
-    pub status: Option<String>,
+    #[arg(
+        long = "status",
+        short = 's',
+        help = "Filter by status (default: active)",
+        value_name = "status",
+        ignore_case = true,
+        conflicts_with = "all_statuses"
+    )]
+    pub status: Option<InitiativeStatus>,
     #[arg(
         long = "all-statuses",
         help = "Show all statuses (default: active only)"
@@ -78,13 +89,19 @@ pub struct InitiativeCreate {
     pub name: Option<String>,
     #[arg(long = "description", short = 'd', help = "Initiative description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
-    #[arg(long = "status", short = 's', help = "Status: planned, active, completed (default: planned)", value_name = "status", value_parser = super::nonempty_string)]
-    pub status: Option<String>,
+    #[arg(
+        long = "status",
+        short = 's',
+        help = "Status (default: planned)",
+        value_name = "status",
+        ignore_case = true
+    )]
+    pub status: Option<InitiativeStatus>,
     #[arg(long = "owner", short = 'o', help = "Owner (username, email, or @me for yourself)", value_name = "owner", value_parser = super::nonempty_string)]
     pub owner: Option<String>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::nonempty_string)]
-    pub target_date: Option<String>,
-    #[arg(long = "color", short = 'c', help = "Color hex code (e.g., #5E6AD2)", value_name = "color", value_parser = super::nonempty_string)]
+    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::values::date)]
+    pub target_date: Option<NaiveDate>,
+    #[arg(long = "color", short = 'c', help = "Color hex code (e.g., #5E6AD2)", value_name = "color", value_parser = super::values::hex_color)]
     pub color: Option<String>,
     #[arg(long = "icon", help = "Icon name", value_name = "icon", value_parser = super::nonempty_string)]
     pub icon: Option<String>,
@@ -118,13 +135,18 @@ pub struct InitiativeUpdate {
     pub name: Option<String>,
     #[arg(long = "description", short = 'd', help = "New description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
-    #[arg(long = "status", help = "New status (planned, active, completed, paused)", value_name = "status", value_parser = super::nonempty_string)]
-    pub status: Option<String>,
+    #[arg(
+        long = "status",
+        help = "New status",
+        value_name = "status",
+        ignore_case = true
+    )]
+    pub status: Option<InitiativeStatus>,
     #[arg(long = "owner", help = "New owner (username, email, or @me)", value_name = "owner", value_parser = super::nonempty_string)]
     pub owner: Option<String>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::nonempty_string)]
-    pub target_date: Option<String>,
-    #[arg(long = "color", help = "Initiative color (hex, e.g., #5E6AD2)", value_name = "color", value_parser = super::nonempty_string)]
+    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::values::date)]
+    pub target_date: Option<NaiveDate>,
+    #[arg(long = "color", help = "Initiative color (hex, e.g., #5E6AD2)", value_name = "color", value_parser = super::values::hex_color)]
     pub color: Option<String>,
     #[arg(long = "icon", help = "Initiative icon name", value_name = "icon", value_parser = super::nonempty_string)]
     pub icon: Option<String>,
@@ -164,8 +186,8 @@ pub struct InitiativeAddProject {
     pub initiative: String,
     #[arg(value_name = "project", value_parser = super::nonempty_string)]
     pub project: String,
-    #[arg(long = "sort-order", help = "Sort order within initiative", value_name = "sortOrder", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
-    pub sort_order: Option<f64>,
+    #[arg(long = "sort-order", help = "Sort order within initiative", value_name = "sortOrder", value_parser = super::values::sort_order, allow_negative_numbers = true)]
+    pub sort_order: Option<Float>,
 }
 
 #[derive(Debug, Args)]

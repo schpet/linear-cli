@@ -40,11 +40,14 @@ async fn submit(
                 project_id,
                 name: args.name.clone(),
                 description: args.description.clone(),
-                target_date: args.target_date.map(|date| TimelessDate(date.to_string())),
+                target_date: args.target_date.map(TimelessDate::from),
             },
         },
     ));
-    let result: CreateProjectMilestone = client.execute(&request).await.map_err(|failure| failure.into_create_error("milestone"))?;
+    let result: CreateProjectMilestone = client
+        .execute(&request)
+        .await
+        .map_err(|failure| failure.into_create_error("milestone"))?;
     let payload = result.project_milestone_create;
     if !payload.success {
         return Err(Error::new("Linear did not create the milestone"));

@@ -1,16 +1,17 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
 use std::io::{Read, Write};
 
+use chrono::NaiveDate;
 use cynic::MutationBuilder;
 
 use crate::cli::initiative::InitiativeCreate;
+use crate::cli::values::{InitiativeStatus, date, hex_color};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_create::{
     CreateInitiative, CreateInitiativeVariables, CreatedInitiative, InitiativeCreateInput,
 };
-use crate::graphql::operations::initiatives::InitiativeStatus;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
@@ -23,9 +24,9 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
     let mut fields = Fields {
         name: args.name.clone(),
         description: args.description.clone(),
-        status: args.status.clone(),
+        status: args.status,
         owner: args.owner.clone(),
-        target_date: args.target_date.clone(),
+        target_date: args.target_date,
         color: args.color.clone(),
         icon: args.icon.clone(),
     };
@@ -58,9 +59,9 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
 struct Fields {
     name: Option<String>,
     description: Option<String>,
-    status: Option<String>,
+    status: Option<InitiativeStatus>,
     owner: Option<String>,
-    target_date: Option<String>,
+    target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
 }
@@ -71,7 +72,7 @@ struct Valid {
     description: Option<String>,
     status: Option<InitiativeStatus>,
     owner: Option<String>,
-    target_date: Option<TimelessDate>,
+    target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
 }
@@ -81,9 +82,9 @@ impl Valid {
         InitiativeCreateInput {
             name: self.name,
             description: self.description,
-            status: self.status,
+            status: self.status.map(Into::into),
             owner_id,
-            target_date: self.target_date,
+            target_date: self.target_date.map(TimelessDate::from),
             color: self.color,
             icon: self.icon,
         }
@@ -121,18 +122,24 @@ fn prompt<R: Read, W: Write>(
                 session.text("Description (optional):", 0, |_| Ok(()))
             ));
     }
-    if options.status.as_deref().is_none_or(str::is_empty) {
+    if options.status.is_none() {
         let choices = [
             choice("Planned", "Planned", "Planned"),
             choice("Active", "Active", "Active"),
             choice("Completed", "Completed", "Completed"),
         ];
-        options.status = Some(answer!(session.select(&PlainSelect {
+        let selected = answer!(session.select(&PlainSelect {
             message: "Status:",
             options: &choices,
             default_index: 0,
             default_hint: Some("planned"),
-        })));
+        }));
+        options.status = Some(match selected.as_str() {
+            "Planned" => InitiativeStatus::Planned,
+            "Active" => InitiativeStatus::Active,
+            "Completed" => InitiativeStatus::Completed,
+            other => unreachable!("{other:?} is not a status option"),
+        });
     }
     if options.owner.as_deref().is_none_or(str::is_empty) {
         options.owner = optional(answer!(session.text(
@@ -141,12 +148,13 @@ fn prompt<R: Read, W: Write>(
             |_| Ok(())
         )));
     }
-    if options.target_date.as_deref().is_none_or(str::is_empty) {
-        options.target_date = optional(answer!(session.text(
+    if options.target_date.is_none() {
+        let answer = answer!(session.text(
             "Target date (YYYY-MM-DD - press Enter to skip):",
             0,
-            |_| Ok(())
-        )));
+            |raw| optional_date(raw).map(drop)
+        ));
+        options.target_date = optional_date(&answer).map_err(Error::new)?;
     }
     if options.color.as_deref().is_none_or(str::is_empty) {
         let colors = [
@@ -174,11 +182,7 @@ fn prompt<R: Read, W: Write>(
             "__custom__" => Some(answer!(session.text(
                 "Enter hex color (e.g., #FF5733):",
                 0,
-                |raw| {
-                    super::parse_color(raw)
-                        .map(drop)
-                        .map_err(|_| "Please enter a valid hex color (e.g., #FF5733)".to_owned())
-                }
+                |raw| hex_color(raw).map(drop)
             ))),
             _ => Some(selected),
         };
@@ -190,30 +194,30 @@ fn optional(value: String) -> Option<String> {
     if value.is_empty() { None } else { Some(value) }
 }
 
+/// A prompted date; blank means none.
+fn optional_date(value: &str) -> std::result::Result<Option<NaiveDate>, String> {
+    if value.is_empty() {
+        Ok(None)
+    } else {
+        date(value).map(Some)
+    }
+}
+
 fn validate(fields: Fields) -> Result<Valid> {
     let name = fields
         .name
         .filter(|name| !name.is_empty())
         .ok_or_else(|| Error::new("Initiative name is required. Use --name or -n flag."))?;
     let nonempty = |value: Option<String>| value.filter(|value| !value.is_empty());
-    let status = nonempty(fields.status)
-        .map(|value| super::parse_status(&value))
-        .transpose()?;
-    let color = nonempty(fields.color)
-        .map(|value| super::parse_color(&value))
-        .transpose()?;
-    let target_date = nonempty(fields.target_date)
-        .map(|value| super::parse_target_date(&value))
-        .transpose()?;
     let owner = nonempty(fields.owner);
     super::check_owner(owner.as_deref())?;
     Ok(Valid {
         name,
         description: nonempty(fields.description),
-        status,
+        status: fields.status,
         owner,
-        target_date,
-        color,
+        target_date: fields.target_date,
+        color: nonempty(fields.color),
         icon: nonempty(fields.icon),
     })
 }
@@ -228,7 +232,10 @@ async fn submit(
         GraphQlRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables {
             input,
         }));
-    let result: CreateInitiative = client.execute(&request).await.map_err(|failure| failure.into_create_error("initiative"))?;
+    let result: CreateInitiative = client
+        .execute(&request)
+        .await
+        .map_err(|failure| failure.into_create_error("initiative"))?;
     if !result.initiative_create.success {
         return Err(Error::new("Linear did not create the initiative"));
     }

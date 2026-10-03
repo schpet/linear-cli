@@ -41,7 +41,7 @@ pub struct LabelList {
 pub struct LabelCreate {
     #[arg(long = "name", short = 'n', help = "Label name (required)", value_name = "name", value_parser = super::nonempty_string)]
     pub name: Option<String>,
-    #[arg(long = "color", short = 'c', help = "Color hex code (e.g., #EB5757)", value_name = "color", value_parser = hex_color)]
+    #[arg(long = "color", short = 'c', help = "Color hex code (e.g., #EB5757)", value_name = "color", value_parser = super::values::hex_color)]
     pub color: Option<String>,
     #[arg(long = "description", short = 'd', help = "Label description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
@@ -63,15 +63,4 @@ pub struct LabelDelete {
     pub team: Option<String>,
     #[arg(long = "force", short = 'f', help = "Skip confirmation prompt")]
     pub force: bool,
-}
-
-/// A `#RRGGBB` color.
-pub fn hex_color(value: &str) -> Result<String, String> {
-    let digits = value
-        .strip_prefix('#')
-        .filter(|digits| digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit()));
-    match digits {
-        Some(_) => Ok(value.to_owned()),
-        None => Err("expected a hex color like #EB5757".to_owned()),
-    }
 }

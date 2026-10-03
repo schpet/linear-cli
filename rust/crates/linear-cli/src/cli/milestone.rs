@@ -55,7 +55,7 @@ pub struct MilestoneCreate {
     pub name: String,
     #[arg(long = "description", help = "Milestone description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
-    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = date)]
+    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
 }
 
@@ -73,9 +73,9 @@ pub struct MilestoneUpdate {
     pub name: Option<String>,
     #[arg(long = "description", help = "Milestone description", value_name = "description", value_parser = super::nonempty_string)]
     pub description: Option<String>,
-    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = date)]
+    #[arg(long = "target-date", help = "Target date (YYYY-MM-DD)", value_name = "date", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
-    #[arg(long = "sort-order", help = "Sort order relative to other milestones", value_name = "value", value_parser = sort_order, allow_negative_numbers = true)]
+    #[arg(long = "sort-order", help = "Sort order relative to other milestones", value_name = "value", value_parser = super::values::sort_order, allow_negative_numbers = true)]
     pub sort_order: Option<Float>,
     #[arg(long = "project", help = "Move to a different project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
@@ -87,17 +87,4 @@ pub struct MilestoneDelete {
     pub id: String,
     #[arg(long = "force", short = 'f', help = "Skip confirmation prompt")]
     pub force: bool,
-}
-
-/// A `YYYY-MM-DD` calendar date.
-fn date(value: &str) -> Result<NaiveDate, String> {
-    NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .map_err(|_| format!("expected a date like 2026-10-31, got {value:?}"))
-}
-
-/// A finite sort order; a whole number is sent to Linear as a JSON integer.
-fn sort_order(value: &str) -> Result<Float, String> {
-    let number = super::numeric::finite_decimal(value)?;
-    Ok(serde_json::from_value(serde_json::Value::from(number))
-        .expect("a finite number decodes as a Float"))
 }

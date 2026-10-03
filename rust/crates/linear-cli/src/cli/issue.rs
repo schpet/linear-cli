@@ -1,3 +1,4 @@
+use chrono::{DateTime, NaiveDate, Utc};
 use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
@@ -103,10 +104,10 @@ pub struct IssueMine {
     pub label: Vec<String>,
     #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::issue_limit, default_value = "50")]
     pub limit: super::numeric::IssueLimit,
-    #[arg(long = "created-after", help = "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
-    pub created_after: Option<String>,
-    #[arg(long = "updated-after", help = "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
-    pub updated_after: Option<String>,
+    #[arg(long = "created-after", help = "Filter issues created after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    pub created_after: Option<DateTime<Utc>>,
+    #[arg(long = "updated-after", help = "Filter issues updated after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    pub updated_after: Option<DateTime<Utc>>,
     #[arg(long = "assignee", help = "Removed: use `issue query --assignee` instead", hide = true, value_name = "assignee", value_parser = super::nonempty_string)]
     pub assignee: Option<String>,
     #[arg(
@@ -192,10 +193,10 @@ pub struct IssueQuery {
     pub label: Vec<String>,
     #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::issue_limit, default_value = "50")]
     pub limit: super::numeric::IssueLimit,
-    #[arg(long = "created-after", help = "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
-    pub created_after: Option<String>,
-    #[arg(long = "updated-after", help = "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
-    pub updated_after: Option<String>,
+    #[arg(long = "created-after", help = "Filter issues created after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    pub created_after: Option<DateTime<Utc>>,
+    #[arg(long = "updated-after", help = "Filter issues updated after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    pub updated_after: Option<DateTime<Utc>>,
     #[arg(long = "include-archived", help = "Include archived issues")]
     pub include_archived: bool,
     #[arg(long = "json", short = 'j', help = "Output results as JSON")]
@@ -369,20 +370,27 @@ pub struct IssueCreate {
     pub assignee: Option<String>,
     #[arg(
         long = "due-date",
-        help = "Due date of the issue",
-        value_name = "dueDate"
+        help = "Due date of the issue (YYYY-MM-DD)",
+        value_name = "dueDate",
+        value_parser = super::values::date
     )]
-    pub due_date: Option<String>,
+    pub due_date: Option<NaiveDate>,
     #[arg(
         long = "parent",
         help = "Parent issue (if any) as a team_number code",
         value_name = "parent"
     )]
     pub parent: Option<String>,
-    #[arg(long = "priority", short = 'p', help = "Priority of the issue (1-4, descending priority)", value_name = "priority", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
-    pub priority: Option<f64>,
-    #[arg(long = "estimate", help = "Points estimate of the issue", value_name = "estimate", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
-    pub estimate: Option<f64>,
+    #[arg(
+        long = "priority",
+        short = 'p',
+        help = "Priority of the issue (or its number: 0 none, 1 urgent to 4 low)",
+        value_name = "priority",
+        ignore_case = true
+    )]
+    pub priority: Option<super::values::Priority>,
+    #[arg(long = "estimate", help = "Points estimate of the issue", value_name = "estimate", value_parser = super::values::estimate, allow_negative_numbers = true)]
+    pub estimate: Option<i32>,
     #[arg(
         long = "description",
         short = 'd',
@@ -474,10 +482,11 @@ pub struct IssueUpdate {
     pub unassign: bool,
     #[arg(
         long = "due-date",
-        help = "Due date of the issue. Use --clear-due-date to remove it",
-        value_name = "dueDate"
+        help = "Due date of the issue (YYYY-MM-DD). Use --clear-due-date to remove it",
+        value_name = "dueDate",
+        value_parser = super::values::date
     )]
-    pub due_date: Option<String>,
+    pub due_date: Option<NaiveDate>,
     #[arg(
         long = "clear-due-date",
         help = "Remove the issue's due date (cannot be combined with --due-date)"
@@ -494,10 +503,16 @@ pub struct IssueUpdate {
         help = "Remove the issue's parent (cannot be combined with --parent)"
     )]
     pub clear_parent: bool,
-    #[arg(long = "priority", short = 'p', help = "Priority of the issue (1-4, descending priority)", value_name = "priority", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
-    pub priority: Option<f64>,
-    #[arg(long = "estimate", help = "Points estimate of the issue. Use --clear-estimate to remove it", value_name = "estimate", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
-    pub estimate: Option<f64>,
+    #[arg(
+        long = "priority",
+        short = 'p',
+        help = "Priority of the issue (or its number: 0 none, 1 urgent to 4 low)",
+        value_name = "priority",
+        ignore_case = true
+    )]
+    pub priority: Option<super::values::Priority>,
+    #[arg(long = "estimate", help = "Points estimate of the issue. Use --clear-estimate to remove it", value_name = "estimate", value_parser = super::values::estimate, allow_negative_numbers = true)]
+    pub estimate: Option<i32>,
     #[arg(
         long = "clear-estimate",
         help = "Remove the issue's estimate (cannot be combined with --estimate)"

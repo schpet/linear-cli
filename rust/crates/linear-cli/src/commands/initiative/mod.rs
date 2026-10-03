@@ -19,9 +19,8 @@ use crate::graphql::operations::initiative_reference::{NameVariables, UrlSlugVar
 use crate::graphql::operations::initiative_unarchive::ResolveInitiativeByNameIncludingArchived;
 use crate::graphql::operations::initiative_view::ResolveInitiativeBySlug;
 use crate::graphql::operations::initiatives::{
-    GetViewerId, GetViewerIdVariables, InitiativeStatus, LookupUser, LookupUserVariables,
+    GetViewerId, GetViewerIdVariables, LookupUser, LookupUserVariables,
 };
-use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{self, InitiativeReference};
 
@@ -104,37 +103,6 @@ async fn resolve(
             Error::not_found("Initiative", original)
                 .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
         })
-}
-
-/// A `--status` value, in any case.
-fn parse_status(value: &str) -> Result<InitiativeStatus> {
-    match value.to_lowercase().as_str() {
-        "planned" => Ok(InitiativeStatus::Planned),
-        "active" => Ok(InitiativeStatus::Active),
-        "completed" => Ok(InitiativeStatus::Completed),
-        _ => Err(Error::new(format!(
-            "Invalid status: {value}. Valid values: planned, active, completed"
-        ))),
-    }
-}
-
-/// A `--color` value: `#` and six hex digits.
-fn parse_color(value: &str) -> Result<String> {
-    let valid = value.len() == 7
-        && value.starts_with('#')
-        && value[1..].bytes().all(|byte| byte.is_ascii_hexdigit());
-    if valid {
-        Ok(value.to_owned())
-    } else {
-        Err(Error::new("Color must be a valid hex code (e.g., #5E6AD2)"))
-    }
-}
-
-/// A `--target-date` value in `YYYY-MM-DD` form.
-fn parse_target_date(value: &str) -> Result<TimelessDate> {
-    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .map(|_| TimelessDate(value.to_owned()))
-        .map_err(|_| Error::new("Target date must be in YYYY-MM-DD format"))
 }
 
 /// Rejects a Linear URL where an owner is expected, before any request.

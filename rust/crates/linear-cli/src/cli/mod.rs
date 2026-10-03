@@ -20,6 +20,7 @@ pub mod schema;
 pub mod team;
 pub mod template;
 pub mod user;
+pub mod values;
 
 #[derive(Debug, Parser)]
 #[command(

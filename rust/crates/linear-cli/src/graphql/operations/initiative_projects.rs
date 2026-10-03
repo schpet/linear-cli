@@ -1,4 +1,5 @@
 //! Links between initiatives and projects for `initiative add-project` and `remove-project`.
+use crate::graphql::operations::number::Float;
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::schema;
 
@@ -66,7 +67,7 @@ pub struct InitiativeToProjectCreateInput {
     pub initiative_id: String,
     pub project_id: String,
     #[cynic(skip_serializing_if = "Option::is_none")]
-    pub sort_order: Option<f64>,
+    pub sort_order: Option<Float>,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(

@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::project::ProjectUpdate;
+use crate::cli::values::Priority;
 use crate::commands::project::collections::{
     self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
 };
@@ -20,6 +21,7 @@ use crate::graphql::operations::project_write::{
     UpdateProjectVariables,
 };
 use crate::graphql::pagination::{self, Page};
+use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     InitiativeReference, PreparedTeamLookup, prepare_project_lookup, resolve_project_with_transport,
@@ -112,14 +114,14 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
         start_date: if args.clear_start_date {
             Edit::Clear
         } else {
-            Edit::set_or_unchanged(fields.start_date.map(write::date))
+            Edit::set_or_unchanged(fields.start_date.map(TimelessDate::from))
         },
         target_date: if args.clear_target_date {
             Edit::Clear
         } else {
-            Edit::set_or_unchanged(fields.target_date.map(write::date))
+            Edit::set_or_unchanged(fields.target_date.map(TimelessDate::from))
         },
-        priority: fields.priority.map(write::priority),
+        priority: fields.priority.map(Priority::number),
         ..Default::default()
     };
     let client = ctx.client()?;

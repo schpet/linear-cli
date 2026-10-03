@@ -1,7 +1,9 @@
 //! `issue update`: change an issue's fields.
 use super::write::{self as shared, Backend};
+use chrono::NaiveDate;
+
 use crate::{
-    cli::issue::IssueUpdate,
+    cli::{issue::IssueUpdate, values::Priority},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{edit::Edit, operations::issue_update::IssueUpdateInput, scalars::TimelessDate},
@@ -26,12 +28,12 @@ pub struct Fields {
     pub title: Option<String>,
     pub assignee: Option<String>,
     pub unassign: bool,
-    pub due_date: Option<String>,
+    pub due_date: Option<NaiveDate>,
     pub clear_due_date: bool,
     pub parent: Option<String>,
     pub clear_parent: bool,
-    pub priority: Option<f64>,
-    pub estimate: Option<f64>,
+    pub priority: Option<Priority>,
+    pub estimate: Option<i32>,
     pub clear_estimate: bool,
     pub description: Option<String>,
     pub description_file: Option<String>,
@@ -211,14 +213,11 @@ pub async fn input<B: Backend>(
         assignee_id: shared::edit(fields.unassign, assignee),
         due_date: shared::edit(
             fields.clear_due_date,
-            fields.due_date.clone().map(TimelessDate),
+            fields.due_date.map(TimelessDate::from),
         ),
         parent_id: parent,
-        priority: Edit::set_or_unchanged(shared::integer(fields.priority, "priority")?),
-        estimate: shared::edit(
-            fields.clear_estimate,
-            shared::integer(fields.estimate, "estimate")?,
-        ),
+        priority: Edit::set_or_unchanged(fields.priority.map(Priority::number)),
+        estimate: shared::edit(fields.clear_estimate, fields.estimate),
         description: Edit::set_or_unchanged(description),
         label_ids: fields.labels.as_ref().map(|_| replacements),
         added_label_ids: fields.add_labels.as_ref().map(|_| added),
@@ -247,7 +246,7 @@ impl From<&crate::cli::issue::IssueUpdate> for Fields {
             title: action.title.clone(),
             assignee: action.assignee.clone(),
             unassign: action.unassign,
-            due_date: action.due_date.clone(),
+            due_date: action.due_date,
             clear_due_date: action.clear_due_date,
             parent: action.parent.clone(),
             clear_parent: action.clear_parent,

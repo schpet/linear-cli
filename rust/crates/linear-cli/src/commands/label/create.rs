@@ -3,7 +3,8 @@ use std::io::{Read, Write};
 
 use cynic::MutationBuilder;
 
-use crate::cli::label::{LabelCreate, hex_color};
+use crate::cli::label::LabelCreate;
+use crate::cli::values::hex_color;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};

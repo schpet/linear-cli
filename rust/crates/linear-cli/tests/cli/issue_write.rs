@@ -337,6 +337,25 @@ fn create_rejects_a_non_numeric_estimate_before_any_request() {
     assert!(api.requests().is_empty(), "{:?}", api.operations());
 }
 
+#[test]
+fn create_rejects_invalid_typed_values_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    for flags in [
+        ["-p", "9"],
+        ["-p", "2.5"],
+        ["--estimate", "-1"],
+        ["--estimate", "2.5"],
+        ["--due-date", "tomorrow"],
+        ["--due-date", "2026-02-30"],
+    ] {
+        let mut args = vec!["issue", "create", "--no-interactive", "-t", "x"];
+        args.extend(flags);
+        cli.run(&args).usage_error().stderr_has(flags[0]);
+    }
+    assert!(api.requests().is_empty(), "{:?}", api.operations());
+}
+
 /// Without `--team`, updates resolve the team from the issue identifier and send it back as
 /// `teamId`. That is redundant, so `update_input` leaves it out.
 fn expect_own_team(api: &MockLinear) {
@@ -394,7 +413,7 @@ fn update_with_every_field_sends_resolved_ids() {
             "--estimate",
             "5",
             "-p",
-            "1",
+            "Urgent",
             "-t",
             "Renamed",
             "-d",

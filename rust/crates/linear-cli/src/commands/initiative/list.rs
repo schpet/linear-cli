@@ -3,6 +3,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::initiative::InitiativeList;
+use crate::cli::values;
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::table::{self, underlined_header};
 use crate::ctx::Ctx;
@@ -29,7 +30,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
 }
 
 fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
-    let status = status_filter(args.status.as_deref(), args.all_statuses)?;
+    let status = status_filter(args.status, args.all_statuses);
     super::check_owner(args.owner.as_deref())?;
     let client = ctx.client()?;
     let (initiatives, page_info) = ctx.spin(!args.json, async {
@@ -49,17 +50,16 @@ fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
 
 /// The API status value to filter on: `--status`, every status with
 /// `--all-statuses`, and only active initiatives otherwise.
-fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<&'static str>> {
-    match status.map(str::to_lowercase).as_deref() {
-        Some("active") => Ok(Some("Active")),
-        Some("planned") => Ok(Some("Planned")),
-        Some("completed") => Ok(Some("Completed")),
-        Some(_) => Err(Error::new(format!(
-            "Invalid status: {}. Valid values: active, planned, completed",
-            status.unwrap_or_default()
-        ))),
-        None if all_statuses => Ok(None),
-        None => Ok(Some("Active")),
+fn status_filter(
+    status: Option<values::InitiativeStatus>,
+    all_statuses: bool,
+) -> Option<&'static str> {
+    match status {
+        Some(values::InitiativeStatus::Active) => Some("Active"),
+        Some(values::InitiativeStatus::Planned) => Some("Planned"),
+        Some(values::InitiativeStatus::Completed) => Some("Completed"),
+        None if all_statuses => None,
+        None => Some("Active"),
     }
 }
 

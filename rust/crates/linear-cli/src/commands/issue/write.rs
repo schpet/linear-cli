@@ -83,19 +83,6 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
             }),
     }
 }
-pub fn integer(value: Option<f64>, field: &str) -> Result<Option<i32>, Error> {
-    value
-        .map(|value| {
-            if !value.is_finite() || value.fract() != 0.0 {
-                return Err(validation(format!("{field} must be a GraphQL integer")));
-            }
-            value.to_string().parse::<i32>().map_err(|error| {
-                validation(format!("{field} is outside the GraphQL integer range"))
-                    .with_source(error)
-            })
-        })
-        .transpose()
-}
 /// The leading integer of a prompted estimate. Blank or non-numeric input means
 /// no estimate; an integer outside the i32 range is an error.
 pub fn menu_estimate(value: &str) -> Result<Option<i32>, Error> {

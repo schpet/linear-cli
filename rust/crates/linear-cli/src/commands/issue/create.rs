@@ -1,11 +1,13 @@
 use std::io::Stdin;
 
+use chrono::NaiveDate;
+
 use super::write::{
     self as shared, AssignSelf, Backend, CreateSettings, Named, Parent, Search, Ui,
 };
 use super::write_network::NetworkBackend;
 use crate::{
-    cli::issue::IssueCreate,
+    cli::{issue::IssueCreate, values::Priority},
     commands::team_key::configured_team_key,
     config::AssignSelf as ConfigAssignSelf,
     ctx::Ctx,
@@ -314,10 +316,10 @@ pub struct Fields {
     pub title: Option<String>,
     pub start: bool,
     pub assignee: Option<String>,
-    pub due_date: Option<String>,
+    pub due_date: Option<NaiveDate>,
     pub parent: Option<String>,
-    pub priority: Option<f64>,
-    pub estimate: Option<f64>,
+    pub priority: Option<Priority>,
+    pub estimate: Option<i32>,
     pub description: Option<String>,
     pub description_file: Option<String>,
     pub labels: Vec<String>,
@@ -343,7 +345,7 @@ impl Fields {
             && !self.no_interactive
             && shared::truthy(self.title.as_deref()).is_none()
             && shared::truthy(self.assignee.as_deref()).is_none()
-            && shared::truthy(self.due_date.as_deref()).is_none()
+            && self.due_date.is_none()
             && self.priority.is_none()
             && self.estimate.is_none()
             && shared::truthy(description).is_none()
@@ -525,10 +527,10 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         input: Input {
             title: Edit::set_or_unchanged(fields.title.clone()),
             assignee_id: Edit::set_or_unchanged(assignee_id),
-            due_date: Edit::set_or_unchanged(fields.due_date.clone().map(TimelessDate)),
+            due_date: Edit::set_or_unchanged(fields.due_date.map(TimelessDate::from)),
             parent_id: Edit::set_or_unchanged(parent_id),
-            priority: Edit::set_or_unchanged(shared::integer(fields.priority, "priority")?),
-            estimate: Edit::set_or_unchanged(shared::integer(fields.estimate, "estimate")?),
+            priority: Edit::set_or_unchanged(fields.priority.map(Priority::number)),
+            estimate: Edit::set_or_unchanged(fields.estimate),
             label_ids: Some(label_ids),
             team_id,
             project_id: project,
@@ -612,7 +614,7 @@ impl From<&crate::cli::issue::IssueCreate> for Fields {
             title: action.title.clone(),
             start: action.start,
             assignee: action.assignee.clone(),
-            due_date: action.due_date.clone(),
+            due_date: action.due_date,
             parent: action.parent.clone(),
             priority: action.priority,
             estimate: action.estimate,

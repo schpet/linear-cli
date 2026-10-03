@@ -9,7 +9,7 @@ use crate::graphql::{
     transport::{GraphQlTransport, classify_typed},
 };
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
-use chrono::{Datelike, FixedOffset, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use cynic::QueryBuilder;
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashSet;
@@ -36,146 +36,23 @@ pub async fn exchange<T: DeserializeOwned, V: Serialize>(
 fn validation(message: impl Into<String>) -> Error {
     Error::new(message)
 }
-const DATE_SUGGESTION: &str =
-    "Use YYYY-MM-DD or ISO 8601 format (e.g. 2024-01-15 or 2024-01-15T09:00:00Z).";
-/// ISSUE-READ-DATE-STRICT is invoked at filter construction, after resolver reads.
-pub fn date_filter(value: &str, flag: &str) -> Result<DateTimeOrDuration, Error> {
-    let bytes = value.as_bytes();
-    let date_shape = bytes.len() >= 10
-        && bytes.get(4) == Some(&b'-')
-        && bytes.get(7) == Some(&b'-')
-        && bytes
-            .iter()
-            .take(10)
-            .enumerate()
-            .all(|(i, b)| matches!(i, 4 | 7) || b.is_ascii_digit());
-    let time_shape = if bytes.len() == 10 {
-        true
-    } else if bytes.len() >= 20
-        && bytes.get(10) == Some(&b'T')
-        && bytes.get(13) == Some(&b':')
-        && bytes.get(16) == Some(&b':')
-    {
-        let zone = if bytes.last() == Some(&b'Z') {
-            bytes.len() - 1
-        } else {
-            bytes.len() - 6
-        };
-        zone >= 19
-            && bytes.get(11..19).is_some_and(|v| {
-                v.iter()
-                    .enumerate()
-                    .all(|(i, b)| matches!(i, 2 | 5) || b.is_ascii_digit())
-            })
-            && (zone == 19
-                || (bytes.get(19) == Some(&b'.')
-                    && zone > 20
-                    && bytes
-                        .get(20..zone)
-                        .is_some_and(|v| v.iter().all(u8::is_ascii_digit))))
-            && (bytes.last() == Some(&b'Z')
-                || (matches!(bytes.get(zone), Some(b'+' | b'-'))
-                    && bytes.get(zone + 3) == Some(&b':')
-                    && bytes.get(zone + 1..).is_some_and(|v| {
-                        v.iter()
-                            .enumerate()
-                            .all(|(i, b)| i == 2 || b.is_ascii_digit())
-                    })))
-    } else {
-        false
-    };
-    let err = |format: bool| {
-        validation(format!(
-            "Invalid date{} for {flag}: \"{value}\"",
-            if format { " format" } else { "" }
-        ))
-        .with_hint(DATE_SUGGESTION)
-    };
-    if !date_shape || !time_shape {
-        return Err(err(true));
-    }
-    let number = |start: usize, end: usize| {
-        value
-            .get(start..end)
-            .and_then(|s| s.parse::<u32>().ok())
-            .ok_or_else(|| err(false))
-    };
-    let year = i32::try_from(number(0, 4)?).map_err(|_| err(false))?;
-    let date =
-        NaiveDate::from_ymd_opt(year, number(5, 7)?, number(8, 10)?).ok_or_else(|| err(false))?;
-    let (hour, minute, second, millis, offset) = if value.len() == 10 {
-        (0, 0, 0, 0, 0)
-    } else {
-        let zone_start = if value.ends_with('Z') {
-            value.len() - 1
-        } else {
-            value.len() - 6
-        };
-        let fraction = value.get(19..zone_start).ok_or_else(|| err(false))?;
-        let mut digits = fraction
-            .strip_prefix('.')
-            .unwrap_or("")
-            .chars()
-            .take(3)
-            .collect::<String>();
-        while digits.len() < 3 {
-            digits.push('0');
-        }
-        let millis = digits.parse::<u32>().map_err(|_| err(false))?;
-        let offset = if value.ends_with('Z') {
-            0
-        } else {
-            let h = number(zone_start + 1, zone_start + 3)?;
-            let m = number(zone_start + 4, zone_start + 6)?;
-            if h > 23 || m > 59 {
-                return Err(err(false));
-            }
-            let seconds = i32::try_from(h * 3600 + m * 60).map_err(|_| err(false))?;
-            if value.as_bytes().get(zone_start) == Some(&b'-') {
-                -seconds
-            } else {
-                seconds
-            }
-        };
-        (
-            number(11, 13)?,
-            number(14, 16)?,
-            number(17, 19)?,
-            millis,
-            offset,
-        )
-    };
-    let local = date
-        .and_hms_milli_opt(hour, minute, second, millis)
-        .ok_or_else(|| err(false))?;
-    let utc = FixedOffset::east_opt(offset)
-        .and_then(|offset| offset.from_local_datetime(&local).single())
-        .ok_or_else(|| err(false))?
-        .with_timezone(&Utc);
-    if !(0..=9999).contains(&utc.year()) {
-        return Err(err(true));
-    }
-    Ok(DateTimeOrDuration(format!(
-        "{}Z",
-        utc.format("%Y-%m-%dT%H:%M:%S%.3f")
-    )))
-}
+/// Filters on issues created or updated at or after the given times.
 pub fn apply_dates(
     filter: &mut IssueFilter,
-    created: Option<&str>,
-    updated: Option<&str>,
-) -> Result<(), Error> {
-    if let Some(value) = created.filter(|s| !s.is_empty()) {
-        filter.created_at = Some(DateComparator {
-            gte: Some(date_filter(value, "--created-after")?),
-        });
+    created: Option<DateTime<Utc>>,
+    updated: Option<DateTime<Utc>>,
+) {
+    let at_or_after = |time: DateTime<Utc>| DateComparator {
+        gte: Some(DateTimeOrDuration(
+            time.to_rfc3339_opts(SecondsFormat::Millis, true),
+        )),
+    };
+    if let Some(time) = created {
+        filter.created_at = Some(at_or_after(time));
     }
-    if let Some(value) = updated.filter(|s| !s.is_empty()) {
-        filter.updated_at = Some(DateComparator {
-            gte: Some(date_filter(value, "--updated-after")?),
-        });
+    if let Some(time) = updated {
+        filter.updated_at = Some(at_or_after(time));
     }
-    Ok(())
 }
 pub fn team_filter(keys: &[String], mine: bool) -> TeamFilter {
     TeamFilter {

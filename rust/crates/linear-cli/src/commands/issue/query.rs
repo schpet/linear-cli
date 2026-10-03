@@ -116,11 +116,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             if search.is_some() { None } else { milestone },
             &args.label,
         );
-        read::apply_dates(
-            &mut filter,
-            args.created_after.as_deref(),
-            args.updated_after.as_deref(),
-        )?;
+        read::apply_dates(&mut filter, args.created_after, args.updated_after);
         // A filter without any condition is sent as no filter at all.
         let empty = serde_json::to_value(&filter)
             .expect("filters always serialize")
