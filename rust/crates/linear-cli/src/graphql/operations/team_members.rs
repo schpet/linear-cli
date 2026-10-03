@@ -1,7 +1,7 @@
 //! The typed `GetTeamMembers` selection used by `team members`.
 use serde::Serialize;
 
-use crate::graphql::scalars::DateTime;
+use super::organization_members::User;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -42,29 +42,6 @@ pub struct Team {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct MemberConnection {
-    pub nodes: Vec<Member>,
+    pub nodes: Vec<User>,
     pub page_info: super::teams::PageInfo,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
-#[cynic(schema = "linear", graphql_type = "User")]
-#[serde(rename_all = "camelCase")]
-pub struct Member {
-    pub id: cynic::Id,
-    pub name: String,
-    pub display_name: String,
-    pub email: String,
-    pub active: bool,
-    pub initials: String,
-    pub description: Option<String>,
-    pub timezone: Option<String>,
-    pub last_seen: Option<DateTime>,
-    pub status_emoji: Option<String>,
-    pub status_label: Option<String>,
-    pub guest: bool,
-    pub is_assignable: bool,
-    pub admin: bool,
-    pub owner: bool,
-    pub is_me: bool,
-    pub url: String,
 }

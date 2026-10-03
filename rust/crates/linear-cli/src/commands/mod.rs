@@ -8,7 +8,6 @@ pub mod completions;
 pub mod config_generate;
 pub mod confirm;
 pub mod cycle;
-pub mod display;
 pub mod document;
 pub mod initiative;
 pub mod initiative_update;

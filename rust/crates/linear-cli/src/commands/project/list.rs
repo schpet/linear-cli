@@ -7,9 +7,8 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::project::ProjectList;
-use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table::{self, underlined_header};
+use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -64,14 +63,10 @@ fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
     })?;
     if args.json {
         ctx.print(render_json(&projects, &page_info))
+    } else if projects.is_empty() {
+        ctx.print("No projects found.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(
-            &projects,
-            SystemTime::now(),
-            columns,
-            ctx.color(),
-        ))
+        ctx.print(render_text(&projects, SystemTime::now()).render_for(ctx))
     }
 }
 
@@ -257,100 +252,33 @@ fn display_date(project: &Project, now: SystemTime) -> String {
     }
 }
 
-fn render_text(projects: &[Project], now: SystemTime, columns: usize, color: bool) -> String {
-    if projects.is_empty() {
-        return "No projects found.\n".to_owned();
+fn render_text(projects: &[Project], now: SystemTime) -> Table {
+    let mut table = Table::new([
+        Column::fixed("SLUG"),
+        Column::flexible("NAME"),
+        Column::fixed("STATUS"),
+        Column::fixed("PRIORITY"),
+        Column::fixed("HEALTH"),
+        Column::fixed("LEAD"),
+        Column::fixed("TEAMS"),
+        Column::fixed("DATE"),
+    ]);
+    for project in projects {
+        let hex = project.status.color.clone();
+        table.row([
+            Cell::from(project.slug_id.as_str()),
+            Cell::from(project.name.as_str()),
+            Cell::styled(project.status.name.as_str(), move |text, on| {
+                style::rgb(text, &hex, on)
+            }),
+            Cell::from(priority_label(project.priority)),
+            Cell::from(health(project)),
+            Cell::from(lead(project)),
+            Cell::from(teams(project)),
+            Cell::styled(display_date(project, now), style::gray),
+        ]);
     }
-    let dates: Vec<_> = projects
-        .iter()
-        .map(|project| display_date(project, now))
-        .collect();
-    let slug_width = projects
-        .iter()
-        .map(|project| display_width(&project.slug_id))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let status_width = projects
-        .iter()
-        .map(|project| display_width(&project.status.name))
-        .max()
-        .unwrap_or(0)
-        .max(6);
-    let priority_width = projects
-        .iter()
-        .map(|project| display_width(&priority_label(project.priority)))
-        .max()
-        .unwrap_or(0)
-        .max(8);
-    let health_width = projects
-        .iter()
-        .map(|project| display_width(health(project)))
-        .max()
-        .unwrap_or(0)
-        .max(6);
-    let lead_width = projects
-        .iter()
-        .map(|project| display_width(lead(project)))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let team_width = projects
-        .iter()
-        .map(|project| display_width(&teams(project)))
-        .max()
-        .unwrap_or(0)
-        .max(5);
-    let date_width = dates
-        .iter()
-        .map(|date| display_width(date))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let fixed = slug_width
-        + status_width
-        + priority_width
-        + health_width
-        + lead_width
-        + team_width
-        + date_width
-        + 4;
-    let max_name_width = projects
-        .iter()
-        .map(|project| display_width(&project.name))
-        .max()
-        .unwrap_or(0);
-    let name_width = flexible_width(
-        max_name_width,
-        columns.saturating_sub(1).saturating_sub(fixed),
-    );
-    let headers = [
-        pad("SLUG", slug_width),
-        pad("NAME", name_width),
-        pad("STATUS", status_width),
-        pad("PRIORITY", priority_width),
-        pad("HEALTH", health_width),
-        pad("LEAD", lead_width),
-        pad("TEAMS", team_width),
-        pad("DATE", date_width),
-    ];
-    let mut output = underlined_header(&headers, color);
-    for (project, date) in projects.iter().zip(dates) {
-        let slug = pad(&project.slug_id, slug_width);
-        let name = fit(&project.name, name_width);
-        let status = pad(&project.status.name, status_width);
-        let priority = pad(&priority_label(project.priority), priority_width);
-        let health = pad(health(project), health_width);
-        let lead = pad(lead(project), lead_width);
-        let teams = pad(&teams(project), team_width);
-        let date = pad(&date, date_width);
-        let status = hex_color(&status, &project.status.color, color);
-        let date = style::gray(&date, color);
-        output.push_str(&format!(
-            "{slug} {name} {status} {priority} {health} {lead} {teams} {date}\n"
-        ));
-    }
-    output
+    table
 }
 
 fn health(project: &Project) -> &str {
@@ -382,29 +310,5 @@ fn teams(project: &Project) -> String {
         "-".to_owned()
     } else {
         teams
-    }
-}
-
-/// Paints `text` in a Linear color like `#5e6ad2`; other values leave it plain.
-fn hex_color(text: &str, hex: &str, enabled: bool) -> String {
-    let rgb = hex.strip_prefix('#').and_then(|digits| {
-        let channel = |range| u8::from_str_radix(digits.get(range)?, 16).ok();
-        match digits.len() {
-            6 => Some((channel(0..2)?, channel(2..4)?, channel(4..6)?)),
-            3 => Some((
-                channel(0..1)? * 17,
-                channel(1..2)? * 17,
-                channel(2..3)? * 17,
-            )),
-            _ => None,
-        }
-    });
-    match rgb {
-        Some((red, green, blue)) if enabled => console::Style::new()
-            .true_color(red, green, blue)
-            .force_styling(true)
-            .apply_to(text)
-            .to_string(),
-        Some(_) | None => text.to_owned(),
     }
 }

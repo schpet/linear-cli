@@ -4,8 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::label::LabelList;
-use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::commands::table;
+use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -19,10 +18,6 @@ use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
 
-const ID_WIDTH: usize = 36;
-const COLOR_WIDTH: usize = 7;
-const SPACE_WIDTH: usize = 6;
-const PADDING: usize = 1;
 const WORKSPACE: &str = "Workspace";
 
 /// Which labels to list.
@@ -70,9 +65,10 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
     });
     if args.json {
         ctx.print(render_json(&labels, &page_info))
+    } else if labels.is_empty() {
+        ctx.print("No labels found.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(&labels, columns, ctx.color()))
+        ctx.print(render_text(&labels).render_for(ctx))
     }
 }
 
@@ -171,40 +167,23 @@ fn team_display(label: &IssueLabel) -> &str {
         .unwrap_or(WORKSPACE)
 }
 
-fn render_text(labels: &[IssueLabel], columns: usize, color: bool) -> String {
-    if labels.is_empty() {
-        return "No labels found.\n".to_owned();
-    }
-    let team_width = labels
-        .iter()
-        .map(|label| display_width(team_display(label)))
-        .max()
-        .unwrap_or(0)
-        .clamp(4, 15);
-    let fixed = ID_WIDTH + COLOR_WIDTH + team_width + SPACE_WIDTH;
-    let max_name_width = labels
-        .iter()
-        .map(|label| display_width(&label.name))
-        .max()
-        .unwrap_or(0);
-    let available_width = columns.saturating_sub(PADDING + fixed);
-    let name_width = flexible_width(max_name_width, available_width);
-
-    let header = [
-        pad("ID", ID_WIDTH),
-        pad("NAME", name_width),
-        pad("COLOR", COLOR_WIDTH),
-        pad("TEAM", team_width),
-    ];
-    let mut output = format!("{}\n", style::underline(&header.join(" "), color));
-
+fn render_text(labels: &[IssueLabel]) -> Table {
+    let mut table = Table::new([
+        Column::fixed("ID"),
+        Column::flexible("NAME"),
+        Column::fixed("COLOR"),
+        Column::fixed("TEAM"),
+    ]);
     for label in labels {
-        let id = pad(label.id.inner(), ID_WIDTH);
-        let name = fit(&label.name, name_width);
-        let label_color = pad(&label.color, COLOR_WIDTH);
-        let team = pad(team_display(label), team_width);
-        output.push_str(&format!("{id} {name} {label_color} {team}\n"));
+        let hex = label.color.clone();
+        table.row([
+            Cell::from(label.id.inner()),
+            Cell::from(label.name.as_str()),
+            Cell::styled(label.color.as_str(), move |text, on| {
+                style::rgb(text, &hex, on)
+            }),
+            Cell::from(team_display(label)),
+        ]);
     }
-    output.push_str(&format!("\n{} labels found.\n", labels.len()));
-    output
+    table
 }

@@ -364,26 +364,25 @@ fn both_lists_render_the_same_table() {
     };
     let initiative = lines(&initiative);
     let project = lines(&project);
-    assert_eq!(initiative[0], "Status updates for Roadmap");
-    assert!(
-        initiative[2].starts_with("ID       HEALTH"),
-        "{initiative:?}"
+    let cells = |line: &str| -> Vec<String> {
+        line.split("  ")
+            .map(str::trim)
+            .filter(|cell| !cell.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    assert_eq!(
+        cells(&initiative[0]),
+        ["DATE", "HEALTH", "AUTHOR", "UPDATE"]
     );
-    assert!(
-        initiative[3].starts_with("update-1 On Track"),
-        "{initiative:?}"
+    assert_eq!(
+        cells(&initiative[1])[1..],
+        ["On Track", "Ada", "Shipped the beta"]
     );
-    assert!(initiative[3].ends_with(" Ada"), "{initiative:?}");
-    assert_eq!(initiative[4], "  Shipped the beta");
-    assert!(
-        initiative[5].starts_with("update-0 At Risk "),
-        "{initiative:?}"
-    );
-    assert!(initiative[5].ends_with(" -"), "{initiative:?}");
-    assert_eq!(project[0], "Status updates for Mobile");
-    assert!(project[3].starts_with("update-2 On Track"), "{project:?}");
-    assert!(project[3].ends_with(" ada"), "{project:?}");
-    assert_eq!(project[4], "  Beta is out");
+    assert_eq!(cells(&initiative[2])[1..], ["At Risk", "-", "Kickoff"]);
+    assert_eq!(initiative.len(), 3, "{initiative:?}");
+    assert_eq!(cells(&project[0]), cells(&initiative[0]));
+    assert_eq!(cells(&project[1])[1..], ["On Track", "ada", "Beta is out"]);
 }
 
 #[test]

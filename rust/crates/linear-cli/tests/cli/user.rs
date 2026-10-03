@@ -99,7 +99,7 @@ fn list_reports_graphql_errors() {
 }
 
 #[test]
-fn list_text_shows_member_details_and_markers() {
+fn list_text_is_a_table_of_members() {
     let api = MockLinear::start();
     let mut rich = member("rich", "Rich Person", true);
     rich["displayName"] = json!("");
@@ -120,7 +120,8 @@ fn list_text_shows_member_details_and_markers() {
     run.success();
     assert_eq!(
         run.stdout,
-        "Workspace Members (1):\n\nRich Person [XX] (guest) (not assignable) (admin) (owner) (you)\n  Email: rich@example.com\n  Role: Engineer\n  Timezone: America/Los_Angeles\n  Status: 🌿 Away\n\n"
+        "NAME               USERNAME  EMAIL             ROLE   LAST SEEN\n\
+         Rich Person (you)            rich@example.com  Owner\n"
     );
 }
 

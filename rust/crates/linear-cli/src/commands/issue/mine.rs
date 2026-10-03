@@ -101,15 +101,7 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
         read::mine(client, filter, priority, args.limit.0).await
     })?;
     let rows = rows.into_iter().map(TableRow::from).collect::<Vec<_>>();
-    let table = read::table(
-        &rows,
-        true,
-        false,
-        false,
-        read::table_columns(ctx),
-        ctx.color(),
-        SystemTime::now(),
-    )?;
+    let table = read::table(&rows, false, false, SystemTime::now());
     read::print_table(ctx, &table, !args.no_pager)
 }
 

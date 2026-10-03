@@ -4,8 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::cycle::CycleList;
-use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::commands::table;
+use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::team_or_configured;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -32,9 +31,10 @@ fn list(ctx: &Ctx, args: &CycleList) -> Result<()> {
     })?;
     if args.json {
         ctx.print(render_json(&cycles, &page_info))
+    } else if cycles.is_empty() {
+        ctx.print("No cycles found for this team.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(&cycles, columns, ctx.color()))
+        ctx.print(render_text(&cycles).render_for(ctx))
     }
 }
 
@@ -145,54 +145,31 @@ fn date_prefix(date: &str) -> String {
     date.chars().take(10).collect()
 }
 
-fn render_text(nodes: &[cycles::Cycle], columns: usize, color: bool) -> String {
-    if nodes.is_empty() {
-        return "No cycles found for this team.\n".to_owned();
-    }
-    let numbers: Vec<String> = nodes.iter().map(|cycle| cycle.number.to_string()).collect();
-    let names: Vec<_> = nodes
-        .iter()
-        .zip(&numbers)
-        .map(|(cycle, number)| cycle_name(cycle, number))
-        .collect();
-    let number_width = numbers.iter().map(String::len).max().unwrap_or(0).max(1);
-    let fixed = number_width + 10 + 10 + 9 + 4;
-    let available = columns.saturating_sub(1).saturating_sub(fixed);
-    let max_name_width = names
-        .iter()
-        .map(|name| display_width(name))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let name_width = flexible_width(max_name_width, available);
-    let header = [
-        pad("#", number_width),
-        pad("NAME", name_width),
-        pad("START", 10),
-        pad("END", 10),
-        pad("STATUS", 9),
-    ]
-    .join(" ");
-    let mut output = format!(
-        "{}\n",
-        style::bold(&style::underline(&header, color), color)
-    );
-    for ((cycle, number), name) in nodes.iter().zip(&numbers).zip(&names) {
-        let label = pad(status(cycle), 9);
-        let styled = if cycle.is_active {
-            style::green(&label, color)
+fn render_text(nodes: &[cycles::Cycle]) -> Table {
+    let mut table = Table::new([
+        Column::fixed("#"),
+        Column::flexible("NAME"),
+        Column::fixed("START"),
+        Column::fixed("END"),
+        Column::fixed("STATUS"),
+    ]);
+    for cycle in nodes {
+        let number = cycle.number.to_string();
+        let name = cycle_name(cycle, &number);
+        let status = if cycle.is_active {
+            Cell::styled(status(cycle), style::green)
         } else if cycle.is_past || cycle.completed_at.is_some() {
-            style::gray(&label, color)
+            Cell::styled(status(cycle), style::gray)
         } else {
-            label
+            Cell::from(status(cycle))
         };
-        output.push_str(&format!(
-            "{} {} {} {} {styled}\n",
-            pad(number, number_width),
-            fit(name, name_width),
-            pad(&date_prefix(&cycle.starts_at.0), 10),
-            pad(&date_prefix(&cycle.ends_at.0), 10),
-        ));
+        table.row([
+            Cell::from(number),
+            Cell::from(name),
+            Cell::from(date_prefix(&cycle.starts_at.0)),
+            Cell::from(date_prefix(&cycle.ends_at.0)),
+            status,
+        ]);
     }
-    output
+    table
 }

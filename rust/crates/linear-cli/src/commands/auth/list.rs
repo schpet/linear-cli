@@ -5,7 +5,7 @@ use futures_util::future::join_all;
 use reqwest::StatusCode;
 
 use crate::auth::{self, CredentialStore};
-use crate::commands::display::{display_width, pad};
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, graphql_message};
@@ -14,8 +14,6 @@ use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::style;
 
 const EMPTY: &str = "No workspaces configured\nRun `linear auth login` to add a workspace\n";
-const WORKSPACE_HEADER: &str = "WORKSPACE";
-const ORG_HEADER: &str = "ORG NAME";
 
 struct Row {
     workspace: String,
@@ -61,7 +59,7 @@ fn list(ctx: &Ctx) -> Result<()> {
             outcome,
         })
         .collect();
-    ctx.print(render(&rows, ctx.color()))
+    ctx.print(render(rows).render_for(ctx))
 }
 
 /// A client per stored workspace, or why its key cannot be used.
@@ -128,45 +126,28 @@ fn failure_cell(failure: &TransportFailure) -> String {
     }
 }
 
-fn org_cell(row: &Row) -> &str {
-    match &row.outcome {
-        Outcome::Viewer { organization, .. } => organization,
-        Outcome::Failed(reason) => reason,
-    }
-}
-
-fn render(rows: &[Row], color: bool) -> String {
-    let workspace_width = rows
-        .iter()
-        .map(|row| display_width(&row.workspace))
-        .fold(display_width(WORKSPACE_HEADER), usize::max);
-    let org_width = rows
-        .iter()
-        .map(|row| display_width(org_cell(row)))
-        .fold(display_width(ORG_HEADER), usize::max);
-    let header = format!(
-        "  {} {} USER",
-        pad(WORKSPACE_HEADER, workspace_width),
-        pad(ORG_HEADER, org_width)
-    );
-    let mut output = format!("{}\n", style::underline(&header, color));
+/// One row per workspace; `*` marks the default.
+fn render(rows: Vec<Row>) -> Table {
+    let mut table = Table::new([
+        Column::fixed(""),
+        Column::fixed("WORKSPACE"),
+        Column::flexible("ORGANIZATION"),
+        Column::flexible("USER"),
+    ]);
     for row in rows {
-        let marker = if row.is_default { "* " } else { "  " };
-        let workspace = pad(&row.workspace, workspace_width);
-        match &row.outcome {
+        let marker = Cell::from(if row.is_default { "*" } else { "" });
+        let (organization, user) = match row.outcome {
             Outcome::Viewer {
                 organization,
                 name,
                 email,
-            } => output.push_str(&format!(
-                "{marker}{workspace} {} {name} <{email}>\n",
-                pad(organization, org_width)
-            )),
-            Outcome::Failed(reason) => output.push_str(&format!(
-                "{marker}{workspace} {}\n",
-                style::red(&pad(reason, org_width), color)
-            )),
-        }
+            } => (
+                Cell::from(organization),
+                Cell::from(format!("{name} <{email}>")),
+            ),
+            Outcome::Failed(reason) => (Cell::styled(reason, style::red), Cell::from("")),
+        };
+        table.row([marker, Cell::from(row.workspace), organization, user]);
     }
-    output
+    table
 }

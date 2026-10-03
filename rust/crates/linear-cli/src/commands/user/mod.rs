@@ -1,5 +1,5 @@
 //! `linear user`: workspace members.
-mod list;
+pub mod list;
 
 use crate::cli::user::UserCommand;
 use crate::ctx::Ctx;

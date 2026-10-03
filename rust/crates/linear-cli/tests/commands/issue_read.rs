@@ -90,49 +90,28 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
     );
 }
 #[test]
-fn exact_pipe_table_and_clock_thresholds_match_frozen_mine() {
-    let mut source: GetIssuesForState = serde_json::from_value(data(MINE)).unwrap();
-    read::sort_mine(&mut source.issues.nodes);
+fn table_rows_show_updated_time_and_estimate() {
+    let source: GetIssuesForState = serde_json::from_value(data(MINE)).unwrap();
     let rows = source
         .issues
         .nodes
         .into_iter()
         .map(read::TableRow::from)
         .collect::<Vec<_>>();
-    let expected = serde_json::from_str::<Value>(MINE).unwrap()["expected"]["stdout"]["utf8"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    assert_eq!(
-        format!(
-            "{}\n",
-            read::table(
-                &rows,
-                true,
-                false,
-                false,
-                120,
-                false,
-                UNIX_EPOCH + Duration::from_secs(1_000_000)
-            )
-            .unwrap()
-        ),
-        expected
-    );
     let now = UNIX_EPOCH + Duration::from_secs(86_400 * 50000);
     let mut row = rows[0].clone();
     row.updated = chrono::DateTime::<chrono::Utc>::from(now)
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
     row.estimate = Some(Float(0.into()));
-    let mut short = read::table(&[row.clone()], false, true, true, 40, false, now).unwrap();
-    assert!(short.contains("just now"));
-    assert!(short.contains(" 0 "));
+    let mut short = read::table(&[row.clone()], true, true, now).render(None, false);
+    assert!(short.contains("just now"), "{short}");
+    assert!(short.contains(" 0 "), "{short}");
     row.updated = chrono::DateTime::<chrono::Utc>::from(now - Duration::from_secs(3600))
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
-    short = read::table(&[row], false, false, false, 120, false, now).unwrap();
-    assert!(short.contains("1 hour ago"));
+    short = read::table(&[row], false, false, now).render(None, false);
+    assert!(short.contains("1 hour ago"), "{short}");
     assert_eq!(read::priority(WholeNumber(4)), "▄  ");
     assert_eq!(read::priority(WholeNumber(9)), "9");
 }

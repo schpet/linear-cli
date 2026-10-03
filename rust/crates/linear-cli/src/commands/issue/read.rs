@@ -1,4 +1,8 @@
 //! Command-local issue read filters, lookups, pagination and presentation.
+use std::time::SystemTime;
+
+use crate::commands::relative_time;
+use crate::commands::table::{Cell, Column, Table};
 use crate::error::Error;
 use crate::graphql::operations::number::{Float, WholeNumber};
 use crate::graphql::scalars::DateTimeOrDuration;
@@ -8,6 +12,7 @@ use crate::graphql::{
     operations::issue_read::*,
     transport::{GraphQlTransport, classify_typed},
 };
+use crate::platform::style;
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
 use cynic::QueryBuilder;
@@ -671,37 +676,46 @@ pub fn priority(value: WholeNumber) -> String {
         n => n.to_string(),
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CycleKind {
+    None,
+    Past,
+    Active,
+    Future,
+}
+
+/// The issue's cycle relative to the team's active one: `now`, `+1`, `-2`,
+/// or `#7` when the team has no active cycle.
 pub fn cycle_short(
     cycle: Option<&GetIssuesForStateIssuesNodesCycle>,
     anchor: Option<WholeNumber>,
-) -> (String, &'static str) {
+) -> (String, CycleKind) {
     let Some(c) = cycle else {
-        return ("-".to_owned(), "none");
+        return ("-".to_owned(), CycleKind::None);
     };
     if c.is_active {
-        return ("now".to_owned(), "active");
+        return ("now".to_owned(), CycleKind::Active);
     }
     if c.is_next {
-        return ("+1".to_owned(), "future");
+        return ("+1".to_owned(), CycleKind::Future);
     }
     if c.is_previous {
-        return ("-1".to_owned(), "past");
+        return ("-1".to_owned(), CycleKind::Past);
     }
     if let Some(anchor) = anchor {
         let offset = i64::from(c.number.0) - i64::from(anchor.0);
-        return if offset == 0 {
-            ("now".to_owned(), "active")
-        } else {
-            (
-                format!("{}{offset}", if offset > 0 { "+" } else { "" }),
-                if offset > 0 { "future" } else { "past" },
-            )
+        return match offset.cmp(&0) {
+            std::cmp::Ordering::Equal => ("now".to_owned(), CycleKind::Active),
+            std::cmp::Ordering::Greater => (format!("+{offset}"), CycleKind::Future),
+            std::cmp::Ordering::Less => (offset.to_string(), CycleKind::Past),
         };
     }
-    (
-        format!("#{}", c.number),
-        if c.is_past { "past" } else { "future" },
-    )
+    let kind = if c.is_past {
+        CycleKind::Past
+    } else {
+        CycleKind::Future
+    };
+    (format!("#{}", c.number), kind)
 }
 #[derive(Clone, Debug)]
 pub struct TableRow {
@@ -789,203 +803,55 @@ impl From<SearchIssuesSearchIssuesNodes> for TableRow {
         }
     }
 }
-fn style(text: &str, code: &str, color: bool) -> String {
-    if color {
-        format!(
-            "\x1b[{code}m{text}\x1b[{}m",
-            if code == "1" {
-                "22"
-            } else if code == "4" {
-                "24"
-            } else {
-                "39"
-            }
-        )
-    } else {
-        text.to_owned()
-    }
-}
-fn rgb(text: &str, color: &str, enabled: bool) -> String {
-    if enabled {
-        let start = crate::commands::table::terminal_color(color)
-            .unwrap_or_else(|| "\x1b[38;2;0;0;0m".to_owned());
-        format!("{start}{text}\x1b[39m")
-    } else {
-        text.to_owned()
-    }
-}
-pub fn table(
-    rows: &[TableRow],
-    mine: bool,
-    team: bool,
-    assignee: bool,
-    columns: usize,
-    color: bool,
-    now: std::time::SystemTime,
-) -> Result<String, Error> {
-    use crate::commands::display::{display_width, pad, truncate_text};
-    if rows.is_empty() {
-        return Ok("No issues found.".to_owned());
-    }
-    let id = rows
-        .iter()
-        .map(|r| display_width(&r.identifier))
-        .max()
-        .unwrap_or(2)
-        .max(2);
-    let tw = if team {
-        rows.iter()
-            .map(|r| display_width(&r.team))
-            .max()
-            .unwrap_or(4)
-            .max(4)
-    } else {
-        0
-    };
-    let lw = rows
-        .iter()
-        .map(|r| {
-            display_width(
-                &r.labels
-                    .iter()
-                    .map(|l| l.name.clone())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            )
-        })
-        .max()
-        .unwrap_or(6)
-        .clamp(6, 25);
+/// Issues as a table. `team` adds the team column and `assignee` the
+/// assignee initials.
+pub fn table(rows: &[TableRow], team: bool, assignee: bool, now: SystemTime) -> Table {
     let show_cycle = rows.iter().any(|r| r.cycle.is_some() || r.cycles_enabled);
-    let cycles = rows
-        .iter()
-        .map(|r| cycle_short(r.cycle.as_ref(), r.anchor))
-        .collect::<Vec<_>>();
-    let cw = if show_cycle {
-        cycles
-            .iter()
-            .map(|c| display_width(&c.0))
-            .max()
-            .unwrap_or(3)
-            .max(3)
-    } else {
-        0
-    };
-    let aw = if assignee { 2 } else { 0 };
-    let sw = rows
-        .iter()
-        .map(|r| display_width(&r.state_name))
-        .max()
-        .unwrap_or(5)
-        .clamp(5, 20);
-    let times = rows
-        .iter()
-        .map(|r| {
-            crate::commands::relative_time::format_relative_time(
-                &r.updated,
-                now.into(),
-                &chrono::Local,
-            )
-        })
-        .collect::<Vec<_>>();
-    let uw = times
-        .iter()
-        .map(|t| display_width(t))
-        .max()
-        .unwrap_or(7)
-        .max(7);
-    let fixed_cells = 7 + usize::from(team) + usize::from(show_cycle) + usize::from(assignee);
-    let fixed = 3
-        + id
-        + tw
-        + lw
-        + 1
-        + 1
-        + cw
-        + aw
-        + sw
-        + uw
-        + if mine {
-            9 + usize::from(show_cycle)
-        } else {
-            fixed_cells + 1
-        };
-    let title = rows
-        .iter()
-        .map(|r| display_width(&r.title))
-        .max()
-        .unwrap_or(0)
-        .min(columns.saturating_sub(fixed))
-        .max(if mine { 0 } else { 10 });
-    let mut headers = vec![pad("◌", 3), pad("ID", id)];
+    let mut columns = vec![Column::fixed("◌"), Column::fixed("ID")];
     if team {
-        headers.push(pad("TEAM", tw));
+        columns.push(Column::fixed("TEAM"));
     }
-    headers.extend([
-        pad("TITLE", title),
-        pad("LABELS", lw),
-        "B".to_owned(),
-        "E".to_owned(),
+    columns.extend([
+        Column::flexible("TITLE"),
+        Column::flexible("LABELS"),
+        Column::fixed("B"),
+        Column::fixed("E"),
     ]);
     if show_cycle {
-        headers.push(pad("CYC", cw));
+        columns.push(Column::fixed("CYC"));
     }
     if assignee {
-        headers.push("A ".to_owned());
+        columns.push(Column::fixed("A"));
     }
-    headers.extend([pad("STATE", sw), pad("UPDATED", uw)]);
-    let mut lines = vec![style(&style(&headers.join(" "), "4", color), "1", color)];
-    for (i, r) in rows.iter().enumerate() {
-        let mut cells = vec![pad(&priority(r.priority), 3), pad(&r.identifier, id)];
+    columns.extend([Column::fixed("STATE"), Column::fixed("UPDATED")]);
+    let mut table = Table::new(columns);
+    for r in rows {
+        let mut cells = vec![
+            Cell::from(priority(r.priority)),
+            Cell::from(r.identifier.as_str()),
+        ];
         if team {
-            cells.push(pad(&r.team, tw));
+            cells.push(Cell::from(r.team.as_str()));
         }
-        cells.push(pad(&truncate_text(&r.title, title), title));
-        let mut label = String::new();
-        let mut used = 0;
-        for (index, l) in r.labels.iter().enumerate() {
-            let sep = if index == 0 { "" } else { ", " };
-            let width = display_width(sep) + display_width(&l.name);
-            if used + width > lw {
-                let remaining = lw - used;
-                if remaining >= 4 {
-                    let truncated = truncate_text(&l.name, remaining.saturating_sub(sep.len()));
-                    label.push_str(sep);
-                    label.push_str(&rgb(&truncated, &l.color, color));
-                    used += sep.len() + display_width(&truncated);
-                }
-                break;
-            }
-            label.push_str(sep);
-            label.push_str(&rgb(&l.name, &l.color, color));
-            used += width;
-        }
-        label.push_str(&" ".repeat(lw.saturating_sub(used)));
-        cells.push(label);
+        cells.push(Cell::from(r.title.as_str()));
+        cells.push(labels_cell(&r.labels));
         cells.push(if r.blocked {
-            style("⊘", "33", color)
+            Cell::styled("⊘", style::yellow)
         } else {
-            " ".to_owned()
+            Cell::from("")
         });
-        cells.push(
+        cells.push(Cell::from(
             r.estimate
                 .as_ref()
                 .map_or_else(|| "-".to_owned(), ToString::to_string),
-        );
+        ));
         if show_cycle {
-            let (c, kind) = cycles
-                .get(i)
-                .ok_or_else(|| Error::new("Missing cycle display"))?;
-            cells.push(format!(
-                "{}{}",
-                match *kind {
-                    "active" => style(c, "32", color),
-                    "past" | "none" => style(c, "90", color),
-                    "future" => c.clone(),
-                    _ => return Err(Error::new("Unknown cycle display kind")),
-                },
-                " ".repeat(cw.saturating_sub(display_width(c)))
-            ));
+            let (text, kind) = cycle_short(r.cycle.as_ref(), r.anchor);
+            cells.push(match kind {
+                CycleKind::Active => Cell::styled(text, style::green),
+                CycleKind::Past | CycleKind::None => Cell::styled(text, style::gray),
+                CycleKind::Future => Cell::from(text),
+            });
         }
         if assignee {
             let initials = r
@@ -993,28 +859,63 @@ pub fn table(
                 .as_deref()
                 .filter(|s| !s.is_empty())
                 .unwrap_or("-");
-            let initial = initials.chars().take(2).collect::<String>();
-            cells.push(pad(&initial, aw));
+            cells.push(Cell::from(initials.chars().take(2).collect::<String>()));
         }
-        let state = truncate_text(&r.state_name, sw);
-        cells.push(format!(
-            "{}{}",
-            rgb(&state, &r.state_color, color),
-            " ".repeat(sw.saturating_sub(display_width(&state)))
+        let state_color = r.state_color.clone();
+        cells.push(Cell::styled(r.state_name.as_str(), move |text, on| {
+            style::rgb(text, &state_color, on)
+        }));
+        cells.push(Cell::styled(
+            relative_time::format_relative_time(&r.updated, now.into(), &chrono::Local),
+            style::gray,
         ));
-        cells.push(style(
-            &pad(
-                times
-                    .get(i)
-                    .ok_or_else(|| Error::new("Missing time display"))?,
-                uw,
-            ),
-            "90",
-            color,
-        ));
-        lines.push(cells.join(" "));
+        table.row(cells);
     }
-    Ok(lines.join("\n"))
+    table
+}
+
+/// The labels, comma separated, each in its own color.
+fn labels_cell(labels: &[GetIssuesForStateIssuesNodesLabelsNodes]) -> Cell {
+    let mut text = String::new();
+    let mut spans = Vec::new();
+    for label in labels {
+        if !text.is_empty() {
+            text.push_str(", ");
+        }
+        spans.push((
+            text.len()..text.len() + label.name.len(),
+            label.color.clone(),
+        ));
+        text.push_str(&label.name);
+    }
+    let full = text.clone();
+    Cell::styled(text, move |shown, on| {
+        // `shown` is a prefix of the full text, possibly cut and padded.
+        let kept = shown
+            .char_indices()
+            .zip(full.chars())
+            .take_while(|((_, left), right)| left == right)
+            .last()
+            .map_or(0, |((index, ch), _)| index + ch.len_utf8());
+        let mut painted = String::new();
+        let mut done = 0;
+        for (span, hex) in &spans {
+            let end = span.end.min(kept);
+            if span.start >= end {
+                break;
+            }
+            let slice = |range: std::ops::Range<usize>| {
+                shown
+                    .get(range)
+                    .expect("label boundaries fall on characters shared with the full text")
+            };
+            painted.push_str(slice(done..span.start));
+            painted.push_str(&style::rgb(slice(span.start..end), hex, on));
+            done = end;
+        }
+        painted.push_str(shown.get(done..).expect("done is a character boundary"));
+        painted
+    })
 }
 
 /// Refuse menu text the selector cannot display (control characters).
@@ -1139,20 +1040,15 @@ pub(super) fn priority_sort(ctx: &crate::ctx::Ctx, sort: Option<crate::cli::Sort
     ctx.options().issue_sort(value).0 == IssueSort::Priority
 }
 
-/// Prints an issue table, through the pager on a terminal.
-pub(super) fn print_table(ctx: &crate::ctx::Ctx, table: &str, paging: bool) -> Result<(), Error> {
-    if ctx.stdout_tty() {
-        ctx.page(table, paging)
-    } else {
-        ctx.print(format!("{table}\n"))
+/// Prints issues as a table, through the pager on a terminal.
+pub(super) fn print_table(ctx: &crate::ctx::Ctx, table: &Table, paging: bool) -> Result<(), Error> {
+    if table.is_empty() {
+        return ctx.print("No issues found.\n");
     }
-}
-
-/// The table width: the terminal's, or a fixed width when piped.
-pub(super) fn table_columns(ctx: &crate::ctx::Ctx) -> usize {
+    let rendered = table.render_for(ctx);
     if ctx.stdout_tty() {
-        crate::platform::pager::stdout_size().map_or(80, |size| usize::from(size.columns))
+        ctx.page(&rendered, paging)
     } else {
-        120
+        ctx.print(rendered)
     }
 }

@@ -4,8 +4,7 @@ use serde::Serialize;
 
 use crate::cli::initiative::InitiativeList;
 use crate::cli::values;
-use crate::commands::display::{display_width, pad, truncate_text};
-use crate::commands::table::{self, underlined_header};
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -42,9 +41,10 @@ fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
     })?;
     if args.json {
         ctx.print(render_json(&initiatives, &page_info))
+    } else if initiatives.is_empty() {
+        ctx.print("No initiatives found.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(&initiatives, columns, ctx.color()))
+        ctx.print(render_text(&initiatives).render_for(ctx))
     }
 }
 
@@ -215,73 +215,53 @@ pub(super) fn status_style(status: &InitiativeStatus, text: &str, color: bool) -
     match status {
         InitiativeStatus::Active => style::green(text, color),
         InitiativeStatus::Canceled => style::red(text, color),
-        InitiativeStatus::Planned => text.to_owned(),
+        InitiativeStatus::Planned => style::blue(text, color),
         InitiativeStatus::Completed | InitiativeStatus::Proposed | InitiativeStatus::Unknown(_) => {
             style::gray(text, color)
         }
     }
 }
 
-fn render_text(initiatives: &[Initiative], columns: usize, color: bool) -> String {
-    if initiatives.is_empty() {
-        return "No initiatives found.\n".to_owned();
-    }
-    let rows: Vec<[String; 7]> = initiatives
-        .iter()
-        .map(|item| {
-            let owner = item
-                .owner
-                .as_ref()
-                .map(|owner| owner.initials.as_str())
-                .filter(|initials| !initials.is_empty())
-                .unwrap_or("-");
-            [
-                item.slug_id.clone(),
-                item.name.clone(),
-                item.status.as_str().to_owned(),
+fn render_text(initiatives: &[Initiative]) -> Table {
+    let mut table = Table::new([
+        Column::fixed("SLUG"),
+        Column::flexible("NAME"),
+        Column::fixed("STATUS"),
+        Column::fixed("HEALTH"),
+        Column::fixed("OWNER"),
+        Column::fixed("PROJ"),
+        Column::fixed("TARGET"),
+    ]);
+    for item in initiatives {
+        let owner = item
+            .owner
+            .as_ref()
+            .map(|owner| owner.initials.as_str())
+            .filter(|initials| !initials.is_empty())
+            .unwrap_or("-");
+        let status = item.status.clone();
+        table.row([
+            Cell::from(item.slug_id.as_str()),
+            Cell::from(item.name.as_str()),
+            Cell::styled(item.status.as_str(), move |text, on| {
+                status_style(&status, text, on)
+            }),
+            Cell::from(
                 item.health
                     .as_ref()
-                    .map_or("-", InitiativeUpdateHealthType::as_str)
-                    .to_owned(),
-                owner.to_owned(),
-                item.projects.nodes.len().to_string(),
+                    .map_or("-", InitiativeUpdateHealthType::as_str),
+            ),
+            Cell::from(owner),
+            Cell::from(item.projects.nodes.len().to_string()),
+            Cell::styled(
                 item.target_date
                     .as_ref()
-                    .map_or("-", |date| date.0.as_str())
-                    .to_owned(),
-            ]
-        })
-        .collect();
-    let headers = [
-        "SLUG", "NAME", "STATUS", "HEALTH", "OWNER", "PROJ", "TARGET",
-    ];
-    let mut widths = [4, 0, 6, 6, 5, 4, 10];
-    for row in &rows {
-        for (width, cell) in widths.iter_mut().zip(row) {
-            *width = (*width).max(display_width(cell));
-        }
+                    .map_or("-", |date| date.0.as_str()),
+                style::gray,
+            ),
+        ]);
     }
-    let fixed: usize = widths.iter().sum::<usize>() - widths[1] + widths.len() - 1;
-    widths[1] = widths[1].min(columns.saturating_sub(1 + fixed).max(10));
-    let header: Vec<String> = headers
-        .iter()
-        .zip(widths)
-        .map(|(header, width)| pad(header, width))
-        .collect();
-    let mut output = underlined_header(&header, color);
-    for (item, row) in initiatives.iter().zip(&rows) {
-        let name = pad(&truncate_text(&row[1], widths[1]), widths[1]);
-        let status = status_style(&item.status, &pad(&row[2], widths[2]), color);
-        let target = style::gray(&pad(&row[6], widths[6]), color);
-        output.push_str(&format!(
-            "{} {name} {status} {} {} {} {target}\n",
-            pad(&row[0], widths[0]),
-            pad(&row[3], widths[3]),
-            pad(&row[4], widths[4]),
-            pad(&row[5], widths[5]),
-        ));
-    }
-    output
+    table
 }
 
 /// An exact email match, then an exact display name, then the first user

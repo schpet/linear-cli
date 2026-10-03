@@ -1,9 +1,11 @@
 //! `user list`: every member of the workspace, as text or JSON.
+use chrono::{DateTime, Local, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::user::UserList;
-use crate::commands::relative_time::format_local_timestamp;
+use crate::commands::relative_time::format_relative_time;
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -12,7 +14,7 @@ use crate::graphql::operations::organization_members::{
 };
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::collation;
+use crate::platform::{collation, style};
 
 pub fn run(ctx: &Ctx, args: &UserList) -> Result<()> {
     list(ctx, args).context("Failed to list workspace members")
@@ -34,8 +36,14 @@ fn list(ctx: &Ctx, args: &UserList) -> Result<()> {
     }
     if args.json {
         ctx.print(render_json(&members, page_info))
+    } else if !fetched_any {
+        ctx.print("No members found in this workspace.\n")
+    } else if members.is_empty() {
+        ctx.print(
+            "No active members found in this workspace. Use --all to include inactive members.\n",
+        )
     } else {
-        ctx.print(render_text(&members, fetched_any))
+        ctx.print(table(&members, Utc::now()).render_for(ctx))
     }
 }
 
@@ -93,67 +101,49 @@ fn render_json(members: &[User], page_info: PageInfo) -> Vec<u8> {
     output
 }
 
-fn nonempty(value: Option<&str>) -> Option<&str> {
-    value.filter(|text| !text.is_empty())
-}
-
-/// `fetched_any` tells an empty workspace apart from one whose members are
-/// all inactive (and filtered out).
-fn render_text(members: &[User], fetched_any: bool) -> String {
-    if !fetched_any {
-        return "No members found in this workspace.\n".to_owned();
-    }
-    if members.is_empty() {
-        return "No active members found in this workspace. Use --all to include inactive members.\n"
-            .to_owned();
-    }
-    let mut output = format!("Workspace Members ({}):\n\n", members.len());
+/// Workspace or team members, one row each.
+pub fn table(members: &[User], now: DateTime<Utc>) -> Table {
+    let mut table = Table::new([
+        Column::flexible("NAME"),
+        Column::fixed("USERNAME"),
+        Column::flexible("EMAIL"),
+        Column::fixed("ROLE"),
+        Column::fixed("LAST SEEN"),
+    ]);
     for member in members {
-        if member.display_name.is_empty() || member.display_name == member.name {
-            output.push_str(&member.name);
+        let mut name = member.name.clone();
+        if member.is_me {
+            name.push_str(" (you)");
+        }
+        if !member.active {
+            name.push_str(" (inactive)");
+        }
+        let role = if member.owner {
+            "Owner"
+        } else if member.admin {
+            "Admin"
+        } else if member.guest {
+            "Guest"
         } else {
-            output.push_str(&format!("{} ({})", member.display_name, member.name));
-        }
-        output.push_str(&format!(" [{}]", member.initials));
-        for (condition, label) in [
-            (!member.active, "inactive"),
-            (member.guest, "guest"),
-            (!member.is_assignable, "not assignable"),
-            (member.admin, "admin"),
-            (member.owner, "owner"),
-            (member.is_me, "you"),
-        ] {
-            if condition {
-                output.push_str(&format!(" ({label})"));
-            }
-        }
-        output.push('\n');
-        if !member.email.is_empty() {
-            output.push_str(&format!("  Email: {}\n", member.email));
-        }
-        if let Some(description) = nonempty(member.description.as_deref()) {
-            output.push_str(&format!("  Role: {description}\n"));
-        }
-        if let Some(timezone) = nonempty(member.timezone.as_deref()) {
-            output.push_str(&format!("  Timezone: {timezone}\n"));
-        }
-        if let (Some(emoji), Some(label)) = (
-            nonempty(member.status_emoji.as_deref()),
-            nonempty(member.status_label.as_deref()),
-        ) {
-            output.push_str(&format!("  Status: {emoji} {label}\n"));
-        }
-        if let Some(last_seen) = member
+            "Member"
+        };
+        let last_seen = member
             .last_seen
             .as_ref()
-            .and_then(|date| nonempty(Some(&date.0)))
-        {
-            output.push_str(&format!(
-                "  Last seen: {}\n",
-                format_local_timestamp(last_seen)
-            ));
-        }
-        output.push('\n');
+            .map(|date| format_relative_time(&date.0, now, &Local))
+            .unwrap_or_default();
+        let name = if member.active {
+            Cell::from(name)
+        } else {
+            Cell::styled(name, style::gray)
+        };
+        table.row([
+            name,
+            Cell::from(member.display_name.as_str()),
+            Cell::from(member.email.as_str()),
+            Cell::from(role),
+            Cell::styled(last_seen, style::gray),
+        ]);
     }
-    output
+    table
 }

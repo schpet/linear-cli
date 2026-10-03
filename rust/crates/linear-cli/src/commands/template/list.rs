@@ -4,21 +4,14 @@ use cynic::QueryBuilder;
 
 use crate::cli::TemplateType;
 use crate::cli::template::TemplateList;
-use crate::commands::display::{display_width, pad, truncate_text};
-use crate::commands::table;
+use crate::commands::table::{Cell, Column, Table};
 use crate::commands::template::json as template_json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::templates::{GetTemplates, Template};
-use crate::platform::{collation, style};
+use crate::platform::collation;
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
-
-const ID_WIDTH: usize = 36;
-const MIN_COLUMN_WIDTH: usize = 4;
-const MIN_TRUNCATED_NAME_WIDTH: usize = 20;
-const MAX_TEAM_WIDTH: usize = 15;
-const SPACE_WIDTH: usize = 3;
 
 pub fn run(ctx: &Ctx, args: &TemplateList) -> Result<()> {
     list(ctx, args).context("Failed to list templates")
@@ -42,9 +35,10 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
     let templates = select(templates, args.r#type, team_id.as_deref());
     if args.json {
         ctx.print(template_json::render_list(&templates))
+    } else if templates.is_empty() {
+        ctx.print("No templates found.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(&templates, columns, ctx.color()))
+        ctx.print(render_text(&templates).render_for(ctx))
     }
 }
 
@@ -110,52 +104,20 @@ fn type_cell(template: &Template) -> String {
     }
 }
 
-/// The `ID NAME TYPE TEAM` table. NAME is truncated only when the widest name
-/// does not fit, and then to no fewer than 20 columns; IDs, types and team
-/// keys are padded but never truncated. Trailing padding is preserved.
-fn render_text(templates: &[Template], columns: usize, color: bool) -> String {
-    if templates.is_empty() {
-        return "No templates found.\n".to_owned();
+fn render_text(templates: &[Template]) -> Table {
+    let mut table = Table::new([
+        Column::fixed("ID"),
+        Column::flexible("NAME"),
+        Column::fixed("TYPE"),
+        Column::fixed("TEAM"),
+    ]);
+    for template in templates {
+        table.row([
+            Cell::from(template.id.inner()),
+            Cell::from(template.name.as_str()),
+            Cell::from(type_cell(template)),
+            Cell::from(scope_label(template)),
+        ]);
     }
-    let type_cells: Vec<String> = templates.iter().map(type_cell).collect();
-    let type_width = type_cells
-        .iter()
-        .map(|cell| display_width(cell))
-        .fold(MIN_COLUMN_WIDTH, usize::max);
-    let team_width = templates
-        .iter()
-        .map(|template| display_width(scope_label(template)))
-        .fold(MIN_COLUMN_WIDTH, usize::max)
-        .min(MAX_TEAM_WIDTH);
-    let fixed = ID_WIDTH + type_width + team_width + SPACE_WIDTH;
-    let max_name_width = templates
-        .iter()
-        .map(|template| display_width(&template.name))
-        .fold(MIN_COLUMN_WIDTH, usize::max);
-    let available_width = columns.saturating_sub(1).saturating_sub(fixed);
-    let name_width = max_name_width.min(available_width.max(MIN_TRUNCATED_NAME_WIDTH));
-
-    let header = [
-        pad("ID", ID_WIDTH),
-        pad("NAME", name_width),
-        pad("TYPE", type_width),
-        pad("TEAM", team_width),
-    ];
-    let mut output = format!("{}\n", style::underline(&header.join(" "), color));
-    for (template, type_cell) in templates.iter().zip(&type_cells) {
-        output.push_str(&format!(
-            "{} {} {} {}\n",
-            pad(template.id.inner(), ID_WIDTH),
-            pad(&truncate_text(&template.name, name_width), name_width),
-            pad(type_cell, type_width),
-            pad(scope_label(template), team_width),
-        ));
-    }
-    let noun = if templates.len() == 1 {
-        "template"
-    } else {
-        "templates"
-    };
-    output.push_str(&format!("\n{} {noun} found.\n", templates.len()));
-    output
+    table
 }

@@ -151,7 +151,7 @@ fn view_unknown_name_fails() {
 }
 
 #[test]
-fn list_text_is_a_table_with_a_count() {
+fn list_text_is_a_table() {
     let api = MockLinear::start();
     api.on(
         "GetTemplates",
@@ -164,7 +164,7 @@ fn list_text_is_a_table_with_a_count() {
     assert!(lines[1].starts_with("tpl-kickoff "), "{run}");
     assert!(lines[1].contains("Kickoff"), "{run}");
     assert!(lines[1].contains("Workspace"), "{run}");
-    assert_eq!(lines.last(), Some(&"1 template found."));
+    assert_eq!(lines.len(), 2, "{run}");
 }
 
 #[test]

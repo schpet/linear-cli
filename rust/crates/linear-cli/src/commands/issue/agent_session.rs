@@ -4,9 +4,8 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::issue::{IssueAgentSessionList, IssueAgentSessionView};
-use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table;
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -44,8 +43,14 @@ fn print_sessions(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
     if args.json {
         return ctx.print(json(&sessions)?);
     }
-    let columns = table::stdout_columns(ctx.stdout_tty());
-    ctx.print(text(&sessions, columns, ctx.color()))
+    if sessions
+        .nodes
+        .iter()
+        .all(|comment| comment.agent_session.is_none())
+    {
+        return ctx.print("No agent sessions found for this issue.\n");
+    }
+    ctx.print(table(&sessions, Utc::now()).render_for(ctx))
 }
 
 pub fn view_request(id: &str) -> GraphQlRequest<GetAgentSessionDetailsVariables> {
@@ -263,62 +268,44 @@ pub fn markdown<Tz: TimeZone>(
     Ok(lines.join("\n"))
 }
 
-pub fn text(comments: &SessionComments, columns: usize, color: bool) -> Vec<u8> {
-    let sessions: Vec<_> = comments
+pub fn table(comments: &SessionComments, now: DateTime<Utc>) -> Table {
+    let mut table = Table::new([
+        Column::fixed("ID"),
+        Column::fixed("STATUS"),
+        Column::fixed("AGENT"),
+        Column::fixed("CREATED"),
+        Column::flexible("SUMMARY"),
+    ]);
+    for session in comments
         .nodes
         .iter()
         .filter_map(|comment| comment.agent_session.as_ref())
-        .collect();
-    if sessions.is_empty() {
-        return b"No agent sessions found for this issue.\n".to_vec();
-    }
-    let agent_width = sessions
-        .iter()
-        .map(|session| display_width(&session.app_user.name))
-        .max()
-        .unwrap_or(0)
-        .max(5);
-    let available_width = columns
-        .saturating_sub(1 + 13 + 10 + agent_width + 3)
-        .max(10);
-    let header = [
-        pad("STATUS", 13),
-        pad("AGENT", agent_width),
-        pad("CREATED", 10),
-        "SUMMARY".to_owned(),
-    ]
-    .join(" ");
-    let mut output = format!(
-        "{}\n",
-        style::bold(&style::underline(&header, color), color)
-    );
-    for session in sessions {
-        let status = pad(status_name(session.status), 13);
+    {
+        let status = status_name(session.status);
         let status = match session.status {
-            AgentSessionStatus::Active => style::green(&status, color),
+            AgentSessionStatus::Active => Cell::styled(status, style::green),
             AgentSessionStatus::Pending | AgentSessionStatus::AwaitingInput => {
-                style::yellow(&status, color)
+                Cell::styled(status, style::yellow)
             }
-            AgentSessionStatus::Complete | AgentSessionStatus::Stale => style::gray(&status, color),
-            AgentSessionStatus::Error => status,
+            AgentSessionStatus::Complete | AgentSessionStatus::Stale => {
+                Cell::styled(status, style::gray)
+            }
+            AgentSessionStatus::Error => Cell::styled(status, style::red),
         };
         let summary = match session.summary.as_deref().filter(|value| !value.is_empty()) {
-            Some(summary) => truncate_text(&summary.replace('\n', " "), available_width),
-            None => style::gray("--", color),
+            Some(summary) => Cell::from(summary.split_whitespace().collect::<Vec<_>>().join(" ")),
+            None => Cell::styled("-", style::gray),
         };
-        output.push_str(&format!(
-            "{status} {} {} {summary}\n",
-            pad(&session.app_user.name, agent_width),
-            pad(&created_date(&session.created_at.0), 10)
-        ));
+        table.row([
+            Cell::from(session.id.inner()),
+            status,
+            Cell::from(session.app_user.name.as_str()),
+            Cell::styled(
+                format_relative_time(&session.created_at.0, now, &chrono::Local),
+                style::gray,
+            ),
+            summary,
+        ]);
     }
-    output.into_bytes()
-}
-
-/// The UTC calendar date of a timestamp, or the raw text when it does not parse.
-fn created_date(timestamp: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(timestamp).map_or_else(
-        |_| timestamp.to_owned(),
-        |date| date.to_utc().format("%Y-%m-%d").to_string(),
-    )
+    table
 }

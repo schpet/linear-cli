@@ -3,12 +3,11 @@ use serde::Serialize;
 
 use super::TeamArg;
 use crate::cli::team::TeamStates;
-use crate::commands::display::{display_width, pad};
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::workflow_states::{GetWorkflowStates, WorkflowState};
-use crate::platform::style;
 use crate::workflow_states;
 
 pub fn run(ctx: &Ctx, args: &TeamStates) -> Result<()> {
@@ -26,8 +25,10 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     workflow_states::sort(&mut states);
     if args.json {
         ctx.print(render_json(&states))
+    } else if states.is_empty() {
+        ctx.print("No workflow states found for this team.\n")
     } else {
-        ctx.print(render_text(&states, ctx.color()))
+        ctx.print(render_text(&states).render_for(ctx))
     }
 }
 
@@ -61,33 +62,13 @@ fn render_json(states: &[WorkflowState]) -> Vec<u8> {
     bytes
 }
 
-fn render_text(states: &[WorkflowState], color: bool) -> String {
-    if states.is_empty() {
-        return "No workflow states found for this team.\n".to_owned();
-    }
-    let name_width = states
-        .iter()
-        .map(|state| display_width(&state.name))
-        .max()
-        .unwrap_or(0)
-        .max(display_width("NAME"));
-    let type_width = states
-        .iter()
-        .map(|state| display_width(&state.state_type))
-        .max()
-        .unwrap_or(0)
-        .max(display_width("TYPE"));
-    let header = format!("{} {}", pad("NAME", name_width), pad("TYPE", type_width));
-    let mut output = format!(
-        "{}\n",
-        style::bold(&style::underline(&header, color), color)
-    );
+fn render_text(states: &[WorkflowState]) -> Table {
+    let mut table = Table::new([Column::fixed("NAME"), Column::fixed("TYPE")]);
     for state in states {
-        output.push_str(&format!(
-            "{} {}\n",
-            pad(&state.name, name_width),
-            pad(&state.state_type, type_width)
-        ));
+        table.row([
+            Cell::from(state.name.as_str()),
+            Cell::from(state.state_type.as_str()),
+        ]);
     }
-    output
+    table
 }

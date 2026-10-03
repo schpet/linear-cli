@@ -15,6 +15,11 @@ pub fn run(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     query(ctx, args).context("Failed to query issues")
 }
 
+enum Output {
+    Json(String),
+    Table(crate::commands::table::Table),
+}
+
 /// Which teams the query covers.
 struct Scope {
     /// Team keys; `None` for every team.
@@ -93,7 +98,6 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     let priority = read::priority_sort(ctx, args.sort);
     let show_team = scope.several();
     let show_assignee = args.assignee.is_none() && !args.unassigned;
-    let columns = read::table_columns(ctx);
     let output = ctx.spin(!args.json, async {
         let mut filter = IssueFilter {
             team: scope.keys.as_deref().map(read::query_team_filter),
@@ -135,7 +139,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                 )
                 .await?;
                 if args.json {
-                    return Ok(json(&data));
+                    return Ok(Output::Json(json(&data)));
                 }
                 data.nodes
                     .into_iter()
@@ -152,7 +156,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                 )
                 .await?;
                 if args.json {
-                    return Ok(json(&data));
+                    return Ok(Output::Json(json(&data)));
                 }
                 data.nodes
                     .into_iter()
@@ -160,20 +164,16 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                     .collect::<Vec<_>>()
             }
         };
-        read::table(
+        Ok::<_, Error>(Output::Table(read::table(
             &rows,
-            false,
             show_team,
             show_assignee,
-            columns,
-            ctx.color(),
             SystemTime::now(),
-        )
+        )))
     })?;
-    if args.json {
-        ctx.print(format!("{output}\n"))
-    } else {
-        read::print_table(ctx, &output, !args.no_pager)
+    match output {
+        Output::Json(json) => ctx.print(format!("{json}\n")),
+        Output::Table(table) => read::print_table(ctx, &table, !args.no_pager),
     }
 }
 

@@ -4,9 +4,8 @@ use chrono::{DateTime, Local, Utc};
 use cynic::MutationBuilder;
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
-use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table::underlined_header;
+use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
@@ -290,85 +289,42 @@ impl From<&InitiativeUpdateHealthType> for UpdateHealth {
 
 /// One status update in a `list` table.
 pub struct Row<'a> {
-    pub id: &'a str,
     pub health: Option<UpdateHealth>,
     pub created_at: &'a str,
     pub author: &'a str,
     pub body: &'a str,
 }
 
-/// The status updates of `parent` (a project or initiative name) as a table,
-/// each followed by a one-line preview of its content.
-pub fn render_list(
-    parent: &str,
-    rows: &[Row<'_>],
-    columns: usize,
-    color: bool,
-    now: DateTime<Utc>,
-) -> String {
-    if rows.is_empty() {
-        return format!("No status updates found for {parent}\n");
-    }
-    let healths: Vec<_> = rows
-        .iter()
-        .map(|row| row.health.as_ref().map_or("-", UpdateHealth::label))
-        .collect();
-    let dates: Vec<_> = rows
-        .iter()
-        .map(|row| format_relative_time(row.created_at, now, &Local))
-        .collect();
-    let authors: Vec<_> = rows
-        .iter()
-        .map(|row| {
-            if row.author.is_empty() {
+/// Status updates as a table, newest first as Linear returns them, with the
+/// content collapsed to one line.
+pub fn table(rows: Vec<Row<'_>>, now: DateTime<Utc>) -> Table {
+    let mut table = Table::new([
+        Column::fixed("DATE"),
+        Column::fixed("HEALTH"),
+        Column::fixed("AUTHOR"),
+        Column::flexible("UPDATE"),
+    ]);
+    for row in rows {
+        let health = match row.health {
+            Some(health) => {
+                let label = health.label().to_owned();
+                Cell::styled(label, move |text, on| health.paint(text, on))
+            }
+            None => Cell::from("-"),
+        };
+        table.row([
+            Cell::styled(
+                format_relative_time(row.created_at, now, &Local),
+                style::gray,
+            ),
+            health,
+            Cell::from(if row.author.is_empty() {
                 "-"
             } else {
                 row.author
-            }
-        })
-        .collect();
-    let width = |cells: &[&str], header: usize| {
-        cells
-            .iter()
-            .map(|cell| display_width(cell))
-            .max()
-            .unwrap_or(0)
-            .max(header)
-    };
-    let health_width = width(&healths, 6);
-    let date_width = width(&dates.iter().map(String::as_str).collect::<Vec<_>>(), 4);
-    let author_width = width(&authors, 6);
-    let preview_width = columns.saturating_sub(PREVIEW_INDENT.len() + 1).max(10);
-    let mut output = format!("Status updates for {parent}\n\n");
-    output.push_str(&underlined_header(
-        &[
-            pad("ID", 8),
-            pad("HEALTH", health_width),
-            pad("DATE", date_width),
-            pad("AUTHOR", author_width),
-        ],
-        color,
-    ));
-    for (((row, health), date), author) in rows.iter().zip(&healths).zip(&dates).zip(&authors) {
-        let short_id: String = row.id.chars().take(8).collect();
-        let health = match &row.health {
-            Some(value) => value.paint(&pad(health, health_width), color),
-            None => pad(health, health_width),
-        };
-        output.push_str(&format!(
-            "{} {health} {} {}\n",
-            pad(&short_id, 8),
-            style::gray(&pad(date, date_width), color),
-            pad(author, author_width),
-        ));
-        let preview = row.body.split_whitespace().collect::<Vec<_>>().join(" ");
-        if !preview.is_empty() {
-            let preview = truncate_text(&preview, preview_width);
-            output.push_str(&style::gray(&format!("{PREVIEW_INDENT}{preview}"), color));
-            output.push('\n');
-        }
+            }),
+            Cell::from(row.body.split_whitespace().collect::<Vec<_>>().join(" ")),
+        ]);
     }
-    output
+    table
 }
-
-const PREVIEW_INDENT: &str = "  ";

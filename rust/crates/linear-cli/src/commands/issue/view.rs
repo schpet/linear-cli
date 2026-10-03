@@ -500,16 +500,8 @@ pub fn terminal(
         let date = format!("commented {}", date(c, now));
         format!(
             "{indent}{} {}{}",
-            if options.styled {
-                format!("\x1b[4m\x1b[1m{author}\x1b[22m\x1b[24m")
-            } else {
-                author
-            },
-            if options.styled {
-                format!("\x1b[4m{date}\x1b[24m")
-            } else {
-                date
-            },
+            crate::platform::style::heading(&author, options.styled),
+            crate::platform::style::underline(&date, options.styled),
             if suffix.is_empty() {
                 String::new()
             } else {

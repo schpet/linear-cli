@@ -5,8 +5,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::milestone::MilestoneList;
-use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::commands::table;
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -18,13 +17,8 @@ use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::{collation, style};
+use crate::platform::collation;
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
-
-const ID_WIDTH: usize = 36;
-const TARGET_DATE_WIDTH: usize = 12;
-const SPACE_WIDTH: usize = 4;
-const PADDING: usize = 1;
 
 pub fn run(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
     list(ctx, args).context("Failed to list milestones")
@@ -39,9 +33,10 @@ fn list(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
     })?;
     if args.json {
         ctx.print(render_json(&milestones, &page_info))
+    } else if milestones.is_empty() {
+        ctx.print("No milestones found for this project.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(&milestones, columns, ctx.color()))
+        ctx.print(render_text(&milestones).render_for(ctx))
     }
 }
 
@@ -152,50 +147,20 @@ fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Vec<u8> {
     output
 }
 
-/// Render the table from already-sorted milestones.
-///
-/// The project column is clamped to 7..=30 display columns, and the name
-/// column is the widest name capped by the remaining width (see
-/// [`flexible_width`]), without widening to the `NAME` header.
-fn render_text(nodes: &[ProjectMilestone], columns: usize, color: bool) -> String {
-    if nodes.is_empty() {
-        return "No milestones found for this project.\n".to_owned();
-    }
-    let project_width = nodes
-        .iter()
-        .map(|milestone| display_width(&milestone.project.name))
-        .max()
-        .unwrap_or(0)
-        .clamp(7, 30);
-    let fixed = ID_WIDTH + TARGET_DATE_WIDTH + project_width + SPACE_WIDTH;
-    let max_name_width = nodes
-        .iter()
-        .map(|milestone| display_width(&milestone.name))
-        .max()
-        .unwrap_or(0);
-    let name_width = flexible_width(max_name_width, columns.saturating_sub(PADDING + fixed));
-    let header = [
-        pad("NAME", name_width),
-        pad("ID", ID_WIDTH),
-        pad("TARGET DATE", TARGET_DATE_WIDTH),
-        pad("PROJECT", project_width),
-    ]
-    .join(" ");
-    let mut output = format!(
-        "{}\n",
-        style::bold(&style::underline(&header, color), color)
-    );
+fn render_text(nodes: &[ProjectMilestone]) -> Table {
+    let mut table = Table::new([
+        Column::flexible("NAME"),
+        Column::fixed("ID"),
+        Column::fixed("TARGET DATE"),
+        Column::flexible("PROJECT"),
+    ]);
     for milestone in nodes {
-        output.push_str(&format!(
-            "{} {} {} {}\n",
-            fit(&milestone.name, name_width),
-            pad(milestone.id.inner(), ID_WIDTH),
-            pad(
-                target_date(milestone).unwrap_or("No date"),
-                TARGET_DATE_WIDTH
-            ),
-            fit(&milestone.project.name, project_width),
-        ));
+        table.row([
+            Cell::from(milestone.name.as_str()),
+            Cell::from(milestone.id.inner()),
+            Cell::from(target_date(milestone).unwrap_or("No date")),
+            Cell::from(milestone.project.name.as_str()),
+        ]);
     }
-    output
+    table
 }

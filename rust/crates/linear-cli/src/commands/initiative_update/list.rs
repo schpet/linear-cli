@@ -5,7 +5,6 @@ use serde::Serialize;
 
 use crate::cli::initiative_update::InitiativeUpdateList;
 use crate::commands::status_update::{self, Row, UpdateHealth};
-use crate::commands::table;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -42,20 +41,16 @@ fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
         .nodes
         .iter()
         .map(|node| Row {
-            id: node.id.inner(),
             health: Some(UpdateHealth::from(&node.health)),
             created_at: &node.created_at.0,
             author: node.user.as_ref().map_or("", |user| user.name.as_str()),
             body: &node.body,
         })
         .collect();
-    ctx.print(status_update::render_list(
-        &initiative.name,
-        &rows,
-        table::stdout_columns(ctx.stdout_tty()),
-        ctx.color(),
-        Utc::now(),
-    ))
+    if rows.is_empty() {
+        return ctx.print(format!("No status updates found for {}\n", initiative.name));
+    }
+    ctx.print(status_update::table(rows, Utc::now()).render_for(ctx))
 }
 
 #[derive(Serialize)]

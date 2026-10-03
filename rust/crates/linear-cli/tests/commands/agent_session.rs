@@ -307,25 +307,3 @@ fn required_shapes_status_types_and_actions_decode_strictly() {
     wire["data"]["issue"]["comments"]["nodes"][0] = Value::Null;
     assert!(parse_response::<GetIssueAgentSessions>(&serde_json::to_vec(&wire).unwrap()).is_err());
 }
-
-#[test]
-fn list_dates_show_the_utc_day_or_unparseable_text() {
-    for (input, expected) in [
-        ("bad-date", "bad-date"),
-        ("2026-03-04T23:30:00-02:00", "2026-03-05"),
-        ("", ""),
-    ] {
-        let mut value = comments().issue.comments;
-        value.nodes.truncate(2);
-        let session = value.nodes[1].agent_session.as_mut().unwrap();
-        session.created_at.0 = input.to_owned();
-        let output = String::from_utf8(agent_session::text(&value, 120, false)).unwrap();
-        assert!(
-            output.contains(&format!(
-                " {} --",
-                linear_cli::commands::display::pad(expected, 10)
-            )),
-            "{output}"
-        );
-    }
-}

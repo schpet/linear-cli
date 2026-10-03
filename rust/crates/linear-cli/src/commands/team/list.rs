@@ -5,9 +5,8 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::team::TeamList;
-use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table;
+use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -28,9 +27,10 @@ fn list(ctx: &Ctx, args: &TeamList) -> Result<()> {
     let (teams, page_info) = ctx.spin(!args.json, fetch(client))?;
     if args.json {
         ctx.print(render_json(&teams, &page_info))
+    } else if teams.is_empty() {
+        ctx.print("No teams found.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(render_text(&teams, SystemTime::now(), columns, ctx.color()))
+        ctx.print(render_text(&teams, SystemTime::now()).render_for(ctx))
     }
 }
 
@@ -96,82 +96,28 @@ fn render_json(teams: &[teams::Team], page_info: &teams::PageInfo) -> Vec<u8> {
     output
 }
 
-fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color: bool) -> String {
-    if teams.is_empty() {
-        return "No teams found.\n".to_owned();
+fn render_text(teams: &[teams::Team], now: SystemTime) -> Table {
+    let mut table = Table::new([
+        Column::fixed("KEY"),
+        Column::flexible("NAME"),
+        Column::fixed("CYCLES"),
+        Column::fixed("UPDATED"),
+        Column::fixed("ID"),
+    ]);
+    for team in teams {
+        let hex = team.color.clone().unwrap_or_default();
+        table.row([
+            Cell::styled(team.key.as_str(), move |text, on| {
+                style::rgb(text, &hex, on)
+            }),
+            Cell::from(team.name.as_str()),
+            Cell::from(if team.cycles_enabled { "Yes" } else { "No" }),
+            Cell::styled(
+                format_relative_time(&team.updated_at.0, now.into(), &chrono::Local),
+                style::gray,
+            ),
+            Cell::styled(team.id.inner(), style::gray),
+        ]);
     }
-    let id_width = teams
-        .iter()
-        .map(|team| display_width(team.id.inner()))
-        .max()
-        .unwrap_or(0)
-        .max(2);
-    let key_width = teams
-        .iter()
-        .map(|team| display_width(&team.key))
-        .max()
-        .unwrap_or(0)
-        .max(3);
-    let updated: Vec<_> = teams
-        .iter()
-        .map(|team| format_relative_time(&team.updated_at.0, now.into(), &chrono::Local))
-        .collect();
-    let updated_width = updated
-        .iter()
-        .map(|value| display_width(value))
-        .max()
-        .unwrap_or(0)
-        .max(7);
-    let cycles_width = 6;
-    let fixed = id_width + key_width + cycles_width + updated_width + 5;
-    let available_width = columns.saturating_sub(1).saturating_sub(fixed);
-    let max_name_width = teams
-        .iter()
-        .map(|team| display_width(&team.name))
-        .max()
-        .unwrap_or(0);
-    let name_width = flexible_width(max_name_width, available_width);
-    let header = [
-        pad("KEY", key_width),
-        pad("NAME", name_width),
-        pad("CYCLES", cycles_width),
-        pad("UPDATED", updated_width),
-        pad("ID", id_width),
-    ]
-    .join(" ");
-    let mut output = format!(
-        "{}\n",
-        style::bold(&style::underline(&header, color), color)
-    );
-    for (team, updated) in teams.iter().zip(updated) {
-        let cycles = if team.cycles_enabled { "Yes" } else { "No" };
-        output.push_str(&format!(
-            "{} {} {} {} {}\n",
-            team_color(&pad(&team.key, key_width), team.color.as_deref(), color),
-            fit(&team.name, name_width),
-            pad(cycles, cycles_width),
-            style::gray(&pad(&updated, updated_width), color),
-            style::gray(&pad(team.id.inner(), id_width), color),
-        ));
-    }
-    output
-}
-
-/// `text` in the team's `#rrggbb` color; plain when the color is missing or malformed.
-fn team_color(text: &str, hex: Option<&str>, color: bool) -> String {
-    let rgb = hex
-        .and_then(|hex| hex.strip_prefix('#'))
-        .filter(|hex| hex.len() == 6 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        .and_then(|hex| u32::from_str_radix(hex, 16).ok());
-    match rgb {
-        Some(rgb) if color => {
-            let [_, red, green, blue] = rgb.to_be_bytes();
-            console::Style::new()
-                .true_color(red, green, blue)
-                .force_styling(true)
-                .apply_to(text)
-                .to_string()
-        }
-        Some(_) | None => text.to_owned(),
-    }
+    table
 }

@@ -40,16 +40,3 @@ pub fn ago<Tz: TimeZone>(then: DateTime<Utc>, now: DateTime<Utc>, zone: &Tz) -> 
 pub fn format_relative_time<Tz: TimeZone>(value: &str, now: DateTime<Utc>, zone: &Tz) -> String {
     parse_timestamp(value).map_or_else(|| value.to_owned(), |then| ago(then, now, zone))
 }
-
-/// A timestamp as a local date and time, e.g. "1/2/2026, 3:04:05 AM"; text
-/// that does not parse is shown as-is.
-pub fn format_local_timestamp(value: &str) -> String {
-    parse_timestamp(value).map_or_else(
-        || value.to_owned(),
-        |date| {
-            date.with_timezone(&chrono::Local)
-                .format("%-m/%-d/%Y, %-I:%M:%S %p")
-                .to_string()
-        },
-    )
-}

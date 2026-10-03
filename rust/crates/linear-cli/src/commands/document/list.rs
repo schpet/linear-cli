@@ -5,9 +5,8 @@ use cynic::QueryBuilder;
 
 use crate::cli::document::DocumentList;
 use crate::commands::{
-    display::{display_width, fit, pad},
     relative_time::format_relative_time,
-    table::{self, underlined_header},
+    table::{Cell, Column, Table},
 };
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -55,9 +54,10 @@ fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
             serde_json::to_vec_pretty(&documents).expect("document JSON always serializes");
         output.push(b'\n');
         ctx.print(output)
+    } else if documents.nodes.is_empty() {
+        ctx.print("No documents found.\n")
     } else {
-        let columns = table::stdout_columns(ctx.stdout_tty());
-        ctx.print(text(&documents, columns, ctx.color(), SystemTime::now()))
+        ctx.print(text(&documents, SystemTime::now()).render_for(ctx))
     }
 }
 
@@ -117,62 +117,23 @@ fn attachment(doc: &ListedDocument) -> String {
     }
     "-".to_owned()
 }
-fn text(documents: &DocumentConnection, columns: usize, color: bool, now: SystemTime) -> String {
-    if documents.nodes.is_empty() {
-        return "No documents found.\n".to_owned();
+fn text(documents: &DocumentConnection, now: SystemTime) -> Table {
+    let mut table = Table::new([
+        Column::fixed("SLUG"),
+        Column::flexible("TITLE"),
+        Column::flexible("ATTACHMENT"),
+        Column::fixed("UPDATED"),
+    ]);
+    for doc in &documents.nodes {
+        table.row([
+            Cell::from(doc.slug_id.as_str()),
+            Cell::from(doc.title.as_str()),
+            Cell::from(attachment(doc)),
+            Cell::styled(
+                format_relative_time(&doc.updated_at.0, now.into(), &chrono::Local),
+                style::gray,
+            ),
+        ]);
     }
-    let labels: Vec<_> = documents.nodes.iter().map(attachment).collect();
-    let ages: Vec<_> = documents
-        .nodes
-        .iter()
-        .map(|doc| format_relative_time(&doc.updated_at.0, now.into(), &chrono::Local))
-        .collect();
-    let slug_width = documents
-        .nodes
-        .iter()
-        .map(|doc| display_width(&doc.slug_id))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let attachment_width = labels
-        .iter()
-        .map(|label| display_width(label))
-        .max()
-        .unwrap_or(0)
-        .max(10);
-    let updated_width = ages
-        .iter()
-        .map(|age| display_width(age))
-        .max()
-        .unwrap_or(0)
-        .max(7);
-    let available = columns
-        .saturating_sub(slug_width + attachment_width + updated_width + 4)
-        .max(10);
-    let title_width = documents
-        .nodes
-        .iter()
-        .map(|doc| display_width(&doc.title))
-        .max()
-        .unwrap_or(0)
-        .min(available);
-    let mut out = underlined_header(
-        &[
-            pad("SLUG", slug_width),
-            pad("TITLE", title_width),
-            pad("ATTACHMENT", attachment_width),
-            pad("UPDATED", updated_width),
-        ],
-        color,
-    );
-    for ((doc, label), age) in documents.nodes.iter().zip(labels).zip(ages) {
-        out.push_str(&format!(
-            "{} {} {} {}\n",
-            pad(&doc.slug_id, slug_width),
-            fit(&doc.title, title_width),
-            pad(&label, attachment_width),
-            style::gray(&pad(&age, updated_width), color)
-        ));
-    }
-    out
+    table
 }
