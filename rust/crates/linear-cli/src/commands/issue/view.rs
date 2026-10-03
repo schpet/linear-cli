@@ -1,6 +1,7 @@
 //! `issue view`: the issue as Markdown with comment threads, or JSON, or
 //! opened in Linear.
 use crate::client::LinearClient;
+use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
@@ -113,25 +114,159 @@ impl Fetched {
                 labels: i.labels,
                 parent: i.parent,
                 children: i.children,
-                comments: GetIssueDetailsWithCommentsIssueComments { nodes: vec![] },
+                comments: GetIssueDetailsWithCommentsIssueComments {
+                    nodes: vec![],
+                    page_info: PageInfo {
+                        has_next_page: false,
+                        end_cursor: None,
+                    },
+                },
                 attachments: i.attachments,
                 documents: i.documents,
             },
         }
     }
 }
+/// The issue with every label, sub-issue, attachment, document and, with
+/// `comments`, comment. Collections longer than the page that came with the
+/// issue are fetched page by page.
 pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<Fetched, Error> {
     let missing = || Error::not_found("Issue", &id);
     if comments {
         let data: GetIssueDetailsWithComments = client
             .query(GetIssueDetailsWithCommentsVariables { id: id.clone() })
             .await?;
-        Ok(Fetched::With(data.issue.ok_or_else(missing)?))
+        let mut issue = data.issue.ok_or_else(missing)?;
+        let lists = Lists {
+            labels: &mut issue.labels,
+            children: &mut issue.children,
+            attachments: &mut issue.attachments,
+            documents: &mut issue.documents,
+        };
+        lists.finish(client, &id).await?;
+        let comments = &mut issue.comments;
+        let id = id.as_str();
+        comments.nodes = rest(
+            &mut comments.nodes,
+            &comments.page_info,
+            |after, first| async move {
+                let data: GetIssueCommentsPage = client.query(page(id, after, first)).await?;
+                let comments = data.issue.comments;
+                Ok(Page {
+                    nodes: comments.nodes,
+                    page_info: comments.page_info,
+                })
+            },
+        )
+        .await?;
+        Ok(Fetched::With(issue))
     } else {
         let data: GetIssueDetails = client
             .query(GetIssueDetailsVariables { id: id.clone() })
             .await?;
-        Ok(Fetched::Without(data.issue.ok_or_else(missing)?))
+        let mut issue = data.issue.ok_or_else(missing)?;
+        let lists = Lists {
+            labels: &mut issue.labels,
+            children: &mut issue.children,
+            attachments: &mut issue.attachments,
+            documents: &mut issue.documents,
+        };
+        lists.finish(client, &id).await?;
+        Ok(Fetched::Without(issue))
+    }
+}
+
+/// The collections both issue selections share.
+struct Lists<'a> {
+    labels: &'a mut IssueLabels,
+    children: &'a mut GetIssueDetailsIssueChildren,
+    attachments: &'a mut GetIssueDetailsIssueAttachments,
+    documents: &'a mut GetIssueDetailsIssueDocuments,
+}
+
+impl Lists<'_> {
+    /// Fetches the rest of every collection Linear reports more pages of.
+    async fn finish(self, client: &LinearClient, id: &str) -> Result<()> {
+        let Self {
+            labels,
+            children,
+            attachments,
+            documents,
+        } = self;
+        labels.nodes = rest(
+            &mut labels.nodes,
+            &labels.page_info,
+            |after, first| async move {
+                let data: GetIssueLabelsPage = client.query(page(id, after, first)).await?;
+                let labels = data.issue.labels;
+                Ok(Page {
+                    nodes: labels.nodes,
+                    page_info: labels.page_info,
+                })
+            },
+        )
+        .await?;
+        children.nodes = rest(
+            &mut children.nodes,
+            &children.page_info,
+            |after, first| async move {
+                let data: GetIssueChildrenPage = client.query(page(id, after, first)).await?;
+                let children = data.issue.children;
+                Ok(Page {
+                    nodes: children.nodes,
+                    page_info: children.page_info,
+                })
+            },
+        )
+        .await?;
+        attachments.nodes = rest(
+            &mut attachments.nodes,
+            &attachments.page_info,
+            |after, first| async move {
+                let data: GetIssueAttachmentsPage = client.query(page(id, after, first)).await?;
+                let attachments = data.issue.attachments;
+                Ok(Page {
+                    nodes: attachments.nodes,
+                    page_info: attachments.page_info,
+                })
+            },
+        )
+        .await?;
+        documents.nodes = rest(
+            &mut documents.nodes,
+            &documents.page_info,
+            |after, first| async move {
+                let data: GetIssueDocumentsPage = client.query(page(id, after, first)).await?;
+                let documents = data.issue.documents;
+                Ok(Page {
+                    nodes: documents.nodes,
+                    page_info: documents.page_info,
+                })
+            },
+        )
+        .await?;
+        Ok(())
+    }
+}
+
+/// Every node of a collection whose first page is `nodes`.
+async fn rest<N, F, Fut>(nodes: &mut Vec<N>, page_info: &PageInfo, fetch: F) -> Result<Vec<N>>
+where
+    F: FnMut(Option<String>, i32) -> Fut,
+    Fut: Future<Output = Result<Page<N>>>,
+{
+    let first = Page {
+        nodes: std::mem::take(nodes),
+        page_info: page_info.clone(),
+    };
+    pagination::complete(first, fetch).await
+}
+
+fn page(id: &str, after: Option<String>, first: i32) -> IssuePageVariables {
+    IssuePageVariables {
+        id: id.to_owned(),
+        first,
+        after,
     }
 }
 pub async fn download_images(

@@ -47,6 +47,11 @@ fn issue(comments: bool) -> Value {
             comment("resolved", "Resolved thread body", None, Some("2024-01-02T00:00:00.000Z")),
         ] });
     }
+    for key in ["labels", "children", "attachments", "documents", "comments"] {
+        if let Some(connection) = issue.get_mut(key) {
+            connection["pageInfo"] = json!({ "hasNextPage": false, "endCursor": null });
+        }
+    }
     issue
 }
 
@@ -828,5 +833,48 @@ fn query_over_several_teams_matches_any_of_them() {
             { "key": { "eq": "ENG" } },
             { "key": { "eq": "OPS" } }
         ] } })
+    );
+}
+
+#[test]
+fn view_fetches_every_page_of_long_collections() {
+    let mut first = issue(true);
+    first["comments"]["pageInfo"] = json!({ "hasNextPage": true, "endCursor": "comment-cursor" });
+    first["labels"]["pageInfo"] = json!({ "hasNextPage": true, "endCursor": "label-cursor" });
+    let api = MockLinear::start();
+    api.on("GetIssueDetailsWithComments", details(first))
+        .on(
+            "GetIssueLabelsPage",
+            json!({ "issue": { "labels": {
+                "nodes": [{ "id": "label-ui", "name": "UI", "color": "#00ff00" }],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+            } } }),
+        )
+        .on(
+            "GetIssueCommentsPage",
+            json!({ "issue": { "comments": {
+                "nodes": [comment("late", "Late comment", None, None)],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+            } } }),
+        );
+    let json = Cli::for_api(&api)
+        .run(&["issue", "view", "ENG-1", "--json"])
+        .success()
+        .json();
+    let ids = |key: &str| {
+        nodes(&json[key])
+            .iter()
+            .map(|node| node["id"].as_str().expect("id").to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids("labels"), ["label-bug", "label-ui"]);
+    assert_eq!(ids("comments"), ["root", "reply", "resolved", "late"]);
+    assert_eq!(
+        api.variables("GetIssueLabelsPage"),
+        json!({ "id": "ENG-1", "first": 100, "after": "label-cursor" })
+    );
+    assert_eq!(
+        api.variables("GetIssueCommentsPage"),
+        json!({ "id": "ENG-1", "first": 100, "after": "comment-cursor" })
     );
 }

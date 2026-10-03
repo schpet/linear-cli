@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::num::NonZeroU32;
 
-use super::{Page, PageInfo, Pages, collect, collect_within};
+use super::{Page, PageInfo, Pages, collect, collect_within, complete};
 use crate::error::Error;
 
 fn page(nodes: &[&str], has_next_page: bool, end_cursor: Option<&str>) -> Page<String> {
@@ -157,4 +157,28 @@ fn pages_track_the_cursor_and_remaining_limit() {
         .advance(50, &page(&[], true, Some("B")).page_info)
         .expect("valid page");
     assert!(!more, "the limit is reached");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn complete_continues_after_an_embedded_first_page() {
+    let mut asked = Vec::new();
+    let mut queue = VecDeque::from([Ok(page(&["c"], false, None))]);
+    let nodes = complete(page(&["a", "b"], true, Some("cursor-b")), |after, first| {
+        asked.push((after, first));
+        let next = queue
+            .pop_front()
+            .unwrap_or_else(|| Err(Error::new("script exhausted")));
+        async move { next }
+    })
+    .await
+    .expect("two pages");
+    assert_eq!(nodes, ["a", "b", "c"]);
+    assert_eq!(asked, [(Some("cursor-b".to_owned()), 100)]);
+
+    let only = complete(page(&["a"], false, None), |_, _| async {
+        Err::<Page<String>, _>(Error::new("no second page"))
+    })
+    .await
+    .expect("one page");
+    assert_eq!(only, ["a"]);
 }

@@ -112,6 +112,24 @@ where
     Ok(nodes)
 }
 
+/// The nodes of `first`, a page that arrived inside a larger response, and of
+/// every page after it.
+pub async fn complete<N, F, Fut>(first: Page<N>, mut fetch: F) -> Result<Vec<N>>
+where
+    F: FnMut(Option<String>, i32) -> Fut,
+    Fut: Future<Output = Result<Page<N>>>,
+{
+    let mut pages = Pages::new(None);
+    let mut more = pages.advance(first.nodes.len(), &first.page_info)?;
+    let mut nodes = first.nodes;
+    while more {
+        let page = fetch(pages.after(), pages.first()).await?;
+        more = pages.advance(page.nodes.len(), &page.page_info)?;
+        nodes.extend(page.nodes);
+    }
+    Ok(nodes)
+}
+
 /// [`collect`] for a connection inside a parent record, such as a document's
 /// comments. `fetch` returns the parent holding one page; `take` moves that
 /// page out of it and `put` stores every node, with the last page's info, in

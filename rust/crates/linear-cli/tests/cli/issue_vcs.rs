@@ -6,13 +6,16 @@ use crate::support::{Cli, MockLinear};
 const URL: &str = "https://linear.app/acme/issue/ENG-7/repair-the-widget";
 
 fn details() -> Value {
+    let last = json!({ "hasNextPage": false, "endCursor": null });
     json!({ "issue": {
         "identifier": "ENG-7", "title": "Repair the widget", "description": null,
         "url": URL, "branchName": "eng-7-repair-the-widget",
         "state": { "name": "Todo", "color": "#123456" }, "assignee": null, "priority": 2,
         "project": null, "projectMilestone": null, "cycle": null,
-        "team": { "key": "ENG", "activeCycle": null }, "labels": { "nodes": [] }, "parent": null,
-        "children": { "nodes": [] }, "attachments": { "nodes": [] }, "documents": { "nodes": [] }
+        "team": { "key": "ENG", "activeCycle": null }, "labels": { "nodes": [], "pageInfo": last }, "parent": null,
+        "children": { "nodes": [], "pageInfo": last },
+        "attachments": { "nodes": [], "pageInfo": last },
+        "documents": { "nodes": [], "pageInfo": last }
     } })
 }
 

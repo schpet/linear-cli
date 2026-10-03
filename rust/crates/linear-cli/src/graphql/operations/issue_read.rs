@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use super::project::ProjectRef;
 use super::team::TeamKey;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::scalars::Float;
@@ -566,6 +567,8 @@ pub struct GetIssueDetailsIssueParent {
 #[serde(transparent)]
 pub struct GetIssueDetailsIssueChildren {
     pub nodes: Vec<GetIssueDetailsIssueParent>,
+    #[serde(skip)]
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
@@ -586,6 +589,8 @@ pub struct GetIssueDetailsIssueAttachmentsNodes {
 #[serde(transparent)]
 pub struct GetIssueDetailsIssueAttachments {
     pub nodes: Vec<GetIssueDetailsIssueAttachmentsNodes>,
+    #[serde(skip)]
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
@@ -605,6 +610,8 @@ pub struct GetIssueDetailsIssueDocumentsNodes {
 #[serde(transparent)]
 pub struct GetIssueDetailsIssueDocuments {
     pub nodes: Vec<GetIssueDetailsIssueDocumentsNodes>,
+    #[serde(skip)]
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
@@ -624,7 +631,7 @@ pub struct GetIssueDetailsIssue {
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub team: GetIssueDetailsIssueTeam,
     #[arguments(first : 50)]
-    pub labels: GetIssuesForStateIssuesNodesLabels,
+    pub labels: IssueLabels,
     pub parent: Option<GetIssueDetailsIssueParent>,
     #[arguments(first : 250)]
     pub children: GetIssueDetailsIssueChildren,
@@ -688,6 +695,8 @@ pub struct GetIssueDetailsWithCommentsIssueCommentsNodes {
 #[serde(transparent)]
 pub struct GetIssueDetailsWithCommentsIssueComments {
     pub nodes: Vec<GetIssueDetailsWithCommentsIssueCommentsNodes>,
+    #[serde(skip)]
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
@@ -707,7 +716,7 @@ pub struct GetIssueDetailsWithCommentsIssue {
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub team: GetIssueDetailsIssueTeam,
     #[arguments(first : 50)]
-    pub labels: GetIssuesForStateIssuesNodesLabels,
+    pub labels: IssueLabels,
     pub parent: Option<GetIssueDetailsIssueParent>,
     #[arguments(first : 250)]
     pub children: GetIssueDetailsIssueChildren,
@@ -751,4 +760,132 @@ pub struct GetProjectIdOptionsByNameProjects {
 pub struct GetProjectIdOptionsByName {
     #[arguments(filter : { name : { containsIgnoreCase : $name } })]
     pub projects: GetProjectIdOptionsByNameProjects,
+}
+
+/// An issue's labels with the paging fields for fetching the rest.
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "IssueLabelConnection")]
+#[serde(transparent)]
+pub struct IssueLabels {
+    pub nodes: Vec<GetIssuesForStateIssuesNodesLabelsNodes>,
+    #[serde(skip)]
+    pub page_info: PageInfo,
+}
+
+/// One page of a connection nested in an issue.
+#[derive(cynic::QueryVariables, Clone, Debug)]
+pub struct IssuePageVariables {
+    pub id: String,
+    pub first: i32,
+    pub after: Option<String>,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "IssuePageVariables"
+)]
+pub struct GetIssueLabelsPage {
+    #[arguments(id: $id)]
+    pub issue: IssueLabelsPage,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "IssuePageVariables"
+)]
+pub struct IssueLabelsPage {
+    #[arguments(first: $first, after: $after)]
+    pub labels: IssueLabels,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "IssuePageVariables"
+)]
+pub struct GetIssueChildrenPage {
+    #[arguments(id: $id)]
+    pub issue: IssueChildrenPage,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "IssuePageVariables"
+)]
+pub struct IssueChildrenPage {
+    #[arguments(first: $first, after: $after)]
+    pub children: GetIssueDetailsIssueChildren,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "IssuePageVariables"
+)]
+pub struct GetIssueAttachmentsPage {
+    #[arguments(id: $id)]
+    pub issue: IssueAttachmentsPage,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "IssuePageVariables"
+)]
+pub struct IssueAttachmentsPage {
+    #[arguments(first: $first, after: $after)]
+    pub attachments: GetIssueDetailsIssueAttachments,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "IssuePageVariables"
+)]
+pub struct GetIssueDocumentsPage {
+    #[arguments(id: $id)]
+    pub issue: IssueDocumentsPage,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "IssuePageVariables"
+)]
+pub struct IssueDocumentsPage {
+    #[arguments(first: $first, after: $after)]
+    pub documents: GetIssueDetailsIssueDocuments,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "IssuePageVariables"
+)]
+pub struct GetIssueCommentsPage {
+    #[arguments(id: $id)]
+    pub issue: IssueCommentsPage,
+}
+
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "IssuePageVariables"
+)]
+pub struct IssueCommentsPage {
+    #[arguments(first: $first, after: $after, orderBy: createdAt)]
+    pub comments: GetIssueDetailsWithCommentsIssueComments,
 }
