@@ -279,14 +279,18 @@ impl Ctx {
         self.page(&rendered, paging)
     }
 
-    /// Renders Markdown for the stdout terminal.
-    pub fn render_markdown(&self, markdown: &str) -> String {
+    /// Options for the stdout terminal: width or fallback, color, and file links.
+    pub fn render_options(&self) -> RenderOptions {
         let columns = pager::stdout_size()
             .and_then(|size| NonZeroU16::new(size.columns))
             .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
         let file_link = self.options().hyperlink_format();
-        let options = RenderOptions::for_terminal(columns, self.color(), file_link);
-        markdown_terminal::render(markdown, &options)
+        RenderOptions::for_terminal(columns, self.color(), file_link)
+    }
+
+    /// Renders Markdown for the stdout terminal.
+    pub fn render_markdown(&self, markdown: &str) -> String {
+        markdown_terminal::render(markdown, &self.render_options())
     }
 
     /// The `name` subdirectory of the per-user cache, for downloads; `None`

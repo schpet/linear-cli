@@ -72,11 +72,7 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
         let markdown = markdown(&issue, &paths, args.show_resolved_threads, now)?;
         return ctx.print(format!("{markdown}\n"));
     }
-    let columns = crate::platform::pager::stdout_size()
-        .and_then(|size| std::num::NonZeroU16::new(size.columns))
-        .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
-    let file_link = options.hyperlink_format();
-    let render = RenderOptions::for_terminal(columns, ctx.color(), file_link);
+    let render = ctx.render_options();
     let rendered = terminal(
         &issue,
         &paths,
