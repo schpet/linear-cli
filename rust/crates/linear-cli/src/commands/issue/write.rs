@@ -76,14 +76,19 @@ pub fn description(
             }),
     }
 }
-pub fn default_state(states: &[State]) -> Option<String> {
+/// The first state of this kind at the lowest position; equal positions,
+/// including signed zero, keep their input order.
+pub(super) fn lowest_of_kind<'a>(states: &'a [State], kind: &str) -> Option<&'a State> {
     let mut lowest: Option<&State> = None;
-    for state in states.iter().filter(|state| state.kind == "unstarted") {
+    for state in states.iter().filter(|state| state.kind == kind) {
         if lowest.is_none_or(|old| state.position < old.position) {
             lowest = Some(state)
         }
     }
     lowest
+}
+pub fn default_state(states: &[State]) -> Option<String> {
+    lowest_of_kind(states, "unstarted")
         .or_else(|| states.first())
         .map(|state| state.id.clone())
 }
@@ -211,5 +216,21 @@ mod tests {
             state("backlog", "backlog", 1.0),
         ];
         assert_eq!(default_state(&states).as_deref(), Some("started"));
+    }
+    #[test]
+    fn equal_signed_zero_positions_keep_the_first_default_state() {
+        for positions in [[-0.0, 0.0], [0.0, -0.0]] {
+            let states = ["first", "second"]
+                .into_iter()
+                .zip(positions)
+                .map(|(id, position)| State {
+                    id: id.to_owned(),
+                    name: id.to_owned(),
+                    kind: "unstarted".to_owned(),
+                    position,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(default_state(&states).as_deref(), Some("first"));
+        }
     }
 }

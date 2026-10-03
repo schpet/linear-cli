@@ -1,6 +1,6 @@
 use super::{
     create::{Input, Templates},
-    write::{Backend, Created, Label, Named, Parent, State, Updated},
+    write::{Backend, Created, Label, Named, Parent, State, Updated, lowest_of_kind},
 };
 use crate::cli::values::UserRef;
 use crate::client::LinearClient;
@@ -97,19 +97,11 @@ impl Backend for NetworkBackend {
     async fn state(&self, team_key: String, reference: String) -> Result<String, Error> {
         let states = self.states(team_key.clone()).await?;
         refs::reject_linear_url(&reference, "a workflow state name or type")?;
-        if let Some(state) = states
-            .iter()
-            .find(|s| s.name.to_lowercase() == reference.to_lowercase())
-        {
+        let normalized = reference.to_lowercase();
+        if let Some(state) = states.iter().find(|s| s.name.to_lowercase() == normalized) {
             return Ok(state.id.clone());
         }
-        let mut lowest: Option<&State> = None;
-        for state in states.iter().filter(|s| s.kind == reference.to_lowercase()) {
-            if lowest.is_none_or(|old| state.position < old.position) {
-                lowest = Some(state)
-            }
-        }
-        if let Some(state) = lowest {
+        if let Some(state) = lowest_of_kind(&states, &normalized) {
             return Ok(state.id.clone());
         }
         let suggestion = if states.is_empty() {

@@ -818,3 +818,44 @@ fn missing_state_hints_quote_names_before_issue_mutations() {
         assert_eq!(api.operations(), ["ResolveTeam", "GetWorkflowStates"]);
     }
 }
+
+#[test]
+fn state_type_lookup_chooses_the_lowest_position_and_first_tie_after_name_lookup() {
+    for (reference, expected) in [("STARTED", "lowest-first"), ("Unstarted", "named-type")] {
+        let api = MockLinear::start();
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+            .on(
+                "GetWorkflowStates",
+                json!({ "team": { "states": { "nodes": [
+                { "id": "higher", "name": "Later", "type": "started", "position": 9 },
+                { "id": "lowest-first", "name": "First", "type": "started", "position": 1 },
+                { "id": "lowest-tied", "name": "Tied", "type": "started", "position": 1 },
+                { "id": "named-type", "name": "Unstarted", "type": "completed", "position": 4 },
+                { "id": "unstarted", "name": "Todo", "type": "unstarted", "position": 1 },
+            ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } }),
+            )
+            .on("UpdateIssue", updated("ENG-1", "Same"));
+        Cli::for_api(&api)
+            .run(&["issue", "update", "ENG-1", "--state", reference])
+            .success();
+        assert_eq!(update_input(&api), json!({ "stateId": expected }));
+    }
+}
+
+#[test]
+fn state_url_rejection_keeps_workflow_lookup_before_validation() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("GetWorkflowStates", states());
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "update",
+            "ENG-1",
+            "--state",
+            "https://linear.app/acme/issue/ENG-2/other",
+        ])
+        .failure()
+        .stderr_has("workflow state name or type");
+    assert_eq!(api.operations(), ["ResolveTeam", "GetWorkflowStates"]);
+}
