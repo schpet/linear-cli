@@ -18,7 +18,13 @@ use super::workspace::{WorkspaceScope, expect_url_kind};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CycleReference {
     input: String,
-    url: Option<LinearUrlRef>,
+    url: Option<CycleUrl>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct CycleUrl {
+    team_key: String,
+    selector: CycleSelector,
 }
 
 impl CycleReference {
@@ -28,6 +34,15 @@ impl CycleReference {
             LinearUrlKind::Cycle,
             "a cycle URL, number, or name",
             scope,
+            |url| match url {
+                LinearUrlRef::Cycle {
+                    team_key, cycle, ..
+                } => Some(CycleUrl {
+                    team_key,
+                    selector: cycle,
+                }),
+                _ => None,
+            },
         )?;
         Ok(Self {
             input: input.to_owned(),
@@ -37,11 +52,7 @@ impl CycleReference {
 
     /// The team key from a cycle URL.
     pub fn url_team_key(&self) -> Option<&str> {
-        match &self.url {
-            Some(LinearUrlRef::Cycle { team_key, .. }) => Some(team_key),
-            Some(other) => unreachable!("a cycle reference holds a {:?} URL", other.kind()),
-            None => None,
-        }
+        self.url.as_ref().map(|url| url.team_key.as_str())
     }
 }
 
@@ -121,8 +132,8 @@ fn select(
 ) -> Result<String> {
     let id = |cycle: &LookupCycle| cycle.id.inner().to_owned();
     let input = match &reference.url {
-        Some(LinearUrlRef::Cycle {
-            cycle: CycleSelector::Number(number),
+        Some(CycleUrl {
+            selector: CycleSelector::Number(number),
             ..
         }) => {
             return cycles
@@ -131,15 +142,14 @@ fn select(
                 .map(id)
                 .ok_or_else(|| Error::not_found("Cycle", &format!("#{number} in team {key}")));
         }
-        Some(LinearUrlRef::Cycle {
-            cycle: CycleSelector::Active,
+        Some(CycleUrl {
+            selector: CycleSelector::Active,
             ..
         }) => "active",
-        Some(LinearUrlRef::Cycle {
-            cycle: CycleSelector::Next,
+        Some(CycleUrl {
+            selector: CycleSelector::Next,
             ..
         }) => "next",
-        Some(other) => unreachable!("a cycle reference holds a {:?} URL", other.kind()),
         None => reference.input.as_str(),
     };
     let keyword = input.to_lowercase();

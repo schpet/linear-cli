@@ -33,9 +33,12 @@ impl ProjectReference {
             LinearUrlKind::Project,
             "a project URL, UUID, slug ID, or exact name",
             scope,
+            |url| match url {
+                LinearUrlRef::Project { slug_id, .. } => Some(slug_id),
+                _ => None,
+            },
         )? {
-            Some(LinearUrlRef::Project { slug_id, .. }) => Target::Slug(slug_id),
-            Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
+            Some(slug_id) => Target::Slug(slug_id),
             None if is_linear_uuid(input) => Target::Id(input.to_owned()),
             None => Target::NameOrSlug,
         };

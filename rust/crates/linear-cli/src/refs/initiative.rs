@@ -36,9 +36,12 @@ impl InitiativeReference {
             LinearUrlKind::Initiative,
             "an initiative URL, UUID, slug ID, or exact name",
             scope,
+            |url| match url {
+                LinearUrlRef::Initiative { slug_id, .. } => Some(slug_id),
+                _ => None,
+            },
         )? {
-            Some(LinearUrlRef::Initiative { slug_id, .. }) => Target::UrlSlug(slug_id),
-            Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
+            Some(slug_id) => Target::UrlSlug(slug_id),
             None if is_linear_uuid(input) => Target::Id(input.to_owned()),
             None => Target::NameOrSlug,
         };

@@ -73,10 +73,13 @@ pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTa
             LinearUrlKind::Issue,
             "an issue URL, identifier like ENG-123, or UUID",
             &scope,
+            |url| match url {
+                LinearUrlRef::Issue { identifier, .. } => Some(identifier),
+                _ => None,
+            },
         )?;
         let id = match url {
-            Some(LinearUrlRef::Issue { identifier, .. }) => identifier,
-            Some(_) => unreachable!("expect_url_kind only returns issue URLs here"),
+            Some(identifier) => identifier,
             None if refs::is_linear_uuid(original) => original.to_owned(),
             None => original.to_uppercase(),
         };

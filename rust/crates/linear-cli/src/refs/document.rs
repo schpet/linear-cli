@@ -10,9 +10,12 @@ pub fn parse(input: &str, scope: &WorkspaceScope<'_>) -> Result<String> {
         LinearUrlKind::Document,
         "a document URL, UUID, or slug ID",
         scope,
+        |url| match url {
+            LinearUrlRef::Document { slug_id, .. } => Some(slug_id),
+            _ => None,
+        },
     )? {
-        Some(LinearUrlRef::Document { slug_id, .. }) => Ok(slug_id),
-        Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
+        Some(slug_id) => Ok(slug_id),
         None => Ok(input.to_owned()),
     }
 }

@@ -10,17 +10,17 @@ pub fn prepare_issue_reference(
     scope: &WorkspaceScope<'_>,
 ) -> Result<Option<String>, Error> {
     if !input.is_empty() {
-        match expect_url_kind(
+        if let Some(identifier) = expect_url_kind(
             input,
             LinearUrlKind::Issue,
             "an issue URL or an identifier like ENG-123",
             scope,
+            |url| match url {
+                LinearUrlRef::Issue { identifier, .. } => Some(identifier),
+                _ => None,
+            },
         )? {
-            Some(LinearUrlRef::Issue { identifier, .. }) => {
-                return Ok(Some(identifier));
-            }
-            Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
-            None => {}
+            return Ok(Some(identifier));
         }
         if let Some(id) = issue_identifier(input) {
             return Ok(Some(id));

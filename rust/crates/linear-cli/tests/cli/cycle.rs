@@ -315,3 +315,40 @@ fn view_takes_the_team_from_a_cycle_url() {
         .success();
     assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
 }
+
+#[test]
+fn view_resolves_cycle_url_keywords() {
+    for (keyword, selected) in [("active", "active-cycle"), ("upcoming", "next-cycle")] {
+        let mut reply = lookup(json!({ "id": "active-cycle", "number": 4, "name": "Sprint 4" }));
+        reply["team"]["cycles"]["nodes"][0]["id"] = json!("next-cycle");
+        reply["team"]["cycles"]["nodes"][0]["isNext"] = json!(true);
+        let mut detail = details();
+        detail["cycle"]["id"] = json!(selected);
+        let api = MockLinear::start();
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+            .on("GetTeamCyclesForLookup", reply)
+            .on("GetCycleDetails", detail);
+        let url = format!("https://linear.app/acme/team/ENG/cycle/{keyword}");
+        Cli::for_api(&api)
+            .run(&["cycle", "view", &url, "--json"])
+            .success();
+        assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
+        assert_eq!(api.variables("GetCycleDetails"), json!({ "id": selected }));
+    }
+}
+
+#[test]
+fn view_reports_no_active_cycle_from_a_cycle_url() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("GetTeamCyclesForLookup", lookup(Value::Null));
+    Cli::for_api(&api)
+        .run(&[
+            "cycle",
+            "view",
+            "https://linear.app/acme/team/ENG/cycle/active",
+        ])
+        .failure()
+        .stderr_has("Team ENG has no active cycle");
+    assert_eq!(api.requests().len(), 2, "no details request");
+}

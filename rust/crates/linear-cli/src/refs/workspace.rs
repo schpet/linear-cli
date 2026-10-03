@@ -48,14 +48,15 @@ impl<'a> WorkspaceScope<'a> {
     }
 }
 
-/// Return `None` for ordinary input, or a typed URL of the requested kind.
+/// Return `None` for ordinary input, or the payload of a URL of the requested kind.
 /// URL refusal precedes workspace checking; workspace checking precedes kind checking.
-pub fn expect_url_kind(
+pub fn expect_url_kind<T>(
     input: &str,
     kind: LinearUrlKind,
     entity_label: &str,
     scope: &WorkspaceScope<'_>,
-) -> Result<Option<LinearUrlRef>, Error> {
+    payload: impl FnOnce(LinearUrlRef) -> Option<T>,
+) -> Result<Option<T>, Error> {
     let suggestion = || format!("Pass {entity_label}.");
     let parsed = match parse_linear_url(input) {
         LinearUrlParse::NotLinear => return Ok(None),
@@ -76,7 +77,9 @@ pub fn expect_url_kind(
         ))
         .with_hint(suggestion()));
     }
-    Ok(Some(parsed))
+    Ok(Some(
+        payload(parsed).expect("the URL payload picker matches the checked kind"),
+    ))
 }
 
 /// Reject any recognized Linear URL for commands that accept only plain references.
@@ -112,16 +115,16 @@ pub fn reject_comment_url(input: &str) -> Result<(), Error> {
 
 /// Prepare a team URL for the later GraphQL resolver without selecting credentials.
 pub fn expect_team_url(input: &str, scope: &WorkspaceScope<'_>) -> Result<Option<String>, Error> {
-    match expect_url_kind(
+    expect_url_kind(
         input,
         LinearUrlKind::Team,
         "a team URL, key, name, or ID",
         scope,
-    )? {
-        Some(LinearUrlRef::Team { team_key, .. }) => Ok(Some(team_key)),
-        None => Ok(None),
-        Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
-    }
+        |url| match url {
+            LinearUrlRef::Team { team_key, .. } => Some(team_key),
+            _ => None,
+        },
+    )
 }
 
 #[cfg(test)]

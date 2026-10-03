@@ -781,3 +781,62 @@ fn create_warns_that_an_unreadable_reply_may_have_created_it() {
         .failure()
         .stderr_has("document may already exist");
 }
+
+#[test]
+fn list_accepts_an_issue_url_and_normalizes_plain_issue_references() {
+    for reference in [
+        "https://linear.app/acme/issue/eng-1/title",
+        "eng-1",
+        "00000000-0000-4000-9000-000000000055",
+    ] {
+        let api = MockLinear::start();
+        api.on(
+            "GetIssueForDocumentTarget",
+            json!({ "issue": { "id": "issue-id" } }),
+        )
+        .on(
+            "ListDocuments",
+            json!({ "documents": page(json!([]), Value::Null, false) }),
+        );
+        Cli::for_api(&api)
+            .run(&["document", "list", "--issue", reference, "--json"])
+            .success();
+        let expected = if reference.starts_with("0000") {
+            reference
+        } else {
+            "ENG-1"
+        };
+        assert_eq!(
+            api.variables("GetIssueForDocumentTarget"),
+            json!({ "id": expected })
+        );
+        assert_eq!(
+            api.variables("ListDocuments"),
+            json!({ "filter": { "issue": { "id": { "eq": "issue-id" } } }, "first": 50 })
+        );
+    }
+}
+
+#[test]
+fn list_rejects_wrong_kind_issue_urls_after_workspace_checks() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_WORKSPACE", "acme");
+    cli.run(&[
+        "document",
+        "list",
+        "--issue",
+        "https://linear.app/acme/project/mobile-abcdef123456",
+    ])
+    .failure()
+    .stderr_has("is a project URL, not an issue URL.")
+    .stderr_has("Pass an issue URL, identifier like ENG-123, or UUID.");
+    let run = cli.run(&[
+        "document",
+        "list",
+        "--issue",
+        "https://linear.app/foreign/project/mobile-abcdef123456",
+    ]);
+    run.failure().stderr_has("this is the \"acme\" workspace");
+    assert!(!run.stderr.contains("not an issue URL"));
+    assert!(api.requests().is_empty());
+}
