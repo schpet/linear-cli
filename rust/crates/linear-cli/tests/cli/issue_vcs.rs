@@ -46,7 +46,7 @@ fn jj(cli: Cli) -> Cli {
         "jj",
         "case \"$*\" in\n\
          'log -r ::@ '*) printf 'Fixes ENG-7\\n' ;;\n\
-         'log -r @ -T description --no-graph') printf 'previous work\\n' ;;\n\
+         'log -r @ --no-graph '*) printf 'occupied\\n' ;;\n\
          *'-T commit_id'*) printf 'abc123\\n' ;;\n\
          *builtin_log_compact_full_description*) printf 'commit abc123\\n+patched line\\n' ;;\n\
          esac",
@@ -383,8 +383,8 @@ fn commits_requires_jj() {
 fn commits_drains_large_probe_output_and_passes_the_log_exit_status_through() {
     let api = MockLinear::start();
     api.on("GetIssueId", json!({ "issue": { "id": "issue-7" } }));
-    // Children get a null stdin, the probe's own status is ignored, and its output is larger
-    // than a pipe buffer on both streams.
+    // Children get a null stdin, and the probe output is larger than a pipe buffer on both
+    // streams.
     let cli = Cli::for_api(&api)
         .env("LINEAR_VCS", "jj")
         .stdin(b"not for children\n")
@@ -392,7 +392,7 @@ fn commits_drains_large_probe_output_and_passes_the_log_exit_status_through() {
             "jj",
             "if IFS= read -r line; then exit 8; fi\n\
              case \"$*\" in\n\
-             *'-T commit_id'*) head -c 131072 /dev/zero | tr '\\0' x; head -c 131072 /dev/zero >&2; exit 19 ;;\n\
+             *'-T commit_id'*) head -c 131072 /dev/zero | tr '\\0' x; head -c 131072 /dev/zero >&2 ;;\n\
              *builtin_log_compact_full_description*) printf '+patched line\\n'; exit 7 ;;\n\
              esac",
         );
@@ -413,4 +413,71 @@ fn commits_fails_when_no_commit_names_the_issue() {
         .failure()
         .stderr_has("Commits not found: ENG-7");
     assert_eq!(calls(&cli, "jj").len(), 1);
+}
+
+#[test]
+fn commits_fails_when_the_jj_probe_fails() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-7" } }));
+    let cli = Cli::for_api(&api).env("LINEAR_VCS", "jj").stub_bin(
+        "jj",
+        "printf 'abc123\\n'; echo 'Error: The working copy is stale' >&2; exit 1",
+    );
+    cli.run(&["issue", "commits", "ENG-7"])
+        .failure()
+        .stderr_has("The working copy is stale");
+    assert_eq!(calls(&cli, "jj").len(), 1);
+}
+
+#[test]
+fn id_reports_a_failed_jj_log() {
+    let cli = Cli::new().env("LINEAR_VCS", "jj").stub_bin(
+        "jj",
+        "echo 'Error: There is no jj repo in \".\"' >&2; exit 1",
+    );
+    cli.run(&["issue", "id"])
+        .failure()
+        .stderr_has("There is no jj repo");
+}
+
+#[test]
+fn id_on_a_detached_git_head_names_no_issue() {
+    Cli::new()
+        .stub_bin("git", "exit 1")
+        .run(&["issue", "id"])
+        .failure()
+        .stderr_has("Could not determine issue ID");
+}
+
+#[test]
+fn id_reports_a_failed_git_branch_lookup() {
+    Cli::new()
+        .stub_bin("git", "echo 'fatal: not a git repository' >&2; exit 128")
+        .run(&["issue", "id"])
+        .failure()
+        .stderr_has("fatal: not a git repository");
+}
+
+#[test]
+fn start_with_jj_stops_when_the_change_probe_fails() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_VCS", "jj")
+        .env("LINEAR_TEAM_ID", "ENG")
+        .stub_bin("jj", "echo 'Error: concurrent operation' >&2; exit 1");
+    cli.run(&["issue", "start", "ENG-7"])
+        .failure()
+        .stderr_has("concurrent operation");
+    assert_eq!(calls(&cli, "jj").len(), 1);
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
+}
+
+#[test]
+fn pull_request_with_an_empty_title_uses_the_issue_title() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = gh(Cli::for_api(&api));
+    cli.run(&["issue", "pr", "ENG-7", "--title", ""]).success();
+    assert_eq!(cli.calls("gh")[0][3], "ENG-7 Repair the widget");
 }

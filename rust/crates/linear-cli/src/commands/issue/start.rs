@@ -3,7 +3,7 @@ use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueStart,
     commands::{issue::read as issue_read, team_key::configured_team_key},
-    config::{ChildEnvOverlay, Vcs},
+    config::Vcs,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::{
@@ -11,13 +11,10 @@ use crate::{
         issue_read::*,
         team::WorkflowState,
     },
-    platform::{
-        prompt::Choice,
-        vcs_script::{CommandSpec, NativeProcessRunner, ProcessRunner, Program, decoded_trim},
-    },
+    platform::{process, prompt::Choice},
     refs::{IssueReference, prepare_issue_reference},
 };
-use std::{io::Write, path::Path};
+use std::process::Command;
 pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
     start(ctx, args).context("Failed to start issue")
 }
@@ -76,35 +73,28 @@ pub(crate) fn work_on(
 ) -> Result<()> {
     let client = ctx.client()?;
     let details = ctx.spin(true, super::details::fetch(client, identifier.to_owned()))?;
-    let mut runner = NativeProcessRunner;
-    let cwd = ctx.cwd();
-    let env = &ctx.config().child_env;
+    let repo = Repo::new(ctx);
     ctx.flush()?;
     let output = match super::vcs(ctx) {
         Vcs::Git => {
-            let branch = branch_name(branch, &details.branch_name);
-            let choice = if verify(&mut runner, branch, cwd, env)? {
-                Some(choose_existing(ctx, branch)?)
+            let branch = branch
+                .filter(|value| !value.is_empty())
+                .unwrap_or(&details.branch_name);
+            if repo.git_branch_exists(branch)? {
+                match choose_existing(ctx, branch)? {
+                    ExistingBranch::Switch => repo.git_switch(branch)?,
+                    ExistingBranch::Suffix => {
+                        let branch = free_suffix(branch, |name| repo.git_branch_exists(name))?;
+                        repo.git_create(&branch, from_ref)?
+                    }
+                }
             } else {
-                None
-            };
-            match choice {
-                Some(choice) => existing_git(&mut runner, choice, branch, from_ref, cwd, env)?,
-                None => create_branch(&mut runner, branch, from_ref, cwd, env)?,
+                repo.git_create(branch, from_ref)?
             }
         }
         Vcs::Jj => {
-            let mut stderr = std::io::stderr();
-            prepare_jj(&mut runner, cwd, env, &mut stderr)?;
-            describe_jj(
-                &mut runner,
-                identifier,
-                &details.title,
-                &details.url,
-                cwd,
-                env,
-                &mut stderr,
-            )?
+            repo.jj_prepare()?;
+            repo.jj_describe(identifier, &details.title, &details.url)?
         }
     };
     ctx.print(output)?;
@@ -124,6 +114,7 @@ fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
         ],
     )
 }
+
 pub fn team_and_flags(team: Option<&str>, all: bool, unassigned: bool) -> Result<&str, Error> {
     let team = team
         .filter(|value| !value.is_empty())
@@ -192,151 +183,96 @@ fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
         .collect())
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ExistingBranch {
+enum ExistingBranch {
     Switch,
     Suffix,
 }
-pub fn branch_name<'a>(custom: Option<&'a str>, returned: &'a str) -> &'a str {
-    custom.filter(|value| !value.is_empty()).unwrap_or(returned)
-}
-pub fn verify(
-    runner: &mut impl ProcessRunner,
-    branch: &str,
-    cwd: &Path,
-    env: &ChildEnvOverlay,
-) -> Result<bool, Error> {
-    runner
-        .capture(
-            &CommandSpec::new(Program::Git, &["rev-parse", "--verify", branch]),
-            cwd,
-            env,
-        )
-        .map(|captured| captured.outcome.success())
-        .context("Failed to check if branch exists")
-}
-pub fn create_branch(
-    runner: &mut impl ProcessRunner,
-    branch: &str,
-    from: Option<&str>,
-    cwd: &Path,
-    env: &ChildEnvOverlay,
-) -> Result<Vec<u8>, Error> {
-    let from = from.filter(|value| !value.is_empty()).unwrap_or("HEAD");
-    let result = runner.capture(
-        &CommandSpec::new(Program::Git, &["checkout", "-b", branch, from]),
-        cwd,
-        env,
-    )?;
-    if !result.outcome.success() {
-        return Err(Error::new(format!(
-            "Failed to create branch '{branch}': {}",
-            decoded_trim(&result.stderr)
-        )));
+
+/// `branch-1`, `branch-2`, …: the first name that does not `exist` yet.
+fn free_suffix(branch: &str, mut exists: impl FnMut(&str) -> Result<bool>) -> Result<String> {
+    for suffix in 1_u64.. {
+        let candidate = format!("{branch}-{suffix}");
+        if !exists(&candidate)? {
+            return Ok(candidate);
+        }
     }
-    Ok(format!("✓ Created and switched to branch '{branch}'\n").into_bytes())
+    unreachable!("some branch suffix is free")
 }
-pub fn existing_git(
-    runner: &mut impl ProcessRunner,
-    action: ExistingBranch,
-    branch: &str,
-    from: Option<&str>,
-    cwd: &Path,
-    env: &ChildEnvOverlay,
-) -> Result<Vec<u8>, Error> {
-    match action {
-        ExistingBranch::Switch => {
-            let result = runner.capture(
-                &CommandSpec::new(Program::Git, &["checkout", branch]),
-                cwd,
-                env,
-            )?;
-            if !result.outcome.success() {
-                return Err(Error::new(format!(
-                    "Failed to switch to branch '{branch}': {}",
-                    decoded_trim(&result.stderr)
-                )));
+
+/// git and jj run in the working directory with the child environment.
+struct Repo<'a> {
+    ctx: &'a Ctx,
+}
+
+impl<'a> Repo<'a> {
+    fn new(ctx: &'a Ctx) -> Self {
+        Self { ctx }
+    }
+
+    fn command(&self, program: &str) -> Command {
+        process::command(program, self.ctx.cwd(), &self.ctx.config().child_env)
+    }
+
+    fn git_branch_exists(&self, branch: &str) -> Result<bool> {
+        let mut command = self.command("git");
+        command.args(["rev-parse", "--verify", "--quiet", branch]);
+        let output = process::output(&mut command)?;
+        // With --quiet, a missing ref exits 1 and nothing else does.
+        match output.status.code() {
+            Some(0) => Ok(true),
+            Some(1) => Ok(false),
+            _ => Err(process::failed(&command, output.status, &output.stderr)
+                .context("Failed to check if branch exists")),
+        }
+    }
+
+    fn git_switch(&self, branch: &str) -> Result<Vec<u8>> {
+        process::checked_output(self.command("git").args(["checkout", branch]))
+            .context(format!("Failed to switch to branch '{branch}'"))?;
+        Ok(format!("✓ Switched to '{branch}'\n").into_bytes())
+    }
+
+    fn git_create(&self, branch: &str, from: Option<&str>) -> Result<Vec<u8>> {
+        let from = from.filter(|value| !value.is_empty()).unwrap_or("HEAD");
+        process::checked_output(self.command("git").args(["checkout", "-b", branch, from]))
+            .context(format!("Failed to create branch '{branch}'"))?;
+        Ok(format!("✓ Created and switched to branch '{branch}'\n").into_bytes())
+    }
+
+    /// Starts a new change unless `@` is already empty and undescribed.
+    fn jj_prepare(&self) -> Result<()> {
+        let probe = process::checked_output(self.command("jj").args([
+            "log",
+            "-r",
+            "@",
+            "--no-graph",
+            "-T",
+            "if(description, \"occupied\", if(empty, \"empty\", \"occupied\"))",
+        ]))
+        .context("Failed to inspect the working-copy change")?;
+        match process::text(&probe.stdout).as_str() {
+            "empty" => Ok(()),
+            "occupied" => {
+                process::checked_output(self.command("jj").arg("new"))
+                    .context("Failed to create new jj change")?;
+                Ok(())
             }
-            Ok(format!("✓ Switched to '{branch}'\n").into_bytes())
-        }
-        ExistingBranch::Suffix => {
-            let mut suffix = 1_u64;
-            loop {
-                let candidate = format!("{branch}-{suffix}");
-                if !verify(runner, &candidate, cwd, env)? {
-                    return create_branch(runner, &candidate, from, cwd, env);
-                }
-                suffix = suffix
-                    .checked_add(1)
-                    .ok_or_else(|| Error::new("branch suffix counter exhausted"))?;
-            }
+            other => Err(Error::new(format!(
+                "Unexpected output from `jj log`: {other:?}"
+            ))),
         }
     }
-}
-fn decoded(bytes: &[u8]) -> String {
-    let value = String::from_utf8_lossy(bytes);
-    value.strip_prefix('\u{feff}').unwrap_or(&value).to_owned()
-}
-pub fn prepare_jj(
-    runner: &mut impl ProcessRunner,
-    cwd: &Path,
-    env: &ChildEnvOverlay,
-    stderr: &mut (impl Write + ?Sized),
-) -> Result<(), Error> {
-    let description = runner.capture(
-        &CommandSpec::new(
-            Program::Jj,
-            &["log", "-r", "@", "-T", "description", "--no-graph"],
-        ),
-        cwd,
-        env,
-    )?;
-    let needs_new = if !decoded_trim(&description.stdout).is_empty() {
-        true
-    } else {
-        let diff = runner.capture(
-            &CommandSpec::new(
-                Program::Jj,
-                &["log", "-p", "-r", "@", "--git", "--no-graph"],
-            ),
-            cwd,
-            env,
-        )?;
-        decoded(&diff.stdout).contains("diff --git")
-    };
-    if needs_new {
-        let result = runner.capture(&CommandSpec::new(Program::Jj, &["new"]), cwd, env)?;
-        if !result.outcome.success() {
-            writeln!(stderr, "{}", decoded(&result.stderr))
-                .map_err(|error| Error::new("could not write jj failure").with_source(error))?;
-            return Err(Error::new("Failed to create new jj change"));
-        }
+
+    fn jj_describe(&self, identifier: &str, title: &str, url: &str) -> Result<Vec<u8>> {
+        let description = format!(
+            "{identifier} {title}\n\nLinear-issue: Fixes {identifier}\nLinear-issue-url: {url}"
+        );
+        process::checked_output(self.command("jj").args(["describe", "-m", &description]))
+            .context("Failed to set jj description")?;
+        Ok(format!("✓ Prepared jj change for issue {identifier}\n").into_bytes())
     }
-    Ok(())
 }
-pub fn describe_jj(
-    runner: &mut impl ProcessRunner,
-    identifier: &str,
-    title: &str,
-    url: &str,
-    cwd: &Path,
-    env: &ChildEnvOverlay,
-    stderr: &mut (impl Write + ?Sized),
-) -> Result<Vec<u8>, Error> {
-    let description = format!(
-        "{identifier} {title}\n\nLinear-issue: Fixes {identifier}\nLinear-issue-url: {url}"
-    );
-    let result = runner.capture(
-        &CommandSpec::new(Program::Jj, &["describe", "-m", &description]),
-        cwd,
-        env,
-    )?;
-    if !result.outcome.success() {
-        writeln!(stderr, "{}", decoded(&result.stderr))
-            .map_err(|error| Error::new("could not write jj failure").with_source(error))?;
-        return Err(Error::new("Failed to set jj description"));
-    }
-    Ok(format!("✓ Prepared jj change for issue {identifier}\n").into_bytes())
-}
+
 pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
     crate::refs::workflow_states::sort(&mut states);
     let mut selected: Option<WorkflowState> = None;

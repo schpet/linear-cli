@@ -1,40 +1,51 @@
-//! Reading an issue identifier out of a git branch name or jj trailers.
-use crate::error::Error;
+//! Reading the issue the current git branch or jj change names.
+use std::path::Path;
+
+use crate::config::{ChildEnvOverlay, Vcs};
+use crate::error::Result;
+use crate::platform::process;
 use crate::refs::find_issue_identifier;
 
-pub const JJ_TEMPLATE: &str = "trailers.map(|t| if(t.key() == \"Linear-issue\", t.value(), \"\"))";
+/// Prints the value of each `Linear-issue` trailer on its own line, with a
+/// blank line after each change.
+const JJ_TRAILERS: &str =
+    "trailers.map(|t| if(t.key() == \"Linear-issue\", t.value() ++ \"\\n\")).join(\"\") ++ \"\\n\"";
 
-pub fn parse_jj_trailers(output: &str) -> Option<String> {
-    let mut last = None;
-    for line in output.split('\n') {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            if last.is_some() {
-                return last;
+/// The issue the current git branch name or the nearest jj change with a
+/// `Linear-issue` trailer names.
+pub fn infer_issue(vcs: Vcs, cwd: &Path, env: &ChildEnvOverlay) -> Result<Option<String>> {
+    match vcs {
+        Vcs::Git => {
+            let mut command = process::command("git", cwd, env);
+            command.args(["symbolic-ref", "--quiet", "--short", "HEAD"]);
+            let output = process::output(&mut command)?;
+            match output.status.code() {
+                Some(0) => Ok(find_issue_identifier(&process::text(&output.stdout))),
+                // A detached HEAD has no branch, so no issue.
+                Some(1) => Ok(None),
+                _ => Err(process::failed(&command, output.status, &output.stderr)
+                    .context("Failed to get current branch")),
             }
-        } else if let Some(id) = find_issue_identifier(trimmed) {
-            last = Some(id);
+        }
+        Vcs::Jj => {
+            let mut command = process::command("jj", cwd, env);
+            command.args(["log", "-r", "::@", "--no-graph", "-T", JJ_TRAILERS]);
+            let output = process::checked_output(&mut command)
+                .map_err(|error| error.context("Failed to read jj trailers"))?;
+            Ok(parse_jj_trailers(&String::from_utf8_lossy(&output.stdout)))
         }
     }
-    last
 }
 
-/// The issue in the branch name printed by `git symbolic-ref --quiet --short
-/// HEAD`, which exits with `exit_code` 1 when HEAD is detached (no branch, so
-/// no issue) and with another nonzero status on a real failure.
-pub fn parse_git_branch(
-    exit_code: Option<i32>,
-    stdout: &str,
-    stderr: &str,
-) -> Result<Option<String>, Error> {
-    match exit_code {
-        Some(0) => Ok(find_issue_identifier(stdout.trim())),
-        Some(1) => Ok(None),
-        Some(_) | None => Err(Error::new(format!(
-            "Failed to get current branch: {}",
-            stderr.trim()
-        ))),
-    }
+/// The issue in the last `Linear-issue` trailer of the first change that has
+/// one, given blank-line-separated blocks of trailer values.
+fn parse_jj_trailers(output: &str) -> Option<String> {
+    output.split("\n\n").find_map(|block| {
+        block
+            .lines()
+            .filter_map(|line| find_issue_identifier(line.trim()))
+            .next_back()
+    })
 }
 
 #[cfg(test)]
@@ -42,39 +53,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn jj_trailers_use_the_last_identifier_of_the_first_block() {
+    fn jj_trailers_use_the_last_identifier_of_the_nearest_change() {
         for (text, expected) in [
-            ("Fixes ABC-123Fixes DEF-456", Some("DEF-456")),
-            ("Fixes ABC-123 References DEF-456", Some("ABC-123")),
             (
-                "Fixes ABC-123\nFixes DEF-456\n\nFixes XYZ-9",
+                "Fixes ABC-123\nFixes DEF-456\n\nFixes XYZ-9\n\n",
                 Some("DEF-456"),
             ),
-            ("\n\nNo issue\nFixes XYZ-9", Some("XYZ-9")),
+            ("\n\n\nNo issue\nFixes XYZ-9\n\n", Some("XYZ-9")),
+            ("References ABC-1\n\n", Some("ABC-1")),
+            ("\n\n\n", None),
             ("", None),
-            (" ENG-7 ", Some("ENG-7")),
         ] {
             assert_eq!(parse_jj_trailers(text).as_deref(), expected, "{text:?}");
         }
-    }
-
-    #[test]
-    fn exit_one_is_a_detached_head_and_other_failures_are_errors() {
-        assert_eq!(
-            parse_git_branch(Some(1), "ENG-7", "").expect("detached"),
-            None
-        );
-        assert_eq!(
-            parse_git_branch(Some(0), " feature/eng-7-x\n", "warning")
-                .expect("branch")
-                .as_deref(),
-            Some("ENG-7")
-        );
-        assert_eq!(parse_git_branch(Some(0), "\n", "").expect("empty"), None);
-        let error = parse_git_branch(Some(128), "ENG-7", " fatal: denied\n").expect_err("fatal");
-        assert_eq!(
-            error.message(),
-            "Failed to get current branch: fatal: denied"
-        );
     }
 }

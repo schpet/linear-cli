@@ -3,10 +3,10 @@
 use crate::{
     cli::issue::IssuePullRequest,
     commands::text_input,
-    config::{ChildEnvOverlay, PrTemplateCli},
+    config::PrTemplateCli,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    platform::gh_script::{GhRunner, NativeGhRunner},
+    platform::gh,
 };
 use std::path::Path;
 
@@ -44,12 +44,7 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         },
     );
     ctx.flush()?;
-    create(
-        &mut NativeGhRunner,
-        &argv,
-        ctx.cwd(),
-        &ctx.config().child_env,
-    )
+    gh::run(&argv, ctx.cwd(), &ctx.config().child_env)
 }
 pub const TEMPLATE_SUGGESTION: &str = "Pass a readable file to --template, fix the pr_template config option, or use --no-template to skip the template.";
 fn unusable(reason: impl Into<String>) -> Error {
@@ -118,7 +113,13 @@ pub fn args(
         "pr".to_owned(),
         "create".to_owned(),
         "--title".to_owned(),
-        format!("{identifier} {}", options.title.unwrap_or(issue_title)),
+        format!(
+            "{identifier} {}",
+            options
+                .title
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or(issue_title)
+        ),
         "--body".to_owned(),
         body(template, issue_url),
     ];
@@ -135,18 +136,6 @@ pub fn args(
         args.push("--web".to_owned());
     }
     args
-}
-pub fn create(
-    runner: &mut impl GhRunner,
-    args: &[String],
-    cwd: &Path,
-    env: &ChildEnvOverlay,
-) -> Result<(), Error> {
-    if runner.create(args, cwd, env)? {
-        Ok(())
-    } else {
-        Err(Error::new("Failed to create pull request"))
-    }
 }
 
 #[cfg(test)]

@@ -28,7 +28,6 @@ use crate::commands::team_key::configured_team_key;
 use crate::config::Vcs;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::platform::vcs_script::{self, NativeProcessRunner};
 use crate::refs::{IssueReference, prepare_issue_reference};
 
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
@@ -91,12 +90,7 @@ pub(crate) fn require(ctx: &Ctx, input: Option<&str>) -> Result<String> {
 
 /// The issue the current git branch name or jj change trailers name.
 pub(crate) fn infer(ctx: &Ctx) -> Result<Option<String>> {
-    vcs_script::infer_issue(
-        &mut NativeProcessRunner,
-        vcs(ctx),
-        ctx.cwd(),
-        &ctx.config().child_env,
-    )
+    crate::platform::vcs::infer_issue(vcs(ctx), ctx.cwd(), &ctx.config().child_env)
 }
 
 pub(crate) fn vcs(ctx: &Ctx) -> Vcs {
