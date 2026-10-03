@@ -148,3 +148,6 @@ pub fn create(
         Err(Error::new("Failed to create pull request"))
     }
 }
+
+#[cfg(test)]
+mod tests;

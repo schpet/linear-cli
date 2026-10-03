@@ -381,3 +381,6 @@ pub async fn update_state(
     let _reported_success = response.issue_update.success;
     Ok(format!("✓ Issue state updated to '{}'\n", state.name).into_bytes())
 }
+
+#[cfg(test)]
+mod tests;
