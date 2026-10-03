@@ -6,7 +6,8 @@ use crate::auth::CredentialStore;
 use crate::auth::keyring::LookupResult;
 use crate::auth::test_support::{hit, manifest, store as canned_store};
 use crate::config::{
-    ConfigInputs, OptionInputs, OsFamily, RawConfigFile, SelectedEnv, parse_config_tier,
+    ConfigInputs, OptionInputs, OsFamily, RawConfigFile, SelectedEnv, fixture_path,
+    parse_config_tier,
 };
 
 /// Workspaces `a` (key `ka`, the default), `b` (no keyring entry) and `c`
@@ -179,7 +180,7 @@ fn debug_output_redacts_the_key() {
 #[test]
 fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     let make_env = |pairs: &[(&str, &str)]| ConfigInputs {
-        cwd: PathBuf::from("/repo"),
+        cwd: PathBuf::from(fixture_path("/repo")),
         os: OsFamily::Unix,
         process_env: pairs
             .iter()

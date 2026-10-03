@@ -39,3 +39,13 @@ impl TempTree {
         }
     }
 }
+
+/// An absolute fixture path in the host platform's spelling.
+pub(crate) fn fixture_path(path: &str) -> String {
+    assert!(path.starts_with('/'), "fixture paths must be rooted");
+    if cfg!(windows) {
+        format!("C:{}", path.replace('/', "\\"))
+    } else {
+        path.to_owned()
+    }
+}

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use super::*;
 use crate::config::{
     ConfigDiagnostic, DiagnosticReason, FileKind, FileSource, IssueSort, OptionSource, OsFamily,
-    ProcessEnvSnapshot,
+    ProcessEnvSnapshot, fixture_path,
 };
 
 enum Entry {
@@ -37,19 +37,22 @@ impl FileSource for CountFiles {
 
 impl MemFiles {
     fn file(mut self, path: &str, bytes: &[u8]) -> Self {
-        self.0
-            .insert(PathBuf::from(path), Entry::Bytes(bytes.to_vec()));
+        self.0.insert(
+            PathBuf::from(fixture_path(path)),
+            Entry::Bytes(bytes.to_vec()),
+        );
         self
     }
 
     fn directory(mut self, path: &str) -> Self {
-        self.0.insert(PathBuf::from(path), Entry::Directory);
+        self.0
+            .insert(PathBuf::from(fixture_path(path)), Entry::Directory);
         self
     }
 
     fn unreadable(mut self, path: &str) -> Self {
         self.0.insert(
-            PathBuf::from(path),
+            PathBuf::from(fixture_path(path)),
             Entry::ReadError(io::ErrorKind::PermissionDenied),
         );
         self
@@ -81,7 +84,7 @@ fn process(values: &[(&str, &str)]) -> ProcessEnvSnapshot {
 
 fn process_in(cwd: &str, values: &[(&str, &str)]) -> ProcessEnvSnapshot {
     ProcessEnvSnapshot::from_vars_os(
-        PathBuf::from(cwd),
+        PathBuf::from(fixture_path(cwd)),
         OsFamily::Unix,
         values
             .iter()
@@ -92,8 +95,9 @@ fn process_in(cwd: &str, values: &[(&str, &str)]) -> ProcessEnvSnapshot {
 
 #[test]
 fn env_beats_files_and_debug_output_hides_the_key() {
+    let global = fixture_path("/global");
     let process = process(&[
-        ("XDG_CONFIG_HOME", "/global"),
+        ("XDG_CONFIG_HOME", global.as_str()),
         ("LINEAR_ISSUE_SORT", "manual"),
         ("NO_COLOR", ""),
     ]);
@@ -158,7 +162,7 @@ fn a_pager_that_is_not_utf8_is_kept_as_is() {
 #[test]
 fn windows_child_overlay_lookup_is_case_insensitive() {
     let process = ProcessEnvSnapshot::from_vars_os(
-        PathBuf::from("/work"),
+        PathBuf::from(fixture_path("/work")),
         OsFamily::Windows,
         std::iter::empty::<(OsString, OsString)>(),
     )
@@ -179,12 +183,16 @@ fn lower_tier_poison_is_fatal_even_when_env_is_valid() {
     let error = report.result.unwrap_err();
     assert_eq!(
         error.to_string(),
-        "invalid config option issue_sort from project config /work/linear.toml: invalid type: integer `12`, expected manual or priority"
+        format!(
+            "invalid config option issue_sort from project config {}: invalid type: integer `12`, expected manual or priority",
+            fixture_path("/work/linear.toml")
+        )
     );
-    assert_eq!(
-        error.hint(),
-        Some("Fix issue_sort in project config /work/linear.toml.")
+    let hint = format!(
+        "Fix issue_sort in project config {}.",
+        fixture_path("/work/linear.toml")
     );
+    assert_eq!(error.hint(), Some(hint.as_str()));
 }
 
 #[test]
@@ -195,9 +203,10 @@ fn malformed_first_candidate_does_not_fall_through() {
     let report = load_startup(&process(&[]), &files);
     let message = report.result.unwrap_err().to_string();
     assert!(
-        message.starts_with(
-            "invalid config file /work/linear.toml: invalid TOML at line 1, column 15: "
-        ),
+        message.starts_with(&format!(
+            "invalid config file {}: invalid TOML at line 1, column 15: ",
+            fixture_path("/work/linear.toml")
+        )),
         "{message}"
     );
 }
@@ -214,17 +223,18 @@ fn selected_config_is_read_once() {
 
 #[test]
 fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
+    let global = fixture_path("/global");
     let files = MemFiles::default()
         .file("/work/.env", b"LINEAR_VCS=bad\n")
         .file("/global/linear/linear.toml", b"vcs = [\n")
         .file("/work/linear.toml", b"vcs = [\n");
-    let report = load_startup(&process(&[("XDG_CONFIG_HOME", "/global")]), &files);
+    let report = load_startup(&process(&[("XDG_CONFIG_HOME", global.as_str())]), &files);
     assert!(
         report
             .result
             .unwrap_err()
             .to_string()
-            .contains("/global/linear/linear.toml")
+            .contains(&fixture_path("/global/linear/linear.toml"))
     );
 
     let files = MemFiles::default()
@@ -236,7 +246,7 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
             .result
             .unwrap_err()
             .to_string()
-            .contains("/work/linear.toml")
+            .contains(&fixture_path("/work/linear.toml"))
     );
 
     let files = MemFiles::default().file("/work/.env", b"LINEAR_VCS=bad\n");
@@ -257,7 +267,10 @@ fn dotenv_warning_survives_a_later_config_failure() {
         .file("/work/linear.toml", b"vcs = [\n");
     let report = load_startup(&process(&[]), &files);
     assert_eq!(report.diagnostics.len(), 1);
-    assert_eq!(report.diagnostics[0].path, PathBuf::from("/work/.env"));
+    assert_eq!(
+        report.diagnostics[0].path,
+        PathBuf::from(fixture_path("/work/.env"))
+    );
     assert!(report.result.is_err());
 }
 
@@ -274,7 +287,7 @@ fn repo_root_supplies_dotenv_and_config() {
     assert_eq!(
         ready.options.vcs_source(),
         Some(&OptionSource::ProjectConfig {
-            path: PathBuf::from("/repo/.config/linear.toml")
+            path: PathBuf::from(fixture_path("/repo/.config/linear.toml"))
         })
     );
 }
@@ -294,7 +307,10 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
     );
     assert_eq!(
         report.result.unwrap_err().to_string(),
-        "cannot read config file /work/linear.toml: permission denied"
+        format!(
+            "cannot read config file {}: permission denied",
+            fixture_path("/work/linear.toml")
+        )
     );
     let report = load_startup(
         &process(&[]),
@@ -302,7 +318,10 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
     );
     assert_eq!(
         report.result.unwrap_err().to_string(),
-        "invalid config file /work/linear.toml: too large"
+        format!(
+            "invalid config file {}: too large",
+            fixture_path("/work/linear.toml")
+        )
     );
     let report = load_startup(
         &process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]),

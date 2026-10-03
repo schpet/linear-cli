@@ -23,6 +23,8 @@ pub use startup::{
 
 #[cfg(test)]
 mod test_support;
+#[cfg(test)]
+pub(crate) use test_support::fixture_path;
 
 #[cfg(test)]
 pub(crate) use dotenv::{ConfigDiagnostic, DiagnosticReason, SelectedEnv};

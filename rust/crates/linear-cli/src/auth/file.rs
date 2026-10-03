@@ -110,7 +110,14 @@ mod tests {
         let file = dir.path().join("credentials.toml");
         std::fs::write(&file, b"default = 'demo'\n").expect("write");
         assert!(read(&file).is_ok());
-        assert!(failure(dir.path()).contains("not a regular file"));
+        // Windows refuses to open a directory before checking its file kind.
+        let directory_error = if cfg!(windows) {
+            "read failed"
+        } else {
+            "not a regular file"
+        };
+        assert!(failure(dir.path()).contains(directory_error));
+        #[cfg(unix)]
         assert!(failure(&file.join("child")).contains("read failed"));
         std::fs::write(&file, vec![b'x'; 1024 * 1024 + 1]).expect("write");
         assert!(failure(&file).contains("too large"));

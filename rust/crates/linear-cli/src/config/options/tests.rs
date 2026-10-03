@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use super::*;
-use crate::config::{ConfigInputs, OsFamily, RawConfigFile, SelectedEnv, parse_config_tier};
+use crate::config::{
+    ConfigInputs, OsFamily, RawConfigFile, SelectedEnv, fixture_path, parse_config_tier,
+};
 
 fn tier(path: &str, content: &str) -> ConfigTier {
     parse_config_tier(RawConfigFile {
@@ -13,7 +15,7 @@ fn tier(path: &str, content: &str) -> ConfigTier {
 }
 fn env(values: &[(&str, &str)]) -> ConfigInputs {
     ConfigInputs {
-        cwd: PathBuf::from("/repo/sub"),
+        cwd: PathBuf::from(fixture_path("/repo/sub")),
         os: OsFamily::Unix,
         process_env: values
             .iter()
@@ -104,7 +106,7 @@ pr_template = "  .github/pr.md  "
             .expect("template")
             .expect("path")
             .path(),
-        Path::new("/repo/.github/pr.md")
+        Path::new(&fixture_path("/repo/.github/pr.md"))
     );
 }
 
@@ -257,7 +259,7 @@ fn template_paths_resolve_against_their_config_file() {
             .expect("path")
             .expect("present")
             .path(),
-        Path::new("/x")
+        Path::new(&fixture_path("/x"))
     );
     assert_eq!(options.attachment_dir(), Some("files"));
     let relative_global = tier("../cfg/linear/linear.toml", "pr_template = 't.md'");
@@ -269,7 +271,7 @@ fn template_paths_resolve_against_their_config_file() {
             .expect("path")
             .expect("present")
             .path(),
-        Path::new("/repo/cfg/linear/t.md")
+        Path::new(&fixture_path("/repo/cfg/linear/t.md"))
     );
     let env_options = snapshot(
         &env(&[("LINEAR_PR_TEMPLATE", "relative.md")]),
