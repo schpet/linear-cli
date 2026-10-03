@@ -3,7 +3,8 @@ use super::{
     write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
 };
 use crate::client::LinearClient;
-use crate::graphql::operations::issue::{GetIssueId, IdVariables as GetIssueIdVariables};
+use crate::graphql::operations::common::IdVariables;
+use crate::graphql::operations::issue::GetIssueId;
 use crate::{config::ConfigOptions, error::Error, graphql::operations::issue as ops, refs};
 
 #[derive(Clone)]
@@ -101,8 +102,8 @@ impl Backend for NetworkBackend {
             .collect())
     }
     async fn viewer(&self) -> Result<String, Error> {
-        use crate::graphql::operations::initiative::{GetViewerId, GetViewerIdVariables};
-        let data: GetViewerId = self.client.query(GetViewerIdVariables {}).await?;
+        use crate::graphql::operations::user::GetViewerId;
+        let data: GetViewerId = self.client.query(()).await?;
         Ok(data.viewer.id.into_inner())
     }
     async fn auto_assign(&self) -> Result<bool, Error> {
@@ -215,7 +216,10 @@ impl Backend for NetworkBackend {
         ))
     }
     async fn labels(&self, team_key: String) -> Result<Vec<Label>, Error> {
-        let data: ops::GetLabelsForTeam = self.client.query(ops::TeamKey { team_key }).await?;
+        let data: ops::GetLabelsForTeam = self
+            .client
+            .query(ops::TeamKeyVariables { team_key })
+            .await?;
         let mut labels = data.team.map(|t| t.labels.nodes).unwrap_or_default();
         labels.sort_by(|a, b| {
             crate::platform::collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
@@ -325,7 +329,7 @@ impl Backend for NetworkBackend {
         let identifier = self.parent_reference(&reference).await?;
         let data: GetIssueId = self
             .client
-            .query(GetIssueIdVariables {
+            .query(IdVariables {
                 id: identifier.clone(),
             })
             .await?;
@@ -338,7 +342,7 @@ impl Backend for NetworkBackend {
     async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, Error> {
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
-        let data: ops::GetParentIssueData = match self.client.query(ops::IdVariables { id }).await {
+        let data: ops::GetParentIssueData = match self.client.query(IdVariables { id }).await {
             Ok(data) => data,
             Err(crate::client::RequestError::Response(error)) => {
                 return Err(Error::new(
@@ -361,7 +365,7 @@ impl Backend for NetworkBackend {
         }))
     }
     async fn issue_project(&self, id: String) -> Result<Option<String>, Error> {
-        let data: ops::GetIssueProjectId = self.client.query(ops::IdVariables { id }).await?;
+        let data: ops::GetIssueProjectId = self.client.query(IdVariables { id }).await?;
         Ok(data
             .issue
             .and_then(|i| i.project)

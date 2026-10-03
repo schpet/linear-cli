@@ -2,6 +2,8 @@
 
 use serde::Serialize;
 
+use super::common::DeletePayload;
+use super::common::IdVariablesFields;
 use super::user::User;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
@@ -122,11 +124,6 @@ pub struct MovePayload {
     pub success: bool,
 }
 
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct IdVariables {
-    pub id: String,
-}
-
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
@@ -136,12 +133,6 @@ pub struct IdVariables {
 pub struct DeleteTeam {
     #[arguments(id: $id)]
     pub team_delete: DeletePayload,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "DeletePayload")]
-pub struct DeletePayload {
-    pub success: bool,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -235,22 +226,14 @@ pub struct GetAllTeams {
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
 pub struct TeamNodes {
-    pub nodes: Vec<TeamNode>,
+    pub nodes: Vec<TeamRef>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
 pub struct TeamPage {
-    pub nodes: Vec<TeamNode>,
+    pub nodes: Vec<TeamRef>,
     pub page_info: PageInfo,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-pub struct TeamNode {
-    pub id: cynic::Id,
-    pub key: String,
-    pub name: String,
 }
 
 /// Variables for [`GetTeams`]. `first` is the document's nullable `Int`;
@@ -368,4 +351,19 @@ pub struct WorkflowState {
     #[serde(rename = "type")]
     pub state_type: String,
     pub position: crate::graphql::scalars::Float,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Team")]
+pub struct TeamRef {
+    pub id: cynic::Id,
+    pub key: String,
+    pub name: String,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Team")]
+#[serde(rename_all = "camelCase")]
+pub struct TeamKey {
+    pub key: String,
 }

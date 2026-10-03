@@ -2,6 +2,8 @@
 
 use serde::Serialize;
 
+use super::project::ProjectRef;
+use super::team::TeamKey;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::scalars::Float;
@@ -359,14 +361,6 @@ pub struct GetIssuesForQueryIssuesNodesTeam {
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-#[serde(rename_all = "camelCase")]
-pub struct GetIssuesForQueryIssuesNodesProject {
-    pub id: cynic::Id,
-    pub name: String,
-}
-
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectMilestone")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssuesForQueryIssuesNodesProjectMilestone {
@@ -390,7 +384,7 @@ pub struct ListedIssue {
     pub state: GetIssuesForStateIssuesNodesState,
     pub assignee: Option<GetIssuesForQueryIssuesNodesAssignee>,
     pub team: GetIssuesForQueryIssuesNodesTeam,
-    pub project: Option<GetIssuesForQueryIssuesNodesProject>,
+    pub project: Option<ProjectRef>,
     pub project_milestone: Option<GetIssuesForQueryIssuesNodesProjectMilestone>,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub labels: GetIssuesForStateIssuesNodesLabels,
@@ -449,7 +443,7 @@ pub struct SearchIssuesSearchIssuesNodes {
     pub state: GetIssuesForStateIssuesNodesState,
     pub assignee: Option<GetIssuesForQueryIssuesNodesAssignee>,
     pub team: GetIssuesForQueryIssuesNodesTeam,
-    pub project: Option<GetIssuesForQueryIssuesNodesProject>,
+    pub project: Option<ProjectRef>,
     pub project_milestone: Option<GetIssuesForQueryIssuesNodesProjectMilestone>,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub labels: GetIssuesForStateIssuesNodesLabels,
@@ -487,13 +481,6 @@ pub struct GetWorkflowStatesInScopeVariables {
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-#[serde(rename_all = "camelCase")]
-pub struct GetWorkflowStatesInScopeWorkflowStatesNodesTeam {
-    pub key: String,
-}
-
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "WorkflowState")]
 #[serde(rename_all = "camelCase")]
 pub struct GetWorkflowStatesInScopeWorkflowStatesNodes {
@@ -502,7 +489,7 @@ pub struct GetWorkflowStatesInScopeWorkflowStatesNodes {
     #[cynic(rename = "type")]
     #[serde(rename = "type")]
     pub r#type: String,
-    pub team: GetWorkflowStatesInScopeWorkflowStatesNodesTeam,
+    pub team: TeamKey,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
@@ -752,7 +739,7 @@ pub struct GetProjectIdOptionsByNameVariables {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
 pub struct GetProjectIdOptionsByNameProjects {
-    pub nodes: Vec<GetIssuesForQueryIssuesNodesProject>,
+    pub nodes: Vec<ProjectRef>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]

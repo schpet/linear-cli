@@ -2,18 +2,18 @@
 
 use serde::Serialize;
 
+use super::common::DeletePayload;
+use super::common::IdVariablesFields;
 use super::project::ProjectFilter;
+use super::project::ProjectRef;
+use super::team::TeamKey;
+use super::team::TeamRef;
 use crate::graphql::edit::Edit;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::Json;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct IdVariables {
-    pub id: String,
-}
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
@@ -170,13 +170,7 @@ pub struct CreatePayload {
 pub struct CreatedIssue {
     pub identifier: String,
     pub url: String,
-    pub team: CreatedTeam,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-pub struct CreatedTeam {
-    pub key: String,
+    pub team: TeamKey,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
@@ -404,13 +398,7 @@ pub struct DeleteVariables {
 )]
 pub struct DeleteIssueRelation {
     #[arguments(id: $id)]
-    pub issue_relation_delete: DeletedPayload,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "DeletePayload")]
-pub struct DeletedPayload {
-    pub success: bool,
+    pub issue_relation_delete: DeletePayload,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug)]
@@ -673,12 +661,16 @@ pub struct UserSettings {
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct TeamKey {
+pub struct TeamKeyVariables {
     pub team_key: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "TeamKey")]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "TeamKeyVariables"
+)]
 pub struct GetLabelsForTeam {
     #[arguments(id:$team_key)]
     pub team: Option<LabelTeam>,
@@ -745,13 +737,6 @@ pub struct LookupLabel {
     pub name: String,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct NamedProject {
-    pub id: cynic::Id,
-    pub name: String,
-}
-
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct ProjectsVariables {
     #[cynic(skip_serializing_if = "Option::is_none")]
@@ -776,7 +761,7 @@ pub struct GetProjectsForTeam {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
 pub struct ProjectsPage {
-    pub nodes: Vec<NamedProject>,
+    pub nodes: Vec<ProjectRef>,
     pub page_info: PageInfo,
 }
 
@@ -829,13 +814,5 @@ pub struct GetTeamIdOptionsByKey {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
 pub struct TeamNames {
-    pub nodes: Vec<NamedTeam>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-pub struct NamedTeam {
-    pub id: cynic::Id,
-    pub key: String,
-    pub name: String,
+    pub nodes: Vec<TeamRef>,
 }

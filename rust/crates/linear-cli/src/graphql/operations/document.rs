@@ -2,16 +2,13 @@
 
 use serde::Serialize;
 
+use super::common::IdVariablesFields;
 use super::initiative::IDComparator;
+use super::team::TeamKey;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::WholeNumber;
 use crate::graphql::schema;
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct IdVariables {
-    pub id: String,
-}
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
@@ -250,19 +247,12 @@ pub struct DocumentTeam {
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-#[serde(rename_all = "camelCase")]
-pub struct CycleTeam {
-    pub key: String,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
 #[cynic(schema = "linear", graphql_type = "Cycle")]
 #[serde(rename_all = "camelCase")]
 pub struct DocumentCycle {
     pub name: Option<String>,
     pub number: WholeNumber,
-    pub team: CycleTeam,
+    pub team: TeamKey,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, Serialize)]

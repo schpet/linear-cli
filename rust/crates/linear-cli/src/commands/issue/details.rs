@@ -2,7 +2,8 @@
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::issue::{GetIssueDetails, IdVariables, IssueDetails};
+use crate::graphql::operations::common::IdVariables;
+use crate::graphql::operations::issue::{GetIssueDetails, IssueDetails};
 
 #[derive(Clone, Copy)]
 pub enum Field {

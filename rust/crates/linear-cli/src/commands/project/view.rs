@@ -203,7 +203,7 @@ fn milestone_status(value: &ProjectMilestoneStatus) -> &str {
         ProjectMilestoneStatus::Unknown(other) => other,
     }
 }
-fn display_name(user: Option<&crate::graphql::operations::project::ViewUser>) -> Option<&str> {
+fn display_name(user: Option<&crate::graphql::operations::user::UserRef>) -> Option<&str> {
     user.map(|user| {
         if user.display_name.is_empty() {
             user.name.as_str()

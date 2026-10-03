@@ -11,12 +11,13 @@ use crate::commands::project::write;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::edit::Edit;
+use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::project::{
     AddProjectToInitiative, GetProjectInitiativeLinksForUpdate, GetProjectLabelsForUpdate,
-    GetProjectTeamsForUpdate, IdVariables, InitiativeLinkInput, LinkVariables, PageVariables,
-    ProjectLabel, ProjectUpdateInput, RemoveProjectFromInitiative, TeamRef, UpdateProject,
-    UpdateProjectVariables,
+    GetProjectTeamsForUpdate, InitiativeLinkInput, LinkVariables, PageVariables, ProjectLabel,
+    ProjectUpdateInput, RemoveProjectFromInitiative, UpdateProject, UpdateProjectVariables,
 };
+use crate::graphql::operations::team::TeamRef;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::TimelessDate;
 use crate::refs::{

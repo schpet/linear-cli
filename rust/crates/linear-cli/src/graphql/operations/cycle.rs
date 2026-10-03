@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use super::team::TeamRef;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
@@ -97,16 +98,8 @@ pub struct DetailCycle {
     pub is_past: bool,
     pub created_at: DateTime,
     pub updated_at: DateTime,
-    pub team: DetailTeam,
+    pub team: TeamRef,
     pub issues: DetailIssues,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-pub struct DetailTeam {
-    pub id: cynic::Id,
-    pub key: String,
-    pub name: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]

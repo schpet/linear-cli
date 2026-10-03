@@ -4,6 +4,7 @@
 
 pub mod agent_session;
 pub mod comment;
+pub mod common;
 pub mod cycle;
 pub mod document;
 pub mod initiative;

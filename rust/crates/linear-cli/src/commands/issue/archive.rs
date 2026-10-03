@@ -1,5 +1,6 @@
 //! `issue archive`/`delete`, single or bulk.
 use crate::client::{LinearClient, RequestError};
+use crate::graphql::operations::common::IdVariables;
 use crate::{
     cli::issue::{IssueArchive, IssueDelete},
     commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb},

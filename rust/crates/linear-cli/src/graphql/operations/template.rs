@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use super::team::TeamRef;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::Json;
 use crate::graphql::schema;
@@ -46,19 +47,11 @@ pub struct Template {
     pub sort_order: crate::graphql::scalars::Float,
     pub created_at: DateTime,
     pub updated_at: DateTime,
-    pub team: Option<TemplateTeam>,
+    pub team: Option<TeamRef>,
     pub inherited_from: Option<InheritedTemplate>,
     pub creator: Option<TemplateCreator>,
     /// Stringified JSON, retained verbatim.
     pub template_data: Json,
-}
-
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-pub struct TemplateTeam {
-    pub id: cynic::Id,
-    pub key: String,
-    pub name: String,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]

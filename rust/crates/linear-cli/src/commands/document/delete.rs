@@ -4,9 +4,8 @@ use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::document::{
-    DeleteDocument, DocumentDetails, GetDocumentForDelete, IdVariables,
-};
+use crate::graphql::operations::common::IdVariables;
+use crate::graphql::operations::document::{DeleteDocument, DocumentDetails, GetDocumentForDelete};
 
 pub fn run(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete document")

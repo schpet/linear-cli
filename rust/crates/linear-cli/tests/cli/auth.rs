@@ -117,13 +117,13 @@ fn credentials_toml(cli: &Cli) -> toml::Table {
 #[test]
 fn plaintext_login_writes_inline_credentials() {
     let api = MockLinear::start();
-    api.on("AuthLoginViewer", login_viewer());
+    api.on("GetViewerAccount", login_viewer());
     let cli = Cli::new().endpoint(&api);
     cli.run(&["auth", "login", "--key", "lin_new", "--plaintext"])
         .success()
         .stdout_has("acme");
     assert_eq!(
-        api.request("AuthLoginViewer").header("authorization"),
+        api.request("GetViewerAccount").header("authorization"),
         Some("lin_new")
     );
     let file = credentials_toml(&cli);
@@ -136,7 +136,7 @@ fn plaintext_login_adds_to_existing_inline_credentials() {
     let api = MockLinear::start();
     let mut viewer = login_viewer();
     viewer["viewer"]["organization"]["urlKey"] = json!("gamma");
-    api.on("AuthLoginViewer", viewer);
+    api.on("GetViewerAccount", viewer);
     // Declines the offer to move existing plaintext credentials to the keyring.
     let cli = Cli::new().endpoint(&api).credentials(INLINE).stdin(b"n\n");
     cli.run(&["auth", "login", "--key", "key-gamma", "--plaintext"])
@@ -149,7 +149,7 @@ fn plaintext_login_adds_to_existing_inline_credentials() {
 fn rejected_login_key_is_not_saved() {
     let api = MockLinear::start();
     api.on_raw(
-        "AuthLoginViewer",
+        "GetViewerAccount",
         401,
         r#"{"errors":[{"message":"Authentication required, not authenticated"}]}"#,
     );
@@ -194,8 +194,8 @@ fn list_shows_each_workspace_with_its_organization() {
     let api = MockLinear::start();
     let mut beta = login_viewer();
     beta["viewer"]["organization"]["name"] = json!("Beta Org");
-    api.on("AuthListViewer", login_viewer())
-        .on("AuthListViewer", beta);
+    api.on("GetViewerAccount", login_viewer())
+        .on("GetViewerAccount", beta);
     let run = Cli::new()
         .endpoint(&api)
         .credentials(INLINE)
@@ -218,11 +218,11 @@ fn list_shows_each_workspace_with_its_organization() {
 #[test]
 fn login_reads_a_piped_key() {
     let api = MockLinear::start();
-    api.on("AuthLoginViewer", login_viewer());
+    api.on("GetViewerAccount", login_viewer());
     let cli = Cli::new().endpoint(&api).stdin(b"  lin_piped\n");
     cli.run(&["auth", "login", "--plaintext"]).success();
     assert_eq!(
-        api.request("AuthLoginViewer").header("authorization"),
+        api.request("GetViewerAccount").header("authorization"),
         Some("lin_piped")
     );
     assert_eq!(token(&cli, &[]), "lin_piped");
@@ -243,7 +243,7 @@ fn login_rejects_a_key_that_is_only_punctuation_before_any_request() {
 fn login_reports_an_authentication_error_as_an_invalid_key() {
     let api = MockLinear::start();
     api.on_raw(
-        "AuthLoginViewer",
+        "GetViewerAccount",
         400,
         r#"{"errors":[{"message":"Authentication required","extensions":{"code":"AUTHENTICATION_ERROR"}}]}"#,
     );
@@ -259,7 +259,7 @@ fn login_does_not_save_an_unexpected_viewer() {
     let api = MockLinear::start();
     let mut viewer = login_viewer();
     viewer["viewer"]["name"] = json!(null);
-    api.on("AuthLoginViewer", viewer);
+    api.on("GetViewerAccount", viewer);
     let cli = Cli::new().endpoint(&api);
     cli.run(&["auth", "login", "--key", "lin_new", "--plaintext"])
         .failure();
@@ -271,7 +271,7 @@ fn login_into_plaintext_credentials_suggests_migrating_without_a_terminal() {
     let api = MockLinear::start();
     let mut viewer = login_viewer();
     viewer["viewer"]["organization"]["urlKey"] = json!("gamma");
-    api.on("AuthLoginViewer", viewer);
+    api.on("GetViewerAccount", viewer);
     // Linux checks for secret-tool before offering the keyring.
     let cli = Cli::new()
         .endpoint(&api)
@@ -303,7 +303,7 @@ fn login_warns_on_stderr_when_linear_api_key_is_set() {
         ),
     ] {
         let api = MockLinear::start();
-        api.on("AuthLoginViewer", login_viewer());
+        api.on("GetViewerAccount", login_viewer());
         let run = cli
             .endpoint(&api)
             .run(&["auth", "login", "--key", "lin_new", "--plaintext"]);
@@ -360,7 +360,7 @@ fn secret_tool(cli: Cli, on_store_or_clear: &str) -> Cli {
 #[test]
 fn login_stores_the_key_with_secret_tool() {
     let api = MockLinear::start();
-    api.on("AuthLoginViewer", login_viewer());
+    api.on("GetViewerAccount", login_viewer());
     let cli = secret_tool(Cli::new().endpoint(&api), "exit 0");
     cli.run(&["auth", "login", "--key", "lin_new"])
         .success()
@@ -377,7 +377,7 @@ fn login_stores_the_key_with_secret_tool() {
 #[test]
 fn a_keyring_failure_is_not_reported_as_an_invalid_key() {
     let api = MockLinear::start();
-    api.on("AuthLoginViewer", login_viewer());
+    api.on("GetViewerAccount", login_viewer());
     let cli = secret_tool(
         Cli::new().endpoint(&api),
         "echo 'error 401 from the secret service' >&2; exit 3",

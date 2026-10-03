@@ -9,7 +9,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::graphql_message;
-use crate::graphql::operations::user::AuthListViewer;
+use crate::graphql::operations::user::GetViewerAccount;
 use crate::platform::style;
 
 const EMPTY: &str = "No workspaces configured\nRun `linear auth login` to add a workspace\n";
@@ -86,7 +86,7 @@ async fn check(check: &Check) -> Outcome {
         Check::Request(client) => client,
         Check::Skip(reason) => return Outcome::Failed((*reason).to_owned()),
     };
-    match client.query::<AuthListViewer, _>(()).await {
+    match client.query::<GetViewerAccount, _>(()).await {
         Ok(data) => Outcome::Viewer {
             organization: data.viewer.organization.name,
             name: data.viewer.name,

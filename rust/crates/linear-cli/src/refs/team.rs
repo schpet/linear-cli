@@ -6,7 +6,7 @@ use std::future::Future;
 use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::operations::team::{
-    GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables, TeamNode,
+    GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables, TeamRef,
 };
 use crate::graphql::pagination::{self, Page};
 use crate::platform::collation;
@@ -27,8 +27,8 @@ pub struct ResolvedTeam {
     pub name: String,
 }
 
-impl From<TeamNode> for ResolvedTeam {
-    fn from(node: TeamNode) -> Self {
+impl From<TeamRef> for ResolvedTeam {
+    fn from(node: TeamRef) -> Self {
         Self {
             id: node.id.into_inner(),
             key: node.key,

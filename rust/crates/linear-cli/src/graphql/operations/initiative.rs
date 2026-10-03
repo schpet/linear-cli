@@ -2,18 +2,17 @@
 
 use serde::Serialize;
 
+use super::common::DeletePayload;
+use super::common::IdVariablesFields;
+use super::common::NameVariablesFields;
 use super::project::ProjectStatusType;
 use super::team::StringComparator;
+use super::user::UserRef;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::Float;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct IdVariables {
-    pub id: String,
-}
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
@@ -85,12 +84,6 @@ pub struct ArchivePayload {
 pub struct DeleteInitiative {
     #[arguments(id: $id)]
     pub initiative_delete: DeletePayload,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "DeletePayload")]
-pub struct DeletePayload {
-    pub success: bool,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -242,11 +235,6 @@ pub struct AddPayload {
 pub struct RemoveProjectFromInitiative {
     #[arguments(id: $id)]
     pub initiative_to_project_delete: DeletePayload,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct NameVariables {
-    pub name: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -444,16 +432,8 @@ pub struct InitiativeDetails {
     pub archived_at: Option<DateTime>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
-    pub owner: Option<InitiativeViewOwner>,
+    pub owner: Option<UserRef>,
     pub projects: InitiativeViewProjects,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct InitiativeViewOwner {
-    pub id: cynic::Id,
-    pub name: String,
-    pub display_name: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
@@ -666,55 +646,5 @@ pub struct InitiativeProject {
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ProjectStatus")]
 pub struct InitiativeProjectStatus {
-    pub name: String,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct GetViewerIdVariables {}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(
-    schema = "linear",
-    graphql_type = "Query",
-    variables = "GetViewerIdVariables"
-)]
-pub struct GetViewerId {
-    pub viewer: ViewerId,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct ViewerId {
-    pub id: cynic::Id,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct LookupUserVariables {
-    pub input: String,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(
-    schema = "linear",
-    graphql_type = "Query",
-    variables = "LookupUserVariables"
-)]
-pub struct LookupUser {
-    #[arguments(filter: { or: [{ email: { eqIgnoreCase: $input } }, { displayName: { eqIgnoreCase: $input } }, { name: { containsIgnoreCaseAndAccent: $input } }] })]
-    pub users: LookupUsers,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "UserConnection")]
-pub struct LookupUsers {
-    pub nodes: Vec<LookupUserNode>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct LookupUserNode {
-    pub id: cynic::Id,
-    pub email: String,
-    pub display_name: String,
     pub name: String,
 }

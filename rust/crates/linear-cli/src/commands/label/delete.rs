@@ -6,9 +6,9 @@ use crate::commands::confirm;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::label::{
-    DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
-};
+use crate::graphql::operations::common::IdVariables;
+use crate::graphql::operations::common::NameVariables;
+use crate::graphql::operations::label::{DeleteIssueLabel, GetLabelById, GetLabelByName, Label};
 use crate::platform::prompt::Choice;
 use crate::refs::{
     is_linear_uuid, prepare_team_lookup, reject_linear_url, resolve_team_with_transport,

@@ -2,8 +2,9 @@
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
 use crate::client::LinearClient;
 use crate::error::Error;
+use crate::graphql::operations::common::NameVariables;
 use crate::graphql::operations::initiative::{
-    NameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
+    ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
 };
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InitiativeReference {

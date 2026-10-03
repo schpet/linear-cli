@@ -12,7 +12,7 @@ use crate::config::ConfigSecret;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::ResponseGraphQlError;
-use crate::graphql::operations::user::AuthLoginViewer;
+use crate::graphql::operations::user::GetViewerAccount;
 use crate::platform::style;
 
 const KEY_HINT: &str = "Create one at https://linear.app/settings/account/security";
@@ -43,7 +43,7 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
         ctx.config().transport_env.production(),
     )?;
     let viewer = ctx
-        .spin(true, client.query::<AuthLoginViewer, _>(()))
+        .spin(true, client.query::<GetViewerAccount, _>(()))
         .map_err(rejected_key)?
         .viewer;
     let organization = &viewer.organization;

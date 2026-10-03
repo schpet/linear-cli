@@ -2,6 +2,9 @@
 
 use serde::Serialize;
 
+use super::common::DeletePayload;
+use super::common::IdVariablesFields;
+use super::common::NameVariablesFields;
 use super::team::StringComparator;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
@@ -125,16 +128,6 @@ pub struct CreatedLabelTeam {
     pub name: String,
 }
 
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct IdVariables {
-    pub id: String,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct NameVariables {
-    pub name: String,
-}
-
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
 pub struct GetLabelById {
@@ -179,11 +172,5 @@ pub struct LabelTeam {
 )]
 pub struct DeleteIssueLabel {
     #[arguments(id: $id)]
-    pub issue_label_delete: DeleteLabelPayload,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "DeletePayload")]
-pub struct DeleteLabelPayload {
-    pub success: bool,
+    pub issue_label_delete: DeletePayload,
 }

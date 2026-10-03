@@ -2,7 +2,8 @@
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue::{GetIssueId, IdVariables};
+use crate::graphql::operations::common::IdVariables;
+use crate::graphql::operations::issue::GetIssueId;
 
 /// Prints the issue the current git branch or jj change names.
 pub fn run(ctx: &Ctx) -> Result<()> {

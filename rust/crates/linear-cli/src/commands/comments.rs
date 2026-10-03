@@ -1,5 +1,6 @@
 //! Comment lists, shared by the issue, project, document and initiative
 //! `comment list` commands: fetching every page, and printing threads or JSON.
+use crate::graphql::operations::user::UserRef;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
@@ -16,7 +17,6 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::operations::comment::{
     CommentBotActor, CommentConnection, CommentExternalUser, CommentNode, CommentParent,
-    CommentUser,
 };
 use crate::graphql::pagination::{self, Page};
 use crate::platform::style::bold;
@@ -81,7 +81,7 @@ struct JsonComment<'a> {
     updated_at: &'a crate::graphql::scalars::DateTime,
     edited_at: &'a Option<crate::graphql::scalars::DateTime>,
     url: &'a str,
-    user: &'a Option<CommentUser>,
+    user: &'a Option<UserRef>,
     external_user: &'a Option<CommentExternalUser>,
     bot_actor: &'a Option<CommentBotActor>,
     parent: &'a Option<CommentParent>,

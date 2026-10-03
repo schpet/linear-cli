@@ -13,9 +13,10 @@ use crate::cli::initiative::{InitiativeCommand, InitiativeCommentCommand};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
+use crate::graphql::operations::common::NameVariables;
 use crate::graphql::operations::initiative::ResolveInitiativeByNameIncludingArchived;
 use crate::graphql::operations::initiative::ResolveInitiativeBySlug;
-use crate::graphql::operations::initiative::{NameVariables, UrlSlugVariables};
+use crate::graphql::operations::initiative::UrlSlugVariables;
 use crate::refs::{self, InitiativeReference};
 
 pub fn run(ctx: &Ctx, command: &InitiativeCommand) -> Result<()> {

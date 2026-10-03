@@ -1,11 +1,10 @@
 //! The `--json` shape shared by `template list` and `template view`.
 
+use crate::graphql::operations::team::TeamRef;
 use serde::Serialize;
 
 use crate::commands::json;
-use crate::graphql::operations::template::{
-    InheritedTemplate, Template, TemplateCreator, TemplateTeam,
-};
+use crate::graphql::operations::template::{InheritedTemplate, Template, TemplateCreator};
 use crate::graphql::scalars::Float;
 use crate::graphql::scalars::{DateTime, Json};
 
@@ -25,7 +24,7 @@ struct JsonTemplate<'a> {
     sort_order: &'a Float,
     created_at: &'a DateTime,
     updated_at: &'a DateTime,
-    team: Option<&'a TemplateTeam>,
+    team: Option<&'a TeamRef>,
     inherited_from: Option<&'a InheritedTemplate>,
     creator: Option<&'a TemplateCreator>,
     template_data: &'a Json,

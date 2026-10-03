@@ -2,52 +2,23 @@
 
 use serde::Serialize;
 
-use crate::client::LinearClient;
-use crate::error::Result;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
+/// Who an API key belongs to, for `auth login` and `auth list`.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Query")]
-pub struct AuthListViewer {
-    pub viewer: AuthListUser,
+pub struct GetViewerAccount {
+    pub viewer: ViewerAccount,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "User")]
-pub struct AuthListUser {
+pub struct ViewerAccount {
     pub name: String,
     pub email: String,
-    pub organization: AuthListOrganization,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Organization")]
-pub struct AuthListOrganization {
-    pub name: String,
-    pub url_key: String,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Query")]
-pub struct AuthLoginViewer {
-    pub viewer: LoginViewer,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct LoginViewer {
-    pub name: String,
-    pub email: String,
-    pub organization: LoginOrganization,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Organization")]
-pub struct LoginOrganization {
-    pub name: String,
-    pub url_key: String,
+    pub organization: OrganizationName,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -65,14 +36,7 @@ pub struct AuthViewer {
     pub email: String,
     pub admin: bool,
     pub guest: bool,
-    pub organization: AuthOrganization,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Organization")]
-pub struct AuthOrganization {
-    pub name: String,
-    pub url_key: String,
+    pub organization: OrganizationName,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -159,8 +123,61 @@ pub struct ViewerOrganization {
     pub url_key: String,
 }
 
-/// The URL key of the workspace the client's API key belongs to.
-pub async fn url_key(client: &LinearClient) -> Result<String> {
-    let result: GetViewer = client.query(()).await?;
-    Ok(result.viewer.organization.url_key)
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "User")]
+#[serde(rename_all = "camelCase")]
+pub struct UserRef {
+    pub id: cynic::Id,
+    pub name: String,
+    pub display_name: String,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Organization")]
+pub struct OrganizationName {
+    pub name: String,
+    pub url_key: String,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Query")]
+pub struct GetViewerId {
+    pub viewer: ViewerId,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "User")]
+pub struct ViewerId {
+    pub id: cynic::Id,
+}
+
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct LookupUserVariables {
+    pub input: String,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "LookupUserVariables"
+)]
+pub struct LookupUser {
+    #[arguments(filter: { or: [{ email: { eqIgnoreCase: $input } }, { displayName: { eqIgnoreCase: $input } }, { name: { containsIgnoreCaseAndAccent: $input } }] })]
+    pub users: LookupUsers,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "UserConnection")]
+pub struct LookupUsers {
+    pub nodes: Vec<LookupUserNode>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "User")]
+pub struct LookupUserNode {
+    pub id: cynic::Id,
+    pub email: String,
+    pub display_name: String,
+    pub name: String,
 }

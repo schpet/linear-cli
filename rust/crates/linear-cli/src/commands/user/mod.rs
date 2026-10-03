@@ -5,8 +5,8 @@ use crate::cli::user::UserCommand;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::initiative::{
-    GetViewerId, GetViewerIdVariables, LookupUser, LookupUserNode, LookupUserVariables,
+use crate::graphql::operations::user::{
+    GetViewerId, LookupUser, LookupUserNode, LookupUserVariables,
 };
 
 pub fn run(ctx: &Ctx, command: &UserCommand) -> Result<()> {
@@ -20,7 +20,7 @@ pub fn run(ctx: &Ctx, command: &UserCommand) -> Result<()> {
 /// like "Owner".
 pub async fn resolve(client: &LinearClient, input: &str, noun: &str) -> Result<String> {
     if input == "@me" || input == "self" {
-        let data: GetViewerId = client.query(GetViewerIdVariables {}).await?;
+        let data: GetViewerId = client.query(()).await?;
         return Ok(data.viewer.id.into_inner());
     }
     let data: LookupUser = client

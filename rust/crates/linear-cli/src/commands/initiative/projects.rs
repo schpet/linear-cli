@@ -3,8 +3,9 @@ use crate::cli::initiative::{InitiativeAddProject, InitiativeRemoveProject};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
+use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::initiative::{
-    AddProjectToInitiative, AddVariables, GetInitiativeProjectLinks, IdVariables,
+    AddProjectToInitiative, AddVariables, GetInitiativeProjectLinks,
     InitiativeToProjectCreateInput, LinksVariables, RemoveProjectFromInitiative,
 };
 use crate::graphql::pagination::{self, Page};

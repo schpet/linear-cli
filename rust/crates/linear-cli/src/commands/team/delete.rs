@@ -5,9 +5,9 @@ use crate::commands::bulk::{self, BulkOutcome, BulkResult, Verb};
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
+use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::team::{
-    DeleteTeam, GetTeamIssuesForMove, IdVariables, MoveIssue, MoveIssueToTeam, MovePageVariables,
-    MoveVariables,
+    DeleteTeam, GetTeamIssuesForMove, MoveIssue, MoveIssueToTeam, MovePageVariables, MoveVariables,
 };
 use crate::graphql::pagination::{self, Page};
 use crate::platform::prompt::Choice;

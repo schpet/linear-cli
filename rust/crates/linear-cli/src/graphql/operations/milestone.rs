@@ -2,6 +2,8 @@
 
 use serde::Serialize;
 
+use super::common::DeletePayload;
+use super::project::ProjectRef;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::scalars::Float;
@@ -52,14 +54,7 @@ pub struct CreatedMilestone {
     pub id: cynic::Id,
     pub name: String,
     pub target_date: Option<TimelessDate>,
-    pub project: CreatedMilestoneProject,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct CreatedMilestoneProject {
-    pub id: cynic::Id,
-    pub name: String,
+    pub project: ProjectRef,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -75,13 +70,7 @@ pub struct DeleteProjectMilestoneVariables {
 )]
 pub struct DeleteProjectMilestone {
     #[arguments(id: $id)]
-    pub project_milestone_delete: MilestoneDeletePayload,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "DeletePayload")]
-pub struct MilestoneDeletePayload {
-    pub success: bool,
+    pub project_milestone_delete: DeletePayload,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq)]
@@ -132,7 +121,7 @@ pub struct UpdatedMilestone {
     pub name: String,
     pub target_date: Option<TimelessDate>,
     pub sort_order: Float,
-    pub project: CreatedMilestoneProject,
+    pub project: ProjectRef,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -299,12 +288,5 @@ pub struct ProjectMilestone {
     pub name: String,
     pub target_date: Option<TimelessDate>,
     pub sort_order: crate::graphql::scalars::Float,
-    pub project: MilestoneProjectRef,
-}
-
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct MilestoneProjectRef {
-    pub id: cynic::Id,
-    pub name: String,
+    pub project: ProjectRef,
 }

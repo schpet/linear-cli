@@ -14,6 +14,7 @@ use crate::auth::{
 use crate::client::LinearClient;
 use crate::config::{ConfigOptions, ConfigSecret, StartupConfig, TransportEnvInputs};
 use crate::error::{Error, Result};
+use crate::graphql::operations::user::GetViewer;
 use crate::platform::markdown_terminal::{self, RenderOptions};
 use crate::platform::output::{self, Stdout};
 use crate::platform::prompt::Prompter;
@@ -315,7 +316,8 @@ impl Ctx {
             return Ok(workspace);
         }
         let client = self.client()?;
-        self.block_on(crate::graphql::operations::user::url_key(client))
+        let viewer: GetViewer = self.block_on(client.query(()))?;
+        Ok(viewer.viewer.organization.url_key)
     }
 
     /// Stdin and stdout are both terminals. This is the one condition under

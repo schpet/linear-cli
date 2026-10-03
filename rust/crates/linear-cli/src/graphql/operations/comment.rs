@@ -1,5 +1,10 @@
 //! Comment operations: lists for every commentable entity, create, update and delete.
 
+use serde::Serialize;
+
+use super::common::DeletePayload;
+use super::project::ProjectRef;
+use super::user::UserRef;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
@@ -95,15 +100,7 @@ pub struct DeleteCommentVariables {
 )]
 pub struct DeleteComment {
     #[arguments(id: $id)]
-    pub comment_delete: DeleteCommentPayload,
-}
-
-/// `commentDelete` and `success` are non-null in the schema. A null payload
-/// or missing `success` is a decode failure.
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "DeletePayload")]
-pub struct DeleteCommentPayload {
-    pub success: bool,
+    pub comment_delete: DeletePayload,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug)]
@@ -183,22 +180,13 @@ pub struct CommentNode {
     pub updated_at: DateTime,
     pub edited_at: Option<DateTime>,
     pub url: String,
-    pub user: Option<CommentUser>,
+    pub user: Option<UserRef>,
     pub external_user: Option<CommentExternalUser>,
     pub bot_actor: Option<CommentBotActor>,
     pub parent: Option<CommentParent>,
 }
 
-#[derive(cynic::QueryFragment, serde::Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-#[serde(rename_all = "camelCase")]
-pub struct CommentUser {
-    pub id: cynic::Id,
-    pub name: String,
-    pub display_name: String,
-}
-
-#[derive(cynic::QueryFragment, serde::Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ExternalUser")]
 #[serde(rename_all = "camelCase")]
 pub struct CommentExternalUser {
@@ -207,7 +195,7 @@ pub struct CommentExternalUser {
     pub display_name: String,
 }
 
-#[derive(cynic::QueryFragment, serde::Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ActorBot")]
 #[serde(rename_all = "camelCase")]
 pub struct CommentBotActor {
@@ -219,7 +207,7 @@ pub struct CommentBotActor {
     pub sub_type: Option<String>,
 }
 
-#[derive(cynic::QueryFragment, serde::Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Comment")]
 pub struct CommentParent {
     pub id: cynic::Id,
@@ -328,14 +316,7 @@ pub struct GetProjectCommentsVariables {
 )]
 pub struct GetProjectComments {
     #[arguments(id: $id)]
-    pub project: Option<CommentProject>,
+    pub project: Option<ProjectRef>,
     #[arguments(first: $first, after: $after, orderBy: createdAt, filter: { project: { id: { eq: $filter_id } } })]
     pub comments: CommentConnection,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct CommentProject {
-    pub id: cynic::Id,
-    pub name: String,
 }

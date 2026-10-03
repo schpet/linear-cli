@@ -1,4 +1,5 @@
 //! Inputs and lookups shared by `project create` and `project update`.
+use crate::graphql::operations::common::NameVariables;
 use futures_util::future::try_join_all;
 
 use crate::cli::project::{ProjectFields, Status};
@@ -10,7 +11,7 @@ use crate::error::{Error, Result};
 use crate::graphql::operations::project::ProjectStatusType;
 use crate::graphql::operations::project::{
     GetInitiativeByIdForUpdate, GetProjectLabelIdByName, GetProjectStatuses, InitiativeIdVariables,
-    NameVariables, StatusOption,
+    StatusOption,
 };
 use crate::graphql::operations::template::GetTemplates;
 use crate::refs::{
