@@ -1,6 +1,6 @@
-//! Project and initiative status updates: creating one, and the shared
-//! table their `list` commands print.
+//! Project and initiative status updates: creation and shared table/JSON output.
 use chrono::{DateTime, Local, Utc};
+use serde::Serialize;
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
 use crate::client::LinearClient;
@@ -14,7 +14,7 @@ use crate::graphql::operations::initiative::InitiativeUpdateHealthType;
 use crate::graphql::operations::project::ProjectUpdateHealthType;
 use crate::graphql::operations::status_update::{
     CreateInitiativeUpdate, CreateProjectUpdate, InitiativeHealthInput, InitiativeInput,
-    InitiativeVariables, ProjectHealthInput, ProjectInput, ProjectVariables,
+    InitiativeVariables, ProjectHealthInput, ProjectInput, ProjectVariables, UpdateUser,
 };
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
@@ -281,6 +281,44 @@ impl From<&InitiativeUpdateHealthType> for UpdateHealth {
             InitiativeUpdateHealthType::Unknown(value) => Self::Other(value.clone()),
         }
     }
+}
+
+/// The fields returned by both status-update list commands.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JsonUpdate<'a> {
+    pub(super) id: &'a cynic::Id,
+    pub(super) body: &'a str,
+    pub(super) health: Option<&'a str>,
+    pub(super) url: &'a str,
+    pub(super) created_at: &'a crate::graphql::scalars::DateTime,
+    pub(super) user: Option<JsonUser<'a>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct JsonUser<'a> {
+    name: &'a str,
+    display_name: &'a str,
+}
+
+impl<'a> From<&'a UpdateUser> for JsonUser<'a> {
+    fn from(user: &'a UpdateUser) -> Self {
+        Self {
+            name: &user.name,
+            display_name: &user.display_name,
+        }
+    }
+}
+
+pub(super) fn author(user: Option<&UpdateUser>) -> &str {
+    user.map_or("", |user| {
+        if user.display_name.is_empty() {
+            &user.name
+        } else {
+            &user.display_name
+        }
+    })
 }
 
 /// One status update in a `list` table.

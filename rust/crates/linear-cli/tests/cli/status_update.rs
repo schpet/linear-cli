@@ -1,18 +1,10 @@
 //! The `initiative-update` and `project-update` command groups (timeline status posts).
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear, Run, assert_json, nodes};
+use crate::support::{Cli, MockLinear, Run, assert_json};
 
 const INITIATIVE_ID: &str = "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 const PROJECT_ID: &str = "85d3dad6-136e-49ff-9593-33dc4b22b5ee";
-
-/// The updates in a `list --json` output, which may be printed bare or under their parent
-/// entity's `connection` field.
-fn listed(run: &Run, connection: &str) -> Value {
-    let json = run.success().json();
-    let list = json.get(connection).unwrap_or(&json);
-    Value::Array(nodes(list))
-}
 
 fn initiative_created(health: Value) -> Value {
     json!({
@@ -192,8 +184,9 @@ fn initiative_list_json_returns_updates() {
         "5",
         "--json",
     ]);
+    assert_update_keys(&run);
     assert_json(
-        &listed(&run, "initiativeUpdates"),
+        &run.success().json(),
         &initiative_updates()["initiative"]["initiativeUpdates"]["nodes"],
     );
     assert_eq!(
@@ -313,8 +306,9 @@ fn project_list_json_returns_updates() {
     let api = MockLinear::start();
     api.on("ListProjectUpdates", project_updates(false));
     let run = Cli::for_api(&api).run(&["project-update", "list", PROJECT_ID, "--json"]);
+    assert_update_keys(&run);
     assert_json(
-        &listed(&run, "projectUpdates"),
+        &run.success().json(),
         &project_updates(false)["project"]["projectUpdates"]["nodes"],
     );
     assert_eq!(
@@ -429,4 +423,104 @@ fn create_warns_that_an_unreadable_reply_may_have_created_it() {
         ])
         .failure()
         .stderr_has("status update may already exist");
+}
+
+fn assert_update_keys(run: &Run) {
+    let json = run.success().json();
+    let row = json[0].as_object().expect("update object");
+    assert_eq!(
+        row.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["id", "body", "health", "url", "createdAt", "user"]
+    );
+    if let Some(user) = row["user"].as_object() {
+        assert_eq!(
+            user.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["name", "displayName"]
+        );
+    }
+}
+
+#[test]
+fn lists_preserve_unknown_health_and_author_fallbacks() {
+    for (command, id, operation, parent, connection) in [
+        (
+            "project-update",
+            PROJECT_ID,
+            "ListProjectUpdates",
+            "project",
+            "projectUpdates",
+        ),
+        (
+            "initiative-update",
+            INITIATIVE_ID,
+            "ListInitiativeUpdates",
+            "initiative",
+            "initiativeUpdates",
+        ),
+    ] {
+        for (user, author) in [
+            (
+                json!({"name": "Full Name", "displayName": "handle"}),
+                "handle",
+            ),
+            (json!({"name": "Full Name", "displayName": ""}), "Full Name"),
+            (json!({"name": "", "displayName": ""}), "-"),
+            (Value::Null, "-"),
+        ] {
+            let mut reply = if parent == "project" {
+                project_updates(false)
+            } else {
+                initiative_updates()
+            };
+            reply[parent][connection]["nodes"][0]["health"] = json!("futureHealth");
+            reply[parent][connection]["nodes"][0]["user"] = user.clone();
+            let api = MockLinear::start();
+            api.on(operation, reply.clone())
+                .on(operation, reply.clone());
+            let cli = Cli::for_api(&api);
+            let run = cli.run(&[command, "list", id, "--json"]);
+            assert_update_keys(&run);
+            assert_json(&run.success().json(), &reply[parent][connection]["nodes"]);
+            let text = cli.run(&[command, "list", id]);
+            let first = text
+                .success()
+                .stdout
+                .lines()
+                .nth(1)
+                .expect("first update row");
+            let columns: Vec<_> = first
+                .split("  ")
+                .map(str::trim)
+                .filter(|cell| !cell.is_empty())
+                .collect();
+            assert_eq!(columns[1], "futureHealth", "{first}");
+            assert_eq!(columns[2], author, "{first}");
+        }
+    }
+}
+
+#[test]
+fn project_list_preserves_null_health_and_user() {
+    let mut reply = project_updates(false);
+    reply["project"]["projectUpdates"]["nodes"][0]["health"] = Value::Null;
+    reply["project"]["projectUpdates"]["nodes"][0]["user"] = Value::Null;
+    let api = MockLinear::start();
+    api.on("ListProjectUpdates", reply.clone())
+        .on("ListProjectUpdates", reply.clone());
+    let cli = Cli::for_api(&api);
+    let run = cli.run(&["project-update", "list", PROJECT_ID, "--json"]);
+    assert_json(
+        &run.success().json(),
+        &reply["project"]["projectUpdates"]["nodes"],
+    );
+    assert_update_keys(&run);
+    let run = cli.run(&["project-update", "list", PROJECT_ID]);
+    let row = run.success().stdout.lines().nth(1).expect("update row");
+    let columns: Vec<_> = row
+        .split("  ")
+        .map(str::trim)
+        .filter(|cell| !cell.is_empty())
+        .collect();
+    assert_eq!(columns[1], "-", "missing health: {row}");
+    assert_eq!(columns[2], "-", "missing author: {row}");
 }

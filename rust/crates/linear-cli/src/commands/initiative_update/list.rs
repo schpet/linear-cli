@@ -1,10 +1,9 @@
 //! `initiative-update list`: an initiative's latest status updates as a table or JSON.
 use chrono::Utc;
-use serde::Serialize;
 
 use crate::cli::initiative_update::InitiativeUpdateList;
 use crate::commands::json;
-use crate::commands::status_update::{self, Row, UpdateHealth};
+use crate::commands::status_update::{self, JsonUpdate, JsonUser, Row, UpdateHealth};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::status_update::{
@@ -58,29 +57,11 @@ fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
         .map(|node| Row {
             health: Some(UpdateHealth::from(&node.health)),
             created_at: node.created_at.0,
-            author: author(node),
+            author: status_update::author(node.user.as_ref()),
             body: &node.body,
         })
         .collect();
     ctx.print(status_update::table(rows, Utc::now()).render_for(ctx))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonUpdate<'a> {
-    id: &'a cynic::Id,
-    body: &'a str,
-    health: Option<&'a str>,
-    url: &'a str,
-    created_at: &'a crate::graphql::scalars::DateTime,
-    user: Option<JsonUser<'a>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonUser<'a> {
-    name: &'a str,
-    display_name: &'a str,
 }
 
 fn render_json(updates: &[InitiativeUpdateNode]) -> Vec<u8> {
@@ -92,21 +73,8 @@ fn render_json(updates: &[InitiativeUpdateNode]) -> Vec<u8> {
             health: Some(node.health.as_str()),
             url: &node.url,
             created_at: &node.created_at,
-            user: node.user.as_ref().map(|user| JsonUser {
-                name: &user.name,
-                display_name: &user.display_name,
-            }),
+            user: node.user.as_ref().map(JsonUser::from),
         })
         .collect();
     json::render(&updates)
-}
-
-fn author(node: &InitiativeUpdateNode) -> &str {
-    node.user.as_ref().map_or("", |user| {
-        if user.display_name.is_empty() {
-            &user.name
-        } else {
-            &user.display_name
-        }
-    })
 }
