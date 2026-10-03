@@ -133,3 +133,93 @@ fn stub_call_reads_report_errors_instead_of_returning_no_calls() {
         );
     }
 }
+
+#[test]
+fn malformed_request_worker_panics_fail_mock_teardown() {
+    let failure = catch_unwind(|| {
+        let api = MockLinear::start();
+        let base = api.base_url();
+        let mut client =
+            std::net::TcpStream::connect(base.strip_prefix("http://").expect("HTTP endpoint"))
+                .expect("connect client");
+        std::io::Write::write_all(&mut client, b"POST /graphql HTTP/1.1\r\nno colon\r\n\r\n")
+            .expect("malformed request");
+        let result = std::io::Read::read_to_end(&mut client, &mut Vec::new());
+        if let Err(error) = result {
+            assert_eq!(error.kind(), std::io::ErrorKind::ConnectionReset);
+        }
+        drop(api);
+    })
+    .expect_err("malformed request worker must fail test teardown");
+    assert!(
+        failure
+            .downcast_ref::<String>()
+            .expect("panic message")
+            .contains("header has a colon")
+    );
+}
+
+#[test]
+fn aborted_clients_do_not_fail_mock_teardown() {
+    let api = MockLinear::start();
+    let base = api.base_url();
+    let mut client =
+        std::net::TcpStream::connect(base.strip_prefix("http://").expect("HTTP endpoint"))
+            .expect("connect client");
+    client
+        .shutdown(std::net::Shutdown::Write)
+        .expect("abort client");
+    let mut response = Vec::new();
+    std::io::Read::read_to_end(&mut client, &mut response).expect("worker closed client");
+    assert!(response.is_empty());
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn a_mock_worker_failure_preserves_an_existing_test_panic() {
+    let failure = catch_unwind(|| {
+        let api = MockLinear::start();
+        api.on("AuthStatus", viewer());
+        let base = api.base_url();
+        let mut client =
+            std::net::TcpStream::connect(base.strip_prefix("http://").expect("HTTP endpoint"))
+                .expect("connect client");
+        std::io::Write::write_all(&mut client, b"POST /graphql HTTP/1.1\r\nno colon\r\n\r\n")
+            .expect("malformed request");
+        let result = std::io::Read::read_to_end(&mut client, &mut Vec::new());
+        if let Err(error) = result {
+            assert_eq!(error.kind(), std::io::ErrorKind::ConnectionReset);
+        }
+        panic!("original test failure");
+    })
+    .expect_err("original failure must survive teardown");
+    assert_eq!(
+        failure.downcast_ref::<&str>(),
+        Some(&"original test failure")
+    );
+}
+
+#[test]
+fn stalled_request_worker_panics_fail_mock_teardown() {
+    let failure = catch_unwind(|| {
+        let api = MockLinear::start();
+        let base = api.base_url();
+        let mut client =
+            std::net::TcpStream::connect(base.strip_prefix("http://").expect("HTTP endpoint"))
+                .expect("connect client");
+        std::io::Write::write_all(&mut client, b"POST /graphql HTTP/1.1\r\n")
+            .expect("partial request");
+        let result = std::io::Read::read_to_end(&mut client, &mut Vec::new());
+        if let Err(error) = result {
+            assert_eq!(error.kind(), std::io::ErrorKind::ConnectionReset);
+        }
+        drop(api);
+    })
+    .expect_err("request read timeout must fail test teardown");
+    assert!(
+        failure
+            .downcast_ref::<String>()
+            .expect("panic message")
+            .contains("read header line")
+    );
+}

@@ -71,12 +71,12 @@ struct State {
 
 /// A loopback Linear GraphQL API. Replies are queued per route and served first in, first out.
 /// Dropping it fails the test if a queued reply was never requested or an unexpected request
-/// arrived.
+/// arrived, or a request worker panicked.
 pub struct MockLinear {
     addr: SocketAddr,
     state: Arc<Mutex<State>>,
     shutdown: Arc<AtomicBool>,
-    acceptor: Option<JoinHandle<()>>,
+    acceptor: Option<JoinHandle<Vec<JoinHandle<()>>>>,
 }
 
 impl MockLinear {
@@ -89,14 +89,16 @@ impl MockLinear {
             let state = Arc::clone(&state);
             let shutdown = Arc::clone(&shutdown);
             thread::spawn(move || {
+                let mut workers = Vec::new();
                 for stream in listener.incoming() {
                     if shutdown.load(Ordering::SeqCst) {
                         break;
                     }
                     let stream = stream.expect("accept connection");
                     let state = Arc::clone(&state);
-                    thread::spawn(move || serve(stream, &state));
+                    workers.push(thread::spawn(move || serve(stream, &state)));
                 }
+                workers
             })
         };
         Self {
@@ -233,11 +235,26 @@ impl Drop for MockLinear {
         self.shutdown.store(true, Ordering::SeqCst);
         // Wake the acceptor so it observes the shutdown flag.
         let _ = TcpStream::connect(self.addr);
+        let mut failure = None;
         if let Some(acceptor) = self.acceptor.take() {
-            acceptor.join().expect("mock acceptor thread");
+            match acceptor.join() {
+                Ok(workers) => {
+                    for worker in workers {
+                        if let Err(panic) = worker.join()
+                            && failure.is_none()
+                        {
+                            failure = Some(panic);
+                        }
+                    }
+                }
+                Err(panic) => failure = Some(panic),
+            }
         }
         if thread::panicking() {
             return;
+        }
+        if let Some(panic) = failure {
+            std::panic::resume_unwind(panic);
         }
         let state = self.lock();
         assert!(
