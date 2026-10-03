@@ -1,6 +1,4 @@
 //! `label create`: a workspace or team label, from flags or prompts.
-use std::io::{Read, Write};
-
 use cynic::MutationBuilder;
 
 use crate::cli::label::LabelCreate;
@@ -12,7 +10,7 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::label_create::{
     CreateIssueLabel, CreateIssueLabelPayload, CreateIssueLabelVariables, IssueLabelCreateInput,
 };
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
+use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::refs::{
     PreparedTeamLookup, ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup,
     resolve_team_with_transport,
@@ -31,8 +29,6 @@ const PALETTE: [(&str, &str); 10] = [
     ("Pink", "#BB6BD9"),
     ("Gray", "#6B6F76"),
 ];
-const CUSTOM_COLOR: &str = "custom";
-const WORKSPACE: &str = "workspace";
 
 /// Where the label lives.
 enum Team {
@@ -106,128 +102,83 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
 /// the description and team prompts.
 fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<PreparedTeamLookup>) -> Result<Fields> {
     ctx.print("\nCreate a new label\n\n")?;
-    let mut session = ctx.prompts()?;
-    let result = prompt_with(ctx, args, team, &mut session);
-    match session.finish_result(result)? {
-        PromptOutcome::Submitted(fields) => Ok(fields),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-    }
-}
-
-fn prompt_with<R: Read, W: Write>(
-    ctx: &Ctx,
-    args: &LabelCreate,
-    team: Option<PreparedTeamLookup>,
-    session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<Fields>> {
-    macro_rules! answer {
-        ($outcome:expr) => {
-            match $outcome? {
-                PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptOutcome::EndOfInput),
-            }
-        };
-    }
+    let prompter = ctx.prompter()?;
     let name = match &args.name {
         Some(name) => name.clone(),
-        None => answer!(session.text("Label name:", 1, |_| Ok(()))),
+        None => prompter.text(Text::new("Label name:").required())?,
     };
     let color = match &args.color {
         Some(color) => color.clone(),
-        None => {
-            let mut choices: Vec<_> = PALETTE
-                .iter()
-                .map(|(name, color)| option(&format!("{name} ({color})"), color))
-                .collect();
-            choices.push(option("Custom color", CUSTOM_COLOR));
-            let indigo = 6;
-            let selected = answer!(session.select(&PlainSelect {
-                message: "Color:",
-                options: &choices,
-                default_index: indigo,
-                default_hint: choices.get(indigo).map(|choice| choice.label.as_str()),
-            }));
-            if selected == CUSTOM_COLOR {
-                answer!(session.text("Enter hex color (e.g., #FF5733):", 0, |raw| {
-                    hex_color(raw)
-                        .map(drop)
-                        .map_err(|_| "Please enter a valid hex color (e.g., #FF5733)".to_owned())
-                }))
-            } else {
-                selected
-            }
-        }
+        None => pick_color(&prompter)?,
     };
     let description = match &args.description {
         Some(description) => Some(description.clone()),
-        None => Some(answer!(
-            session.text("Description (optional):", 0, |_| Ok(()))
-        ))
-        .filter(|description| !description.is_empty()),
+        None => Some(prompter.text(Text::new("Description (optional):"))?)
+            .filter(|description| !description.is_empty()),
     };
     let team = match team {
         Some(lookup) => Team::Reference(lookup),
         None => {
-            session.suspend()?;
-            let client = ctx.client()?;
-            let teams = ctx.spin(true, fetch_all_teams_with_transport(client))?;
-            session.resume()?;
-            answer!(pick_team(
-                session,
-                &teams,
-                configured_team_key(ctx.options())
-            ))
+            let teams = ctx.spin(true, fetch_all_teams_with_transport(ctx.client()?))?;
+            pick_team(&prompter, teams, configured_team_key(ctx.options()))?
         }
     };
-    Ok(PromptOutcome::Submitted(Fields {
+    Ok(Fields {
         name,
         color,
         description,
         team,
-    }))
+    })
 }
 
-fn option(label: &str, value: &str) -> PlainOption {
-    PlainOption {
-        label: label.to_owned(),
-        value: value.to_owned(),
-        script_token: value.to_owned(),
+/// A palette color, or a custom hex color; Indigo is the default.
+fn pick_color(prompter: &Prompter<'_>) -> Result<String> {
+    let mut choices: Vec<_> = PALETTE
+        .iter()
+        .map(|(name, color)| Choice::new(format!("{name} ({color})"), Some(*color)))
+        .collect();
+    choices.push(Choice::new("Custom color", None));
+    let indigo = PALETTE
+        .iter()
+        .position(|(_, color)| *color == INDIGO)
+        .expect("the palette has indigo");
+    match prompter.select_from("Color:", choices, indigo)? {
+        Some(color) => Ok(color.to_owned()),
+        None => {
+            let check = |raw: &str| {
+                hex_color(raw)
+                    .map(drop)
+                    .map_err(|_| "Please enter a valid hex color (e.g., #FF5733)".to_owned())
+            };
+            prompter.text(
+                Text::new("Enter hex color (e.g., #FF5733):")
+                    .required()
+                    .with_check(&check),
+            )
+        }
     }
 }
 
 /// The workspace first, then the teams; the configured team is the default.
-fn pick_team<R: Read, W: Write>(
-    session: &mut PromptSession<R, W>,
-    teams: &[ResolvedTeam],
+fn pick_team(
+    prompter: &Prompter<'_>,
+    teams: Vec<ResolvedTeam>,
     configured_key: Option<String>,
-) -> Result<PromptOutcome<Team>> {
-    let mut choices = vec![option("Workspace (shared by all teams)", WORKSPACE)];
-    choices.extend(
-        teams
-            .iter()
-            .map(|team| option(&format!("{} ({})", team.name, team.key), &team.id)),
-    );
-    let default_index = configured_key
+) -> Result<Team> {
+    let start = configured_key
         .and_then(|key| teams.iter().position(|team| team.key == key))
         .map_or(0, |index| index + 1);
-    let picked = session.select(&PlainSelect {
-        message: "Team:",
-        options: &choices,
-        default_index,
-        default_hint: choices
-            .get(default_index)
-            .map(|choice| choice.label.as_str()),
-    })?;
-    Ok(match picked {
-        PromptOutcome::Submitted(id) if id == WORKSPACE => {
-            PromptOutcome::Submitted(Team::Workspace)
-        }
-        PromptOutcome::Submitted(id) => PromptOutcome::Submitted(Team::Picked(id)),
-        PromptOutcome::Interrupted => PromptOutcome::Interrupted,
-        PromptOutcome::EndOfInput => PromptOutcome::EndOfInput,
-    })
+    let mut choices = vec![Choice::new(
+        "Workspace (shared by all teams)",
+        Team::Workspace,
+    )];
+    choices.extend(teams.into_iter().map(|team| {
+        Choice::new(
+            format!("{} ({})", team.name, team.key),
+            Team::Picked(team.id),
+        )
+    }));
+    prompter.select_from("Team:", choices, start)
 }
 
 fn render(payload: &CreateIssueLabelPayload) -> Result<String> {

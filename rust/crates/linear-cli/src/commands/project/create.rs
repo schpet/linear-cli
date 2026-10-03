@@ -1,7 +1,5 @@
 //! `project create`: fields from flags or prompts, then one mutation, then
 //! the optional initiative link.
-use std::io::Stdin;
-
 use chrono::NaiveDate;
 use cynic::MutationBuilder;
 
@@ -19,9 +17,7 @@ use crate::graphql::operations::project_write::{
 use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::output::StdoutWriter;
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
-use crate::platform::prompt_text::TextOptions;
+use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
 use crate::refs::{self, prepare_initiative_lookup, resolve_initiative_with_transport};
 
@@ -63,7 +59,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         None => None,
     };
     let interactive =
-        ctx.stdout_tty() && (args.interactive || (fields.name.is_none() && args.team.is_empty()));
+        ctx.interactive() && (args.interactive || (fields.name.is_none() && args.team.is_empty()));
     if args.interactive && !interactive {
         return Err(Error::new("Interactive mode needs a terminal")
             .with_hint("Pass --name and --team instead of --interactive."));
@@ -79,15 +75,12 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     };
     if interactive {
         ctx.print("\nCreate a new project\n\n")?;
-        let mut session = ctx.prompts()?;
-        let result = prompt(
+        prompt(
             ctx,
-            &mut session,
+            &ctx.prompter()?,
             &mut draft,
             fields.description_file.is_some(),
-        );
-        session.close()?;
-        result?;
+        )?;
     }
     let name = draft
         .name
@@ -235,85 +228,61 @@ async fn link(
 /// Asks for every field the flags left out.
 fn prompt(
     ctx: &Ctx,
-    session: &mut PromptSession<Stdin, StdoutWriter<'_>>,
+    prompter: &Prompter<'_>,
     draft: &mut Draft,
     description_file: bool,
 ) -> Result<()> {
-    let text = |required| TextOptions {
-        required,
-        default: None,
-    };
     if draft.name.is_none() {
-        draft.name = Some(answer(
-            session.text_with_options("Project name:", text(true))?,
-        )?);
+        draft.name = Some(prompter.text(Text::new("Project name:").required())?);
     }
     if draft.description.is_none() && !description_file {
-        let description =
-            answer(session.text_with_options("Description (optional):", text(false))?)?;
+        let description = prompter.text(Text::new("Description (optional):"))?;
         draft.description = (!description.is_empty()).then_some(description);
     }
     if draft.teams.is_empty() {
-        session.suspend()?;
-        let teams = ctx.block_on(refs::fetch_all_teams_with_transport(ctx.client()?));
-        session.resume()?;
-        let options: Vec<_> = teams?
-            .into_iter()
-            .map(|team| PlainOption {
-                label: format!("{} ({})", team.name, team.key),
-                value: team.key.clone(),
-                script_token: team.key,
-            })
-            .collect();
+        let teams = ctx.spin(true, refs::fetch_all_teams_with_transport(ctx.client()?))?;
         let default_team = configured_team_key(ctx.options());
-        let default_index = options
+        let start = teams
             .iter()
-            .position(|option| Some(&option.value) == default_team.as_ref())
+            .position(|team| Some(&team.key) == default_team.as_ref())
             .unwrap_or(0);
-        draft.teams = vec![answer(session.select(&PlainSelect {
-            message: "Team:",
-            options: &options,
-            default_index,
-            default_hint: None,
-        })?)?];
+        let choices = teams
+            .into_iter()
+            .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team.key))
+            .collect();
+        draft.teams = vec![prompter.select_from("Team:", choices, start)?];
     }
     if draft.status.is_none() {
-        session.suspend()?;
-        let statuses = ctx.block_on(write::statuses(ctx.client()?));
-        session.resume()?;
-        let statuses = statuses?;
+        let statuses = ctx.spin(true, write::statuses(ctx.client()?))?;
         if !statuses.is_empty() {
-            let default_index = statuses
+            let start = statuses
                 .iter()
                 .position(|status| status.status_type == ProjectStatusType::Planned)
                 .unwrap_or(0);
-            let options: Vec<_> = statuses
+            let choices = statuses
                 .into_iter()
-                .map(|status| PlainOption {
-                    label: status.name.clone(),
-                    value: status.id.into_inner(),
-                    script_token: status.name,
-                })
+                .map(|status| Choice::new(status.name, status.id.into_inner()))
                 .collect();
-            draft.status = Some(StatusChoice::Id(answer(session.select(&PlainSelect {
-                message: "Status:",
-                options: &options,
-                default_index,
-                default_hint: None,
-            })?)?));
+            let status = prompter.select_from("Status:", choices, start)?;
+            draft.status = Some(StatusChoice::Id(status));
         }
     }
     if draft.lead.is_none() {
-        let lead = answer(session.text_with_options(
-            "Lead (username, email, or @me - press Enter to skip):",
-            text(false),
-        )?)?;
-        if !lead.is_empty() {
-            refs::reject_linear_url(&lead, "an email, username, display name, or @me")?;
-            draft.lead = Some(lead);
-        }
+        let plain = |lead: &str| {
+            refs::reject_linear_url(lead, "an email, username, display name, or @me")
+                .map_err(|error| error.message().to_owned())
+        };
+        let lead = prompter.text(
+            Text::new("Lead (username, email, or @me - press Enter to skip):").with_check(&plain),
+        )?;
+        draft.lead = (!lead.is_empty()).then_some(lead);
     }
-    for (date, message) in [
+    let date = |answer: &str| {
+        NaiveDate::parse_from_str(answer, "%Y-%m-%d")
+            .map(drop)
+            .map_err(|_| "Enter a date like 2025-01-31".to_owned())
+    };
+    for (field, message) in [
         (
             &mut draft.start_date,
             "Start date (YYYY-MM-DD - press Enter to skip):",
@@ -323,25 +292,15 @@ fn prompt(
             "Target date (YYYY-MM-DD - press Enter to skip):",
         ),
     ] {
-        if date.is_none() {
-            let answer = answer(session.text_with_options(message, text(false))?)?;
+        if field.is_none() {
+            let answer = prompter.text(Text::new(message).with_check(&date))?;
             if !answer.is_empty() {
-                *date = Some(NaiveDate::parse_from_str(&answer, "%Y-%m-%d").map_err(|_| {
-                    Error::new(format!("Invalid date {answer:?}"))
-                        .with_hint("Enter dates like 2025-01-31.")
-                })?);
+                *field = Some(
+                    NaiveDate::parse_from_str(&answer, "%Y-%m-%d")
+                        .expect("the prompt only accepts valid dates"),
+                );
             }
         }
     }
     Ok(())
-}
-
-fn answer<T>(outcome: PromptOutcome<T>) -> Result<T> {
-    match outcome {
-        PromptOutcome::Submitted(answer) => Ok(answer),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => {
-            Err(Error::new("Input ended before every question was answered"))
-        }
-    }
 }

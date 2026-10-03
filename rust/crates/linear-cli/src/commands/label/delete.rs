@@ -12,7 +12,7 @@ use crate::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
 };
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
+use crate::platform::prompt::Choice;
 use crate::refs::{
     is_linear_uuid, prepare_team_lookup, reject_linear_url, resolve_team_with_transport,
 };
@@ -123,30 +123,15 @@ fn choose(ctx: &Ctx, name: &str, labels: &[Label]) -> Result<Label> {
                 .with_hint("Pass --team to pick one, or delete it by UUID."),
         );
     }
-    let options: Vec<_> = labels
+    let choices = labels
         .iter()
-        .map(|label| PlainOption {
-            label: format!("{} - {}", display(label), label.color),
-            value: label.id.inner().to_owned(),
-            script_token: label.id.inner().to_owned(),
-        })
+        .map(|label| Choice::new(format!("{} - {}", display(label), label.color), label))
         .collect();
-    let mut session = ctx.prompts()?;
-    let picked = session.select(&PlainSelect {
-        message: &format!("Multiple labels named \"{name}\" found. Which one?"),
-        options: &options,
-        default_index: 0,
-        default_hint: None,
-    });
-    match session.finish_result(picked)? {
-        PromptOutcome::Submitted(id) => Ok(labels
-            .iter()
-            .find(|label| label.id.inner() == id)
-            .expect("the picked label is one of the options")
-            .clone()),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-    }
+    let label = ctx.prompter()?.select(
+        &format!("Multiple labels named \"{name}\" found. Which one?"),
+        choices,
+    )?;
+    Ok(label.clone())
 }
 
 fn display(label: &Label) -> String {

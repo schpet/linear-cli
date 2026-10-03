@@ -74,7 +74,7 @@ pub enum RootCommand {
         long_about = "Generate shell completions.\n\nTo enable shell completions for this program add the following line to your ~/.bashrc or similar:\n\n    source <(linear completions [shell])\n\n    For more information run linear completions [shell] --help\n"
     )]
     Completions(completions::Completions),
-    #[command(name = "config", about = "Interactively generate .linear.toml configuration", visible_aliases = ["configure"])]
+    #[command(name = "config", about = "Generate .linear.toml configuration, asking for what the flags leave out", visible_aliases = ["configure"])]
     Config(config::Config),
     #[command(name = "schema", about = "Print the GraphQL schema to stdout")]
     Schema(schema::Schema),

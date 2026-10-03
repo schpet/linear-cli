@@ -2,7 +2,7 @@
 use crate::cli::auth::AuthDefault;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
+use crate::platform::prompt::Choice;
 
 pub fn run(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
     set_default(ctx, args).context("Failed to set default workspace")
@@ -41,29 +41,16 @@ fn pick(ctx: &Ctx, workspaces: &[String], current: Option<&str>) -> Result<Strin
         return Err(Error::new("No workspace given")
             .with_hint("Name it: `linear auth default <workspace>`."));
     }
-    super::selectable(workspaces, "default")?;
-    let options: Vec<_> = workspaces
+    let choices = workspaces
         .iter()
-        .map(|name| PlainOption {
-            label: if current == Some(name.as_str()) {
+        .map(|name| {
+            let label = if current == Some(name.as_str()) {
                 format!("{name} (current)")
             } else {
                 name.clone()
-            },
-            value: name.clone(),
-            script_token: name.clone(),
+            };
+            Choice::new(label, name.clone())
         })
         .collect();
-    let mut session = ctx.prompts()?;
-    let picked = session.select(&PlainSelect {
-        message: "Select default workspace",
-        options: &options,
-        default_index: 0,
-        default_hint: None,
-    });
-    match session.finish_result(picked)? {
-        PromptOutcome::Submitted(workspace) => Ok(workspace),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-    }
+    ctx.prompter()?.select("Select default workspace", choices)
 }

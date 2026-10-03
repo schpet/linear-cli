@@ -3,7 +3,7 @@ use crate::auth::keyring::native_backend;
 use crate::cli::auth::AuthLogout;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, escaped_display};
+use crate::platform::prompt::Choice;
 
 pub fn run(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
     logout(ctx, args).context("Failed to logout")
@@ -28,10 +28,7 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
             pick(ctx, workspaces, credentials.default())?
         }
     };
-    let question = format!(
-        "Remove credentials for workspace \"{}\"?",
-        escaped_display(&workspace)
-    );
+    let question = format!("Remove credentials for workspace \"{workspace}\"?");
     if !args.force && !ctx.confirm(&question, "--force")? {
         return ctx.print("Logout canceled\n");
     }
@@ -45,29 +42,17 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
 }
 
 fn pick(ctx: &Ctx, workspaces: &[String], default: Option<&str>) -> Result<String> {
-    super::selectable(workspaces, "logout")?;
-    let options: Vec<_> = workspaces
+    let choices = workspaces
         .iter()
-        .map(|name| PlainOption {
-            label: if default == Some(name.as_str()) {
-                format!("{} (default)", escaped_display(name))
+        .map(|name| {
+            let label = if default == Some(name.as_str()) {
+                format!("{name} (default)")
             } else {
-                escaped_display(name)
-            },
-            value: name.clone(),
-            script_token: name.clone(),
+                name.clone()
+            };
+            Choice::new(label, name.clone())
         })
         .collect();
-    let mut session = ctx.prompts()?;
-    let picked = session.select(&PlainSelect {
-        message: "Select workspace to remove",
-        options: &options,
-        default_index: 0,
-        default_hint: None,
-    });
-    match session.finish_result(picked)? {
-        PromptOutcome::Submitted(workspace) => Ok(workspace),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-    }
+    ctx.prompter()?
+        .select("Select workspace to remove", choices)
 }

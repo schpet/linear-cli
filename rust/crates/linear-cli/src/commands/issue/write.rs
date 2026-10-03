@@ -200,36 +200,20 @@ pub trait Backend: Clone + Send + 'static {
         input: IssueUpdateInput,
     ) -> impl Future<Output = Result<Updated, Error>> + Send;
 }
-/// What a searchable menu searches; it names the search box.
-#[derive(Clone, Copy, Debug)]
-pub enum Search {
-    Teams,
-    Projects,
-}
-
-/// The prompts issue creation asks. The terminal is restored between prompts,
-/// so network work and output can happen in between.
+/// The questions issue creation asks, so tests can answer them.
 pub trait Ui {
+    /// A trimmed answer; see [`crate::platform::prompt::Text`].
     fn text(
         &mut self,
         message: &str,
         required: bool,
         default: Option<&str>,
     ) -> Result<String, Error>;
-    fn choose(
-        &mut self,
-        message: &str,
-        options: &[Named],
-        default: usize,
-        search: Option<Search>,
-    ) -> Result<String, Error>;
-    fn checkbox(
-        &mut self,
-        message: &str,
-        options: &[Named],
-        search: bool,
-    ) -> Result<Vec<String>, Error>;
-    fn suspend(&mut self) -> Result<(), Error>;
+    /// The id of the picked option; the list starts on the one at `default`.
+    fn choose(&mut self, message: &str, options: &[Named], default: usize)
+    -> Result<String, Error>;
+    /// The ids of the picked options, in list order.
+    fn checkbox(&mut self, message: &str, options: &[Named]) -> Result<Vec<String>, Error>;
     fn output(&mut self, text: &str) -> Result<(), Error>;
     fn error(&mut self, text: &str) -> Result<(), Error>;
     fn discover_editor(&mut self) -> Result<Option<String>, Error>;

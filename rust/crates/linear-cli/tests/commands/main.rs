@@ -22,8 +22,6 @@ mod issue_start_pr;
 
 mod issue_write;
 
-mod issue_write_phase_checkbox;
-
 mod source_response_effects;
 
 /// Parses `words` (without the program name) with the real grammar.

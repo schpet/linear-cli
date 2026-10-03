@@ -1,7 +1,5 @@
 //! `document create` and `document update`: fields from flags, stdin, an
 //! editor or prompts, then one mutation.
-use std::io::{Read, Write};
-
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::document::{DocumentCreate, DocumentUpdate};
@@ -14,8 +12,7 @@ use crate::graphql::operations::document_write::*;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::editor;
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
-use crate::platform::prompt_text::TextOptions;
+use crate::platform::prompt::{Choice, Prompter, Text};
 
 use super::target::{self, Kind, PreparedTarget, TargetOptions};
 
@@ -41,7 +38,12 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         && args.content_file.is_none()
         && args.icon.is_none()
         && !flags.any();
-    let fields = if ctx.stdout_tty() && (args.interactive || no_flags) {
+    if args.interactive && !ctx.interactive() {
+        return Err(Error::new("Interactive mode needs a terminal").with_hint(
+            "Pass --title and one of --project, --issue, --initiative, --team, --cycle, or --release instead of --interactive.",
+        ));
+    }
+    let fields = if ctx.interactive() && (args.interactive || no_flags) {
         prompted(ctx)?
     } else {
         let title = args.title.clone().ok_or_else(|| {
@@ -329,18 +331,12 @@ fn prompted(ctx: &Ctx) -> Result<Fields> {
     let editor = editor::configured(&ctx.config().child_env)
         .as_deref()
         .and_then(editor_label);
-    let mut session = ctx.prompts()?;
-    let result = prompt(
-        &mut session,
+    prompt(
+        ctx,
+        &ctx.prompter()?,
         editor.as_deref(),
         default_team.as_deref(),
-        || optional_editor(ctx),
-    );
-    match session.finish_result(result)? {
-        PromptOutcome::Submitted(fields) => Ok(fields),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-    }
+    )
 }
 
 /// The editor's file name after the last `/`, for the content menu.
@@ -352,26 +348,16 @@ pub fn editor_label(name: &std::ffi::OsStr) -> Option<String> {
         .filter(|label| !label.is_empty())
 }
 
-/// Asks for the title, content, icon and attachment. `edit` opens the
-/// editor named `editor` while the prompts are suspended.
-fn prompt<R: Read, W: Write>(
-    session: &mut PromptSession<R, W>,
+/// Asks for the title, content, icon and attachment. The content can come
+/// from the editor named `editor`.
+fn prompt(
+    ctx: &Ctx,
+    prompter: &Prompter<'_>,
     editor: Option<&str>,
     default_team: Option<&str>,
-    mut edit: impl FnMut() -> Result<Option<String>>,
-) -> Result<PromptOutcome<Fields>> {
-    macro_rules! answer {
-        ($call:expr) => {
-            match $call? {
-                PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptOutcome::EndOfInput),
-            }
-        };
-    }
-    let options = |required, default| TextOptions { required, default };
+) -> Result<Fields> {
     let mut fields = Fields {
-        title: answer!(session.text_with_options("Document title", options(true, None))),
+        title: prompter.text(Text::new("Document title").required())?,
         content: None,
         icon: None,
         project: None,
@@ -382,110 +368,75 @@ fn prompt<R: Read, W: Write>(
         release: None,
     };
     let mut methods = vec![
-        choice("Skip (no content)", "skip"),
-        choice("Enter inline", "inline"),
+        Choice::new("Skip (no content)", Content::Skip),
+        Choice::new("Enter inline", Content::Inline),
     ];
     if let Some(label) = editor {
-        methods.push(choice(&format!("Open {label}"), "editor"));
+        methods.push(Choice::new(format!("Open {label}"), Content::Editor));
     }
-    methods.push(choice("Read from file", "file"));
-    let method = answer!(session.select(&PlainSelect {
-        message: "How would you like to enter content?",
-        options: &methods,
-        default_index: 0,
-        default_hint: None
-    }));
-    match method.as_str() {
-        "skip" => {}
-        "inline" => {
-            fields.content = text_input::edited_body(&answer!(
-                session.text_with_options("Content (markdown)", options(false, Some("")))
-            ));
+    methods.push(Choice::new("Read from file", Content::File));
+    match prompter.select("How would you like to enter content?", methods)? {
+        Content::Skip => {}
+        Content::Inline => {
+            fields.content =
+                text_input::edited_body(&prompter.text(Text::new("Content (markdown)"))?);
         }
-        "file" => {
-            let path = answer!(session.text_with_options("File path", options(false, None)));
+        Content::File => {
+            let path = prompter.text(Text::new("File path").required())?;
             fields.content = Some(read_file(&path)?);
         }
-        "editor" => {
+        Content::Editor => {
             let label = editor.expect("the editor option is offered only with an editor");
-            session.print_line(&format!("Opening {label}..."))?;
-            session.suspend()?;
-            let content = edit();
-            session.resume()?;
-            fields.content = content?;
+            ctx.print(format!("Opening {label}...\n"))?;
+            fields.content = optional_editor(ctx)?;
             if let Some(content) = &fields.content {
-                session.print_line(&format!(
-                    "Content entered ({} characters)",
+                ctx.print(format!(
+                    "Content entered ({} characters)\n",
                     content.chars().count()
                 ))?;
             }
         }
-        other => unreachable!("not a content menu value: {other}"),
     }
-    fields.icon = text_input::edited_body(&answer!(session.text_with_options(
-        "Icon (emoji, leave blank for none)",
-        options(false, Some(""))
-    )));
-    let targets = [
-        choice("Project", "project"),
-        choice("Issue", "issue"),
-        choice("Team", "team"),
-        choice("Initiative", "initiative"),
-        choice("Cycle", "cycle"),
-        choice("Release", "release"),
+    fields.icon =
+        text_input::edited_body(&prompter.text(Text::new("Icon (emoji, leave blank for none)"))?);
+    let targets = vec![
+        Choice::new("Project", Kind::Project),
+        Choice::new("Issue", Kind::Issue),
+        Choice::new("Team", Kind::Team),
+        Choice::new("Initiative", Kind::Initiative),
+        Choice::new("Cycle", Kind::Cycle),
+        Choice::new("Release", Kind::Release),
     ];
-    let target = answer!(session.select(&PlainSelect {
-        message: "Attach document to",
-        options: &targets,
-        default_index: 0,
-        default_hint: None
-    }));
-    match target.as_str() {
-        "project" => {
-            fields.project = Some(answer!(
-                session.text_with_options("Project (UUID, slug ID, or name)", options(false, None))
-            ));
+    let team = |message| {
+        let text = Text::new(message).required();
+        prompter.text(match default_team {
+            Some(team) => text.with_default(team),
+            None => text,
+        })
+    };
+    let required = |message| prompter.text(Text::new(message).required());
+    match prompter.select("Attach document to", targets)? {
+        Kind::Project => fields.project = Some(required("Project (UUID, slug ID, or name)")?),
+        Kind::Issue => fields.issue = Some(required("Issue identifier (e.g., TC-123)")?),
+        Kind::Team => fields.team = Some(team("Team key (e.g., ENG)")?),
+        Kind::Initiative => {
+            fields.initiative = Some(required("Initiative (UUID, slug ID, or name)")?);
         }
-        "issue" => {
-            fields.issue = Some(answer!(
-                session.text_with_options("Issue identifier (e.g., TC-123)", options(false, None))
-            ));
-        }
-        "team" => {
-            fields.team = Some(answer!(
-                session.text_with_options("Team key (e.g., ENG)", options(false, default_team))
-            ));
-        }
-        "initiative" => {
-            fields.initiative = Some(answer!(
-                session
-                    .text_with_options("Initiative (UUID, slug ID, or name)", options(false, None))
-            ));
-        }
-        "cycle" => {
-            fields.team = Some(answer!(session.text_with_options(
-                "Team key for the cycle (e.g., ENG)",
-                options(false, default_team)
-            )));
-            fields.cycle = Some(answer!(session.text_with_options(
+        Kind::Cycle => {
+            fields.team = Some(team("Team key for the cycle (e.g., ENG)")?);
+            fields.cycle = Some(required(
                 "Cycle (name, number, 'active', 'next', or 'previous')",
-                options(false, None)
-            )));
+            )?);
         }
-        "release" => {
-            fields.release = Some(answer!(
-                session.text_with_options("Release (UUID, name, or version)", options(false, None))
-            ));
-        }
-        other => unreachable!("not an attachment menu value: {other}"),
+        Kind::Release => fields.release = Some(required("Release (UUID, name, or version)")?),
     }
-    Ok(PromptOutcome::Submitted(fields))
+    Ok(fields)
 }
 
-fn choice(label: &str, value: &str) -> PlainOption {
-    PlainOption {
-        label: label.to_owned(),
-        value: value.to_owned(),
-        script_token: value.to_owned(),
-    }
+/// Where prompted content comes from.
+enum Content {
+    Skip,
+    Inline,
+    Editor,
+    File,
 }

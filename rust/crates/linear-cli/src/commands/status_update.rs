@@ -1,7 +1,5 @@
 //! Project and initiative status updates: creating one, and the shared
 //! table their `list` commands print.
-use std::io::Stdin;
-
 use chrono::{DateTime, Local, Utc};
 use cynic::MutationBuilder;
 
@@ -20,9 +18,7 @@ use crate::graphql::operations::update_create::{
     InitiativeVariables, ProjectHealthInput, ProjectInput, ProjectVariables,
 };
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::output::StdoutWriter;
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
-use crate::platform::prompt_text::TextOptions;
+use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
 use crate::refs::{
     InitiativeReference, ProjectReference, prepare_initiative_lookup, prepare_project_lookup,
@@ -44,7 +40,7 @@ enum Reference {
 /// Posts a status update: content from the flags, piped stdin, the editor,
 /// or prompts, after the target is found.
 pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<()> {
-    let terminal = ctx.stdin_tty() && ctx.stdout_tty();
+    let terminal = ctx.interactive();
     if args.interactive && !terminal {
         return Err(Error::new("Interactive mode needs a terminal")
             .with_hint("Pass --body, --body-file, or --health instead of --interactive."));
@@ -81,11 +77,8 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
         }
     })?;
     let (body, health) = if interactive {
-        let mut session = ctx.prompts()?;
-        let result = prompt(ctx, &mut session, body, args.health);
-        session.close()?;
-        result?
-    } else if body.is_none() && ctx.stdin_tty() && ctx.stdout_tty() {
+        prompt(ctx, &ctx.prompter()?, body, args.health)?
+    } else if body.is_none() && terminal {
         ctx.print("Opening editor for the update content...\n")?;
         let body = text_input::edited_body(&ctx.edit_text("")?);
         if body.is_none() {
@@ -183,104 +176,65 @@ async fn submit(
 /// Asks for the health and the content the flags left out.
 fn prompt(
     ctx: &Ctx,
-    session: &mut PromptSession<Stdin, StdoutWriter<'_>>,
+    prompter: &Prompter<'_>,
     body: Option<String>,
     health: Option<Health>,
 ) -> Result<(Option<String>, Option<Health>)> {
     let health = match health {
         Some(health) => Some(health),
-        None => {
-            let options = [
-                choice("Skip (no change)", "skip"),
-                choice("On Track", "onTrack"),
-                choice("At Risk", "atRisk"),
-                choice("Off Track", "offTrack"),
-            ];
-            let selected = answer(session.select(&PlainSelect {
-                message: "Health status",
-                options: &options,
-                default_index: 0,
-                default_hint: None,
-            })?)?;
-            match selected.as_str() {
-                "skip" => None,
-                "onTrack" => Some(Health::OnTrack),
-                "atRisk" => Some(Health::AtRisk),
-                "offTrack" => Some(Health::OffTrack),
-                other => unreachable!("health menu returned {other}"),
-            }
-        }
+        None => prompter.select(
+            "Health status",
+            vec![
+                Choice::new("Skip (no change)", None),
+                Choice::new("On Track", Some(Health::OnTrack)),
+                Choice::new("At Risk", Some(Health::AtRisk)),
+                Choice::new("Off Track", Some(Health::OffTrack)),
+            ],
+        )?,
     };
     if body.is_some() {
         return Ok((body, health));
     }
-    let methods = [
-        choice("Skip (no content)", "skip"),
-        choice("Enter inline", "inline"),
-        choice("Open editor", "editor"),
-        choice("Read from file", "file"),
-    ];
-    let method = answer(session.select(&PlainSelect {
-        message: "How would you like to enter the update content?",
-        options: &methods,
-        default_index: 0,
-        default_hint: None,
-    })?)?;
-    let body = match method.as_str() {
-        "skip" => None,
-        "inline" => text_input::edited_body(&answer(session.text_with_options(
-            "Content (markdown)",
-            TextOptions {
-                required: false,
-                default: None,
-            },
-        )?)?),
-        "file" => {
-            let path = answer(session.text_with_options(
-                "File path",
-                TextOptions {
-                    required: true,
-                    default: None,
-                },
-            )?)?;
+    let method = prompter.select(
+        "How would you like to enter the update content?",
+        vec![
+            Choice::new("Skip (no content)", Content::Skip),
+            Choice::new("Enter inline", Content::Inline),
+            Choice::new("Open editor", Content::Editor),
+            Choice::new("Read from file", Content::File),
+        ],
+    )?;
+    let body = match method {
+        Content::Skip => None,
+        Content::Inline => {
+            text_input::edited_body(&prompter.text(Text::new("Content (markdown)"))?)
+        }
+        Content::File => {
+            let path = prompter.text(Text::new("File path").required())?;
             Some(text_input::read_file(&path).map_err(|error| {
                 Error::new(format!("Failed to read {path}: {error}")).with_source(error)
             })?)
         }
-        "editor" => {
-            session.suspend()?;
-            let edited = ctx.edit_text("");
-            session.resume()?;
-            let body = text_input::edited_body(&edited?);
+        Content::Editor => {
+            let body = text_input::edited_body(&ctx.edit_text("")?);
             if let Some(body) = &body {
-                session.print_line(&format!(
-                    "Content entered ({} characters)",
+                ctx.print(format!(
+                    "Content entered ({} characters)\n",
                     body.chars().count()
                 ))?;
             }
             body
         }
-        other => unreachable!("content menu returned {other}"),
     };
     Ok((body, health))
 }
 
-fn choice(label: &str, value: &str) -> PlainOption {
-    PlainOption {
-        label: label.to_owned(),
-        value: value.to_owned(),
-        script_token: value.to_owned(),
-    }
-}
-
-fn answer<T>(outcome: PromptOutcome<T>) -> Result<T> {
-    match outcome {
-        PromptOutcome::Submitted(answer) => Ok(answer),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => {
-            Err(Error::new("Input ended before every question was answered"))
-        }
-    }
+/// Where prompted content comes from.
+enum Content {
+    Skip,
+    Inline,
+    Editor,
+    File,
 }
 
 /// A status update's health as Linear reports it.

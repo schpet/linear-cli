@@ -12,7 +12,7 @@ use crate::graphql::operations::initiative_bulk::{
     IdVariables,
 };
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::prompt::PromptOutcome;
+use crate::platform::prompt::Text;
 use crate::refs::InitiativeReference;
 
 use super::Archived;
@@ -145,18 +145,14 @@ fn confirm_single(ctx: &Ctx, mode: Mode, name: &str) -> Result<bool> {
     if mode == Mode::Archive {
         return Ok(true);
     }
-    let mut session = ctx.prompts()?;
-    let result = session.text("Type the initiative name to confirm deletion:", 0, |_| {
-        Ok(())
-    });
-    match session.finish_result(result)? {
-        PromptOutcome::Submitted(answer) if answer == name.trim() => Ok(true),
-        PromptOutcome::Submitted(_) => {
-            ctx.print("Name does not match.\n")?;
-            Ok(false)
-        }
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
+    let answer = ctx
+        .prompter()?
+        .text(Text::new("Type the initiative name to confirm deletion:"))?;
+    if answer == name.trim() {
+        Ok(true)
+    } else {
+        ctx.print("Name does not match.\n")?;
+        Ok(false)
     }
 }
 

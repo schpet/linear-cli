@@ -16,6 +16,7 @@ use crate::error::{Error, Result};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::markdown_terminal::{self, HostSource, RenderOptions};
 use crate::platform::output::{self, Stdout, StdoutWriter};
+use crate::platform::prompt::Prompter;
 use crate::platform::spinner::Spinner;
 use crate::platform::{editor, opener, pager, style};
 use crate::refs::WorkspaceScope;
@@ -323,6 +324,12 @@ impl Ctx {
         self.block_on(crate::graphql::operations::viewer::url_key(client))
     }
 
+    /// Stdin and stdout are both terminals, so a command may ask for what its
+    /// flags left out without being told to.
+    pub fn interactive(&self) -> bool {
+        self.terminal.stdin_tty && self.terminal.stdout_tty
+    }
+
     /// Fails unless stdin is a terminal, naming `flag` as the way to skip the prompt.
     pub fn require_tty(&self, flag: &str) -> Result<()> {
         if self.terminal.stdin_tty {
@@ -335,28 +342,21 @@ impl Ctx {
         }
     }
 
-    /// Asks a yes/no question on the terminal. Without a terminal it fails,
-    /// naming `skip_flag` as the way to proceed. Ctrl-C cancels the command.
+    /// Asks a yes/no question on the terminal, defaulting to no. Without a
+    /// terminal it fails, naming `skip_flag` as the way to proceed.
     pub fn confirm(&self, message: &str, skip_flag: &str) -> Result<bool> {
-        use crate::platform::prompt::{PromptOutcome, PromptSession};
         self.require_tty(skip_flag)?;
-        self.flush()?;
-        let mut session = PromptSession::stdin_stdio(self.stdout())?;
-        let result = session.confirm(message, false);
-        match session.finish_result(result)? {
-            PromptOutcome::Submitted(answer) => Ok(answer),
-            PromptOutcome::Interrupted => Err(Error::cancelled()),
-            PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-        }
+        self.prompter()?.confirm(message, false)
     }
 
-    /// The interactive prompt session for multi-step prompts. Its output goes
-    /// to stdout; non-terminal stdin is read line by line.
-    pub fn prompts(
-        &self,
-    ) -> Result<crate::platform::prompt::PromptSession<io::Stdin, StdoutWriter<'_>>> {
-        self.flush()?;
-        crate::platform::prompt::PromptSession::stdin_stdio_cr_or_lf(self.stdout())
+    /// Questions on the terminal. Commands check for a terminal first, with an
+    /// error naming the flags to pass instead; this refusal is the backstop.
+    pub fn prompter(&self) -> Result<Prompter<'_>> {
+        if !self.terminal.stdin_tty {
+            return Err(Error::new("This command needs a terminal to ask questions")
+                .with_hint("Pass the values as flags instead."));
+        }
+        Ok(Prompter::new(&self.stdout, self.terminal.stderr_color()))
     }
 }
 

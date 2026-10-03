@@ -348,6 +348,9 @@ fn create_validates_flags_before_any_request() {
     cli.run(&["initiative", "create"])
         .failure()
         .stderr_has("--name");
+    cli.run(&["initiative", "create", "-n", "X", "-i"])
+        .failure()
+        .stderr_has("needs a terminal");
     cli.run(&["initiative", "create", "-n", "X", "--status", "someday"])
         .usage_error()
         .stderr_has("someday");

@@ -9,6 +9,7 @@ use linear_cli::{
     },
     error::Error,
     graphql::operations::issue_update::IssueUpdateInput,
+    platform::prompt::Text,
 };
 use std::{
     collections::VecDeque,
@@ -163,16 +164,20 @@ impl Ui for Prompt {
     ) -> Result<String, Error> {
         self.messages.push(message.into());
         let raw = self.answers.pop_front().expect("missing answer");
-        linear_cli::platform::prompt_text::TextOptions { required, default }
-            .answer(&raw)
-            .map_err(shared::validation)
+        let mut text = Text::new(message);
+        if required {
+            text = text.required();
+        }
+        if let Some(default) = default {
+            text = text.with_default(default);
+        }
+        text.answer(&raw).map_err(shared::validation)
     }
     fn choose(
         &mut self,
         message: &str,
         options: &[Named],
         default: usize,
-        _: Option<linear_cli::commands::issue::write::Search>,
     ) -> Result<String, Error> {
         self.messages.push(message.into());
         self.menus.push((message.into(), options.to_vec()));
@@ -181,21 +186,13 @@ impl Ui for Prompt {
             .pop_front()
             .unwrap_or_else(|| options[default].id.clone()))
     }
-    fn checkbox(
-        &mut self,
-        message: &str,
-        options: &[Named],
-        _: bool,
-    ) -> Result<Vec<String>, Error> {
+    fn checkbox(&mut self, message: &str, options: &[Named]) -> Result<Vec<String>, Error> {
         self.menus.push((message.into(), options.to_vec()));
         Ok(if message == "Select additional fields to configure" {
             self.selected_fields.clone()
         } else {
             Vec::new()
         })
-    }
-    fn suspend(&mut self) -> Result<(), Error> {
-        Ok(())
     }
     fn output(&mut self, text: &str) -> Result<(), Error> {
         self.messages.push(text.into());
@@ -663,8 +660,8 @@ fn fallback_menu_dedupes_ids_in_order_and_declining_returns_none() {
     assert!(ui.messages[0].contains("but old exists"));
 }
 
-#[test]
-fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_queries() {
+#[tokio::test]
+async fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_queries() {
     use linear_cli::commands::issue::create_prompt as issue_create_prompt;
     for (next, expected_viewers) in [("submit", 1), ("more_fields", 2)] {
         let backend = Fake::default();
@@ -687,6 +684,7 @@ fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_q
                 ..Default::default()
             },
         )
+        .await
         .unwrap();
         assert_eq!(output.title, "Title 界");
         assert!(!output.start);
@@ -741,6 +739,7 @@ fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_q
             ..Default::default()
         },
     )
+    .await
     .unwrap();
     assert_eq!(
         serde_json::to_value(output.input).unwrap()["projectId"],
@@ -757,8 +756,8 @@ fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_q
         "Creating sub-issue for: ENG-9: P\n\n"
     );
 }
-#[test]
-fn blank_title_is_rejected_and_default_template_false_remains_explicit() {
+#[tokio::test]
+async fn blank_title_is_rejected_and_default_template_false_remains_explicit() {
     let mut ui = Prompt {
         answers: VecDeque::from([" Title ".into(), "".into(), "submit".into(), "no".into()]),
         messages: Vec::new(),
@@ -772,18 +771,11 @@ fn blank_title_is_rejected_and_default_template_false_remains_explicit() {
         &settings,
         &create::Fields::default(),
     )
+    .await
     .unwrap();
     let json = serde_json::to_value(output.input).unwrap();
     assert_eq!(json["title"], "Title");
     assert_eq!(json["useDefaultTemplate"], false);
-    assert!(
-        linear_cli::platform::prompt_text::TextOptions {
-            required: true,
-            default: None
-        }
-        .answer(" \t ")
-        .is_err()
-    );
 }
 #[tokio::test]
 async fn update_false_corrupt_model_fails_full_decode_before_false_message() {
@@ -1066,8 +1058,8 @@ async fn m2_shared_read_empty_project_name_uses_slug_and_keeps_query_lf() {
             .all(|v| v["query"].as_str().unwrap().ends_with('\n'))
     );
 }
-#[test]
-fn m2_empty_initial_project_keeps_project_menu_and_priority_glyphs() {
+#[tokio::test]
+async fn m2_empty_initial_project_keeps_project_menu_and_priority_glyphs() {
     use linear_cli::commands::issue::create_prompt as issue_create_prompt;
     for ask_project in [true, false] {
         let backend = Fake {
@@ -1100,6 +1092,7 @@ fn m2_empty_initial_project_keeps_project_menu_and_priority_glyphs() {
                 ..Default::default()
             },
         )
+        .await
         .unwrap();
         assert_eq!(
             serde_json::to_value(output.input).unwrap()["projectId"],

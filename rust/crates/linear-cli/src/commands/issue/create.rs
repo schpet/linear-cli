@@ -1,10 +1,6 @@
-use std::io::Stdin;
-
 use chrono::NaiveDate;
 
-use super::write::{
-    self as shared, AssignSelf, Backend, CreateSettings, Named, Parent, Search, Ui,
-};
+use super::write::{self as shared, AssignSelf, Backend, CreateSettings, Named, Parent, Ui};
 use super::write_network::NetworkBackend;
 use crate::{
     cli::{issue::IssueCreate, values::Priority},
@@ -15,9 +11,7 @@ use crate::{
     graphql::{edit::Edit, scalars::TimelessDate},
     platform::{
         editor,
-        output::StdoutWriter,
-        prompt::{self, PlainOption, PlainSelect, PromptOutcome, PromptSession},
-        selector::SelectOption,
+        prompt::{Choice, Prompter, Text},
         spinner::Spinner,
     },
 };
@@ -29,14 +23,14 @@ pub fn run(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
 fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     let fields = Fields::from(args);
     let description = fields.local()?;
-    let interactive = fields.full_interactive(description.as_deref(), ctx.stdout_tty());
+    let interactive = fields.full_interactive(description.as_deref(), ctx.interactive());
     if !interactive {
         fields.require_flag_title()?;
     }
     let mut ui = Prompts::new(ctx, !interactive);
-    let result = create_with(ctx, &mut ui, &fields, description, interactive);
-    ui.close()?;
-    let start = result?;
+    let start = create_with(ctx, &mut ui, &fields, description, interactive)?;
+    // The spinner stops before `--start` runs version control commands.
+    drop(ui);
     if let Some((identifier, team)) = start {
         super::start::work_on(ctx, &identifier, &team, None, None)?;
     }
@@ -54,11 +48,13 @@ fn create_with(
     let backend = backend(ctx)?;
     let settings = settings(ctx);
     let (input, title, start) = if interactive {
-        let prompted = super::create_prompt::prompt(&backend, ui, &settings, fields)?;
+        let prompted = ctx.block_on(super::create_prompt::prompt(
+            &backend, ui, &settings, fields,
+        ))?;
         ui.output("Creating issue...\n\n")?;
         (prompted.input, Some(prompted.title), prompted.start)
     } else {
-        let fallback = !fields.no_interactive && ctx.stdout_tty();
+        let fallback = !fields.no_interactive && ctx.interactive();
         let assembled = ctx.block_on(flag_input(
             &backend,
             ui,
@@ -107,12 +103,10 @@ fn settings(ctx: &Ctx) -> CreateSettings {
     }
 }
 
-/// Terminal prompts for issue creation. One prompt session lives across every
-/// question, so piped answers are read in order; the spinner pauses while a
-/// question is on screen.
+/// Terminal prompts for issue creation. Without prompts (all fields from
+/// flags) a spinner runs, pausing while a near-match question is asked.
 struct Prompts<'a> {
     ctx: &'a Ctx,
-    session: Option<PromptSession<Stdin, StdoutWriter<'a>>>,
     spin: bool,
     spinner: Option<Spinner>,
 }
@@ -121,7 +115,6 @@ impl<'a> Prompts<'a> {
     fn new(ctx: &'a Ctx, spin: bool) -> Self {
         let mut prompts = Self {
             ctx,
-            session: None,
             spin,
             spinner: None,
         };
@@ -139,136 +132,40 @@ impl<'a> Prompts<'a> {
         }
     }
 
-    fn ask<T>(
-        &mut self,
-        question: impl FnOnce(&mut PromptSession<Stdin, StdoutWriter<'a>>) -> Result<PromptOutcome<T>>,
-    ) -> Result<T> {
+    fn ask<T>(&mut self, question: impl FnOnce(&Prompter<'_>) -> Result<T>) -> Result<T> {
         self.pause();
-        let session = match &mut self.session {
-            Some(session) => {
-                session.resume()?;
-                session
-            }
-            None => self.session.insert(self.ctx.prompts()?),
-        };
-        let outcome = question(session);
-        let outcome = match outcome {
-            Ok(outcome) => {
-                session.suspend()?;
-                outcome
-            }
-            Err(error) => {
-                self.close()?;
-                return Err(error);
-            }
-        };
-        let answer = match outcome {
-            PromptOutcome::Submitted(answer) => answer,
-            PromptOutcome::Interrupted => return Err(Error::cancelled()),
-            PromptOutcome::EndOfInput => {
-                return Err(Error::new(
-                    "Input ended before issue creation prompts completed",
-                ));
-            }
-        };
+        let answer = question(&self.ctx.prompter()?);
         self.resume();
-        Ok(answer)
-    }
-
-    fn close(&mut self) -> Result<()> {
-        self.pause();
-        match self.session.take() {
-            Some(mut session) => session.close(),
-            None => Ok(()),
-        }
+        answer
     }
 }
 
 impl Ui for Prompts<'_> {
     fn text(&mut self, message: &str, required: bool, default: Option<&str>) -> Result<String> {
-        let message = prompt::escaped_display(message);
-        self.ask(|session| {
-            session.text_with_display_default(
-                &message,
-                crate::platform::prompt_text::TextOptions { required, default },
-            )
-        })
+        let mut text = Text::new(message);
+        if required {
+            text = text.required();
+        }
+        if let Some(default) = default {
+            text = text.with_default(default);
+        }
+        self.ask(|prompter| prompter.text(text))
     }
 
-    fn choose(
-        &mut self,
-        message: &str,
-        options: &[Named],
-        default: usize,
-        search: Option<Search>,
-    ) -> Result<String> {
-        let message = prompt::escaped_display(message);
-        // Rows are identified by position, so duplicate or control-character
-        // names still select the right option; names are escaped for display.
-        let selected = match search {
-            Some(search) => {
-                let rows: Vec<_> = options
-                    .iter()
-                    .enumerate()
-                    .map(|(index, option)| SelectOption {
-                        label: prompt::escaped_display(&option.name),
-                        value: index.to_string(),
-                    })
-                    .collect();
-                let (label, no_match) = match search {
-                    Search::Teams => ("Search teams", "no teams match submitted search query"),
-                    Search::Projects => (
-                        "Search projects",
-                        "no projects match submitted search query",
-                    ),
-                };
-                self.ask(|session| {
-                    session.searchable_select_with_no_match(&message, label, &rows, no_match)
-                })?
-            }
-            None => {
-                let rows: Vec<_> = options
-                    .iter()
-                    .enumerate()
-                    .map(|(index, option)| PlainOption {
-                        label: prompt::escaped_display(&option.name),
-                        value: index.to_string(),
-                        script_token: format!("option-{index}"),
-                    })
-                    .collect();
-                self.ask(|session| {
-                    session.select(&PlainSelect {
-                        message: &message,
-                        options: &rows,
-                        default_index: default,
-                        default_hint: None,
-                    })
-                })?
-            }
-        };
-        Ok(menu_choice(&selected, options).id.clone())
-    }
-
-    fn checkbox(&mut self, message: &str, options: &[Named], search: bool) -> Result<Vec<String>> {
-        let message = prompt::escaped_display(message);
-        let rows: Vec<_> = options
+    fn choose(&mut self, message: &str, options: &[Named], default: usize) -> Result<String> {
+        let choices = options
             .iter()
-            .enumerate()
-            .map(|(index, option)| PlainOption {
-                label: prompt::escaped_display(&option.name),
-                value: index.to_string(),
-                script_token: format!("field-{index}"),
-            })
+            .map(|option| Choice::new(&option.name, option.id.clone()))
             .collect();
-        let selected = self.ask(|session| session.checkbox(&message, &rows, search))?;
-        Ok(selected
-            .iter()
-            .map(|selected| menu_choice(selected, options).id.clone())
-            .collect())
+        self.ask(|prompter| prompter.select_from(message, choices, default))
     }
 
-    fn suspend(&mut self) -> Result<()> {
-        Ok(())
+    fn checkbox(&mut self, message: &str, options: &[Named]) -> Result<Vec<String>> {
+        let choices = options
+            .iter()
+            .map(|option| Choice::new(&option.name, option.id.clone()))
+            .collect();
+        self.ask(|prompter| prompter.multi_select(message, choices))
     }
 
     fn output(&mut self, text: &str) -> Result<()> {
@@ -303,14 +200,6 @@ impl Ui for Prompts<'_> {
     }
 }
 
-/// The option a menu answer (a row position) picked.
-fn menu_choice<'o>(selected: &str, options: &'o [Named]) -> &'o Named {
-    selected
-        .parse::<usize>()
-        .ok()
-        .and_then(|index| options.get(index))
-        .expect("menu answers are row positions")
-}
 #[derive(Clone, Debug, Default)]
 pub struct Fields {
     pub title: Option<String>,
@@ -340,8 +229,9 @@ impl Fields {
             self.description_file.as_deref(),
         )
     }
-    pub fn full_interactive(&self, description: Option<&str>, stdout_tty: bool) -> bool {
-        stdout_tty
+    /// No field flags were given on a terminal, so every field is asked for.
+    pub fn full_interactive(&self, description: Option<&str>, terminal: bool) -> bool {
+        terminal
             && !self.no_interactive
             && shared::truthy(self.title.as_deref()).is_none()
             && shared::truthy(self.assignee.as_deref()).is_none()
@@ -601,7 +491,7 @@ pub fn select_option<U: Ui>(
             name: (*label).to_owned(),
         })
         .collect();
-    let selected = ui.choose(&message, &menu, 0, None)?;
+    let selected = ui.choose(&message, &menu, 0)?;
     let index = selected
         .parse::<usize>()
         .map_err(|error| Error::new("menu returned an unknown choice").with_source(error))?;

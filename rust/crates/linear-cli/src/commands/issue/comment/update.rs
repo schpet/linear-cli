@@ -9,15 +9,11 @@ use crate::{
         operations::comment_update::*,
         transport::{GraphQlTransport, TransportFailure, classify_typed},
     },
-    platform::{
-        prompt::{PromptOutcome, PromptSession},
-        prompt_text::TextOptions,
-    },
+    platform::prompt::Text,
     refs::{reject_comment_url, reject_linear_url},
 };
 use cynic::{MutationBuilder, QueryBuilder};
 use serde::{Serialize, de::DeserializeOwned};
-use std::io::{Read, Write};
 
 pub fn run(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     update(ctx, args).context("Failed to update comment")
@@ -26,23 +22,21 @@ pub fn run(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
 fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     let id = &args.comment_id;
     let body = prepare_body(id, args.body.as_deref(), args.body_file.as_deref())?;
+    let body = body.filter(|body| !needs_prompt(Some(body)));
+    if body.is_none() && !ctx.stdin_tty() {
+        return Err(Error::new("No comment body given")
+            .with_hint("Pass --body or --body-file, or run in a terminal to be prompted."));
+    }
     let client = ctx.client()?;
-    let body = match body.filter(|body| !needs_prompt(Some(body))) {
+    let body = match body {
         Some(body) => body,
         None => {
-            let existing = ctx.block_on(existing_body(client, id))?;
-            if ctx.stdin_tty() {
-                check_prompt_topology(true, stdout_is_fifo()?)?;
-            }
-            let mut session = ctx.prompts()?;
-            let prompted = prompt_body(&mut session, &existing);
-            match session.finish_result(prompted)? {
-                PromptOutcome::Submitted(body) => body,
-                PromptOutcome::Interrupted => return Err(Error::cancelled()),
-                PromptOutcome::EndOfInput => {
-                    unreachable!("prompt_body reports end of input as an error")
-                }
-            }
+            let existing = ctx.spin(true, existing_body(client, id))?;
+            ctx.prompter()?.text(
+                Text::new("New comment body")
+                    .required()
+                    .with_default(&existing),
+            )?
         }
     };
     ctx.print(ctx.spin(true, submit(client, id, body))?)
@@ -72,26 +66,6 @@ pub fn prepare_body(
 }
 pub fn needs_prompt(body: Option<&str>) -> bool {
     body.is_none_or(str::is_empty)
-}
-/// Refuses prompting when stdout is a FIFO; checked after the fetch and before raw mode.
-/// Pipe stdin and regular redirected files remain eligible for their native prompts.
-pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), Error> {
-    if stdin_tty && stdout_fifo {
-        return Err(Error::new("Comment text prompt requires terminal or regular-file stdout when stdin is a terminal",
-        ).with_hint("Keep stdout on the terminal, redirect it to a regular file, or supply --body/--body-file."));
-    }
-    Ok(())
-}
-#[cfg(unix)]
-pub fn stdout_is_fifo() -> Result<bool, Error> {
-    let stat = rustix::fs::fstat(std::io::stdout()).map_err(|source| {
-        Error::new("Failed to inspect comment text prompt stdout").with_source(source)
-    })?;
-    Ok(rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Fifo)
-}
-#[cfg(not(unix))]
-pub fn stdout_is_fifo() -> Result<bool, Error> {
-    Ok(false)
 }
 pub fn get_request(id: &str) -> GraphQlRequest<GetCommentVariables> {
     GraphQlRequest::with_variables(GetComment::build(GetCommentVariables { id: id.to_owned() }))
@@ -133,30 +107,6 @@ pub async fn existing_body(transport: &GraphQlTransport, id: &str) -> Result<Str
         .comment
         .and_then(|comment| comment.body)
         .unwrap_or_default())
-}
-pub fn prompt_body<R: Read, W: Write>(
-    session: &mut PromptSession<R, W>,
-    existing: &str,
-) -> Result<PromptOutcome<String>, Error> {
-    match session.text_with_display_default(
-        "New comment body",
-        TextOptions {
-            required: false,
-            default: Some(existing),
-        },
-    )? {
-        PromptOutcome::Submitted(body) => {
-            if body.trim().is_empty() {
-                Err(Error::new("Comment body cannot be empty"))
-            } else {
-                Ok(PromptOutcome::Submitted(body))
-            }
-        }
-        PromptOutcome::Interrupted => Ok(PromptOutcome::Interrupted),
-        PromptOutcome::EndOfInput => Err(Error::new(
-            "unexpected EOF while prompting for comment body",
-        )),
-    }
 }
 pub async fn submit(
     transport: &GraphQlTransport,

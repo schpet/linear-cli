@@ -32,19 +32,3 @@ fn credentials(ctx: &Ctx) -> Result<Credentials> {
     })?;
     Ok(Credentials::new(ctx.credentials()?, path))
 }
-
-/// Workspace names a menu can show: no control characters, not blank.
-fn selectable(names: &[String], command: &str) -> Result<()> {
-    if names
-        .iter()
-        .any(|name| name.trim().is_empty() || name.chars().any(char::is_control))
-    {
-        return Err(Error::new(
-            "A workspace name in the credentials file cannot be shown in a menu",
-        )
-        .with_hint(format!(
-            "Name the workspace: `linear auth {command} <workspace>`."
-        )));
-    }
-    Ok(())
-}

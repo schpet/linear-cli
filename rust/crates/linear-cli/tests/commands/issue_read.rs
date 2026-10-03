@@ -304,19 +304,6 @@ fn final_query_team_scope_uses_eq_and_or_while_state_lookup_retains_in() {
 }
 
 #[test]
-fn source_valid_project_menu_controls_have_command_validation_before_raw() {
-    read::project_menu_text("Similar projects?", &["Planning", "none of the above"]).unwrap();
-    for (message, label) in [
-        ("Similar projects?", ""),
-        ("Similar projects?", "A\nB"),
-        ("Plan\r?", "yes"),
-    ] {
-        let error = read::project_menu_text(message, &[label]).unwrap_err();
-        assert!(error.message().contains("no control characters"));
-    }
-}
-
-#[test]
 fn terminal_comment_roots_with_replies_preserve_exact_source_separator() {
     let options = linear_cli::platform::markdown_terminal::RenderOptions {
         columns: std::num::NonZeroU16::new(80).unwrap(),

@@ -14,7 +14,6 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, ResponseGraphQlError};
 use crate::graphql::operations::auth_login_viewer::AuthLoginViewer;
 use crate::graphql::transport::{ApiKey, GraphQlTransport, TransportFailure};
-use crate::platform::prompt::PromptOutcome;
 use crate::platform::style;
 
 const KEY_HINT: &str = "Create one at https://linear.app/settings/account/security";
@@ -111,13 +110,10 @@ fn read_key(ctx: &Ctx) -> Result<ConfigSecret> {
         })?;
         return Ok(ConfigSecret::new(key));
     }
-    let mut session = ctx.prompts()?;
-    let answer = session.secret("Enter your Linear API key", KEY_HINT);
-    match session.finish_result(answer)? {
-        PromptOutcome::Submitted(key) => Ok(key),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Unexpected end of input at a prompt")),
-    }
+    let key = ctx
+        .prompter()?
+        .secret("Enter your Linear API key", KEY_HINT)?;
+    Ok(ConfigSecret::new(key))
 }
 
 /// Trims whitespace and pasted punctuation (quotes, brackets) around the key.
@@ -187,18 +183,10 @@ fn offer_migration(
         ));
     }
     ctx.print(format!("\n{notice}\n"))?;
-    let mut session = ctx.prompts()?;
-    let answer = session.confirm(
+    let migrate = ctx.prompter()?.confirm(
         "Migrate all credentials to the system keyring for better security?",
         true,
-    );
-    let migrate = match session.finish_result(answer)? {
-        PromptOutcome::Submitted(answer) => answer,
-        PromptOutcome::Interrupted => return Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => {
-            return Err(Error::new("Unexpected end of input at a prompt"));
-        }
-    };
+    )?;
     if !migrate {
         return Ok(());
     }

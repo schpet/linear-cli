@@ -1,45 +1,101 @@
-//! `linear config`: pick a workspace, team and sort order, then write a
-//! project config file at the repository root.
+//! `linear config`: a workspace, team and sort order from flags or prompts,
+//! written to a project config file at the repository root.
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::auth::ApiKeyInput;
+use crate::cli::Sort;
+use crate::cli::config::Config;
 use crate::config::{RealFileSource, repo_root};
 use crate::ctx::{self, Ctx};
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::viewer;
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
-use crate::platform::selector::SelectOption;
-use crate::refs::{ResolvedTeam, fetch_all_teams_with_transport};
+use crate::platform::prompt::Choice;
+use crate::refs::{
+    ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup, resolve_team_with_transport,
+};
 
 const BANNER: &str = "\n██      ██ ███    ██ ███████  █████  ██████      ██████ ██      ██\n██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██\n██      ██ ██ ██  ██ █████   ███████ ██████     ██      ██      ██\n██      ██ ██  ██ ██ ██      ██   ██ ██   ██    ██      ██      ██\n███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██\n\n";
 const HEADER: &str = "# linear cli\n# https://github.com/schpet/linear-cli\n\n";
-const SORT_ORDERS: [&str; 2] = ["manual", "priority"];
 
 /// The values written to the config file.
 #[derive(Serialize)]
 struct ProjectConfig {
     workspace: String,
     team_id: String,
-    issue_sort: String,
+    issue_sort: &'static str,
 }
 
-pub fn run(ctx: &Ctx) -> Result<()> {
-    generate(ctx).context("Failed to generate configuration")
+/// The team `--team` named, or the teams to choose from.
+enum Team {
+    Given(ResolvedTeam),
+    Choose(Vec<ResolvedTeam>),
 }
 
-fn generate(ctx: &Ctx) -> Result<()> {
-    ctx.print(BANNER)?;
+pub fn run(ctx: &Ctx, args: &Config) -> Result<()> {
+    generate(ctx, args).context("Failed to generate configuration")
+}
+
+fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
     let workspaces = stored_workspaces(ctx)?;
-    let mut session = ctx.prompts()?;
-    let answers = ask(ctx, &workspaces, &mut session);
-    let config = match session.finish_result(answers)? {
-        PromptOutcome::Submitted(config) => config,
-        PromptOutcome::Interrupted => return Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => {
-            return Err(Error::new("Unexpected end of input at a prompt"));
+    let asks = args.team.is_none() || args.sort.is_none() || workspaces.len() > 1;
+    if asks && !ctx.stdin_tty() {
+        let mut flags = vec!["--team <team>", "--sort <manual|priority>"];
+        if workspaces.len() > 1 {
+            flags.push("--workspace <workspace>");
         }
+        return Err(Error::new(
+            "Some settings are missing and stdin is not a terminal to ask for them",
+        )
+        .with_hint(format!("Pass {}.", flags.join(" and "))));
+    }
+    let team = args
+        .team
+        .as_deref()
+        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .transpose()?;
+    if asks {
+        ctx.print(BANNER)?;
+    }
+    let workspace = match workspaces.as_slice() {
+        [] => ctx.workspace().map(str::to_owned),
+        [only] => Some(only.clone()),
+        _ => Some(pick_workspace(ctx, &workspaces)?),
+    };
+    let inputs = ctx::selection_inputs(ctx.options(), workspace.as_deref());
+    let key = ctx::select_key(&inputs, ctx.credentials()?);
+    ctx.report_credential_warnings()?;
+    let client = ctx::connect(ctx.options(), key?, &ctx.config().transport_env)?;
+    let (url_key, team) = ctx.spin(true, async {
+        let url_key = viewer::url_key(&client).await?;
+        let team = match &team {
+            Some(lookup) => Team::Given(resolve_team_with_transport(lookup, &client).await?),
+            None => Team::Choose(fetch_all_teams_with_transport(&client).await?),
+        };
+        Ok::<_, Error>((url_key, team))
+    })?;
+    let team = match team {
+        Team::Given(team) => team,
+        Team::Choose(teams) => pick_team(ctx, teams)?,
+    };
+    let sort = match args.sort {
+        Some(sort) => sort,
+        None => ctx.prompter()?.select(
+            "Select sort order:",
+            vec![
+                Choice::new("manual", Sort::Manual),
+                Choice::new("priority", Sort::Priority),
+            ],
+        )?,
+    };
+    let config = ProjectConfig {
+        workspace: url_key,
+        team_id: team.key,
+        issue_sort: match sort {
+            Sort::Manual => "manual",
+            Sort::Priority => "priority",
+        },
     };
     let path = destination(ctx.cwd());
     let contents = format!(
@@ -73,104 +129,36 @@ fn stored_workspaces(ctx: &Ctx) -> Result<Vec<String>> {
     Ok(store.workspaces().to_vec())
 }
 
-fn ask<R: std::io::Read, W: std::io::Write>(
-    ctx: &Ctx,
-    workspaces: &[String],
-    session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<ProjectConfig>> {
-    macro_rules! answer {
-        ($outcome:expr) => {
-            match $outcome? {
-                PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptOutcome::EndOfInput),
-            }
-        };
-    }
-    let workspace = match workspaces {
-        [] => ctx.workspace().map(str::to_owned),
-        [only] => Some(only.clone()),
-        _ => Some(answer!(pick_workspace(ctx, workspaces, session))),
-    };
-    session.suspend()?;
-    let inputs = ctx::selection_inputs(ctx.options(), workspace.as_deref());
-    let key = ctx::select_key(&inputs, ctx.credentials()?);
-    ctx.report_credential_warnings()?;
-    let client = ctx::connect(ctx.options(), key?, &ctx.config().transport_env)?;
-    let (url_key, teams) = ctx.spin(true, async {
-        let url_key = viewer::url_key(&client).await?;
-        let teams = fetch_all_teams_with_transport(&client).await?;
-        Ok::<_, Error>((url_key, teams))
-    })?;
-    if teams.is_empty() {
-        return Err(Error::new("No teams available to select"));
-    }
-    session.resume()?;
-    let team_id =
-        answer!(session.searchable_select("Select a team:", "Search teams", &team_options(&teams)));
-    let team = teams
-        .iter()
-        .find(|team| team.id == team_id)
-        .expect("the picked team is one of the options");
-    let sort_options: Vec<PlainOption> = SORT_ORDERS.iter().map(|sort| option(sort)).collect();
-    let issue_sort = answer!(session.select(&PlainSelect {
-        message: "Select sort order:",
-        options: &sort_options,
-        default_index: 0,
-        default_hint: None,
-    }));
-    Ok(PromptOutcome::Submitted(ProjectConfig {
-        workspace: url_key,
-        team_id: team.key.clone(),
-        issue_sort,
-    }))
-}
-
-fn pick_workspace<R: std::io::Read, W: std::io::Write>(
-    ctx: &Ctx,
-    workspaces: &[String],
-    session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<String>> {
+fn pick_workspace(ctx: &Ctx, workspaces: &[String]) -> Result<String> {
     let default = ctx.credentials()?.default();
-    let options: Vec<PlainOption> = workspaces
+    let start = workspaces
         .iter()
-        .map(|name| PlainOption {
-            label: if default == Some(name.as_str()) {
+        .position(|name| default == Some(name.as_str()))
+        .unwrap_or(0);
+    let choices = workspaces
+        .iter()
+        .map(|name| {
+            let label = if default == Some(name.as_str()) {
                 format!("{name} (default)")
             } else {
                 name.clone()
-            },
-            value: name.clone(),
-            script_token: name.clone(),
+            };
+            Choice::new(label, name.clone())
         })
         .collect();
-    session.select(&PlainSelect {
-        message: "Select workspace:",
-        options: &options,
-        default_index: workspaces
-            .iter()
-            .position(|name| default == Some(name.as_str()))
-            .unwrap_or(0),
-        default_hint: default,
-    })
+    ctx.prompter()?
+        .select_from("Select workspace:", choices, start)
 }
 
-fn option(value: &str) -> PlainOption {
-    PlainOption {
-        label: value.to_owned(),
-        value: value.to_owned(),
-        script_token: value.to_owned(),
+fn pick_team(ctx: &Ctx, teams: Vec<ResolvedTeam>) -> Result<ResolvedTeam> {
+    if teams.is_empty() {
+        return Err(Error::new("No teams available to select"));
     }
-}
-
-fn team_options(teams: &[ResolvedTeam]) -> Vec<SelectOption> {
-    teams
-        .iter()
-        .map(|team| SelectOption {
-            label: format!("{} ({})", team.name, team.key),
-            value: team.id.clone(),
-        })
-        .collect()
+    let choices = teams
+        .into_iter()
+        .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))
+        .collect();
+    ctx.prompter()?.select("Select a team:", choices)
 }
 
 /// `.config/linear.toml` at the repository root when `.config` exists there,

@@ -12,10 +12,8 @@ use crate::graphql::operations::comment_create::{
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
 };
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
-use crate::platform::prompt::{PromptOutcome, PromptSession};
+use crate::platform::prompt::Text;
 use crate::refs::{reject_comment_url, reject_linear_url};
-
-pub const PROMPT_MESSAGE: &str = "Comment body";
 
 /// Linear requires exactly one target even for replies.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,38 +60,13 @@ fn read_body_file(path: &str) -> Result<String, Error> {
     Ok(content)
 }
 
-/// Ask for the body once. The answer is trimmed by the text prompt; a blank
-/// answer is checked by the caller after the session is closed.
-pub fn prompt_body<R: std::io::Read, W: std::io::Write>(
-    session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<String>, Error> {
-    session.text(PROMPT_MESSAGE, 0, |_| Ok(()))
-}
-
 /// Asks for the body on the terminal; without one it fails, naming --body.
-/// Ctrl-C cancels.
 pub fn prompt(ctx: &Ctx) -> Result<String> {
     if !ctx.stdin_tty() {
         return Err(Error::new("No comment body given")
             .with_hint("Pass --body or --body-file, or run in a terminal to be prompted."));
     }
-    let mut session = ctx.prompts()?;
-    let result = prompt_body(&mut session);
-    match session.finish_result(result)? {
-        PromptOutcome::Submitted(body) => require_prompted(body),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new(
-            "unexpected EOF while prompting for comment body",
-        )),
-    }
-}
-
-/// Reject a blank submitted prompt answer, without the flag suggestion.
-pub fn require_prompted(body: String) -> Result<String, Error> {
-    if is_blank(&body) {
-        return Err(Error::new("Comment body cannot be empty"));
-    }
-    Ok(body)
+    ctx.prompter()?.text(Text::new("Comment body").required())
 }
 
 /// Build the mutation input. A pasted comment link gets the specific

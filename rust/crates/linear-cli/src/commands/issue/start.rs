@@ -16,8 +16,7 @@ use crate::{
         transport::GraphQlTransport,
     },
     platform::{
-        prompt::{PlainOption, PlainSelect, PromptOutcome},
-        selector::SelectOption,
+        prompt::Choice,
         vcs_script::{CommandSpec, NativeProcessRunner, ProcessRunner, Program, decoded_trim},
     },
     refs::{IssueReference, prepare_issue_reference},
@@ -66,19 +65,8 @@ fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
             priority,
         ),
     )?;
-    let options = choices(&issues, team)?;
-    let mut session = ctx.prompts()?;
-    let picked = session.searchable_select_with_no_match(
-        "Select an issue to start:",
-        "Search issues",
-        &options,
-        "no issues match submitted search query",
-    );
-    match stage(session.finish_result(picked)?, "issue to start")? {
-        PromptOutcome::Submitted(identifier) => Ok(identifier),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => unreachable!("stage reports end of input as an error"),
-    }
+    ctx.prompter()?
+        .select("Select an issue to start:", choices(&issues, team)?)
 }
 
 /// Switches the working copy to the issue (a git branch or a jj change), then
@@ -133,17 +121,13 @@ pub(crate) fn work_on(
 
 fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
     ctx.require_tty("--branch with a new name")?;
-    let choices = branch_options();
-    let message = crate::platform::prompt::escaped_display(&format!(
-        "Branch {branch} already exists. What would you like to do?"
-    ));
-    let mut session = ctx.prompts()?;
-    let answer = session.select(&branch_menu(&message, &choices));
-    match stage(session.finish_result(answer)?, "existing branch action")? {
-        PromptOutcome::Submitted(value) => existing_branch(&value),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => unreachable!("stage reports end of input as an error"),
-    }
+    ctx.prompter()?.select(
+        &format!("Branch {branch} already exists. What would you like to do?"),
+        vec![
+            Choice::new("Switch to existing branch", ExistingBranch::Switch),
+            Choice::new("Create new branch with suffix", ExistingBranch::Suffix),
+        ],
+    )
 }
 pub fn team_and_flags(team: Option<&str>, all: bool, unassigned: bool) -> Result<&str, Error> {
     let team = team
@@ -202,69 +186,27 @@ pub async fn list(
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
     issue_read::mine_with_requests(transport, filter, priority, None, list_request).await
 }
-pub fn choices(
-    issues: &[GetIssuesForStateIssuesNodes],
-    team: &str,
-) -> Result<Vec<SelectOption>, Error> {
+fn choices(issues: &[GetIssuesForStateIssuesNodes], team: &str) -> Result<Vec<Choice<String>>> {
     if issues.is_empty() {
         return Err(Error::new(format!("Unstarted issues not found: {team}")));
     }
-    issues
+    Ok(issues
         .iter()
         .map(|issue| {
-            Ok(SelectOption {
-                label: format!(
-                    "{} {}: {}",
-                    issue_read::priority(issue.priority),
-                    issue.identifier,
-                    issue.title
-                ),
-                value: issue.identifier.clone(),
-            })
+            let label = format!(
+                "{} {}: {}",
+                issue_read::priority(issue.priority),
+                issue.identifier,
+                issue.title
+            );
+            Choice::new(label, issue.identifier.clone())
         })
-        .collect()
-}
-pub const BRANCH_CHOICES: [(&str, &str); 2] = [
-    ("Switch to existing branch", "switch"),
-    ("Create new branch with suffix", "create"),
-];
-pub fn branch_options() -> Vec<PlainOption> {
-    BRANCH_CHOICES
-        .iter()
-        .map(|(label, value)| PlainOption {
-            label: (*label).to_owned(),
-            value: (*value).to_owned(),
-            script_token: (*value).to_owned(),
-        })
-        .collect()
-}
-pub fn branch_menu<'a>(message: &'a str, choices: &'a [PlainOption]) -> PlainSelect<'a> {
-    PlainSelect {
-        message,
-        options: choices,
-        default_index: 0,
-        default_hint: None,
-    }
+        .collect())
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExistingBranch {
     Switch,
     Suffix,
-}
-pub fn existing_branch(value: &str) -> Result<ExistingBranch, Error> {
-    match value {
-        "switch" => Ok(ExistingBranch::Switch),
-        "create" => Ok(ExistingBranch::Suffix),
-        _ => Err(Error::new("branch menu returned an unknown action")),
-    }
-}
-pub fn stage<T>(outcome: PromptOutcome<T>, name: &str) -> Result<PromptOutcome<T>, Error> {
-    match outcome {
-        PromptOutcome::EndOfInput => {
-            Err(Error::new(format!("unexpected EOF while selecting {name}")))
-        }
-        outcome => Ok(outcome),
-    }
 }
 pub fn branch_name<'a>(custom: Option<&'a str>, returned: &'a str) -> &'a str {
     custom.filter(|value| !value.is_empty()).unwrap_or(returned)

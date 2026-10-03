@@ -20,8 +20,7 @@ use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
-use crate::platform::prompt::PromptOutcome;
-use crate::platform::selector::{self, SelectOption};
+use crate::platform::prompt::Choice;
 use crate::refs::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
 
 const PAGE_SIZE: i32 = 250;
@@ -75,11 +74,13 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
             "Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.",
         ));
     }
-    if !selector::interactive_allowed(
-        ctx.stdin_tty(),
-        ctx.stdout_tty(),
-        ctx.config().ci.as_deref(),
-    ) {
+    // CI is set to anything but `false` in continuous integration.
+    let ci = ctx
+        .config()
+        .ci
+        .as_deref()
+        .is_some_and(|value| !value.is_empty() && value != "false");
+    if !ctx.interactive() || ci {
         return Err(Error::new("No project specified").with_hint(
             "Pass a project UUID, slug ID, or exact name. Without one, `linear project view` picks from a list, but only on a terminal.",
         ));
@@ -87,19 +88,12 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
     let team_key = configured_team_key(ctx.options());
     let client = ctx.client()?;
     let projects = ctx.spin(true, fetch_picker(client, team_key.as_deref()))?;
-    let options = picker_options(&projects);
-    let mut session = ctx.prompts()?;
-    let result = session.searchable_select_with_no_match(
-        "Select a project",
-        "Search projects",
-        &options,
-        "no projects match submitted search query",
-    );
-    match session.finish_result(result)? {
-        PromptOutcome::Submitted(id) => Ok(id),
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("Input ended before a project was chosen")),
+    if projects.is_empty() {
+        return Err(Error::new("No projects to choose from")
+            .with_hint("Pass a project UUID, slug ID, or exact name."));
     }
+    ctx.prompter()?
+        .select("Select a project", picker_choices(&projects))
 }
 
 /// The project with every issue page, so the issue counts are complete.
@@ -181,7 +175,7 @@ async fn fetch_picker(
     Ok(projects)
 }
 
-fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
+fn picker_choices(projects: &[PickerProject]) -> Vec<Choice<String>> {
     let mut ordered: Vec<_> = projects.iter().collect();
     ordered.sort_by(|a, b| {
         collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
@@ -203,10 +197,7 @@ fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
                 parts.push(teams);
             }
             parts.push(project.slug_id.clone());
-            SelectOption {
-                label: parts.join("  ·  "),
-                value: project.id.inner().to_owned(),
-            }
+            Choice::new(parts.join("  ·  "), project.id.inner().to_owned())
         })
         .collect()
 }

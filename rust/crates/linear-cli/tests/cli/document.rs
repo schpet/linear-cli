@@ -279,6 +279,10 @@ fn create_without_title_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["document", "create", "--content", "Body"])
         .failure();
+    Cli::for_api(&api)
+        .run(&["document", "create", "-i"])
+        .failure()
+        .stderr_has("needs a terminal");
     assert!(api.requests().is_empty());
 }
 

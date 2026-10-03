@@ -12,7 +12,7 @@ use crate::graphql::operations::team_delete::{
 };
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
+use crate::platform::prompt::Choice;
 use crate::refs::{
     ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup, resolve_team_with_transport,
 };
@@ -138,33 +138,12 @@ fn choose_target(
     if teams.is_empty() {
         return Err(Error::new("There is no other team to move the issues to"));
     }
-    let options: Vec<_> = teams
-        .iter()
-        .enumerate()
-        .map(|(index, team)| PlainOption {
-            label: format!("{} ({})", team.name, team.key),
-            value: index.to_string(),
-            script_token: team.key.clone(),
-        })
+    let choices = teams
+        .into_iter()
+        .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))
         .collect();
-    let mut session = ctx.prompts()?;
-    let selected = session.select(&PlainSelect {
-        message: "Select a team to move issues to:",
-        options: &options,
-        default_index: 0,
-        default_hint: None,
-    });
-    let index = match session.finish_result(selected)? {
-        PromptOutcome::Submitted(index) => index,
-        PromptOutcome::Interrupted => return Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => {
-            return Err(Error::new("Input ended before a team was selected"));
-        }
-    };
-    let index: usize = index
-        .parse()
-        .expect("the team prompt answers with an option index");
-    Ok(teams.swap_remove(index))
+    ctx.prompter()?
+        .select("Select a team to move issues to:", choices)
 }
 
 /// Moves every issue to `target`, one at a time. Any failure stops the

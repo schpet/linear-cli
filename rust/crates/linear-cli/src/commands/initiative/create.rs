@@ -1,6 +1,4 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
-use std::io::{Read, Write};
-
 use chrono::NaiveDate;
 use cynic::MutationBuilder;
 
@@ -14,7 +12,7 @@ use crate::graphql::operations::initiative_create::{
 };
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
+use crate::platform::prompt::{Choice, Prompter, Text};
 
 pub fn run(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
     create(ctx, args).context("Failed to create initiative")
@@ -30,17 +28,13 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
         color: args.color.clone(),
         icon: args.icon.clone(),
     };
-    if ctx.stdout_tty() && (fields.name.is_none() || args.interactive) {
+    if args.interactive && !ctx.interactive() {
+        return Err(Error::new("Interactive mode needs a terminal")
+            .with_hint("Pass --name and the other fields instead of --interactive."));
+    }
+    if ctx.interactive() && (fields.name.is_none() || args.interactive) {
         ctx.print("\nCreate a new initiative\n\n")?;
-        let mut session = ctx.prompts()?;
-        let result = prompt(&mut fields, &mut session);
-        match session.finish_result(result)? {
-            PromptOutcome::Submitted(()) => {}
-            PromptOutcome::Interrupted => return Err(Error::cancelled()),
-            PromptOutcome::EndOfInput => {
-                return Err(Error::new("Unexpected end of input at a prompt"));
-            }
-        }
+        prompt(&mut fields, &ctx.prompter()?)?;
     }
     let input = validate(fields)?;
     let client = ctx.client()?;
@@ -91,103 +85,83 @@ impl Valid {
     }
 }
 
-fn choice(label: &str, value: &str, token: &str) -> PlainOption {
-    PlainOption {
-        label: label.to_owned(),
-        value: value.to_owned(),
-        script_token: token.to_owned(),
-    }
-}
-
 /// Asks for each field not given as a flag.
-fn prompt<R: Read, W: Write>(
-    options: &mut Fields,
-    session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<()>> {
-    macro_rules! answer {
-        ($call:expr) => {
-            match $call? {
-                PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptOutcome::EndOfInput),
-            }
-        };
-    }
+fn prompt(options: &mut Fields, prompter: &Prompter<'_>) -> Result<()> {
     if options.name.as_deref().is_none_or(str::is_empty) {
-        options.name = Some(answer!(session.text("Initiative name:", 1, |_| Ok(()))));
+        options.name = Some(prompter.text(Text::new("Initiative name:").required())?);
     }
     if options.description.as_deref().is_none_or(str::is_empty) {
-        options.description =
-            optional(answer!(
-                session.text("Description (optional):", 0, |_| Ok(()))
-            ));
+        options.description = optional(prompter.text(Text::new("Description (optional):"))?);
     }
     if options.status.is_none() {
         let choices = [
-            choice("Planned", "Planned", "Planned"),
-            choice("Active", "Active", "Active"),
-            choice("Completed", "Completed", "Completed"),
-        ];
-        let selected = answer!(session.select(&PlainSelect {
-            message: "Status:",
-            options: &choices,
-            default_index: 0,
-            default_hint: Some("planned"),
-        }));
-        options.status = Some(match selected.as_str() {
-            "Planned" => InitiativeStatus::Planned,
-            "Active" => InitiativeStatus::Active,
-            "Completed" => InitiativeStatus::Completed,
-            other => unreachable!("{other:?} is not a status option"),
-        });
+            ("Planned", InitiativeStatus::Planned),
+            ("Active", InitiativeStatus::Active),
+            ("Completed", InitiativeStatus::Completed),
+        ]
+        .into_iter()
+        .map(|(label, status)| Choice::new(label, status))
+        .collect();
+        options.status = Some(prompter.select("Status:", choices)?);
     }
     if options.owner.as_deref().is_none_or(str::is_empty) {
-        options.owner = optional(answer!(session.text(
-            "Owner (username, email, or @me - press Enter to skip):",
-            0,
-            |_| Ok(())
-        )));
+        let check = |owner: &str| {
+            super::check_owner(Some(owner)).map_err(|error| error.message().to_owned())
+        };
+        options.owner = optional(prompter.text(
+            Text::new("Owner (username, email, or @me - press Enter to skip):").with_check(&check),
+        )?);
     }
     if options.target_date.is_none() {
-        let answer = answer!(session.text(
-            "Target date (YYYY-MM-DD - press Enter to skip):",
-            0,
-            |raw| optional_date(raw).map(drop)
-        ));
+        let check = |raw: &str| date(raw).map(drop);
+        let answer = prompter.text(
+            Text::new("Target date (YYYY-MM-DD - press Enter to skip):").with_check(&check),
+        )?;
         options.target_date = optional_date(&answer).map_err(Error::new)?;
     }
     if options.color.as_deref().is_none_or(str::is_empty) {
-        let colors = [
-            choice("Skip (use default)", "__skip__", "skip"),
-            choice("Red (#EB5757)", "#EB5757", "#EB5757"),
-            choice("Orange (#F2994A)", "#F2994A", "#F2994A"),
-            choice("Yellow (#F2C94C)", "#F2C94C", "#F2C94C"),
-            choice("Green (#27AE60)", "#27AE60", "#27AE60"),
-            choice("Teal (#0D9488)", "#0D9488", "#0D9488"),
-            choice("Blue (#2F80ED)", "#2F80ED", "#2F80ED"),
-            choice("Indigo (#5E6AD2)", "#5E6AD2", "#5E6AD2"),
-            choice("Purple (#8B5CF6)", "#8B5CF6", "#8B5CF6"),
-            choice("Pink (#BB6BD9)", "#BB6BD9", "#BB6BD9"),
-            choice("Gray (#6B6F76)", "#6B6F76", "#6B6F76"),
-            choice("Custom color", "__custom__", "custom"),
-        ];
-        let selected = answer!(session.select(&PlainSelect {
-            message: "Color (optional):",
-            options: &colors,
-            default_index: 0,
-            default_hint: Some("__skip__"),
-        }));
-        options.color = match selected.as_str() {
-            "__skip__" => None,
-            "__custom__" => Some(answer!(session.text(
-                "Enter hex color (e.g., #FF5733):",
-                0,
-                |raw| hex_color(raw).map(drop)
-            ))),
-            _ => Some(selected),
+        let mut colors = vec![Choice::new("Skip (use default)", Color::Skip)];
+        colors.extend(
+            PALETTE
+                .into_iter()
+                .map(|(name, hex)| Choice::new(format!("{name} ({hex})"), Color::Hex(hex))),
+        );
+        colors.push(Choice::new("Custom color", Color::Custom));
+        options.color = match prompter.select("Color (optional):", colors)? {
+            Color::Skip => None,
+            Color::Hex(hex) => Some(hex.to_owned()),
+            Color::Custom => {
+                let check = |raw: &str| hex_color(raw).map(drop);
+                Some(
+                    prompter.text(
+                        Text::new("Enter hex color (e.g., #FF5733):")
+                            .required()
+                            .with_check(&check),
+                    )?,
+                )
+            }
         };
     }
-    Ok(PromptOutcome::Submitted(()))
+    Ok(())
+}
+
+const PALETTE: [(&str, &str); 10] = [
+    ("Red", "#EB5757"),
+    ("Orange", "#F2994A"),
+    ("Yellow", "#F2C94C"),
+    ("Green", "#27AE60"),
+    ("Teal", "#0D9488"),
+    ("Blue", "#2F80ED"),
+    ("Indigo", "#5E6AD2"),
+    ("Purple", "#8B5CF6"),
+    ("Pink", "#BB6BD9"),
+    ("Gray", "#6B6F76"),
+];
+
+enum Color {
+    Skip,
+    Hex(&'static str),
+    Custom,
 }
 
 fn optional(value: String) -> Option<String> {

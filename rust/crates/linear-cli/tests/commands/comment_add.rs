@@ -16,7 +16,6 @@ use std::{
 use linear_cli::commands::comment_add::{self, CommentTarget};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::comment_create::{AddComment, GetDocumentCommentTarget};
-use linear_cli::platform::prompt::{PromptOutcome, PromptSession};
 use serde_json::{Value, json};
 
 const P: &str = "00000000-0000-4000-9000-000000002801";
@@ -245,25 +244,6 @@ fn schema_non_null_payload_fields_decode_strictly_and_only_null_content_id_is_ab
         "{error}"
     );
     assert!(decode(Value::Null).is_err());
-}
-
-#[test]
-fn prompt_answer_is_trimmed_and_blank_fails_after_submission() {
-    let mut output = Vec::new();
-    let mut session = PromptSession::script(&b"  Prompted body \n"[..], &mut output);
-    let outcome = comment_add::prompt_body(&mut session).unwrap();
-    session.close().unwrap();
-    assert_eq!(
-        outcome,
-        PromptOutcome::Submitted("Prompted body".to_owned())
-    );
-    assert_eq!(
-        String::from_utf8(output).unwrap(),
-        "? Comment body\n? Comment body › Prompted body\n"
-    );
-    let error = comment_add::require_prompted(String::new()).unwrap_err();
-    assert_eq!(error.message(), "Comment body cannot be empty");
-    assert_eq!(error.hint(), None);
 }
 
 /// Serve `replies` in order, then prove no further request arrives.

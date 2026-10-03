@@ -14815,16 +14815,93 @@
         }
       ],
       "hidden": false,
-      "description": "Interactively generate .linear.toml configuration",
+      "description": "Generate .linear.toml configuration, asking for what the flags leave out",
       "usage": "",
       "argsDefinition": null,
       "arguments": [],
-      "localTypes": [],
-      "allTypes": [],
+      "localTypes": [
+        {
+          "name": "sort",
+          "global": false,
+          "override": false,
+          "handlerKind": "EnumType",
+          "values": [
+            "manual",
+            "priority"
+          ]
+        }
+      ],
+      "allTypes": [
+        {
+          "name": "sort",
+          "global": false,
+          "override": false,
+          "handlerKind": "EnumType",
+          "values": [
+            "manual",
+            "priority"
+          ]
+        }
+      ],
       "examples": [],
       "localEnvVars": [],
       "inheritedGlobalEnvVars": [],
-      "localOptions": [],
+      "localOptions": [
+        {
+          "scope": "local",
+          "name": "team",
+          "flags": [
+            "--team"
+          ],
+          "description": "Default team key, name, or ID (asked for when omitted)",
+          "typeDefinition": "<team:string>",
+          "args": [
+            {
+              "name": "team",
+              "type": "string",
+              "action": "string",
+              "optional": false,
+              "variadic": false,
+              "list": false
+            }
+          ],
+          "required": false,
+          "default": null,
+          "collect": false,
+          "conflicts": [],
+          "depends": [],
+          "hidden": false,
+          "global": false,
+          "valueHandler": "none"
+        },
+        {
+          "scope": "local",
+          "name": "sort",
+          "flags": [
+            "--sort"
+          ],
+          "description": "Default issue sort order (asked for when omitted)",
+          "typeDefinition": "<sort:sort>",
+          "args": [
+            {
+              "name": "sort",
+              "type": "sort",
+              "action": "sort",
+              "optional": false,
+              "variadic": false,
+              "list": false
+            }
+          ],
+          "required": false,
+          "default": null,
+          "collect": false,
+          "conflicts": [],
+          "depends": [],
+          "hidden": false,
+          "global": false,
+          "valueHandler": "none"
+        }
+      ],
       "inheritedGlobalOptions": [
         {
           "scope": "inherited_global",

@@ -1,6 +1,4 @@
 //! `initiative update`: fields from flags or prompts, then one mutation.
-use std::io::{Read, Write};
-
 use chrono::NaiveDate;
 use cynic::{MutationBuilder, QueryBuilder};
 
@@ -17,10 +15,7 @@ use crate::graphql::operations::initiative_view::DetailVariables;
 use crate::graphql::operations::initiatives::InitiativeStatus;
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::prompt::{
-    PlainOption, PlainSelect, PromptOutcome, PromptSession, escaped_display,
-};
-use crate::platform::prompt_text::TextOptions;
+use crate::platform::prompt::{Choice, Prompter, Text};
 
 pub fn run(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     update(ctx, args).context("Failed to update initiative")
@@ -45,7 +40,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
             "Pass the fields to change, such as --name or --status, or -i to be prompted.",
         ));
     }
-    if prompting && !ctx.stdout_tty() {
+    if prompting && !ctx.interactive() {
         return Err(Error::new("Interactive mode needs a terminal")
             .with_hint("Pass the fields to change, such as --name or --status."));
     }
@@ -56,19 +51,8 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
             let current = details(client, &id, original).await?;
             Ok::<_, Error>((id, current))
         })?;
-        ctx.print(format!(
-            "\nUpdating initiative: {}\n\n",
-            escaped_display(&current.name)
-        ))?;
-        let mut session = ctx.prompts()?;
-        let result = prompt(&mut session, &current);
-        let changes = match session.finish_result(result)? {
-            PromptOutcome::Submitted(changes) => changes,
-            PromptOutcome::Interrupted => return Err(Error::cancelled()),
-            PromptOutcome::EndOfInput => {
-                return Err(Error::new("Unexpected end of input at a prompt"));
-            }
-        };
+        ctx.print(format!("\nUpdating initiative: {}\n\n", current.name))?;
+        let changes = prompt(&ctx.prompter()?, &current)?;
         if changes.is_empty() {
             return ctx.print("No changes specified\n");
         }
@@ -158,30 +142,14 @@ async fn submit(
 
 /// Asks for each field with its current value as the default; only changed
 /// fields are returned.
-fn prompt<R: Read, W: Write>(
-    session: &mut PromptSession<R, W>,
-    current: &CurrentInitiative,
-) -> Result<PromptOutcome<Changes>> {
+fn prompt(prompter: &Prompter<'_>, current: &CurrentInitiative) -> Result<Changes> {
     let mut changes = Changes::default();
-    macro_rules! answer {
-        ($call:expr) => {
-            match $call? {
-                PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptOutcome::EndOfInput),
-            }
-        };
-    }
-    let text = |default| TextOptions {
-        required: false,
-        default: Some(default),
-    };
-    let name = answer!(session.text_with_display_default("Name:", text(&current.name)));
+    let name = prompter.text(Text::new("Name:").required().with_default(&current.name))?;
     if name != current.name {
         changes.name = Some(name);
     }
     let default = current.description.as_deref().unwrap_or("");
-    let value = answer!(session.text_with_display_default("Description:", text(default)));
+    let value = prompter.text(Text::new("Description:").with_default(default))?;
     if value != default {
         changes.description = (!value.is_empty()).then_some(value);
     }
@@ -190,28 +158,15 @@ fn prompt<R: Read, W: Write>(
         (InitiativeStatus::Active, "Active"),
         (InitiativeStatus::Completed, "Completed"),
     ];
-    let options: Vec<_> = statuses
-        .iter()
-        .map(|(_, label)| PlainOption {
-            label: (*label).to_owned(),
-            value: (*label).to_owned(),
-            script_token: label.to_lowercase(),
-        })
-        .collect();
-    let index = statuses
+    let start = statuses
         .iter()
         .position(|(status, _)| Some(status) == current.status.as_ref())
         .unwrap_or(0);
-    let selected = answer!(session.select(&PlainSelect {
-        message: "Status:",
-        options: &options,
-        default_index: index,
-        default_hint: None,
-    }));
-    let (status, _) = statuses
+    let choices = statuses
         .into_iter()
-        .find(|(_, label)| *label == selected)
-        .expect("the selected status is one of the options");
+        .map(|(status, label)| Choice::new(label, status))
+        .collect();
+    let status = prompter.select_from("Status:", choices, start)?;
     if Some(&status) != current.status.as_ref() {
         changes.status = Some(status);
     }
@@ -219,16 +174,24 @@ fn prompt<R: Read, W: Write>(
         .target_date
         .as_ref()
         .map_or("", |date| date.0.as_str());
-    let value =
-        answer!(session.text_with_display_default("Target date (YYYY-MM-DD):", text(default)));
+    let check = |value: &str| date(value).map(drop);
+    let value = prompter.text(
+        Text::new("Target date (YYYY-MM-DD):")
+            .with_default(default)
+            .with_check(&check),
+    )?;
     if value != default && !value.is_empty() {
         changes.target_date = Some(date(&value).map_err(Error::new)?);
     }
     let default = current.color.as_deref().unwrap_or("");
-    let value =
-        answer!(session.text_with_display_default("Color (hex, e.g., #5E6AD2):", text(default)));
+    let check = |value: &str| hex_color(value).map(drop);
+    let value = prompter.text(
+        Text::new("Color (hex, e.g., #5E6AD2):")
+            .with_default(default)
+            .with_check(&check),
+    )?;
     if value != default && !value.is_empty() {
         changes.color = Some(hex_color(&value).map_err(Error::new)?);
     }
-    Ok(PromptOutcome::Submitted(changes))
+    Ok(changes)
 }

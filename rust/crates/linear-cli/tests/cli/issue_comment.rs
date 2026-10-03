@@ -210,6 +210,17 @@ fn update_sends_the_new_body() {
 }
 
 #[test]
+fn update_without_a_body_or_terminal_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .stdin(b"Piped body\n")
+        .run(&["issue", "comment", "update", COMMENT_ID])
+        .failure()
+        .stderr_has("--body");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn update_reads_the_body_file() {
     let api = MockLinear::start();
     api.on("UpdateComment", updated());

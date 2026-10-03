@@ -103,7 +103,7 @@ pub fn complete(action: &cli::completions::CompletionsComplete) -> Result<Vec<u8
     }
     let values = match (action.action.as_str(), path.as_slice()) {
         ("boolean", _) => vec!["true".to_owned(), "false".to_owned()],
-        ("sort", ["issue", "mine" | "query"]) => enum_values::<Sort>(),
+        ("sort", ["issue", "mine" | "query"] | ["config"]) => enum_values::<Sort>(),
         ("agentSessionStatus", ["issue", "agent-session", "list"]) => {
             enum_values::<AgentSessionStatus>()
         }

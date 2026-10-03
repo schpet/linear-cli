@@ -141,7 +141,7 @@ fn dispatch(ctx: &Ctx, command: RootCommand) -> Result<()> {
         RootCommand::Label(args) => commands::label::run(ctx, &args.command),
         RootCommand::Template(args) => commands::template::run(ctx, &args.command),
         RootCommand::Document(args) => commands::document::run(ctx, &args.command),
-        RootCommand::Config(_) => commands::config_generate::run(ctx),
+        RootCommand::Config(args) => commands::config_generate::run(ctx, &args),
         RootCommand::Schema(args) => commands::schema::run(ctx, &args),
         RootCommand::Api(args) => commands::api::run(ctx, &args),
         RootCommand::Completions(_) | RootCommand::Markdown(_) => {

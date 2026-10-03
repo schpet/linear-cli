@@ -1018,19 +1018,6 @@ pub fn table(
 }
 
 /// Refuse menu text the selector cannot display (control characters).
-pub fn project_menu_text(message: &str, labels: &[&str]) -> Result<(), Error> {
-    if std::iter::once(message)
-        .chain(labels.iter().copied())
-        .any(|s| s.trim().is_empty() || s.chars().any(char::is_control))
-    {
-        return Err(validation(
-            "Project menu text must be nonempty and contain no control characters",
-        )
-        .with_hint("Use an exact project name or UUID to avoid selecting similar projects."));
-    }
-    Ok(())
-}
-
 /// The team `reference` (a key, name, ID or URL) names.
 pub(super) fn resolve_team(
     ctx: &crate::ctx::Ctx,
@@ -1052,7 +1039,7 @@ pub(super) fn resolve_project(
     client: &GraphQlTransport,
     value: Option<&str>,
 ) -> Result<Option<String>, Error> {
-    use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
+    use crate::platform::prompt::Choice;
     let Some(value) = value else { return Ok(None) };
     let reference = crate::refs::prepare_project_lookup(value, &ctx.scope()?)?;
     if let Some(id) = ctx.block_on(project_id(client, &reference))? {
@@ -1088,61 +1075,27 @@ pub(super) fn resolve_project(
         }
         _ => {}
     }
-    let single = rows.len() == 1;
-    let message = match rows.as_slice() {
-        [(_, name)] => format!(
-            "Project named {value} does not exist, but {name} exists. Is this what you meant?"
+    let (message, decline) = match rows.as_slice() {
+        [(_, name)] => (
+            format!(
+                "Project named {value} does not exist, but {name} exists. Is this what you meant?"
+            ),
+            "no",
         ),
-        _ => format!(
-            "Project with {value} does not exist, but the following exist. Is any of these what you meant?"
+        _ => (
+            format!(
+                "Project with {value} does not exist, but the following exist. Is any of these what you meant?"
+            ),
+            "none of the above",
         ),
     };
-    let mut options = rows
-        .iter()
-        .enumerate()
-        .map(|(index, (_, name))| PlainOption {
-            label: if single {
-                "yes".to_owned()
-            } else {
-                name.clone()
-            },
-            value: index.to_string(),
-            script_token: index.to_string(),
-        })
-        .collect::<Vec<_>>();
-    options.push(PlainOption {
-        label: if single { "no" } else { "none of the above" }.to_owned(),
-        value: "none".to_owned(),
-        script_token: "none".to_owned(),
-    });
-    project_menu_text(
-        &message,
-        &options
-            .iter()
-            .map(|option| option.label.as_str())
-            .collect::<Vec<_>>(),
-    )?;
-    let mut session = ctx.prompts()?;
-    let selected = session.select(&PlainSelect {
-        message: &message,
-        options: &options,
-        default_index: 0,
-        default_hint: None,
-    });
-    match session.finish_result(selected)? {
-        PromptOutcome::Submitted(selected) if selected == "none" => Ok(None),
-        PromptOutcome::Submitted(selected) => {
-            let index: usize = selected.parse().expect("menu values are row indexes");
-            Ok(Some(
-                rows.get(index)
-                    .expect("menu values are row indexes")
-                    .0
-                    .clone(),
-            ))
-        }
-        PromptOutcome::Interrupted => Err(Error::cancelled()),
-        PromptOutcome::EndOfInput => Err(Error::new("unexpected EOF while selecting project")),
-    }
+    let single = rows.len() == 1;
+    let mut choices: Vec<_> = rows
+        .into_iter()
+        .map(|(id, name)| Choice::new(if single { "yes".to_owned() } else { name }, Some(id)))
+        .collect();
+    choices.push(Choice::new(decline, None));
+    ctx.prompter()?.select(&message, choices)
 }
 
 /// The cycle `--cycle` names in the one team in scope.
