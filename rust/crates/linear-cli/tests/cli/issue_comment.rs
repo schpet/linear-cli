@@ -404,3 +404,23 @@ fn list_text_shows_threads() {
         .stdout_has("alice")
         .stdout_has("bob");
 }
+
+#[test]
+fn every_comment_command_refuses_a_non_utf8_body_file_before_any_request() {
+    for target in [
+        &["project", "comment", "add", "roadmap"][..],
+        &["initiative", "comment", "add", "Growth"],
+        &["document", "comment", "add", COMMENT_ID],
+        &["issue", "comment", "add", "ENG-1"],
+    ] {
+        let api = MockLinear::start();
+        let cli = Cli::for_api(&api);
+        std::fs::write(cli.path("cwd/bad.md"), b"c\xc0\xafd").expect("write body file");
+        let mut args = target.to_vec();
+        args.extend(["--body-file", "bad.md"]);
+        cli.run(&args)
+            .failure()
+            .stderr_has("Body file must be valid UTF-8");
+        assert!(api.requests().is_empty(), "{target:?}");
+    }
+}

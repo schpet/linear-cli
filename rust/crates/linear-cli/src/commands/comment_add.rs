@@ -156,3 +156,6 @@ pub async fn document_content_id(
         .with_hint("Linear attaches document comments to the document's content; open the document in Linear once so it gets one, then retry.")
     })
 }
+
+#[cfg(test)]
+mod tests;
