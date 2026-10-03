@@ -1,29 +1,26 @@
 //! Keyring readers used when a key is needed, and the backends `auth`
 //! commands use to store and delete keys.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod process;
-pub mod process_spec;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod process_spec;
 
-use crate::auth::{LookupFailureCategory, LookupResult};
+use crate::auth::LookupResult;
 use crate::config::ChildEnvOverlay;
 
-pub use process::{ProcessKeyringReader, ProcessLookupFailure, ProcessMutationBackend};
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub use process::{ProcessKeyringReader, ProcessMutationBackend};
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub use process_spec::ReaderFlavor;
 
 pub trait KeyringReader: Sync {
     fn lookup(&self, workspace: &str) -> LookupResult;
 }
 
-pub struct UnsupportedKeyringReader;
-
-impl KeyringReader for UnsupportedKeyringReader {
-    fn lookup(&self, _workspace: &str) -> LookupResult {
-        LookupResult::Failed(LookupFailureCategory::UnsupportedPlatform)
-    }
-}
-
 #[cfg(windows)]
-pub mod windows;
-pub mod windows_spec;
+mod windows;
+#[cfg(windows)]
+mod windows_spec;
 
 /// The keyring reader for the current platform.
 pub struct NativeKeyringReader;
@@ -43,7 +40,8 @@ impl KeyringReader for NativeKeyringReader {
         }
         #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
         {
-            UnsupportedKeyringReader.lookup(workspace)
+            let _ = workspace;
+            LookupResult::Failed(crate::auth::LookupFailureCategory::UnsupportedPlatform)
         }
     }
 }

@@ -7,13 +7,11 @@ mod path;
 mod resolve;
 
 pub use format::{
-    CredentialFormat, CredentialFormatError, CredentialFormatErrorKind, CredentialManifest,
-    CredentialStore, CredentialWarning, LookupFailureCategory, LookupResult, parse_credentials,
+    CredentialFormat, CredentialFormatErrorKind, CredentialManifest, CredentialStore,
+    CredentialWarning, LookupFailureCategory, LookupResult, parse_credentials,
 };
 pub use path::credentials_path;
-pub use resolve::{
-    ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialSource, resolve,
-};
+pub use resolve::{ApiKeyInput, CredentialSelection, CredentialSelectionInputs, resolve};
 pub mod mutation;
 
 #[cfg(test)]

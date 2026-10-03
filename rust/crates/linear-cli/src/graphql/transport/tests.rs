@@ -4,6 +4,7 @@
 mod download;
 mod server;
 
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -14,7 +15,7 @@ use serde_json::{Map, Value, json};
 
 use self::server::{Reply, Server};
 use super::{
-    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, ConfigError, Deadline, EndpointUrl, EndpointUrlError,
+    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, Deadline, EndpointUrl, EndpointUrlError,
     GraphQlTransport, HttpBodyShape, NetworkPhase, RawHttpResponse, ResponseCap,
     TransportBuildError, TransportConfig, TransportFailure, USER_AGENT_VALUE, classify_typed,
 };
@@ -32,8 +33,8 @@ fn tls_fixture(name: &str) -> PathBuf {
 fn config(deadline: Duration, cap: usize) -> TransportConfig {
     TransportConfig {
         ca_bundle: None,
-        deadline: Deadline::new(deadline).expect("deadline"),
-        max_response_bytes: ResponseCap::new(cap).expect("cap"),
+        deadline: Deadline(deadline),
+        max_response_bytes: ResponseCap(NonZeroUsize::new(cap).expect("nonzero cap")),
     }
 }
 
@@ -147,18 +148,6 @@ fn api_key_accepts_visible_ascii_with_spaces_and_redacts_itself() {
             "{text:?}"
         );
     }
-}
-
-#[test]
-fn deadline_and_cap_are_nonzero() {
-    assert_eq!(
-        Deadline::new(Duration::ZERO).expect_err("zero"),
-        ConfigError::ZeroDeadline
-    );
-    assert_eq!(
-        ResponseCap::new(0).expect_err("zero"),
-        ConfigError::ZeroResponseCap
-    );
 }
 
 #[test]

@@ -216,13 +216,6 @@ pub struct Deadline(Duration);
 impl Deadline {
     pub const DEFAULT: Self = Self(Duration::from_secs(30));
 
-    pub fn new(duration: Duration) -> Result<Self, ConfigError> {
-        if duration.is_zero() {
-            return Err(ConfigError::ZeroDeadline);
-        }
-        Ok(Self(duration))
-    }
-
     pub fn duration(self) -> Duration {
         self.0
     }
@@ -236,34 +229,10 @@ impl ResponseCap {
     /// 64 MiB: far above any real Linear page, small enough to stop a runaway body.
     pub const DEFAULT: Self = Self(NonZeroUsize::MIN.saturating_add(64 * 1024 * 1024 - 1));
 
-    pub fn new(bytes: usize) -> Result<Self, ConfigError> {
-        NonZeroUsize::new(bytes)
-            .map(Self)
-            .ok_or(ConfigError::ZeroResponseCap)
-    }
-
     pub fn bytes(self) -> usize {
         self.0.get()
     }
 }
-
-/// Invalid [`TransportConfig`] values.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ConfigError {
-    ZeroDeadline,
-    ZeroResponseCap,
-}
-
-impl fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ZeroDeadline => write!(f, "transport deadline must be greater than zero"),
-            Self::ZeroResponseCap => write!(f, "response cap must be greater than zero"),
-        }
-    }
-}
-
-impl StdError for ConfigError {}
 
 /// Everything the transport needs beyond endpoint and key.
 #[derive(Clone, Debug)]

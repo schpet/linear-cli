@@ -167,6 +167,7 @@ impl ProcessKeyringReader {
         }
     }
 
+    #[cfg(test)]
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self

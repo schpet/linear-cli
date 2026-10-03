@@ -45,6 +45,7 @@ pub enum LookupFailureCategory {
     Unavailable,
     Permission,
     Other,
+    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     UnsupportedPlatform,
 }
 
@@ -90,6 +91,10 @@ impl CredentialManifest {
             warnings: Vec::new(),
         }
     }
+}
+
+#[cfg(test)]
+impl CredentialManifest {
     pub fn format(&self) -> CredentialFormat {
         self.format
     }
@@ -235,9 +240,6 @@ impl CredentialStore {
         }
     }
 
-    pub fn format(&self) -> CredentialFormat {
-        self.format
-    }
     pub fn workspaces(&self) -> &[String] {
         &self.workspaces
     }

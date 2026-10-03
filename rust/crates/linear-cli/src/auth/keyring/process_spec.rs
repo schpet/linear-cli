@@ -14,7 +14,15 @@ pub struct UnquotableValue;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReaderFlavor {
+    #[cfg_attr(
+        not(target_os = "linux"),
+        allow(dead_code, reason = "only Linux uses it outside tests")
+    )]
     SecretTool,
+    #[cfg_attr(
+        not(target_os = "macos"),
+        allow(dead_code, reason = "only macOS uses it outside tests")
+    )]
     MacSecurity,
 }
 impl ReaderFlavor {

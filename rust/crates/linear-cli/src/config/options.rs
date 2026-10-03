@@ -36,6 +36,7 @@ pub enum OptionKey {
 }
 
 impl OptionKey {
+    #[cfg(test)]
     pub const ALL: [Self; 12] = [
         Self::TeamId,
         Self::ApiKey,
@@ -312,6 +313,7 @@ impl ResolvedEndpoint {
     pub fn value(&self) -> &EndpointUrl {
         &self.value
     }
+    #[cfg(test)]
     pub fn source(&self) -> &EndpointSource {
         &self.source
     }
@@ -537,6 +539,7 @@ impl PrTemplatePath {
     pub fn path(&self) -> &Path {
         &self.path
     }
+    #[cfg(test)]
     pub fn source(&self) -> &OptionSource {
         &self.source
     }
@@ -587,6 +590,7 @@ impl ConfigOptions {
     pub fn workspace(&self) -> Option<&Resolved<String>> {
         self.workspace.as_ref()
     }
+    #[cfg(test)]
     pub fn sourced_issue_sort(&self) -> Option<&Resolved<IssueSort>> {
         self.issue_sort.as_ref()
     }
@@ -611,6 +615,7 @@ impl ConfigOptions {
     pub fn auto_download_attachments(&self) -> Option<&Resolved<bool>> {
         self.auto_download_attachments.as_ref()
     }
+    #[cfg(test)]
     pub fn sourced_pr_template(&self) -> Option<&Resolved<String>> {
         self.pr_template.as_ref()
     }

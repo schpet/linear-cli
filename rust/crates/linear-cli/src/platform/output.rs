@@ -27,28 +27,11 @@ impl Stdout {
     pub fn flush(&self) -> Result<()> {
         self.inner.borrow_mut().flush().map_err(write_error)
     }
-
-    /// An `io::Write` handle for code that streams into a writer.
-    pub fn writer(&self) -> StdoutWriter<'_> {
-        StdoutWriter(self)
-    }
 }
 
 impl Default for Stdout {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-pub struct StdoutWriter<'a>(&'a Stdout);
-
-impl Write for StdoutWriter<'_> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.inner.borrow_mut().write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.inner.borrow_mut().flush()
     }
 }
 

@@ -15,7 +15,7 @@ use crate::config::{ConfigOptions, ConfigSecret, StartupConfig, TransportEnvInpu
 use crate::error::{Error, Result};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::markdown_terminal::{self, RenderOptions};
-use crate::platform::output::{self, Stdout, StdoutWriter};
+use crate::platform::output::{self, Stdout};
 use crate::platform::prompt::Prompter;
 use crate::platform::spinner::Spinner;
 use crate::platform::{editor, opener, pager, style};
@@ -226,11 +226,6 @@ impl Ctx {
         self.stdout.flush()
     }
 
-    /// An `io::Write` handle on stdout, for code that streams output.
-    pub fn stdout(&self) -> StdoutWriter<'_> {
-        self.stdout.writer()
-    }
-
     /// Shows rendered terminal output, through the pager when `paging` is on
     /// and it does not fit on the screen.
     pub fn page(&self, rendered: &str, paging: bool) -> Result<()> {
@@ -430,6 +425,7 @@ fn credential_warning(warning: &CredentialWarning) -> String {
                 LookupFailureCategory::Unavailable => "keyring tool unavailable",
                 LookupFailureCategory::Permission => "permission denied",
                 LookupFailureCategory::Other => "lookup failed",
+                #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
                 LookupFailureCategory::UnsupportedPlatform => "unsupported platform",
             };
             format!("Warning: Failed to read keyring for workspace \"{workspace}\": {reason}")

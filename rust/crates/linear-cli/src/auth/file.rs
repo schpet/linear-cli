@@ -85,11 +85,16 @@ fn read(path: &Path) -> std::result::Result<Option<Vec<u8>>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::keyring::UnsupportedKeyringReader;
-    use crate::auth::{CredentialWarning, LookupFailureCategory};
+    use crate::auth::test_support::keyring;
+    use crate::auth::{CredentialWarning, LookupFailureCategory, LookupResult};
 
+    /// Reads `path` with a keyring that cannot be reached.
     fn read(path: &Path) -> Result<CredentialStore> {
-        load(Some(path), Box::new(UnsupportedKeyringReader))
+        let unavailable = LookupResult::Failed(LookupFailureCategory::Unavailable);
+        load(
+            Some(path),
+            keyring(&[("a", unavailable.clone()), ("b", unavailable)]),
+        )
     }
 
     fn failure(path: &Path) -> String {
@@ -135,7 +140,7 @@ mod tests {
             store.take_warnings(),
             [CredentialWarning::LookupFailed {
                 workspace: "b".to_owned(),
-                category: LookupFailureCategory::UnsupportedPlatform,
+                category: LookupFailureCategory::Unavailable,
             }]
         );
     }

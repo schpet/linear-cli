@@ -29,6 +29,7 @@ pub struct ChildEnvOverlay {
 }
 
 impl ChildEnvOverlay {
+    #[cfg(test)]
     pub fn get(&self, name: &str) -> Option<&str> {
         if self.os == OsFamily::Windows {
             self.values

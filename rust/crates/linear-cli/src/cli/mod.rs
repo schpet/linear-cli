@@ -1,26 +1,26 @@
 //! Native clap grammar. Each command owns its typed arguments.
 use clap::{Command, CommandFactory, Parser, Subcommand, ValueEnum};
-pub use limit::Limit;
-pub mod api;
-pub mod auth;
-pub mod completions;
-pub mod config;
-pub mod cycle;
-pub mod document;
-pub mod initiative;
-pub mod initiative_update;
-pub mod issue;
-pub mod label;
+pub(crate) use limit::Limit;
+pub(crate) mod api;
+pub(crate) mod auth;
+pub(crate) mod completions;
+pub(crate) mod config;
+pub(crate) mod cycle;
+pub(crate) mod document;
+pub(crate) mod initiative;
+pub(crate) mod initiative_update;
+pub(crate) mod issue;
+pub(crate) mod label;
 mod limit;
-pub mod markdown;
-pub mod milestone;
-pub mod project;
-pub mod project_update;
-pub mod schema;
-pub mod team;
-pub mod template;
-pub mod user;
-pub mod values;
+pub(crate) mod markdown;
+pub(crate) mod milestone;
+pub(crate) mod project;
+pub(crate) mod project_update;
+pub(crate) mod schema;
+pub(crate) mod team;
+pub(crate) mod template;
+pub(crate) mod user;
+pub(crate) mod values;
 
 #[derive(Debug, Parser)]
 #[command(

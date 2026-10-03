@@ -1,6 +1,6 @@
-//! Custom scalar newtypes for the eight Linear scalars.
+//! Newtypes for the Linear custom scalars the CLI sends or reads.
 //!
-//! Every newtype preserves the original wire form. Date, duration and UUID
+//! Every newtype preserves the original wire form. Date and duration
 //! scalars stay strings: no parsing or normalization happens here; values are
 //! passed through and formatted only for display.
 //! `JSON` is *stringified* JSON (a JSON string on the wire) while `JSONObject`
@@ -21,11 +21,6 @@ pub struct DateTime(pub String);
 #[cynic(graphql_type = "DateTimeOrDuration")]
 pub struct DateTimeOrDuration(pub String);
 
-/// ISO 8601 duration, kept as the exact wire string.
-#[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
-#[cynic(graphql_type = "Duration")]
-pub struct Duration(pub String);
-
 /// ISO 8601 date without time, kept as the exact wire string.
 #[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
 #[cynic(graphql_type = "TimelessDate")]
@@ -36,16 +31,6 @@ impl From<chrono::NaiveDate> for TimelessDate {
         Self(date.format("%Y-%m-%d").to_string())
     }
 }
-
-/// ISO 8601 date or duration, kept as the exact wire string.
-#[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
-#[cynic(graphql_type = "TimelessDateOrDuration")]
-pub struct TimelessDateOrDuration(pub String);
-
-/// RFC 4122 UUID, kept as the exact wire string.
-#[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
-#[cynic(graphql_type = "UUID")]
-pub struct Uuid(pub String);
 
 /// The `JSON` scalar: arbitrary values as *stringified* JSON.
 ///
@@ -65,7 +50,7 @@ pub struct JsonObject(pub Map<String, Value>);
 
 #[cfg(test)]
 mod tests {
-    use super::{DateTime, Duration, Json, JsonObject, TimelessDate, Uuid};
+    use super::{DateTime, Json, JsonObject, TimelessDate};
     use serde_json::{Value, from_str, from_value, json, to_value};
 
     #[test]
@@ -101,11 +86,5 @@ mod tests {
         let day: TimelessDate = from_value(json!("2026")).expect("shortcut kept verbatim");
         assert_eq!(day.0, "2026");
         assert!(from_value::<TimelessDate>(json!(true)).is_err());
-        let duration: Duration = from_value(json!("P2W1D")).expect("duration");
-        assert_eq!(to_value(&duration).expect("value"), Value::from("P2W1D"));
-        assert!(from_value::<Duration>(json!(86_400_000)).is_err());
-        let uuid: Uuid = from_value(json!("9f1c2c8e-1d2b-4a3c-8e5f-0a1b2c3d4e5f")).expect("uuid");
-        assert_eq!(uuid.0.len(), 36);
-        assert!(from_value::<Uuid>(json!(["not", "a", "uuid"])).is_err());
     }
 }

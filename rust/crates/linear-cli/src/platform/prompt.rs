@@ -167,6 +167,7 @@ impl<'a> Text<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn message(&self) -> &'a str {
         self.message
     }

@@ -231,15 +231,6 @@ pub struct GetIssuesForStateIssuesNodesTeamActiveCycle {
     pub number: WholeNumber,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-#[serde(rename_all = "camelCase")]
-pub struct GetIssuesForStateIssuesNodesTeam {
-    pub id: cynic::Id,
-    pub key: String,
-    pub cycles_enabled: bool,
-    pub active_cycle: Option<GetIssuesForStateIssuesNodesTeamActiveCycle>,
-}
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueLabel")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssuesForStateIssuesNodesLabelsNodes {
