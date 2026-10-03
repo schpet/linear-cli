@@ -685,20 +685,40 @@ fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 }
 
 #[test]
-fn view_downloads_images_into_the_temp_cache() {
+fn view_downloads_images_into_the_private_user_cache() {
     let api = MockLinear::start();
     let (reply, url) = with_image(&api);
-    api.on("GetIssueDetails", reply)
-        .on_http("GET", "/img/diagram.png", 200, b"PNGDATA");
-    let cli = Cli::for_api(&api);
-    let tmp = cli.path("tmp");
-    let cli = cli.env("TMPDIR", &tmp.display().to_string());
+    for _ in 0..2 {
+        api.on("GetIssueDetails", reply.clone()).on_http(
+            "GET",
+            "/img/diagram.png",
+            200,
+            b"PNGDATA",
+        );
+    }
+    let cli = Cli::for_api(&api).env("TMPDIR", "/nonexistent");
     let run = cli.run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"]);
     run.success();
-    let cache = tmp.join("linear-cli-images");
+    let cache = cli.path("home/.cache/linear-cli/images");
+    assert_eq!(files_under(&cache).len(), 1);
+    // XDG_CACHE_HOME takes precedence over ~/.cache.
+    let xdg = cli.path("xdg-cache");
+    let cli = cli.env("XDG_CACHE_HOME", &xdg.display().to_string());
+    let run = cli.run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"]);
+    run.success();
+    let cache = xdg.join("linear-cli/images");
     let files = files_under(&cache);
     assert_eq!(files.len(), 1, "{files:?}");
     assert_eq!(std::fs::read(&files[0]).expect("cached image"), b"PNGDATA");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = |path: &std::path::Path| {
+            std::fs::metadata(path).expect("stat").permissions().mode() & 0o777
+        };
+        assert_eq!(mode(&cache), 0o700);
+        assert_eq!(mode(&files[0]), 0o600);
+    }
     assert!(
         run.stdout.contains(&files[0].display().to_string()),
         "{run}"
@@ -718,8 +738,7 @@ fn view_no_download_keeps_remote_image_urls() {
     let (reply, url) = with_image(&api);
     api.on("GetIssueDetails", reply);
     let cli = Cli::for_api(&api);
-    let tmp = cli.path("tmp");
-    let run = cli.env("TMPDIR", &tmp.display().to_string()).run(&[
+    let run = cli.run(&[
         "issue",
         "view",
         "ENG-1",
@@ -728,7 +747,7 @@ fn view_no_download_keeps_remote_image_urls() {
         "--no-pager",
     ]);
     run.success().stdout_has(&url);
-    assert!(files_under(&tmp).is_empty());
+    assert!(files_under(&cli.path("home/.cache")).is_empty());
     assert_eq!(api.operations(), ["GetIssueDetails"]);
 }
 
@@ -739,12 +758,10 @@ fn view_leaves_images_on_other_hosts_alone() {
     issue["description"] = json!("![tracker](https://tracker.example/pixel.png)");
     api.on("GetIssueDetails", details(issue));
     let cli = Cli::for_api(&api);
-    let tmp = cli.path("tmp");
-    cli.env("TMPDIR", &tmp.display().to_string())
-        .run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
+    cli.run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
         .success()
         .stdout_has("![tracker](https://tracker.example/pixel.png)");
-    assert!(files_under(&tmp).is_empty());
+    assert!(files_under(&cli.path("home/.cache")).is_empty());
     assert_eq!(api.operations(), ["GetIssueDetails"]);
 }
 
@@ -754,13 +771,30 @@ fn view_reports_failed_image_downloads_and_keeps_the_url() {
     let (reply, url) = with_image(&api);
     api.on("GetIssueDetails", reply)
         .on_http("GET", "/img/diagram.png", 404, b"missing");
-    let cli = Cli::for_api(&api);
-    let tmp = cli.path("tmp");
-    cli.env("TMPDIR", &tmp.display().to_string())
+    Cli::for_api(&api)
         .run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
         .success()
         .stdout_has(&url)
         .stderr_has(&url);
+}
+
+#[test]
+fn view_without_a_cache_directory_fails_only_when_there_is_something_to_download() {
+    let api = MockLinear::start();
+    let (reply, _) = with_image(&api);
+    api.on("GetIssueDetails", reply);
+    Cli::for_api(&api)
+        .env_remove("HOME")
+        .run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
+        .failure()
+        .stderr_has("Could not find a cache directory for downloads")
+        .stderr_has("--no-download");
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details(issue(false)));
+    Cli::for_api(&api)
+        .env_remove("HOME")
+        .run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
+        .success();
 }
 
 #[test]

@@ -300,3 +300,26 @@ fn failed_migration_removes_the_entries_it_wrote() {
     assert!(keyring.entries.borrow().is_empty());
     assert_eq!(file.read(), INLINE);
 }
+
+#[cfg(unix)]
+#[test]
+fn saving_closes_an_open_file_to_others_and_keeps_a_symlink() {
+    use std::os::unix::fs::PermissionsExt;
+    let file = File::new(Some(INLINE));
+    let real = file.path.with_file_name("real.toml");
+    std::fs::rename(&file.path, &real).expect("move");
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o644)).expect("chmod");
+    std::os::unix::fs::symlink(&real, &file.path).expect("symlink");
+    let store = file.store(&[]);
+    let mut credentials = file.credentials(&store);
+    credentials.set_default("acme").expect("save");
+    assert!(
+        std::fs::symlink_metadata(&file.path)
+            .expect("stat")
+            .file_type()
+            .is_symlink()
+    );
+    assert!(file.read().starts_with("default = \"acme\"\n"));
+    let mode = std::fs::metadata(&real).expect("stat").permissions().mode();
+    assert_eq!(mode & 0o777, 0o600);
+}

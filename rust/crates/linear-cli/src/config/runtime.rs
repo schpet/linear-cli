@@ -100,12 +100,11 @@ fn relevant(name: &str, os: OsFamily) -> bool {
         || matches!(
             key.as_str(),
             "NO_COLOR"
-                | "TMPDIR"
-                | "TMP"
-                | "TEMP"
                 | "HOME"
                 | "XDG_CONFIG_HOME"
+                | "XDG_CACHE_HOME"
                 | "APPDATA"
+                | "LOCALAPPDATA"
                 | "SSL_CERT_FILE"
                 | "DENO_CERT"
         )

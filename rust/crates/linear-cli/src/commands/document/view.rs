@@ -50,10 +50,10 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
 /// The content with its uploaded files downloaded and pointed at the local
 /// copies.
 fn local_images(ctx: &Ctx, client: &LinearClient, content: &str) -> Result<String> {
-    let root = &ctx.config().image_cache_root;
+    let root = ctx.cache_dir("images");
     let paths = ctx.block_on(markdown_assets::download(
         client,
-        root,
+        root.as_deref(),
         &[content],
         |line| ctx.eprint(line),
     ))?;

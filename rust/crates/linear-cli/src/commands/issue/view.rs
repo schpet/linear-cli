@@ -35,23 +35,29 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     let options = ctx.options();
     let download = !args.no_download && options.download_images();
     let attachments = download && options.auto_download_attachments();
-    let image_root = &ctx.config().image_cache_root;
     let mut issue = fetched.into_issue();
     if download {
-        ctx.block_on(download_images(client, &mut issue, image_root, |line| {
-            ctx.eprint(line)
-        }))?;
+        let image_root = ctx.cache_dir("images");
+        ctx.block_on(download_images(
+            client,
+            &mut issue,
+            image_root.as_deref(),
+            |line| ctx.eprint(line),
+        ))?;
     }
-    let paths = if attachments {
-        let attachment_root = options.attachment_dir().map(str::to_owned).map_or_else(
-            || {
-                image_root
-                    .parent()
-                    .unwrap_or(Path::new("/tmp"))
-                    .join("linear-cli-attachments")
-            },
-            PathBuf::from,
-        );
+    let downloadable = issue
+        .attachments
+        .nodes
+        .iter()
+        .any(|attachment| hosted_by_linear(&attachment.url));
+    let paths = if attachments && downloadable {
+        let attachment_root = match options.attachment_dir() {
+            Some(dir) => PathBuf::from(dir),
+            None => {
+                let root = ctx.cache_dir("attachments");
+                markdown_assets::private_cache(root.as_deref())?.to_owned()
+            }
+        };
         ctx.block_on(download_attachments(
             client,
             &issue,
@@ -272,7 +278,7 @@ fn page(id: &str, after: Option<String>, first: i32) -> IssuePageVariables {
 pub async fn download_images(
     client: &LinearClient,
     issue: &mut Issue,
-    root: &Path,
+    root: Option<&Path>,
     report: impl FnMut(String) -> Result<(), Error>,
 ) -> Result<(), Error> {
     let mut sources = vec![];
@@ -291,6 +297,16 @@ pub async fn download_images(
     }
     Ok(())
 }
+/// Whether `url` is a file Linear hosts; only those are downloaded.
+fn hosted_by_linear(url: &str) -> bool {
+    reqwest::Url::parse(url).is_ok_and(|url| {
+        matches!(
+            url.host_str(),
+            Some("uploads.linear.app" | "public.linear.app")
+        )
+    })
+}
+
 pub async fn download_attachments<E>(
     client: &LinearClient,
     issue: &Issue,
@@ -301,34 +317,23 @@ where
     E: FnMut(&[u8]) -> Result<(), Error>,
 {
     let mut paths = HashMap::new();
-    if issue.attachments.nodes.is_empty() {
-        return Ok(paths);
-    }
     let directory = root.join(&issue.identifier);
-    std::fs::create_dir_all(&directory).map_err(io_error)?;
     for attachment in &issue.attachments.nodes {
         let result: Result<Option<String>, Error> = async {
-            let Ok(url) = reqwest::Url::parse(&attachment.url) else {
-                return Ok(None);
-            };
-            if !matches!(
-                url.host_str(),
-                Some("uploads.linear.app" | "public.linear.app")
-            ) {
+            if !hosted_by_linear(&attachment.url) {
                 return Ok(None);
             }
-            let path = directory.join(markdown_assets::sanitized_filename(
+            let path = markdown_assets::cache_path(
+                &directory,
+                &attachment.url,
                 &attachment.title,
                 "attachment",
-            ));
-            if !path.exists() {
-                let bytes = client.download_issue_attachment(&attachment.url).await?;
-                std::fs::write(&path, bytes).map_err(io_error)?;
-            }
-            path.into_os_string()
-                .into_string()
-                .map(Some)
-                .map_err(|_| Error::new("Attachment path is not valid UTF-8"))
+            );
+            markdown_assets::fetch_cached(&path, || {
+                client.download_issue_attachment(&attachment.url)
+            })
+            .await
+            .map(Some)
         }
         .await;
         match result {
@@ -347,9 +352,6 @@ where
         }
     }
     Ok(paths)
-}
-fn io_error(error: std::io::Error) -> Error {
-    Error::new(error.to_string()).with_source(error)
 }
 fn hierarchy(issue: &Issue) -> String {
     let mut out = String::new();

@@ -69,8 +69,8 @@ pub struct StartupConfig {
     pub network_env: NetworkEnv,
     /// Process PAGER value; dotenv files cannot set it either.
     pub pager: Option<OsString>,
-    /// Where downloaded Markdown images are cached.
-    pub image_cache_root: std::path::PathBuf,
+    /// The per-user cache directory for downloads, when one can be found.
+    pub cache_dir: Option<std::path::PathBuf>,
 }
 
 impl fmt::Debug for StartupConfig {
@@ -254,10 +254,11 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
             options,
             child_env,
             pager,
-            image_cache_root: crate::platform::markdown_assets::cache_root(
-                process.inputs.env("TMPDIR"),
-                process.inputs.env("TMP"),
-                process.inputs.env("TEMP"),
+            cache_dir: crate::platform::markdown_assets::cache_root(
+                process.inputs.os,
+                process.inputs.env("XDG_CACHE_HOME"),
+                process.inputs.env("HOME"),
+                process.inputs.env("LOCALAPPDATA"),
             ),
             network_env: NetworkEnv::from_process(process),
         }),

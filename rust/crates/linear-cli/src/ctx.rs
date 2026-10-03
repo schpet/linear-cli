@@ -285,6 +285,12 @@ impl Ctx {
         markdown_terminal::render(markdown, &options)
     }
 
+    /// The `name` subdirectory of the per-user cache, for downloads; `None`
+    /// when there is no cache directory.
+    pub fn cache_dir(&self, name: &str) -> Option<PathBuf> {
+        self.config.cache_dir.as_ref().map(|cache| cache.join(name))
+    }
+
     /// Opens `initial` in the user's editor and returns the saved text.
     pub fn edit_text(&self, initial: &str) -> Result<String> {
         self.flush()?;

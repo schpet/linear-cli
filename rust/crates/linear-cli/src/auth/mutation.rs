@@ -1,8 +1,7 @@
 //! Changing stored credentials: keyring writes plus rewriting the credentials
 //! file in one of its two formats.
 use std::collections::BTreeMap;
-use std::fs::OpenOptions;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -11,6 +10,7 @@ use crate::auth::keyring::Keyring;
 use crate::auth::{CredentialFormat, CredentialStore};
 use crate::config::ConfigSecret;
 use crate::error::{Error, Result, ResultExt};
+use crate::platform::private_file;
 
 /// The credentials file, edited in memory and written back whole after each
 /// change.
@@ -244,21 +244,24 @@ struct PlaintextFile<'a> {
     keys: BTreeMap<&'a str, &'a str>,
 }
 
-/// Writes `contents` to `path`, creating its directory. A new file is
-/// readable only by its owner; an existing file keeps its permissions.
+/// Replaces the file at `path` with `contents` atomically, readable only by
+/// its owner, creating its directory if needed. A symlinked credentials file
+/// (as dotfile managers make) keeps its link: the file it points to is
+/// replaced.
 fn write_private(path: &Path, contents: &[u8]) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let mut options = OpenOptions::new();
-    options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
+    let target = match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => std::fs::canonicalize(path)?,
+        Ok(_) => path.to_owned(),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => path.to_owned(),
+        Err(error) => return Err(error),
+    };
+    if let Some(parent) = target
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
     {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        private_file::create_dir_all(parent)?;
     }
-    let mut file = options.open(path)?;
-    file.write_all(contents)
+    private_file::write_atomic(&target, contents)
 }
 
 #[cfg(test)]

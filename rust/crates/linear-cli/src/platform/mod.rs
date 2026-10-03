@@ -10,6 +10,7 @@ pub mod markdown_terminal;
 pub mod opener;
 pub mod output;
 pub mod pager;
+pub mod private_file;
 pub mod process;
 pub mod prompt;
 pub mod spinner;

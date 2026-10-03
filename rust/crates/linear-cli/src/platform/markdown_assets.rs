@@ -5,7 +5,9 @@
 //! fetched: downloading arbitrary image URLs would reveal the reader's IP
 //! address to whoever wrote the Markdown.
 use crate::client::LinearClient;
+use crate::config::OsFamily;
 use crate::error::{Error, Result};
+use crate::platform::private_file;
 use pulldown_cmark::{Event, LinkType, Options, Parser, Tag, TagEnd};
 use reqwest::Url;
 use sha2::{Digest, Sha256};
@@ -213,19 +215,27 @@ fn source(content: &str, range: Range<usize>) -> &str {
         .expect("parser offsets fall on character boundaries")
 }
 
-/// Downloads the uploads `bodies` reference into `root`, skipping files
-/// already cached, and returns each downloaded URL's local path. A failed
-/// download is reported through `report` and its URL is left out.
+/// Downloads the uploads `bodies` reference into `root`, a private cache
+/// directory, skipping files already cached, and returns each downloaded
+/// URL's local path. A failed download is reported through `report` and its
+/// URL is left out.
 pub async fn download(
     client: &LinearClient,
-    root: &Path,
+    root: Option<&Path>,
     bodies: &[&str],
     mut report: impl FnMut(String) -> Result<()>,
 ) -> Result<HashMap<String, String>> {
     let endpoint_host = client.endpoint().url().host_str();
+    let assets = uploads(bodies, endpoint_host);
+    if assets.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let root = private_cache(root)?;
     let mut paths = HashMap::new();
-    for asset in uploads(bodies, endpoint_host) {
-        match fetch_cached(client, root, &asset).await {
+    for asset in assets {
+        let path = cache_path(root, &asset.url, &asset.label, "image");
+        let fetched = fetch_cached(&path, || client.download_markdown_image(&asset.url)).await;
+        match fetched {
             Ok(path) => {
                 paths.insert(asset.url, path);
             }
@@ -239,41 +249,74 @@ pub async fn download(
     Ok(paths)
 }
 
-async fn fetch_cached(client: &LinearClient, root: &Path, asset: &Asset) -> Result<String> {
-    let path = cache_path(root, asset);
+/// The file at `path`, downloaded with `fetch` unless it is already there,
+/// as a UTF-8 path. The file is written atomically and readable only by its
+/// owner.
+pub async fn fetch_cached<F>(path: &Path, fetch: impl FnOnce() -> F) -> Result<String>
+where
+    F: std::future::Future<Output = Result<Vec<u8>>>,
+{
     let directory = path.parent().expect("a cache path is inside its directory");
-    std::fs::create_dir_all(directory).map_err(io_error)?;
-    if !path.exists() {
-        let body = client.download_markdown_image(&asset.url).await?;
-        std::fs::write(&path, body).map_err(io_error)?;
+    private_file::create_dir_all(directory).map_err(|error| cache_error(directory, error))?;
+    if !private_file::is_file(path) {
+        let body = fetch().await?;
+        private_file::write_atomic(path, &body).map_err(|error| cache_error(path, error))?;
     }
-    path.into_os_string()
-        .into_string()
-        .map_err(|_| Error::new("Image cache path is not valid UTF-8"))
+    path.to_str()
+        .map(str::to_owned)
+        .ok_or_else(|| Error::new(format!("Cache path {} is not valid UTF-8", path.display())))
 }
 
-/// `<root>/<url hash>/<label>`: the hash keeps URLs apart, the label keeps
-/// the file name recognizable.
-pub fn cache_path(root: &Path, asset: &Asset) -> PathBuf {
-    let digest = Sha256::digest(asset.url.as_bytes());
+/// `<root>/<url hash>/<label>`: the hash of the full URL is the file's
+/// identity (Linear upload URLs name one file, in one workspace, forever),
+/// and the label keeps the file name recognizable.
+pub fn cache_path(root: &Path, url: &str, label: &str, fallback: &str) -> PathBuf {
+    let digest = Sha256::digest(url.as_bytes());
     let directory: String = digest
         .iter()
         .take(8)
         .map(|byte| format!("{byte:02x}"))
         .collect();
     root.join(directory)
-        .join(sanitized_filename(&asset.label, "image"))
+        .join(sanitized_filename(label, fallback))
 }
 
-/// The image cache directory inside the first nonempty temp directory
-/// variable.
-pub fn cache_root(tmpdir: Option<&str>, tmp: Option<&str>, temp: Option<&str>) -> PathBuf {
-    let root = [tmpdir, tmp, temp]
-        .into_iter()
-        .flatten()
-        .find(|value| !value.is_empty())
-        .unwrap_or("/tmp");
-    Path::new(root).join("linear-cli-images")
+/// The per-user cache directory: `$XDG_CACHE_HOME/linear-cli` or
+/// `~/.cache/linear-cli`, or `%LOCALAPPDATA%\linear-cli` on Windows. `None`
+/// when none of those is set; a shared temporary directory is never used.
+pub fn cache_root(
+    os: OsFamily,
+    xdg_cache_home: Option<&str>,
+    home: Option<&str>,
+    local_app_data: Option<&str>,
+) -> Option<PathBuf> {
+    let present = |value: &&str| !value.is_empty();
+    let base = match os {
+        OsFamily::Unix => xdg_cache_home
+            .filter(present)
+            .map(PathBuf::from)
+            .or_else(|| {
+                home.filter(present)
+                    .map(|home| Path::new(home).join(".cache"))
+            }),
+        OsFamily::Windows => local_app_data.filter(present).map(PathBuf::from),
+    }?;
+    Some(base.join("linear-cli"))
+}
+
+/// `root`, created and checked to be private (see
+/// [`private_file::private_dir`]); `None` means no cache directory exists.
+pub fn private_cache(root: Option<&Path>) -> Result<&Path> {
+    let root = root.ok_or_else(|| {
+        Error::new("Could not find a cache directory for downloads")
+            .with_hint("Set XDG_CACHE_HOME or HOME, or pass --no-download.")
+    })?;
+    private_file::private_dir(root).map_err(|error| cache_error(root, error))?;
+    Ok(root)
+}
+
+fn cache_error(path: &Path, error: std::io::Error) -> Error {
+    Error::new(format!("Cannot use cache {}: {error}", path.display())).with_source(error)
 }
 
 /// `name` made safe as a file name on every platform, or `fallback` when
@@ -302,10 +345,6 @@ pub fn sanitized_filename(name: &str, fallback: &str) -> String {
     } else {
         value
     }
-}
-
-fn io_error(error: std::io::Error) -> Error {
-    Error::new(error.to_string()).with_source(error)
 }
 
 #[cfg(test)]
@@ -441,17 +480,47 @@ mod tests {
 
     #[test]
     fn cache_path_hashes_the_url() {
-        let asset = Asset {
-            url: "https://uploads.linear.app/private.png?token=fake".to_owned(),
-            label: "cache space (a)".to_owned(),
-        };
         assert_eq!(
-            cache_path(Path::new("/tmp/linear-cli-images"), &asset),
-            PathBuf::from("/tmp/linear-cli-images/57c89d19aa713f0e/cache space (a)")
+            cache_path(
+                Path::new("/cache"),
+                "https://uploads.linear.app/private.png?token=fake",
+                "cache space (a)",
+                "image"
+            ),
+            PathBuf::from("/cache/57c89d19aa713f0e/cache space (a)")
+        );
+        // Files with the same name but different URLs never share a path.
+        let path = |url| cache_path(Path::new("/cache"), url, "notes.pdf", "attachment");
+        assert_ne!(
+            path("https://uploads.linear.app/org-a/1/notes.pdf"),
+            path("https://uploads.linear.app/org-b/1/notes.pdf")
+        );
+    }
+
+    #[test]
+    fn the_cache_is_per_user_and_never_a_shared_temporary_directory() {
+        let unix = |xdg, home| cache_root(OsFamily::Unix, xdg, home, Some("C:/unused"));
+        assert_eq!(
+            unix(Some("/x/cache"), Some("/home/u")),
+            Some(PathBuf::from("/x/cache/linear-cli"))
         );
         assert_eq!(
-            cache_root(Some(""), Some("/var/tmp/"), None),
-            PathBuf::from("/var/tmp/linear-cli-images")
+            unix(Some(""), Some("/home/u")),
+            Some(PathBuf::from("/home/u/.cache/linear-cli"))
+        );
+        assert_eq!(unix(None, None), None);
+        assert_eq!(
+            cache_root(
+                OsFamily::Windows,
+                Some("/x"),
+                Some("/home/u"),
+                Some("C:/Local")
+            ),
+            Some(PathBuf::from("C:/Local/linear-cli"))
+        );
+        assert_eq!(
+            cache_root(OsFamily::Windows, None, Some("/home/u"), None),
+            None
         );
     }
 }
