@@ -18,7 +18,7 @@ then configure the repository:
 linear config
 ```
 
-this writes a `.linear.toml` at the repository root, asking for the default team and issue sort unless you pass `--team` and `--sort`.
+this writes the config at the repository root: `.config/linear.toml` when a `.config` directory exists there, otherwise `.linear.toml` (outside a repository, `.linear.toml` in the current directory). it asks for the default team and issue sort unless you pass `--team` and `--sort`, and when you have logged in to more than one workspace it also asks which one to use unless you pass `--workspace`.
 
 ### issues
 

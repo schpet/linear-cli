@@ -78,7 +78,7 @@ default = "acme"
 workspaces = ["acme", "side-project"]
 ```
 
-API keys are not stored in this file. they are stored in the system keyring and loaded at startup.
+API keys are not stored in this file. they are stored in the system keyring and read when a command needs them, usually just the key of the selected workspace.
 
 ### platform requirements
 

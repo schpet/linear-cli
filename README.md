@@ -24,9 +24,9 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 ## screencast demos
 
 <details>
-<summary><code>linear issue create</code></summary>
+<summary><code>linear issue create -i</code></summary>
 
-<img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create command, interactively adding issue details">
+<img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create -i command, interactively adding issue details">
 
 </details>
 
@@ -187,7 +187,7 @@ linear issue comment add ENG-123 -a ./screenshot.png --public   # public image U
 ```bash
 linear team list       # list teams
 linear team list --json  # as JSON, e.g. to map a team name to its key or id in scripts
-linear team id         # print out the team id (e.g. for scripts)
+linear team id         # print the configured team key (e.g. for scripts)
 linear team members    # list team members
 linear team members --all --json  # include inactive members, as JSON
 linear team create     # create a new team
