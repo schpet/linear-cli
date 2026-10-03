@@ -445,3 +445,6 @@ fn render_blocks(nodes: &[Node]) -> String {
         .collect::<Vec<_>>()
         .join("\n\n")
 }
+
+#[cfg(test)]
+mod tests;

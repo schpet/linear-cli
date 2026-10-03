@@ -40,3 +40,47 @@ pub fn ago<Tz: TimeZone>(then: DateTime<Utc>, now: DateTime<Utc>, zone: &Tz) -> 
 pub fn format_relative_time<Tz: TimeZone>(value: &str, now: DateTime<Utc>, zone: &Tz) -> String {
     parse_timestamp(value).map_or_else(|| value.to_owned(), |then| ago(then, now, zone))
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::{DateTime, FixedOffset, Utc};
+
+    use super::format_relative_time;
+
+    #[test]
+    fn thresholds_use_the_injected_clock() {
+        let now = DateTime::parse_from_rfc3339("2026-09-25T12:00:00.999999Z")
+            .expect("now")
+            .with_timezone(&Utc);
+        for (value, expected) in [
+            ("2026-09-25T12:00:01Z", "just now"),
+            ("2026-09-25T12:00:00Z", "just now"),
+            ("2026-09-25T11:59:00Z", "1 minute ago"),
+            ("2026-09-25T11:58:01.999999Z", "1 minute ago"),
+            ("2026-09-25T11:58:00Z", "2 minutes ago"),
+            ("2026-09-25T11:01:00Z", "59 minutes ago"),
+            ("2026-09-25T11:00:00Z", "1 hour ago"),
+            ("2026-09-25T10:00:00Z", "2 hours ago"),
+            ("2026-09-24T13:00:00Z", "23 hours ago"),
+            ("2026-09-24T12:00:00Z", "1 day ago"),
+            ("2026-09-19", "6 days ago"),
+            ("2026-09-18T12:00:00Z", "2026-09-18"),
+            ("2026-09-25T17:30:00+05:30", "just now"),
+            ("not a date", "not a date"),
+            ("2026-9-5", "2026-9-5"),
+        ] {
+            assert_eq!(format_relative_time(value, now, &Utc), expected, "{value}");
+        }
+    }
+
+    #[test]
+    fn date_only_uses_utc_midnight_and_absolute_date_uses_display_zone() {
+        let now = DateTime::parse_from_rfc3339("2026-09-25T12:00:00Z")
+            .expect("now")
+            .with_timezone(&Utc);
+        let west = FixedOffset::west_opt(7 * 3600).expect("west");
+        let east = FixedOffset::east_opt(9 * 3600).expect("east");
+        assert_eq!(format_relative_time("2026-09-18", now, &west), "2026-09-17");
+        assert_eq!(format_relative_time("2026-09-18", now, &east), "2026-09-18");
+    }
+}

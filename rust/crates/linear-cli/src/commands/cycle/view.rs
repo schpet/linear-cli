@@ -439,3 +439,6 @@ fn markdown<Tz: TimeZone>(cycle: &DetailCycle, now: DateTime<Utc>, zone: &Tz) ->
     }
     lines.join("\n")
 }
+
+#[cfg(test)]
+mod tests;

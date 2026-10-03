@@ -83,3 +83,76 @@ where
     }
     Ok(ordered.remove(0).id.into_inner())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+
+    use serde_json::json;
+
+    use super::{ResolveReleases, resolve_with};
+    use crate::error::Error;
+    use crate::graphql::envelope::parse_response;
+
+    const SUMMER: &str = "00000000-0000-4000-9000-000000000050";
+
+    fn page(id: &str, name: &str, next: Option<&str>) -> ResolveReleases {
+        let body = json!({"data": {"releases": {
+            "nodes": [{"id": id, "name": name, "version": "2026.8"}],
+            "pageInfo": {"hasNextPage": next.is_some(), "endCursor": next},
+        }}});
+        parse_response(body.to_string().as_bytes()).expect("release page")
+    }
+
+    async fn resolve(input: &str, pages: Vec<ResolveReleases>) -> (Result<String, Error>, Vec<Option<String>>) {
+        let mut pages = VecDeque::from(pages);
+        let mut cursors = Vec::new();
+        let result = resolve_with(input, |request| {
+            cursors.push(request.variables.expect("variables").after);
+            let page = pages.pop_front().expect("another page");
+            async move { Ok(page) }
+        })
+        .await;
+        (result, cursors)
+    }
+
+    #[tokio::test]
+    async fn the_same_release_on_two_pages_is_one_match() {
+        let (result, cursors) = resolve(
+            "2026.8",
+            vec![
+                page(SUMMER, "Summer", Some("release-next")),
+                page(SUMMER, "Summer", None),
+            ],
+        )
+        .await;
+        assert_eq!(result.expect("one release"), SUMMER);
+        assert_eq!(cursors, [None, Some("release-next".to_owned())]);
+    }
+
+    #[tokio::test]
+    async fn distinct_matches_are_ambiguous() {
+        let (result, _) = resolve(
+            "2026.8",
+            vec![
+                page(SUMMER, "Summer", Some("release-next")),
+                page("release-two", "Other", None),
+            ],
+        )
+        .await;
+        let error = result.expect_err("ambiguous");
+        assert!(error.message().contains("matches multiple releases"), "{error}");
+        assert_eq!(error.hint(), Some("Pass the release UUID instead."));
+    }
+
+    #[tokio::test]
+    async fn uuids_and_linear_urls_need_no_lookup() {
+        let (result, cursors) = resolve(SUMMER, vec![]).await;
+        assert_eq!(result.expect("uuid"), SUMMER);
+        assert!(cursors.is_empty());
+        let (result, cursors) =
+            resolve("https://linear.app/acme/project/title-a1b2c3d4e5f6", vec![]).await;
+        result.expect_err("not a release URL");
+        assert!(cursors.is_empty());
+    }
+}

@@ -1,4 +1,4 @@
-use linear_cli::commands::prosemirror::to_markdown;
+use super::to_markdown;
 use serde_json::{Value, json};
 
 fn markdown(doc: Value) -> String {
@@ -195,7 +195,7 @@ fn reports_the_first_invalid_path_children_before_marks_and_root_type() {
 }
 
 #[test]
-fn list_markers_escape_only_at_js_line_starts_before_whitespace() {
+fn list_markers_escape_only_at_line_starts_before_whitespace() {
     let paragraph_of = |value: &str| markdown(doc(vec![paragraph(vec![text(value)])]));
     assert_eq!(paragraph_of("  - a\n\t+ b"), "  \\- a\n\t\\+ b");
     assert_eq!(paragraph_of("12. a\r3. b"), "12\\. a\r3\\. b");

@@ -312,3 +312,6 @@ pub fn table(sessions: &[ListSession], now: DateTime<Utc>) -> Table {
     }
     table
 }
+
+#[cfg(test)]
+mod tests;
