@@ -1,7 +1,5 @@
 //! `label list`: a team's labels plus workspace labels, or every label, as a
 //! table or JSON.
-use cynic::QueryBuilder;
-
 use crate::cli::label::LabelList;
 use crate::client::LinearClient;
 use crate::commands::json;
@@ -9,7 +7,6 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::issue_labels::{
     GetIssueLabels, GetIssueLabelsVariables, IssueLabel, IssueLabelFilter, NullableTeamFilter,
 };
@@ -76,14 +73,13 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
 /// Every label matching `filter`.
 async fn fetch(client: &LinearClient, filter: Option<IssueLabelFilter>) -> Result<Vec<IssueLabel>> {
     pagination::collect(None, |after, first| {
-        let request =
-            LegacyRequest::with_variables(GetIssueLabels::build(GetIssueLabelsVariables {
-                filter: filter.clone(),
-                first: Some(first),
-                after,
-            }));
+        let variables = GetIssueLabelsVariables {
+            filter: filter.clone(),
+            first: Some(first),
+            after,
+        };
         async move {
-            let data: GetIssueLabels = client.execute_legacy(&request).await?;
+            let data: GetIssueLabels = client.query(variables).await?;
             Ok(Page {
                 nodes: data.issue_labels.nodes,
                 page_info: data.issue_labels.page_info,

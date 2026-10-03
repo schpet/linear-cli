@@ -1,6 +1,5 @@
 //! `milestone view`: one milestone and its issues, as Markdown or JSON.
 use chrono::{DateTime, TimeZone, Utc};
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::milestone::MilestoneView;
@@ -9,7 +8,6 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_view::{
     DetailMilestone, DetailVariables, GetMilestoneDetails,
 };
@@ -63,14 +61,13 @@ async fn fetch(client: &LinearClient, original: &str, id: &str) -> Result<Detail
     pagination::collect_within(
         None,
         |after, first| {
-            let request =
-                LegacyRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
-                    id: id.to_owned(),
-                    first,
-                    after,
-                }));
+            let variables = DetailVariables {
+                id: id.to_owned(),
+                first,
+                after,
+            };
             async move {
-                let data: GetMilestoneDetails = client.execute_legacy(&request).await?;
+                let data: GetMilestoneDetails = client.query(variables).await?;
                 data.project_milestone
                     .ok_or_else(|| Error::not_found("Milestone", original))
             }

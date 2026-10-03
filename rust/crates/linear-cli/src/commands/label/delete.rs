@@ -1,14 +1,11 @@
 //! `label delete`: find the label by UUID or name, ask which one when names
 //! repeat, confirm, delete it.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::label::LabelDelete;
 use crate::client::LinearClient;
 use crate::commands::confirm;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
 };
@@ -67,10 +64,12 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
     if !confirm::deletion(ctx, args.force, &question)? {
         return Ok(());
     }
-    let request = LegacyRequest::with_variables(DeleteIssueLabel::build(IdVariables {
-        id: label.id.inner().to_owned(),
-    }));
-    let result: DeleteIssueLabel = ctx.spin(true, client.execute_legacy(&request))?;
+    let result: DeleteIssueLabel = ctx.spin(
+        true,
+        client.mutate(IdVariables {
+            id: label.id.inner().to_owned(),
+        }),
+    )?;
     if !result.issue_label_delete.success {
         return Err(Error::new("Linear did not delete the label"));
     }
@@ -78,9 +77,10 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
 }
 
 async fn by_uuid(client: &LinearClient, id: &str) -> Result<Label> {
-    let request =
-        LegacyRequest::with_variables(GetLabelById::build(IdVariables { id: id.to_owned() }));
-    match client.execute_legacy::<GetLabelById, _>(&request).await {
+    match client
+        .query::<GetLabelById, _>(IdVariables { id: id.to_owned() })
+        .await
+    {
         Ok(data) => Ok(data.issue_label),
         Err(failure) => Err(failure.or_not_found("Label", id)),
     }
@@ -88,10 +88,11 @@ async fn by_uuid(client: &LinearClient, id: &str) -> Result<Label> {
 
 /// Labels whose name matches, ignoring case, in server order.
 async fn by_name(client: &LinearClient, name: &str) -> Result<Vec<Label>> {
-    let request = LegacyRequest::with_variables(GetLabelByName::build(NameVariables {
-        name: name.to_owned(),
-    }));
-    let data: GetLabelByName = client.execute_legacy(&request).await?;
+    let data: GetLabelByName = client
+        .query(NameVariables {
+            name: name.to_owned(),
+        })
+        .await?;
     Ok(data.issue_labels.nodes)
 }
 

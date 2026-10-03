@@ -1,9 +1,6 @@
 //! The authenticated user's workspace.
-use cynic::QueryBuilder;
-
 use crate::client::LinearClient;
-use crate::error::{Error, Result};
-use crate::graphql::envelope::LegacyRequest;
+use crate::error::Result;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -26,7 +23,6 @@ pub struct ViewerOrganization {
 
 /// The URL key of the workspace the client's API key belongs to.
 pub async fn url_key(client: &LinearClient) -> Result<String> {
-    let request = LegacyRequest::without_variables(GetViewer::build(()));
-    let result: GetViewer = client.execute_legacy(&request).await.map_err(Error::from)?;
+    let result: GetViewer = client.query(()).await?;
     Ok(result.viewer.organization.url_key)
 }

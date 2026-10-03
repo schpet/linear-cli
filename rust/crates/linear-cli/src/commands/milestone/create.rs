@@ -1,11 +1,8 @@
 //! `milestone create`: one mutation after resolving the project.
-use cynic::MutationBuilder;
-
 use crate::cli::milestone::MilestoneCreate;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_create::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, CreatedMilestone,
     ProjectMilestoneCreateInput,
@@ -34,18 +31,15 @@ async fn submit(
     project_id: String,
     args: &MilestoneCreate,
 ) -> Result<CreatedMilestone> {
-    let request = LegacyRequest::with_variables(CreateProjectMilestone::build(
-        CreateProjectMilestoneVariables {
+    let result: CreateProjectMilestone = client
+        .mutate(CreateProjectMilestoneVariables {
             input: ProjectMilestoneCreateInput {
                 project_id,
                 name: args.name.clone(),
                 description: args.description.clone(),
                 target_date: args.target_date.map(TimelessDate::from),
             },
-        },
-    ));
-    let result: CreateProjectMilestone = client
-        .execute_legacy(&request)
+        })
         .await
         .map_err(|failure| failure.into_create_error("milestone"))?;
     let payload = result.project_milestone_create;

@@ -1,15 +1,12 @@
 //! `milestone list`: every page, sorted by target date, as a table or JSON.
 use std::cmp::Ordering;
 
-use cynic::QueryBuilder;
-
 use crate::cli::milestone::MilestoneList;
 use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
 };
@@ -45,15 +42,13 @@ async fn fetch(
     project_id: &str,
 ) -> Result<Vec<ProjectMilestone>> {
     let mut nodes = pagination::collect(None, |after, first| {
-        let request = LegacyRequest::with_variables(GetProjectMilestones::build(
-            GetProjectMilestonesVariables {
-                project_id: project_id.to_owned(),
-                first: Some(first),
-                after,
-            },
-        ));
+        let variables = GetProjectMilestonesVariables {
+            project_id: project_id.to_owned(),
+            first: Some(first),
+            after,
+        };
         async move {
-            let data: GetProjectMilestones = client.execute_legacy(&request).await?;
+            let data: GetProjectMilestones = client.query(variables).await?;
             let project = data
                 .project
                 .ok_or_else(|| Error::not_found("Project", original))?;

@@ -1,14 +1,11 @@
 //! `template list`: every template, filtered by type and team, as a table or
 //! JSON.
-use cynic::QueryBuilder;
-
 use crate::cli::TemplateType;
 use crate::cli::template::TemplateList;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::template::json as template_json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::templates::{GetTemplates, Template};
 use crate::platform::collation;
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
@@ -29,7 +26,7 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
             Some(lookup) => Some(resolve_team_with_transport(lookup, client).await?.id),
             None => None,
         };
-        let data: GetTemplates = client.execute_legacy(&request()).await?;
+        let data: GetTemplates = client.query(()).await?;
         Ok::<_, Error>((data.templates, team_id))
     })?;
     let mut templates = select(templates, args.r#type, team_id.as_deref());
@@ -41,11 +38,6 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
     } else {
         ctx.print(render_text(&templates).render_for(ctx))
     }
-}
-
-/// Every template in the workspace, unfiltered (the API takes no filter).
-pub(super) fn request() -> LegacyRequest<()> {
-    LegacyRequest::without_variables(GetTemplates::build(()))
 }
 
 fn type_name(template_type: TemplateType) -> &'static str {

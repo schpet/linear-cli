@@ -5,13 +5,10 @@ mod list;
 mod update;
 mod view;
 
-use cynic::QueryBuilder;
-
 use crate::cli::milestone::MilestoneCommand;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_view::{GetProjectMilestonesForLookup, LookupVariables};
 
 pub fn run(ctx: &Ctx, command: &MilestoneCommand) -> Result<()> {
@@ -26,12 +23,12 @@ pub fn run(ctx: &Ctx, command: &MilestoneCommand) -> Result<()> {
 
 /// The ID of the project's milestone named `name`, ignoring case.
 pub async fn id_by_name(client: &LinearClient, project_id: &str, name: &str) -> Result<String> {
-    let request =
-        LegacyRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
+    let data: GetProjectMilestonesForLookup = client
+        .query(LookupVariables {
             project_id: project_id.to_owned(),
             name: name.to_owned(),
-        }));
-    let data: GetProjectMilestonesForLookup = client.execute_legacy(&request).await?;
+        })
+        .await?;
     data.project
         .ok_or_else(|| Error::not_found("Project", project_id))?
         .project_milestones

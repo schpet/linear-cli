@@ -1,10 +1,7 @@
 //! Shared project reference resolution for UUID, exact name, slug and URL.
 
-use cynic::QueryBuilder;
-
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_view::{
     GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
 };
@@ -50,11 +47,9 @@ pub async fn resolve_project_with_transport(
             .await?
             .ok_or_else(|| not_found(original)),
         ProjectReference::NameOrSlug(name) => {
-            let query = LegacyRequest::with_variables(GetProjectIdByName::build(
-                ProjectReferenceVariables { name: name.clone() },
-            ));
-            let data: GetProjectIdByName =
-                client.execute_legacy(&query).await.map_err(Error::from)?;
+            let data: GetProjectIdByName = client
+                .query(ProjectReferenceVariables { name: name.clone() })
+                .await?;
             let matches = data.projects.nodes;
             if matches.len() > 1 {
                 return Err(Error::new(format!(
@@ -86,10 +81,11 @@ pub async fn resolve_project_with_transport(
 }
 
 async fn find_slug(slug: &str, client: &LinearClient) -> Result<Option<String>, Error> {
-    let query = LegacyRequest::with_variables(GetProjectIdBySlugId::build(ProjectSlugVariables {
-        slug_id: slug.to_owned(),
-    }));
-    let data: GetProjectIdBySlugId = client.execute_legacy(&query).await.map_err(Error::from)?;
+    let data: GetProjectIdBySlugId = client
+        .query(ProjectSlugVariables {
+            slug_id: slug.to_owned(),
+        })
+        .await?;
     Ok(data
         .projects
         .nodes

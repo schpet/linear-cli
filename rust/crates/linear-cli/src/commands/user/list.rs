@@ -1,6 +1,5 @@
 //! `user list`: every member of the workspace, as text or JSON.
 use chrono::{DateTime, Local, Utc};
-use cynic::QueryBuilder;
 
 use crate::cli::Limit;
 use crate::cli::user::UserList;
@@ -10,7 +9,6 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::organization_members::{
     GetOrganizationMembers, GetOrganizationMembersVariables, User,
 };
@@ -39,15 +37,13 @@ fn list(ctx: &Ctx, args: &UserList) -> Result<()> {
 /// Every member of the workspace, including disabled users with `include_disabled`.
 async fn fetch(client: &LinearClient, include_disabled: bool) -> Result<Vec<User>> {
     pagination::collect(None, |after, first| {
-        let request = LegacyRequest::with_variables(GetOrganizationMembers::build(
-            GetOrganizationMembersVariables {
-                include_disabled,
-                first: Some(first),
-                after,
-            },
-        ));
+        let variables = GetOrganizationMembersVariables {
+            include_disabled,
+            first: Some(first),
+            after,
+        };
         async move {
-            let data: GetOrganizationMembers = client.execute_legacy(&request).await?;
+            let data: GetOrganizationMembers = client.query(variables).await?;
             let users = data.viewer.organization.users;
             Ok(Page {
                 nodes: users.nodes,

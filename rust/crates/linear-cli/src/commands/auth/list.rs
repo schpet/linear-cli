@@ -1,6 +1,5 @@
 //! `auth list`: every stored workspace with the organization and user its
 //! key belongs to, checked with one request per key, all at once.
-use cynic::QueryBuilder;
 use futures_util::future::join_all;
 use reqwest::StatusCode;
 
@@ -9,7 +8,7 @@ use crate::client::{LinearClient, RequestError};
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::{LegacyRequest, graphql_message};
+use crate::graphql::envelope::graphql_message;
 use crate::graphql::operations::auth_list::AuthListViewer;
 use crate::platform::style;
 
@@ -87,8 +86,7 @@ async fn check(check: &Check) -> Outcome {
         Check::Request(client) => client,
         Check::Skip(reason) => return Outcome::Failed((*reason).to_owned()),
     };
-    let request = LegacyRequest::without_variables(AuthListViewer::build(()));
-    match client.execute_legacy::<AuthListViewer, _>(&request).await {
+    match client.query::<AuthListViewer, _>(()).await {
         Ok(data) => Outcome::Viewer {
             organization: data.viewer.organization.name,
             name: data.viewer.name,

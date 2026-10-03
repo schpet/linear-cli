@@ -1,9 +1,6 @@
 //! `auth whoami`: the authenticated user and their workspace.
-use cynic::QueryBuilder;
-
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::auth_whoami::AuthStatus;
 
 pub fn run(ctx: &Ctx) -> Result<()> {
@@ -12,8 +9,7 @@ pub fn run(ctx: &Ctx) -> Result<()> {
 
 fn whoami(ctx: &Ctx) -> Result<()> {
     let client = ctx.client()?;
-    let request = LegacyRequest::without_variables(AuthStatus::build(()));
-    let status: AuthStatus = ctx.spin(true, client.execute_legacy(&request))?;
+    let status: AuthStatus = ctx.spin(true, client.query(()))?;
     ctx.print(render(&status))
 }
 

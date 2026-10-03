@@ -2,11 +2,9 @@
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_reference::{
     NameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
 };
-use cynic::QueryBuilder;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InitiativeReference {
     Id(String),
@@ -39,8 +37,8 @@ pub async fn resolve_initiative_with_transport(
     resolve_initiative_with(
         reference,
         original,
-        |query| async move { client.execute_legacy(&query).await.map_err(Error::from) },
-        |query| async move { client.execute_legacy(&query).await.map_err(Error::from) },
+        |variables| async move { Ok(client.query(variables).await?) },
+        |variables| async move { Ok(client.query(variables).await?) },
     )
     .await
 }
@@ -51,21 +49,19 @@ pub async fn resolve_initiative_with<S, SF, N, NF>(
     mut name_fetch: N,
 ) -> Result<String, Error>
 where
-    S: FnMut(LegacyRequest<UrlSlugVariables>) -> SF,
+    S: FnMut(UrlSlugVariables) -> SF,
     SF: std::future::Future<Output = Result<ResolveInitiativeBySlug, Error>>,
-    N: FnMut(LegacyRequest<NameVariables>) -> NF,
+    N: FnMut(NameVariables) -> NF,
     NF: std::future::Future<Output = Result<ResolveInitiativeByName, Error>>,
 {
     let slug = match reference {
         InitiativeReference::Id(id) => return Ok(id.clone()),
         InitiativeReference::UrlSlug(slug) | InitiativeReference::NameOrSlug(slug) => slug,
     };
-    let data = slug_fetch(LegacyRequest::with_variables(
-        ResolveInitiativeBySlug::build(UrlSlugVariables {
-            slug_id: slug.clone(),
-            include_archived: Some(false),
-        }),
-    ))
+    let data = slug_fetch(UrlSlugVariables {
+        slug_id: slug.clone(),
+        include_archived: Some(false),
+    })
     .await?;
     if let Some(id) = data
         .initiatives
@@ -80,10 +76,7 @@ where
     if matches!(reference, InitiativeReference::UrlSlug(_)) {
         return Err(Error::not_found("Initiative", original).with_hint("The initiative in that URL may have been deleted, or be in a workspace this key cannot see."));
     }
-    let data = name_fetch(LegacyRequest::with_variables(
-        ResolveInitiativeByName::build(NameVariables { name: slug.clone() }),
-    ))
-    .await?;
+    let data = name_fetch(NameVariables { name: slug.clone() }).await?;
     let matches = data.initiatives.nodes;
     if matches.len() > 1 {
         let listing = matches

@@ -1,8 +1,6 @@
 //! `team list`: every team that is not archived, by name, as a table or JSON.
 use std::time::SystemTime;
 
-use cynic::QueryBuilder;
-
 use crate::cli::team::TeamList;
 use crate::client::LinearClient;
 use crate::commands::json;
@@ -10,7 +8,6 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::teams::{self, GetTeams, GetTeamsVariables};
 use crate::graphql::pagination::{self, Page};
 use crate::platform::{collation, style};
@@ -38,13 +35,13 @@ fn list(ctx: &Ctx, args: &TeamList) -> Result<()> {
 /// Every team that is not archived, sorted by name.
 async fn fetch(client: &LinearClient) -> Result<Vec<teams::Team>> {
     let teams = pagination::collect(None, |after, first| {
-        let request = LegacyRequest::with_variables(GetTeams::build(GetTeamsVariables {
+        let variables = GetTeamsVariables {
             filter: None,
             first: Some(first),
             after,
-        }));
+        };
         async move {
-            let data: GetTeams = client.execute_legacy(&request).await?;
+            let data: GetTeams = client.query(variables).await?;
             Ok(Page {
                 nodes: data.teams.nodes,
                 page_info: data.teams.page_info,

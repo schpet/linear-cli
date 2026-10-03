@@ -1,12 +1,9 @@
 //! `label create`: a workspace or team label, from flags or prompts.
-use cynic::MutationBuilder;
-
 use crate::cli::label::LabelCreate;
 use crate::commands::color;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::label_create::{
     CreateIssueLabel, CreateIssueLabelPayload, CreateIssueLabelVariables, IssueLabelCreateInput,
 };
@@ -70,17 +67,15 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
             Team::Reference(lookup) => Some(resolve_team_with_transport(lookup, client).await?.id),
             Team::Picked(id) => Some(id.clone()),
         };
-        let request =
-            LegacyRequest::with_variables(CreateIssueLabel::build(CreateIssueLabelVariables {
+        client
+            .mutate::<CreateIssueLabel, _>(CreateIssueLabelVariables {
                 input: IssueLabelCreateInput {
                     name: fields.name.clone(),
                     color: fields.color.clone(),
                     description: fields.description.clone(),
                     team_id,
                 },
-            }));
-        client
-            .execute_legacy::<CreateIssueLabel, _>(&request)
+            })
             .await
             .map_err(|failure| failure.into_create_error("label"))
     })?;

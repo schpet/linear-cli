@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::{CommentTarget, build_input, check_parent, request, resolve_body};
+use super::{CommentTarget, build_input, check_parent, resolve_body};
 
 #[test]
 fn body_text_is_kept_exactly_and_blank_text_is_refused() {
@@ -61,8 +61,7 @@ fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
 #[test]
 fn input_names_exactly_one_target_and_omits_absent_optionals() {
     let input = |target, parent: Option<&str>, id: Option<&str>| {
-        let request = request(build_input(target, "Body".into(), parent, id));
-        serde_json::to_value(request).expect("request")["variables"]["input"].clone()
+        serde_json::to_value(build_input(target, "Body".into(), parent, id)).expect("input")
     };
     assert_eq!(
         input(

@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::future::ready;
 
+use cynic::QueryBuilder;
 use serde_json::json;
 
 use super::*;
@@ -83,9 +84,9 @@ async fn strict_initiative_uuid_and_url_hits_never_fall_through_to_names() {
     let found = resolve_initiative_with(
         &InitiativeReference::UrlSlug("abc123def456".into()),
         "url",
-        |query| {
+        |variables| {
             sent.borrow_mut()
-                .push(serde_json::to_value(query.variables).expect("variables"));
+                .push(serde_json::to_value(variables).expect("variables"));
             ready(
                 parse_response(
                     json!({"data":{"initiatives":{"nodes":[{"id":ID}]}}})
@@ -107,9 +108,10 @@ async fn strict_initiative_uuid_and_url_hits_never_fall_through_to_names() {
 }
 #[tokio::test]
 async fn strict_initiative_slug_miss_then_exact_name_preserves_full_ambiguity() {
-    let result = resolve_initiative_with(&InitiativeReference::NameOrSlug("Growth".into()), "Growth", |_| ready(parse_response(json!({"data":{"initiatives":{"nodes":[]}}}).to_string().as_bytes()).map_err(Error::from)), |query| {
-        assert!(query.query.contains("eqIgnoreCase: $name"));
-        assert_eq!(serde_json::to_value(query.variables).expect("variables"), json!({"name":"Growth"}));
+    let result = resolve_initiative_with(&InitiativeReference::NameOrSlug("Growth".into()), "Growth", |_| ready(parse_response(json!({"data":{"initiatives":{"nodes":[]}}}).to_string().as_bytes()).map_err(Error::from)), |variables| {
+        let operation = ResolveInitiativeByName::build(variables);
+        assert!(operation.query.contains("eqIgnoreCase: $name"));
+        assert_eq!(serde_json::to_value(operation.variables).expect("variables"), json!({"name":"Growth"}));
         ready(parse_response(json!({"data":{"initiatives":{"nodes":[{"id":ID,"name":"Growth","slugId":"abc123def456"},{"id":"other","name":"growth","slugId":"other-slug"}]}}}).to_string().as_bytes()).map_err(Error::from))
     }).await.expect_err("ambiguous");
     assert_eq!(

@@ -1,13 +1,10 @@
 //! Shared `comment add` steps: body flags, the body prompt check, the single
 //! `AddComment` mutation and its output. Each target command resolves its own
 //! target and then calls these in order.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::client::LinearClient;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::comment_create::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
@@ -106,10 +103,6 @@ pub fn build_input(
     input
 }
 
-pub fn request(input: CommentCreateInput) -> LegacyRequest<AddCommentVariables> {
-    LegacyRequest::with_variables(AddComment::build(AddCommentVariables { input }))
-}
-
 /// Send the mutation once. A failure after the request may have reached
 /// Linear says the comment may already exist; nothing is retried.
 pub async fn create(
@@ -117,7 +110,7 @@ pub async fn create(
     input: CommentCreateInput,
 ) -> Result<CreatedComment, Error> {
     let result: AddComment = client
-        .execute_legacy(&request(input))
+        .mutate(AddCommentVariables { input })
         .await
         .map_err(|failure| failure.into_create_error("comment"))?;
     if !result.comment_create.success {
@@ -134,13 +127,10 @@ pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
 /// `document(id:)` is non-null, so Linear reports a missing document as a
 /// GraphQL error; only that becomes NotFound.
 pub async fn document_content_id(client: &LinearClient, document: &str) -> Result<String, Error> {
-    let request = LegacyRequest::with_variables(GetDocumentCommentTarget::build(
-        DocumentCommentTargetVariables {
-            id: document.to_owned(),
-        },
-    ));
     let data: GetDocumentCommentTarget = client
-        .execute_legacy(&request)
+        .query(DocumentCommentTargetVariables {
+            id: document.to_owned(),
+        })
         .await
         .map_err(|failure| failure.or_not_found("Document", document))?;
     let target = data.document;

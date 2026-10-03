@@ -1,10 +1,7 @@
 //! `milestone update`: change the given fields of one milestone.
-use cynic::MutationBuilder;
-
 use crate::cli::milestone::MilestoneUpdate;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_update::{
     ProjectMilestoneUpdateInput, UpdateProjectMilestone, UpdateProjectMilestoneVariables,
     UpdatedMilestone,
@@ -30,8 +27,8 @@ fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
             }
             None => None,
         };
-        let request = LegacyRequest::with_variables(UpdateProjectMilestone::build(
-            UpdateProjectMilestoneVariables {
+        let result: UpdateProjectMilestone = client
+            .mutate(UpdateProjectMilestoneVariables {
                 id: args.id.clone(),
                 input: ProjectMilestoneUpdateInput {
                     name: args.name.clone(),
@@ -40,9 +37,8 @@ fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
                     sort_order: args.sort_order.clone(),
                     project_id,
                 },
-            },
-        ));
-        let result: UpdateProjectMilestone = client.execute_legacy(&request).await?;
+            })
+            .await?;
         let payload = result.project_milestone_update;
         if !payload.success {
             return Err(Error::new("Linear did not update the milestone"));

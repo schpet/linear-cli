@@ -1,13 +1,10 @@
 //! `team delete`: delete a team after moving its issues to another team.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::team::TeamDelete;
 use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkOutcome, BulkResult, Verb};
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::team_delete::{
     DeleteTeam, GetTeamIssuesForMove, IdVariables, MoveIssue, MoveIssueToTeam, MovePageVariables,
     MoveVariables,
@@ -70,10 +67,12 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
     if let Some(target) = &target {
         move_issues(ctx, client, &team, target, &issues)?;
     }
-    let request = LegacyRequest::with_variables(DeleteTeam::build(IdVariables {
-        id: team.id.clone(),
-    }));
-    let result: DeleteTeam = ctx.spin(true, client.execute_legacy(&request))?;
+    let result: DeleteTeam = ctx.spin(
+        true,
+        client.mutate(IdVariables {
+            id: team.id.clone(),
+        }),
+    )?;
     if !result.team_delete.success {
         return Err(Error::new("Linear did not delete the team"));
     }
@@ -83,14 +82,13 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
 /// Every issue of the team.
 async fn team_issues(client: &LinearClient, team: &ResolvedTeam) -> Result<Vec<MoveIssue>> {
     pagination::collect(None, |after, first| {
-        let request =
-            LegacyRequest::with_variables(GetTeamIssuesForMove::build(MovePageVariables {
-                team_id: team.id.clone(),
-                first,
-                after,
-            }));
+        let variables = MovePageVariables {
+            team_id: team.id.clone(),
+            first,
+            after,
+        };
         async move {
-            let data: GetTeamIssuesForMove = client.execute_legacy(&request).await?;
+            let data: GetTeamIssuesForMove = client.query(variables).await?;
             let issues = data
                 .team
                 .ok_or_else(|| Error::not_found("Team", &team.key))?
@@ -150,11 +148,11 @@ fn move_issues(
         target.key
     ))?;
     let results = bulk::run(ctx, issues.iter().collect(), |issue| async move {
-        let request = LegacyRequest::with_variables(MoveIssueToTeam::build(MoveVariables {
+        let variables = MoveVariables {
             id: issue.id.inner().to_owned(),
             team_id: target.id.clone(),
-        }));
-        let outcome = match client.execute_legacy::<MoveIssueToTeam, _>(&request).await {
+        };
+        let outcome = match client.mutate::<MoveIssueToTeam, _>(variables).await {
             Ok(result) if result.issue_update.success => BulkOutcome::Succeeded,
             Ok(_) => BulkOutcome::Failed("Linear did not move the issue".to_owned()),
             Err(error) => BulkOutcome::Failed(Error::from(error).to_string()),

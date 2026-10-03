@@ -1,7 +1,6 @@
 //! `auth login`: check an API key with Linear, then store it.
 use std::io::Read;
 
-use cynic::QueryBuilder;
 use reqwest::StatusCode;
 
 use crate::auth::keyring::native_backend;
@@ -12,7 +11,7 @@ use crate::client::{ApiKey, LinearClient, RequestError};
 use crate::config::ConfigSecret;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::{LegacyRequest, ResponseGraphQlError};
+use crate::graphql::envelope::ResponseGraphQlError;
 use crate::graphql::operations::auth_login_viewer::AuthLoginViewer;
 use crate::platform::style;
 
@@ -43,9 +42,8 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
         })?,
         ctx.config().transport_env.production(),
     )?;
-    let request = LegacyRequest::without_variables(AuthLoginViewer::build(()));
     let viewer = ctx
-        .spin(true, client.execute_legacy::<AuthLoginViewer, _>(&request))
+        .spin(true, client.query::<AuthLoginViewer, _>(()))
         .map_err(rejected_key)?
         .viewer;
     let organization = &viewer.organization;
