@@ -706,6 +706,22 @@ fn view_no_download_keeps_remote_image_urls() {
 }
 
 #[test]
+fn view_leaves_images_on_other_hosts_alone() {
+    let api = MockLinear::start();
+    let mut issue = issue(false);
+    issue["description"] = json!("![tracker](https://tracker.example/pixel.png)");
+    api.on("GetIssueDetails", details(issue));
+    let cli = Cli::for_api(&api);
+    let tmp = cli.path("tmp");
+    cli.env("TMPDIR", &tmp.display().to_string())
+        .run(&["issue", "view", "ENG-1", "--no-comments", "--no-pager"])
+        .success()
+        .stdout_has("![tracker](https://tracker.example/pixel.png)");
+    assert!(files_under(&tmp).is_empty());
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
+}
+
+#[test]
 fn view_reports_failed_image_downloads_and_keeps_the_url() {
     let api = MockLinear::start();
     let (reply, url) = with_image(&api);

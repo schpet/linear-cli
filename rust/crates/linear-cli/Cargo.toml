@@ -26,8 +26,6 @@ toml = { version = "1.0.3", default-features = false, features = ["parse", "disp
 reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "gzip", "brotli", "deflate"] }
 tokio = { version = "1.47.4", default-features = false, features = ["rt", "time", "macros", "net", "process", "io-util"] }
 
-markdown = { version = "1.0.0", default-features = false }
-mdast_util_to_markdown = { version = "0.0.2", path = "../../vendor/mdast_util_to_markdown" }
 sha2 = { version = "0.11.0", default-features = false }
 
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
@@ -87,5 +85,5 @@ keyring = { version = "3.6.3", default-features = false, features = ["windows-na
 [package.metadata.dist]
 dist = true
 # Includes are relative to this package Cargo.toml. The derived licenses tree
-# keeps vendor/dependency files in named subdirectories to avoid LICENSE collisions.
+# keeps dependency files in named subdirectories to avoid LICENSE collisions.
 include = ["../../../LICENSE", "../../licenses", "../../../docs/rust-port.md"]

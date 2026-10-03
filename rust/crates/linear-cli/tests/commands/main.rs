@@ -6,8 +6,6 @@ mod release_lookup;
 
 mod agent_session;
 
-mod markdown_assets;
-
 mod markdown_download;
 
 mod delete_pair;

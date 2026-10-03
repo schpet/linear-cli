@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Create the native source artifact subset, not a VCS workspace/checkout.
 
-Preserves authoritative schema/build/vendor relative layout.
+Preserves authoritative schema/build relative layout.
 No builds, downloads, user configuration or credential files.
 """
 import argparse
@@ -22,7 +22,7 @@ def main() -> None:
                 "rust/rust-toolchain.toml", "rust/dist-workspace.toml", "docs/rust-port.md", "skills/linear-cli/SKILL.native.template.md",
                 "skills/linear-cli/scripts/generate-native-docs.py",
                 "skills/linear-cli/references/organization-features.md"]
-    directories = ["rust/crates", "rust/vendor", "rust/parity", "rust/licenses", "rust/scripts"]
+    directories = ["rust/crates", "rust/parity", "rust/licenses", "rust/scripts"]
     # Root supplies a snapshot-bound list of tracked inputs plus qualified generated
     # notices. Never glob ignored caches/private captures into a source artifact.
     names = args.input_manifest.read_text().splitlines()

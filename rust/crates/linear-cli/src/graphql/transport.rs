@@ -835,6 +835,10 @@ impl GraphQlTransport {
         })
     }
 
+    pub fn endpoint(&self) -> &EndpointUrl {
+        &self.endpoint
+    }
+
     /// Downloads an image referenced from Markdown.
     pub async fn download_markdown_image(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.download(url, "Failed to download image").await

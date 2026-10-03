@@ -27,9 +27,9 @@ from the explicit SHA-pinned binary and the development typed-clap manifest;
 never depend on whichever `linear` happens to be on PATH. The original Deno
 documentation task remains available for the source reference.
 
-Native source archives contain the Rust workspace, vendor fork/build inputs,
-root license and authoritative schema. Binary archives include root, vendor,
-GraphQL-JS and dependency notices in distinct paths. A license-file availability
+Native source archives contain the Rust workspace, build inputs, root license
+and authoritative schema. Binary archives include root, GraphQL-JS and
+dependency notices in distinct paths. A license-file availability
 inventory is packaging provenance, not a claim that every target was built.
 
 Acceptance records distinguish code completeness and available-box checks from

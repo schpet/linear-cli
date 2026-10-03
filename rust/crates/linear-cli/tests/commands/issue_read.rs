@@ -7,7 +7,6 @@ use linear_cli::{
             number::{Float, WholeNumber},
         },
     },
-    platform::markdown_assets,
 };
 use serde_json::{Value, json};
 use std::time::{Duration, UNIX_EPOCH};
@@ -224,57 +223,6 @@ fn pipe_markdown_hierarchy_comments_and_resolved_summary_match_source() {
             && hidden.contains("## Attachments")
             && hidden.contains("## Documents")
     );
-}
-#[tokio::test]
-async fn source_array_images_then_links_per_body_dedup_first_alt_and_cache_hits() {
-    let dir = std::env::temp_dir().join(format!("linear-issue-read-assets-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    let mut fetched = vec![];
-    let sources = [
-        "![first](data:text/plain,one) [link](https://uploads.linear.app/link)",
-        "![later](data:text/plain,one) ![second](data:text/plain,two)",
-    ];
-    let paths = markdown_assets::download_sources_with(
-        &sources,
-        &dir,
-        |url| {
-            fetched.push(url.clone());
-            std::future::ready(Ok(url.into_bytes()))
-        },
-        |_| panic!("no failures"),
-    )
-    .await
-    .unwrap()
-    .paths;
-    assert_eq!(
-        fetched,
-        [
-            "data:text/plain,one",
-            "https://uploads.linear.app/link",
-            "data:text/plain,two"
-        ]
-    );
-    assert!(paths["data:text/plain,one"].ends_with("/first"));
-    fetched.clear();
-    markdown_assets::download_sources_with(
-        &sources,
-        &dir,
-        |url| {
-            fetched.push(url);
-            std::future::ready(Ok(vec![]))
-        },
-        |_| panic!("no failures"),
-    )
-    .await
-    .unwrap();
-    assert!(fetched.is_empty());
-    assert_eq!(markdown_assets::sanitized_attachment_filename(""), "");
-    assert_eq!(markdown_assets::sanitized_filename(None), "image");
-    assert_eq!(
-        markdown_assets::sanitized_attachment_filename("report:?.bin"),
-        "report.bin"
-    );
-    std::fs::remove_dir_all(dir).unwrap();
 }
 #[test]
 fn source_search_selected_state_has_no_position_and_preserves_total_count() {

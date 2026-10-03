@@ -6,7 +6,7 @@ use crate::{
     error::{Error, Result, ResultExt},
     graphql::{envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport},
     platform::{
-        markdown_assets, markdown_ast, markdown_serializer,
+        markdown_assets,
         markdown_terminal::{self, RenderOptions},
     },
 };
@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use cynic::QueryBuilder;
 use std::{
     collections::{HashMap, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
 };
 pub fn run(ctx: &Ctx, args: &IssueView) -> Result<()> {
     view(ctx, args).context("Failed to view issue")
@@ -39,8 +39,8 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     let image_root = &ctx.config().image_cache_root;
     let mut issue = fetched.into_issue();
     if download {
-        ctx.block_on(download_images(client, &mut issue, image_root, |bytes| {
-            ctx.eprint(bytes)
+        ctx.block_on(download_images(client, &mut issue, image_root, |line| {
+            ctx.eprint(line)
         }))?;
     }
     let paths = if attachments {
@@ -48,12 +48,15 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
             .attachment_dir()
             .map(|v| v.value().clone())
             .filter(|dir| !dir.is_empty())
-            .unwrap_or_else(|| {
-                markdown_assets::posix_join(&[
-                    image_root.parent().and_then(Path::to_str).unwrap_or("/tmp"),
-                    "linear-cli-attachments",
-                ])
-            });
+            .map_or_else(
+                || {
+                    image_root
+                        .parent()
+                        .unwrap_or(Path::new("/tmp"))
+                        .join("linear-cli-attachments")
+                },
+                PathBuf::from,
+            );
         ctx.block_on(download_attachments(
             client,
             &issue,
@@ -155,35 +158,24 @@ pub async fn fetch(
         Ok(Fetched::Without(data.issue.ok_or_else(missing)?))
     }
 }
-pub async fn download_images<E>(
+pub async fn download_images(
     transport: &GraphQlTransport,
     issue: &mut Issue,
     root: &Path,
-    emit: E,
-) -> Result<(), Error>
-where
-    E: FnMut(&[u8]) -> Result<(), Error>,
-{
+    report: impl FnMut(String) -> Result<(), Error>,
+) -> Result<(), Error> {
     let mut sources = vec![];
     if let Some(body) = issue.description.as_deref() {
         sources.push(body);
     }
     sources.extend(issue.comments.nodes.iter().map(|c| c.body.as_str()));
-    let paths = markdown_assets::download_sources_with(
-        &sources,
-        root,
-        |url| async move { transport.download_markdown_image(&url).await },
-        emit,
-    )
-    .await?
-    .paths;
+    let paths = markdown_assets::download(transport, root, &sources, report).await?;
     if !paths.is_empty() {
-        if let Some(body) = issue.description.as_mut().filter(|s| !s.is_empty()) {
-            *body = markdown_ast::rewrite_with(body, &paths, markdown_serializer::serialize)?;
+        if let Some(body) = issue.description.as_mut() {
+            *body = markdown_assets::rewrite(body, &paths);
         }
         for comment in &mut issue.comments.nodes {
-            comment.body =
-                markdown_ast::rewrite_with(&comment.body, &paths, markdown_serializer::serialize)?;
+            comment.body = markdown_assets::rewrite(&comment.body, &paths);
         }
     }
     Ok(())
@@ -191,7 +183,7 @@ where
 pub async fn download_attachments<E>(
     transport: &GraphQlTransport,
     issue: &Issue,
-    root: &str,
+    root: &Path,
     mut emit: E,
 ) -> Result<HashMap<String, String>, Error>
 where
@@ -201,7 +193,7 @@ where
     if issue.attachments.nodes.is_empty() {
         return Ok(paths);
     }
-    let directory = markdown_assets::posix_join(&[root, &issue.identifier]);
+    let directory = root.join(&issue.identifier);
     std::fs::create_dir_all(&directory).map_err(io_error)?;
     for attachment in &issue.attachments.nodes {
         let result: Result<Option<String>, Error> = async {
@@ -214,15 +206,18 @@ where
             ) {
                 return Ok(None);
             }
-            let path = markdown_assets::posix_join(&[
-                &directory,
-                &markdown_assets::sanitized_attachment_filename(&attachment.title),
-            ]);
-            if std::fs::metadata(&path).is_err() {
+            let path = directory.join(markdown_assets::sanitized_filename(
+                &attachment.title,
+                "attachment",
+            ));
+            if !path.exists() {
                 let bytes = transport.download_issue_attachment(&attachment.url).await?;
                 std::fs::write(&path, bytes).map_err(io_error)?;
             }
-            Ok(Some(path))
+            path.into_os_string()
+                .into_string()
+                .map(Some)
+                .map_err(|_| Error::new("Attachment path is not valid UTF-8"))
         }
         .await;
         match result {

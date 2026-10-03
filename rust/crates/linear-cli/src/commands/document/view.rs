@@ -12,7 +12,7 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::{markdown_assets, markdown_ast, markdown_serializer};
+use crate::platform::markdown_assets;
 
 pub fn run(ctx: &Ctx, args: &DocumentView) -> Result<()> {
     view(ctx, args).context("Failed to view document")
@@ -57,19 +57,17 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
     ctx.show_markdown(&markdown, false)
 }
 
-/// The content with its images downloaded and pointed at the local copies.
+/// The content with its uploaded files downloaded and pointed at the local
+/// copies.
 fn local_images(ctx: &Ctx, client: &GraphQlTransport, content: &str) -> Result<String> {
     let root = &ctx.config().image_cache_root;
-    let downloaded = ctx.block_on(markdown_assets::download_with(
-        content,
+    let paths = ctx.block_on(markdown_assets::download(
+        client,
         root,
-        |url| async move { client.download_markdown_image(&url).await },
-        |bytes| ctx.eprint(bytes),
+        &[content],
+        |line| ctx.eprint(line),
     ))?;
-    if downloaded.paths.is_empty() {
-        return Ok(content.to_owned());
-    }
-    markdown_ast::rewrite_with(content, &downloaded.paths, markdown_serializer::serialize)
+    Ok(markdown_assets::rewrite(content, &paths))
 }
 
 async fn body(client: &GraphQlTransport, id: &str, original: &str) -> Result<DocumentBody> {

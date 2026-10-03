@@ -11,8 +11,6 @@ pub mod style;
 pub mod vcs;
 
 pub mod markdown_assets;
-pub mod markdown_ast;
-pub mod markdown_serializer;
 
 pub mod editor;
 
