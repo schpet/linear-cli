@@ -11,7 +11,7 @@ use crate::auth::{
     self, ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialStore,
     CredentialWarning, LookupFailureCategory,
 };
-use crate::config::{ConfigOptions, StartupConfig, TransportEnvInputs};
+use crate::config::{ConfigOptions, ConfigSecret, StartupConfig, TransportEnvInputs};
 use crate::error::{Error, Result};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::markdown_terminal::{self, HostSource, RenderOptions};
@@ -157,16 +157,16 @@ impl Ctx {
         if let Some(client) = self.client.get() {
             return Ok(client);
         }
-        let credentials = self.credentials()?;
-        let client = connect(
-            self.options(),
-            credentials,
-            &self.selection(),
-            &self.config.transport_env,
-        );
-        self.report_credential_warnings()?;
-        let client = client?;
+        let client = connect(self.options(), self.api_key()?, &self.config.transport_env)?;
         Ok(self.client.get_or_init(|| client))
+    }
+
+    /// The API key commands authenticate with, after reporting any
+    /// credential warnings.
+    pub fn api_key(&self) -> Result<&ConfigSecret> {
+        let key = select_key(&self.selection(), self.credentials()?);
+        self.report_credential_warnings()?;
+        key
     }
 
     /// Prints, once, the warnings reading credentials produced so far: an
@@ -373,35 +373,35 @@ pub fn selection_inputs<'a>(
     }
 }
 
-/// Builds an API client from the selected credential.
+/// The API key `inputs` select, or why there is none.
+pub fn select_key<'a>(
+    inputs: &CredentialSelectionInputs<'a>,
+    credentials: &'a CredentialStore,
+) -> Result<&'a ConfigSecret> {
+    match auth::resolve(inputs, credentials) {
+        CredentialSelection::Selected { secret, .. } => Ok(secret),
+        CredentialSelection::NoKey => Err(Error::auth("No API key configured").with_hint(
+            "Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
+        )),
+        CredentialSelection::EnvWorkspaceConflict => Err(Error::new(
+            "Cannot use --workspace while LINEAR_API_KEY is set",
+        )
+        .with_hint("Unset LINEAR_API_KEY or remove the --workspace flag.")),
+        CredentialSelection::MissingExplicitWorkspace { workspace } => Err(Error::auth(format!(
+            "Workspace \"{workspace}\" not found in credentials"
+        ))
+        .with_hint(
+            "Run `linear auth login` to add it, or `linear auth list` to see configured workspaces.",
+        )),
+    }
+}
+
+/// Builds an API client that authenticates with `secret`.
 pub fn connect(
     options: &ConfigOptions,
-    credentials: &CredentialStore,
-    inputs: &CredentialSelectionInputs<'_>,
+    secret: &ConfigSecret,
     transport_env: &TransportEnvInputs,
 ) -> Result<GraphQlTransport> {
-    let secret = match auth::resolve(inputs, credentials) {
-        CredentialSelection::Selected { secret, .. } => secret,
-        CredentialSelection::NoKey => {
-            return Err(Error::auth("No API key configured").with_hint(
-                "Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
-            ));
-        }
-        CredentialSelection::EnvWorkspaceConflict => {
-            return Err(
-                Error::new("Cannot use --workspace while LINEAR_API_KEY is set")
-                    .with_hint("Unset LINEAR_API_KEY or remove the --workspace flag."),
-            );
-        }
-        CredentialSelection::MissingExplicitWorkspace { workspace } => {
-            return Err(Error::auth(format!(
-                "Workspace \"{workspace}\" not found in credentials"
-            ))
-            .with_hint(
-                "Run `linear auth login` to add it, or `linear auth list` to see configured workspaces.",
-            ));
-        }
-    };
     let key = auth::header::to_api_key(secret).map_err(|error| {
         Error::new("API key cannot be used as an HTTP header").with_source(error)
     })?;

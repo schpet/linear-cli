@@ -94,13 +94,9 @@ fn ask<R: std::io::Read, W: std::io::Write>(
     };
     session.suspend()?;
     let inputs = ctx::selection_inputs(ctx.options(), workspace.as_deref());
-    let client = ctx::connect(
-        ctx.options(),
-        ctx.credentials()?,
-        &inputs,
-        &ctx.config().transport_env,
-    )?;
+    let key = ctx::select_key(&inputs, ctx.credentials()?);
     ctx.report_credential_warnings()?;
+    let client = ctx::connect(ctx.options(), key?, &ctx.config().transport_env)?;
     let (url_key, teams) = ctx.spin(true, async {
         let url_key = viewer::url_key(&client).await?;
         let teams = fetch_all_teams_with_transport(&client).await?;

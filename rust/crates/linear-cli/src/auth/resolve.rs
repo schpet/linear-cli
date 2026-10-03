@@ -97,7 +97,7 @@ fn truthy(value: &str) -> bool {
 
 /// Resolve a key without HTTP-header transformation or any backend interaction.
 pub fn resolve<'a>(
-    inputs: &'a CredentialSelectionInputs<'a>,
+    inputs: &CredentialSelectionInputs<'a>,
     store: &'a CredentialStore,
 ) -> CredentialSelection<'a> {
     let cli = inputs.cli_workspace.filter(|value| truthy(value));
