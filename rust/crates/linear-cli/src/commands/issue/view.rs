@@ -74,13 +74,8 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     let columns = crate::platform::pager::stdout_size()
         .and_then(|size| std::num::NonZeroU16::new(size.columns))
         .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
-    let hyperlinks = options.hyperlink_format().map(|v| v.value().as_str());
-    let render = RenderOptions::for_terminal(
-        columns,
-        ctx.color(),
-        hyperlinks,
-        markdown_terminal::HostSource::System,
-    );
+    let file_link = options.hyperlink_format().map(|v| v.value().as_str());
+    let render = RenderOptions::for_terminal(columns, ctx.color(), file_link);
     let rendered = terminal(
         &issue,
         &paths,
@@ -488,7 +483,7 @@ pub fn terminal(
     options: &RenderOptions,
     links: bool,
 ) -> Result<String, Error> {
-    let mut out = markdown_terminal::render(&body(issue)?, options)?;
+    let mut out = markdown_terminal::render(&body(issue)?, options);
     for section in [
         hierarchy(issue),
         attachments(issue, paths),
@@ -496,7 +491,7 @@ pub fn terminal(
     ] {
         if !section.is_empty() {
             out.push('\n');
-            out.push_str(&markdown_terminal::render(&section, options)?);
+            out.push_str(&markdown_terminal::render(&section, options));
         }
     }
     let threads = threads(&issue.comments.nodes, show_resolved)?;
@@ -523,14 +518,16 @@ pub fn terminal(
         )
     };
     if !threads.roots.is_empty() {
-        out.push_str("\n\n## Comments\n\n");
+        out.push('\n');
+        out.push_str(&markdown_terminal::render("## Comments", options));
+        out.push('\n');
         for (index, root) in threads.roots.iter().enumerate() {
             if index > 0 {
                 out.push_str("\n\n");
             }
             out.push_str(&header(root, &suffix(root, links), ""));
             out.push('\n');
-            out.push_str(&markdown_terminal::render(&root.body, options)?);
+            out.push_str(&markdown_terminal::render(&root.body, options));
             let replies = threads.replies.get(root.id.inner());
             if replies.is_some_and(|v| !v.is_empty()) {
                 out.push('\n');
@@ -545,7 +542,7 @@ pub fn terminal(
                     ..options.clone()
                 };
                 out.push_str(
-                    &markdown_terminal::render(&reply.body, &reply_options)?
+                    &markdown_terminal::render(&reply.body, &reply_options)
                         .split('\n')
                         .map(|line| format!("  {line}"))
                         .collect::<Vec<_>>()

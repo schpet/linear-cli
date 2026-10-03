@@ -253,11 +253,11 @@ fn final_query_team_scope_uses_eq_and_or_while_state_lookup_retains_in() {
 
 #[test]
 fn terminal_comment_roots_with_replies_preserve_exact_source_separator() {
-    let options = linear_cli::platform::markdown_terminal::RenderOptions {
-        columns: std::num::NonZeroU16::new(80).unwrap(),
-        styled: false,
-        image_hyperlinks: None,
-    };
+    let options = linear_cli::platform::markdown_terminal::RenderOptions::for_terminal(
+        std::num::NonZeroU16::new(80).unwrap(),
+        false,
+        None,
+    );
     let rendered = format!(
         "{}\n",
         view::terminal(

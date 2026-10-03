@@ -37,7 +37,7 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     if !ctx.stdout_tty() {
         return ctx.print(format!("{}\n", markdown(&detail, now, false)));
     }
-    let rendered = ctx.render_markdown(&markdown(&detail, now, true))?;
+    let rendered = ctx.render_markdown(&markdown(&detail, now, true));
     let status = format!("**Status:** {}", detail.status.as_str());
     let status = super::list::status_style(&detail.status, &status, ctx.color());
     ctx.print(format!("{status}\n{rendered}\n"))

@@ -14,7 +14,7 @@ use crate::auth::{
 use crate::config::{ConfigOptions, ConfigSecret, StartupConfig, TransportEnvInputs};
 use crate::error::{Error, Result};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::markdown_terminal::{self, HostSource, RenderOptions};
+use crate::platform::markdown_terminal::{self, RenderOptions};
 use crate::platform::output::{self, Stdout, StdoutWriter};
 use crate::platform::prompt::Prompter;
 use crate::platform::spinner::Spinner;
@@ -258,21 +258,20 @@ impl Ctx {
         if !self.terminal.stdout_tty {
             return self.print(format!("{markdown}\n"));
         }
-        let rendered = self.render_markdown(markdown)?;
+        let rendered = self.render_markdown(markdown);
         self.page(&rendered, paging)
     }
 
     /// Renders Markdown for the stdout terminal.
-    pub fn render_markdown(&self, markdown: &str) -> Result<String> {
+    pub fn render_markdown(&self, markdown: &str) -> String {
         let columns = pager::stdout_size()
             .and_then(|size| NonZeroU16::new(size.columns))
             .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
-        let hyperlinks = self
+        let file_link = self
             .options()
             .hyperlink_format()
             .map(|value| value.value().as_str());
-        let options =
-            RenderOptions::for_terminal(columns, self.color(), hyperlinks, HostSource::System);
+        let options = RenderOptions::for_terminal(columns, self.color(), file_link);
         markdown_terminal::render(markdown, &options)
     }
 

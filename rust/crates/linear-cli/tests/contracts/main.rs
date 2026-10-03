@@ -1,6 +1,5 @@
 mod completions;
 mod fish_completion;
-mod markdown_terminal;
 
 mod issue_reads;
 
