@@ -5,6 +5,7 @@ use chrono::NaiveDate;
 use crate::cli::project::{ProjectCreate, Status};
 use crate::cli::values::{self, Priority};
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -156,9 +157,11 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     if args.json {
         ctx.print(crate::commands::json::render(&project))?;
     } else {
-        ctx.print(format!(
-            "✓ Created project: {}\n  Slug: {}\n  URL: {}\n",
-            project.name, project.slug_id, project.url
+        ctx.print(outcome::done(
+            "Created",
+            "project",
+            &project.name,
+            Some(&project.url),
         ))?;
     }
     let Some((initiative, linked)) = linked else {
@@ -166,7 +169,12 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     };
     match linked {
         Ok(()) if args.json => Ok(()),
-        Ok(()) => ctx.print(format!("✓ Added to initiative: {initiative}\n")),
+        Ok(()) => ctx.print(outcome::done(
+            "Added",
+            "project to initiative",
+            initiative,
+            None,
+        )),
         Err(error) => {
             let color = ctx.terminal().stderr_color();
             ctx.eprint(format!(

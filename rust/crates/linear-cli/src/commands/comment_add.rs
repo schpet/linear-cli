@@ -121,7 +121,13 @@ pub async fn create(
 
 /// The success lines, naming the target as the user gave it.
 pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
-    format!("✓ Comment added to {noun} {original}\n{}\n", comment.url).into_bytes()
+    super::outcome::done(
+        "Added",
+        "comment to",
+        &format!("{noun} {original}"),
+        Some(&comment.url),
+    )
+    .into_bytes()
 }
 
 /// `document(id:)` is non-null, so Linear reports a missing document as a

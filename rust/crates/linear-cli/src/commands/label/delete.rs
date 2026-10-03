@@ -3,6 +3,7 @@
 use crate::cli::label::LabelDelete;
 use crate::client::LinearClient;
 use crate::commands::confirm;
+use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -71,7 +72,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
     if !result.issue_label_delete.success {
         return Err(Error::new("Linear did not delete the label"));
     }
-    ctx.print(format!("✓ Deleted label: {}\n", display(&label)))
+    ctx.print(outcome::done("Deleted", "label", &display(&label), None))
 }
 
 async fn by_uuid(client: &LinearClient, id: &str) -> Result<Label> {

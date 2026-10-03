@@ -1,6 +1,7 @@
 //! `auth logout`: forget a workspace's credential.
 use crate::auth::keyring::native_backend;
 use crate::cli::auth::AuthLogout;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::platform::prompt::Choice;
@@ -30,11 +31,11 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
     };
     let question = format!("Remove credentials for workspace \"{workspace}\"?");
     if !args.force && !ctx.confirm(&question, "--force")? {
-        return ctx.print("Logout canceled\n");
+        return outcome::canceled(ctx);
     }
     let backend = native_backend(&ctx.config().child_env);
     ctx.spin(true, credentials.remove(&workspace, &backend))?;
-    let mut output = format!("Removed credentials for workspace: {workspace}\n");
+    let mut output = outcome::done("Removed", "credentials for workspace", &workspace, None);
     if let Some(default) = credentials.default() {
         output.push_str(&format!("  Default workspace is now: {default}\n"));
     }

@@ -1,6 +1,7 @@
 //! `initiative add-project` / `remove-project`: link or unlink a project.
 use crate::cli::initiative::{InitiativeAddProject, InitiativeRemoveProject};
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::common::IdVariables;
@@ -46,9 +47,11 @@ fn add_project(ctx: &Ctx, args: &InitiativeAddProject) -> Result<()> {
     if !result.initiative_to_project_create.success {
         return Err(Error::new("Linear did not link the project"));
     }
-    ctx.print(format!(
-        "✓ Added \"{}\" to initiative \"{}\"\n",
-        link.project, link.initiative
+    ctx.print(outcome::done(
+        "Added",
+        "project",
+        &format!("{} to initiative {}", link.project, link.initiative),
+        None,
     ))
 }
 
@@ -70,16 +73,18 @@ fn remove_project(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
         link.project, link.initiative
     );
     if !args.force && !ctx.confirm(&question, "--force")? {
-        return ctx.print("Removal cancelled.\n");
+        return outcome::canceled(ctx);
     }
     let result: RemoveProjectFromInitiative =
         ctx.spin(true, client.mutate(IdVariables { id: link_id }))?;
     if !result.initiative_to_project_delete.success {
         return Err(Error::new("Linear did not unlink the project"));
     }
-    ctx.print(format!(
-        "✓ Removed \"{}\" from initiative \"{}\"\n",
-        link.project, link.initiative
+    ctx.print(outcome::done(
+        "Removed",
+        "project",
+        &format!("{} from initiative {}", link.project, link.initiative),
+        None,
     ))
 }
 

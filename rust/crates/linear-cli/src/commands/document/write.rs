@@ -2,6 +2,7 @@
 //! editor or prompts, then one mutation.
 use crate::cli::document::{DocumentCreate, DocumentUpdate};
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
@@ -111,9 +112,11 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         }
         Ok(data.document_create.document)
     })?;
-    ctx.print(format!(
-        "✓ Created document: {}\n{}\n",
-        created.title, created.url
+    ctx.print(outcome::done(
+        "Created",
+        "document",
+        &created.title,
+        Some(&created.url),
     ))
 }
 
@@ -162,10 +165,10 @@ fn update_document(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
         ctx.print(format!("Opening {} in editor...\n", document.title))?;
         let edited = ctx.edit_text(&seed)?;
         if edited == seed {
-            return ctx.print("No changes detected, update cancelled.\n");
+            return ctx.print("No changes made; the document is unchanged.\n");
         }
         let Some(content) = text_input::edited_body(&edited) else {
-            return ctx.print("No changes made, update cancelled.\n");
+            return ctx.print("No changes made; the document is unchanged.\n");
         };
         input.content = Some(content);
     }
@@ -184,9 +187,11 @@ fn update_document(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
         }
         Ok(data.document_update.document)
     })?;
-    ctx.print(format!(
-        "✓ Updated document: {}\n{}\n",
-        updated.title, updated.url
+    ctx.print(outcome::done(
+        "Updated",
+        "document",
+        &updated.title,
+        Some(&updated.url),
     ))
 }
 

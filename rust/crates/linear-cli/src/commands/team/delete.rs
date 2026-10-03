@@ -3,6 +3,7 @@ use crate::cli::team::TeamDelete;
 use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkOutcome, BulkResult, Verb};
 use crate::commands::confirm;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::common::IdVariables;
@@ -74,7 +75,12 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
     if !result.team_delete.success {
         return Err(Error::new("Linear did not delete the team"));
     }
-    ctx.print(format!("✓ Deleted team {}: {}\n", team.key, team.name))
+    ctx.print(outcome::done(
+        "Deleted",
+        "team",
+        &format!("{}: {}", team.key, team.name),
+        None,
+    ))
 }
 
 /// Every issue of the team.

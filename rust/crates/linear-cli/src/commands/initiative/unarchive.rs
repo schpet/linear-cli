@@ -1,6 +1,7 @@
 //! `initiative unarchive`: find the archived initiative, confirm, restore it.
 use crate::cli::initiative::InitiativeUnarchive;
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::initiative::{
@@ -29,7 +30,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     }
     let question = format!("Are you sure you want to unarchive \"{}\"?", detail.name);
     if !args.force && !ctx.confirm(&question, "--force")? {
-        return ctx.print("Unarchive cancelled.\n");
+        return outcome::canceled(ctx);
     }
     let result: UnarchiveInitiative = ctx.spin(
         true,
@@ -40,14 +41,8 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     if !result.initiative_unarchive.success {
         return Err(Error::new("Linear did not unarchive the initiative"));
     }
-    let mut output = format!("✓ Unarchived initiative: {}\n", detail.name);
-    if let Some(entity) = result
-        .initiative_unarchive
-        .entity
-        .filter(|entity| !entity.url.is_empty())
-    {
-        output.push_str(&format!("{}\n", entity.url));
-    }
+    let url = result.initiative_unarchive.entity.map(|entity| entity.url);
+    let output = outcome::done("Unarchived", "initiative", &detail.name, url.as_deref());
     ctx.print(output)
 }
 

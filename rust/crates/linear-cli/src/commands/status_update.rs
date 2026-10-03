@@ -4,6 +4,7 @@ use chrono::{DateTime, Local, Utc};
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
@@ -83,14 +84,15 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
     };
     let body = body.filter(|body| !body.trim().is_empty());
     let created = ctx.spin(true, submit(client, target, &id, body, health))?;
-    let mut output = format!(
-        "✓ Created status update for {}\n",
-        created.name.as_deref().unwrap_or(original)
+    let mut output = outcome::done(
+        "Created",
+        "status update for",
+        created.name.as_deref().unwrap_or(original),
+        Some(&created.url),
     );
     if let Some(health) = created.health {
-        output.push_str(&format!("Health: {}\n", health.label()));
+        output.push_str(&format!("  Health: {}\n", health.label()));
     }
-    output.push_str(&format!("{}\n", created.url));
     ctx.print(output)
 }
 

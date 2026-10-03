@@ -2,6 +2,7 @@
 //! any field flag.
 use crate::cli::team::TeamCreate;
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::team::{
@@ -31,7 +32,12 @@ fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
     };
     let client = ctx.client()?;
     let team = ctx.spin(true, submit(client, input))?;
-    ctx.print(format!("✓ Created team {}: {}\n", team.key, team.name))
+    ctx.print(outcome::done(
+        "Created",
+        "team",
+        &format!("{}: {}", team.key, team.name),
+        None,
+    ))
 }
 
 /// Asks for every field; empty optional answers are left out.

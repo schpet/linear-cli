@@ -4,6 +4,7 @@
 use crate::cli::project::ProjectUpdate;
 use crate::cli::values::Priority;
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::commands::project::collections::{
     self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
 };
@@ -145,8 +146,8 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
         Ok::<_, Error>(shown)
     })?;
     ctx.print(match shown {
-        Some(shown) => format!("✓ Updated project: {}\n{}\n", shown.name, shown.url),
-        None => format!("✓ Updated project: {original}\n"),
+        Some(shown) => outcome::done("Updated", "project", &shown.name, Some(&shown.url)),
+        None => outcome::done("Updated", "project", original, None),
     })
 }
 

@@ -802,7 +802,7 @@ fn create_reports_a_failed_initiative_link_after_creating() {
             initiative,
         ])
         .failure()
-        .stdout_has("Created project: Fixture project")
+        .stdout_has("✓ Created project Fixture project")
         .stderr_has("Initiative is archived")
         .stderr_has("--add-initiative");
 }
@@ -860,7 +860,7 @@ fn delete_resolves_names() {
     Cli::for_api(&api)
         .run(&["project", "delete", "Mobile App", "--force"])
         .success()
-        .stdout_has("Deleted project: Mobile App");
+        .stdout_has("✓ Deleted project Mobile App");
     assert_eq!(api.variables("DeleteProject"), json!({ "id": ID }));
 }
 

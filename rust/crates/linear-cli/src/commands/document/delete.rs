@@ -2,6 +2,7 @@
 use crate::cli::document::DocumentDelete;
 use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::common::IdVariables;
@@ -36,10 +37,10 @@ fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     })?;
     let question = format!("Are you sure you want to delete \"{}\"?", document.title);
     if !args.yes && !ctx.confirm(&question, "--yes")? {
-        return ctx.print("Delete cancelled.\n");
+        return outcome::canceled(ctx);
     }
     ctx.spin(true, submit(client, document.id.inner()))?;
-    ctx.print(format!("✓ Deleted document: {}\n", document.title))
+    ctx.print(outcome::done("Deleted", "document", &document.title, None))
 }
 
 fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Result<()> {
@@ -50,7 +51,7 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
     ctx.print(format!("Found {} document(s) to delete.\n", ids.len()))?;
     let question = format!("Delete {} document(s)?", ids.len());
     if !args.yes && !ctx.confirm(&question, "--yes")? {
-        return ctx.print("Bulk delete cancelled.\n");
+        return outcome::canceled(ctx);
     }
     let scope = ctx.scope()?;
     let targets: Vec<_> = ids

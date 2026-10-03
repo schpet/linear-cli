@@ -1,5 +1,6 @@
 //! `milestone update`: change the given fields of one milestone.
 use crate::cli::milestone::MilestoneUpdate;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::milestone::{
@@ -47,11 +48,8 @@ fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
 }
 
 fn render(milestone: &UpdatedMilestone) -> String {
-    let mut output = format!(
-        "✓ Updated milestone: {}\n  ID: {}\n",
-        milestone.name,
-        milestone.id.inner()
-    );
+    let mut output = outcome::done("Updated", "milestone", &milestone.name, None);
+    output.push_str(&format!("  ID: {}\n", milestone.id.inner()));
     if let Some(date) = milestone.target_date {
         output.push_str(&format!("  Target Date: {date}\n"));
     }

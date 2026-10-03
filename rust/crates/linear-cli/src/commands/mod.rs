@@ -16,6 +16,7 @@ pub mod issue;
 pub mod json;
 pub mod label;
 pub mod milestone;
+pub mod outcome;
 pub mod project;
 pub mod project_update;
 pub mod prosemirror;

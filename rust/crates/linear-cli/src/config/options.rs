@@ -621,7 +621,9 @@ impl ConfigOptions {
             .map_or(AssignSelf::Auto, |resolved| resolved.value)
     }
     pub fn vcs(&self) -> Vcs {
-        self.vcs.as_ref().map_or(Vcs::Git, |resolved| resolved.value)
+        self.vcs
+            .as_ref()
+            .map_or(Vcs::Git, |resolved| resolved.value)
     }
     #[cfg(test)]
     pub fn vcs_source(&self) -> Option<&OptionSource> {

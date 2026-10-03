@@ -786,7 +786,7 @@ fn add_project_links_with_a_sort_order() {
             "2.5",
         ])
         .success()
-        .stdout_has("✓ Added \"Mobile\" to initiative \"Roadmap\"");
+        .stdout_has("✓ Added project Mobile to initiative Roadmap");
     assert_eq!(
         api.variables("GetInitiativeProjectLinks"),
         json!({ "initiativeId": ID, "projectId": PROJECT_ID, "after": null })
@@ -845,7 +845,7 @@ fn remove_project_deletes_the_link() {
     Cli::for_api(&api)
         .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
         .success()
-        .stdout_has("✓ Removed \"Mobile\" from initiative \"Roadmap\"");
+        .stdout_has("✓ Removed project Mobile from initiative Roadmap");
     assert_eq!(
         api.variables("RemoveProjectFromInitiative"),
         json!({ "id": "link-1" })

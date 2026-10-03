@@ -1,6 +1,7 @@
 //! `project delete`: move one project to the trash after confirmation.
 use crate::cli::project::ProjectDelete;
 use crate::commands::confirm;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::project::{DeleteProject, DeleteProjectVariables};
@@ -30,5 +31,5 @@ fn delete(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
         .entity
         .as_ref()
         .map_or(original.as_str(), |entity| entity.name.as_str());
-    ctx.print(format!("✓ Deleted project: {name}\n"))
+    ctx.print(outcome::done("Deleted", "project", name, None))
 }

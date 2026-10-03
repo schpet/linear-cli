@@ -1,6 +1,7 @@
 //! `milestone create`: one mutation after resolving the project.
 use crate::cli::milestone::MilestoneCreate;
 use crate::client::LinearClient;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::milestone::{
@@ -50,11 +51,8 @@ async fn submit(
 }
 
 fn render(milestone: &CreatedMilestone) -> String {
-    let mut output = format!(
-        "✓ Created milestone: {}\n  ID: {}\n",
-        milestone.name,
-        milestone.id.inner()
-    );
+    let mut output = outcome::done("Created", "milestone", &milestone.name, None);
+    output.push_str(&format!("  ID: {}\n", milestone.id.inner()));
     if let Some(date) = milestone.target_date {
         output.push_str(&format!("  Target Date: {date}\n"));
     }

@@ -42,18 +42,15 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
         }))?;
     }
     let paths = if attachments {
-        let attachment_root = options
-            .attachment_dir()
-            .map(str::to_owned)
-            .map_or_else(
-                || {
-                    image_root
-                        .parent()
-                        .unwrap_or(Path::new("/tmp"))
-                        .join("linear-cli-attachments")
-                },
-                PathBuf::from,
-            );
+        let attachment_root = options.attachment_dir().map(str::to_owned).map_or_else(
+            || {
+                image_root
+                    .parent()
+                    .unwrap_or(Path::new("/tmp"))
+                    .join("linear-cli-attachments")
+            },
+            PathBuf::from,
+        );
         ctx.block_on(download_attachments(
             client,
             &issue,

@@ -1,4 +1,5 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
+use crate::commands::outcome;
 use crate::refs;
 use chrono::NaiveDate;
 
@@ -178,12 +179,10 @@ async fn submit(client: &LinearClient, input: InitiativeCreateInput) -> Result<C
 }
 
 fn render(initiative: &CreatedInitiative) -> String {
-    let mut output = format!(
-        "✓ Created initiative: {}\n  Slug: {}\n",
-        initiative.name, initiative.slug_id
-    );
-    if !initiative.url.is_empty() {
-        output.push_str(&format!("  URL: {}\n", initiative.url));
-    }
-    output
+    outcome::done(
+        "Created",
+        "initiative",
+        &initiative.name,
+        Some(&initiative.url),
+    )
 }

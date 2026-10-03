@@ -2,6 +2,7 @@
 use crate::cli::initiative::{InitiativeArchive, InitiativeDelete};
 use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::common::IdVariables;
@@ -68,13 +69,6 @@ impl Mode {
         }
     }
 
-    const fn title(self) -> &'static str {
-        match self {
-            Self::Archive => "Archive",
-            Self::Delete => "Delete",
-        }
-    }
-
     /// Archived initiatives can be deleted but not archived again.
     const fn archived(self) -> Archived {
         match self {
@@ -117,14 +111,14 @@ fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         ))?;
     }
     if !request.force && !confirm_single(ctx, mode, &details.name)? {
-        return ctx.print(format!("{} cancelled.\n", mode.title()));
+        return outcome::canceled(ctx);
     }
     ctx.spin(true, submit(client, &details.id, mode))?;
     let done = match mode {
         Mode::Archive => "Archived",
         Mode::Delete => "Permanently deleted",
     };
-    ctx.print(format!("✓ {done} initiative: {}\n", details.name))
+    ctx.print(outcome::done(done, "initiative", &details.name, None))
 }
 
 /// Archiving asks once; deleting also asks for the initiative's name.
@@ -174,7 +168,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         Mode::Delete => format!("Permanently delete {} initiative(s)?", ids.len()),
     };
     if !request.force && !ctx.confirm(&question, "--force")? {
-        return ctx.print(format!("Bulk {} cancelled.\n", mode.verb()));
+        return outcome::canceled(ctx);
     }
     let scope = ctx.scope()?;
     let targets: Vec<_> = ids

@@ -1,6 +1,7 @@
 //! `label create`: a workspace or team label, from flags or prompts.
 use crate::cli::label::LabelCreate;
 use crate::commands::color;
+use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -156,10 +157,8 @@ fn render(payload: &CreateIssueLabelPayload) -> Result<String> {
         return Err(Error::new("Linear did not create the label"));
     }
     let label = &payload.issue_label;
-    let mut output = format!(
-        "✓ Created label: {}\n  Color: {}\n",
-        label.name, label.color
-    );
+    let mut output = outcome::done("Created", "label", &label.name, None);
+    output.push_str(&format!("  Color: {}\n", label.color));
     if let Some(description) = label.description.as_deref().filter(|text| !text.is_empty()) {
         output.push_str(&format!("  Description: {description}\n"));
     }

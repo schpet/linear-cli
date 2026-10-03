@@ -1,4 +1,5 @@
 //! `initiative update`: fields from flags or prompts, then one mutation.
+use crate::commands::outcome;
 use crate::refs::{self, initiative::Archived};
 use chrono::NaiveDate;
 
@@ -70,11 +71,12 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         };
         submit(client, &id, changes.into_input(owner_id)).await
     })?;
-    let mut output = format!("✓ Updated initiative: {}\n", updated.name);
-    if !updated.url.is_empty() {
-        output.push_str(&format!("{}\n", updated.url));
-    }
-    ctx.print(output)
+    ctx.print(outcome::done(
+        "Updated",
+        "initiative",
+        &updated.name,
+        Some(&updated.url),
+    ))
 }
 
 /// The fields to change; `None` leaves a field as it is.

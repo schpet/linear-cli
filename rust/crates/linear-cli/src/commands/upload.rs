@@ -225,5 +225,5 @@ pub fn warning(file: &UploadedFile) -> Option<Vec<u8>> {
     })
 }
 pub fn output(file: &UploadedFile) -> Vec<u8> {
-    format!("✓ Uploaded {}\n", file.file.filename).into_bytes()
+    super::outcome::done("Uploaded", "file", &file.file.filename, None).into_bytes()
 }

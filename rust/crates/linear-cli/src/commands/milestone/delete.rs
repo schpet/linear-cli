@@ -1,6 +1,7 @@
 //! `milestone delete`: delete one project milestone after confirmation.
 use crate::cli::milestone::MilestoneDelete;
 use crate::commands::confirm;
+use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::milestone::{
@@ -27,5 +28,5 @@ fn delete(ctx: &Ctx, args: &MilestoneDelete) -> Result<()> {
     if !result.project_milestone_delete.success {
         return Err(Error::new("Linear did not delete the milestone"));
     }
-    ctx.print(format!("✓ Deleted milestone {id}\n"))
+    ctx.print(outcome::done("Deleted", "milestone", id, None))
 }
