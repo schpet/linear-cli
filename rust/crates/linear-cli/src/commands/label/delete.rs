@@ -10,9 +10,7 @@ use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::common::NameVariables;
 use crate::graphql::operations::label::{DeleteIssueLabel, GetLabelById, GetLabelByName, Label};
 use crate::platform::prompt::Choice;
-use crate::refs::{
-    is_linear_uuid, prepare_team_lookup, reject_linear_url, resolve_team_with_transport,
-};
+use crate::refs::{self, is_linear_uuid, reject_linear_url, team::TeamReference};
 
 pub fn run(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete label")
@@ -29,7 +27,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
         None => configured_team_key(ctx.options()),
     };
     let team = team
-        .map(|team| prepare_team_lookup(&team, &ctx.scope()?))
+        .map(|team| TeamReference::parse(&team, &ctx.scope()?))
         .transpose()?;
     if !args.force {
         ctx.require_tty("--force")?;
@@ -40,7 +38,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
             return Ok::<_, Error>((vec![by_uuid(client, reference).await?], None));
         }
         let team_key = match &team {
-            Some(lookup) => Some(resolve_team_with_transport(lookup, client).await?.key),
+            Some(lookup) => Some(refs::team::resolve(client, lookup).await?.key),
             None => None,
         };
         let labels = by_name(client, reference).await?;

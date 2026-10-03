@@ -12,7 +12,7 @@ use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
+use crate::refs::{self, team::TeamReference};
 
 pub fn run(ctx: &Ctx, command: &TeamCommand) -> Result<()> {
     match command {
@@ -29,14 +29,14 @@ pub fn run(ctx: &Ctx, command: &TeamCommand) -> Result<()> {
 /// A team given as a command argument (looked up by key, name, or ID), or
 /// else the configured team key, which is used as is.
 enum TeamArg {
-    Lookup(PreparedTeamLookup),
+    Lookup(TeamReference),
     Configured(String),
 }
 
 impl TeamArg {
     fn prepare(ctx: &Ctx, team: Option<&str>) -> Result<Self> {
         match team {
-            Some(team) => Ok(Self::Lookup(prepare_team_lookup(team, &ctx.scope()?)?)),
+            Some(team) => Ok(Self::Lookup(TeamReference::parse(team, &ctx.scope()?)?)),
             None => configured_team_key(ctx.options())
                 .map(Self::Configured)
                 .ok_or_else(|| {
@@ -49,7 +49,7 @@ impl TeamArg {
 
     async fn key(self, client: &LinearClient) -> Result<String> {
         match self {
-            Self::Lookup(lookup) => Ok(resolve_team_with_transport(&lookup, client).await?.key),
+            Self::Lookup(lookup) => Ok(refs::team::resolve(client, &lookup).await?.key),
             Self::Configured(key) => Ok(key),
         }
     }

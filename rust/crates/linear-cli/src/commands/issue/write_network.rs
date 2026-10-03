@@ -46,13 +46,8 @@ impl NetworkBackend {
 impl Backend for NetworkBackend {
     async fn team(&self, reference: String) -> Result<Team, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
-        let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
-        let team = refs::resolve_team(
-            &prepared,
-            |variables| async move { Ok(self.client.query(variables).await?) },
-            |variables| async move { Ok(self.client.query(variables).await?) },
-        )
-        .await?;
+        let prepared = refs::team::TeamReference::parse(&reference, &self.scope(&key))?;
+        let team = refs::team::resolve(&self.client, &prepared).await?;
         Ok(Team {
             id: team.id,
             key: team.key,
@@ -61,29 +56,25 @@ impl Backend for NetworkBackend {
     }
     async fn find_team(&self, reference: String) -> Result<Option<Team>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
-        let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
-        Ok(refs::find_team(&prepared, |variables| async move {
-            Ok(self.client.query(variables).await?)
-        })
-        .await?
-        .map(|team| Team {
-            id: team.id,
-            key: team.key,
-            name: team.name,
-        }))
+        let prepared = refs::team::TeamReference::parse(&reference, &self.scope(&key))?;
+        Ok(refs::team::find(&self.client, &prepared)
+            .await?
+            .map(|team| Team {
+                id: team.id,
+                key: team.key,
+                name: team.name,
+            }))
     }
     async fn teams(&self) -> Result<Vec<Team>, Error> {
-        Ok(refs::fetch_all_teams(
-            |variables| async move { Ok(self.client.query(variables).await?) },
-        )
-        .await?
-        .into_iter()
-        .map(|team| Team {
-            id: team.id,
-            key: team.key,
-            name: team.name,
-        })
-        .collect())
+        Ok(refs::team::fetch_all(&self.client)
+            .await?
+            .into_iter()
+            .map(|team| Team {
+                id: team.id,
+                key: team.key,
+                name: team.name,
+            })
+            .collect())
     }
     async fn team_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         let data: ops::GetTeamIdOptionsByKey = self
@@ -116,7 +107,7 @@ impl Backend for NetworkBackend {
         if reference == "self" || reference == "@me" {
             return self.viewer().await;
         }
-        crate::commands::user::resolve(&self.client, &reference, "User").await
+        refs::user::resolve(&self.client, &reference, "User").await
     }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
         use crate::graphql::operations::team::{GetWorkflowStates, GetWorkflowStatesVariables};
@@ -236,8 +227,8 @@ impl Backend for NetworkBackend {
     }
     async fn project(&self, reference: String) -> Result<Option<String>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
-        let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
-        crate::commands::issue::read::project_id(&self.client, &prepared).await
+        let prepared = refs::project::ProjectReference::parse(&reference, &self.scope(&key))?;
+        refs::project::find(&self.client, &prepared).await
     }
     async fn project_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         use crate::graphql::operations::issue_read::{
@@ -309,14 +300,8 @@ impl Backend for NetworkBackend {
     }
     async fn cycle(&self, team_id: String, reference: String) -> Result<String, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
-        let url = refs::expect_url_kind(
-            &reference,
-            refs::LinearUrlKind::Cycle,
-            "a cycle URL, number, or name",
-            &self.scope(&key),
-        )?;
-        crate::commands::cycle::view::resolve_id(&self.client, &team_id, &reference, url.as_ref())
-            .await
+        let reference = refs::cycle::CycleReference::parse(&reference, &self.scope(&key))?;
+        refs::cycle::resolve(&self.client, &team_id, &reference).await
     }
     async fn parent_id(&self, reference: String) -> Result<String, Error> {
         let identifier = self.parent_reference(&reference).await?;

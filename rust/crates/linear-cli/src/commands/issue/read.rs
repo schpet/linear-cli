@@ -10,7 +10,7 @@ use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::scalars::WholeNumber;
 use crate::platform::style;
-use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
+use crate::refs::{self, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
 
 use std::num::NonZeroU32;
@@ -305,7 +305,7 @@ pub async fn assignee_filter(
         return Ok(None);
     };
     reject_linear_url(input, "an email, username, display name, or @me")?;
-    let id = cynic::Id::new(crate::commands::user::resolve(client, input, "User").await?);
+    let id = cynic::Id::new(refs::user::resolve(client, input, "User").await?);
     Ok(Some(NullableUserFilter {
         id: Some(IDComparator {
             eq: Some(id),
@@ -313,61 +313,6 @@ pub async fn assignee_filter(
         }),
         ..Default::default()
     }))
-}
-/// The ID of the project `reference` names: a UUID as given, else an exact
-/// name match (refusing ambiguous names), else a slug ID match.
-pub async fn project_id(
-    client: &LinearClient,
-    reference: &ProjectReference,
-) -> Result<Option<String>, Error> {
-    use crate::graphql::operations::project::{
-        GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
-    };
-    let slug = match reference {
-        ProjectReference::Id(id) => return Ok(Some(id.clone())),
-        ProjectReference::Slug(slug) => slug,
-        ProjectReference::NameOrSlug(name) => {
-            let data: GetProjectIdByName = client
-                .query(ProjectReferenceVariables { name: name.clone() })
-                .await?;
-            if data.projects.nodes.len() > 1 {
-                return Err(Error::new(format!(
-                    "Project \"{name}\" is ambiguous; it matches {} projects:\n{}",
-                    data.projects.nodes.len(),
-                    data.projects
-                        .nodes
-                        .iter()
-                        .map(|p| format!("  {}", p.id.inner()))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                ))
-                .with_hint(
-                    "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
-                ));
-            }
-            if let Some(project) = data
-                .projects
-                .nodes
-                .into_iter()
-                .next()
-                .filter(|project| !project.id.inner().is_empty())
-            {
-                return Ok(Some(project.id.into_inner()));
-            }
-            name
-        }
-    };
-    let data: GetProjectIdBySlugId = client
-        .query(ProjectSlugVariables {
-            slug_id: slug.clone(),
-        })
-        .await?;
-    Ok(data
-        .projects
-        .nodes
-        .into_iter()
-        .next()
-        .map(|p| p.id.into_inner()))
 }
 /// A milestone UUID, or the ID of the named milestone in `project`.
 pub async fn milestone_id(
@@ -711,9 +656,9 @@ pub(super) fn resolve_team(
     ctx: &crate::ctx::Ctx,
     client: &LinearClient,
     reference: &str,
-) -> Result<crate::refs::ResolvedTeam, Error> {
-    let lookup = crate::refs::prepare_team_lookup(reference, &ctx.scope()?)?;
-    ctx.block_on(crate::refs::resolve_team_with_transport(&lookup, client))
+) -> Result<refs::team::ResolvedTeam, Error> {
+    let lookup = refs::team::TeamReference::parse(reference, &ctx.scope()?)?;
+    ctx.block_on(refs::team::resolve(client, &lookup))
 }
 
 /// The project `--project` names. When no project matches exactly, a terminal
@@ -725,8 +670,8 @@ pub(super) fn resolve_project(
 ) -> Result<Option<String>, Error> {
     use crate::platform::prompt::Choice;
     let Some(value) = value else { return Ok(None) };
-    let reference = crate::refs::prepare_project_lookup(value, &ctx.scope()?)?;
-    if let Some(id) = ctx.block_on(project_id(client, &reference))? {
+    let reference = refs::project::ProjectReference::parse(value, &ctx.scope()?)?;
+    if let Some(id) = ctx.block_on(refs::project::find(client, &reference))? {
         return Ok(Some(id));
     }
     let data: GetProjectIdOptionsByName =
@@ -794,19 +739,9 @@ pub(super) fn resolve_cycle(
             resolve_team(ctx, client, key)?.id
         }
     };
-    let url = crate::refs::expect_url_kind(
-        value,
-        crate::refs::LinearUrlKind::Cycle,
-        "a cycle URL, number, or name",
-        &ctx.scope()?,
-    )?;
-    ctx.block_on(crate::commands::cycle::view::resolve_id(
-        client,
-        &team_id,
-        value,
-        url.as_ref(),
-    ))
-    .map(Some)
+    let reference = refs::cycle::CycleReference::parse(value, &ctx.scope()?)?;
+    ctx.block_on(refs::cycle::resolve(client, &team_id, &reference))
+        .map(Some)
 }
 
 /// Whether issues sort by priority: `--sort`, else the configured sort.

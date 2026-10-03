@@ -9,7 +9,11 @@ use crate::graphql::operations::initiative::{
     InitiativeToProjectCreateInput, LinksVariables, RemoveProjectFromInitiative,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::refs::{self, InitiativeReference, ProjectReference};
+use crate::refs::{
+    self,
+    initiative::{Archived, InitiativeReference},
+    project::ProjectReference,
+};
 
 pub fn add(ctx: &Ctx, args: &InitiativeAddProject) -> Result<()> {
     add_project(ctx, args).context("Failed to add project to initiative")
@@ -98,20 +102,15 @@ impl<'a> Pair<'a> {
     fn prepare(ctx: &Ctx, initiative: &'a str, project: &'a str) -> Result<Self> {
         let scope = ctx.scope()?;
         Ok(Self {
-            initiative: (
-                initiative,
-                refs::prepare_initiative_lookup(initiative, &scope)?,
-            ),
-            project: (project, refs::prepare_project_lookup(project, &scope)?),
+            initiative: (initiative, InitiativeReference::parse(initiative, &scope)?),
+            project: (project, ProjectReference::parse(project, &scope)?),
         })
     }
 
     async fn link(&self, client: &LinearClient) -> Result<Link> {
-        let (original, reference) = &self.initiative;
         let initiative_id =
-            super::resolve(client, reference, original, super::Archived::Exclude).await?;
-        let (original, reference) = &self.project;
-        let project_id = refs::resolve_project_with_transport(reference, original, client).await?;
+            refs::initiative::resolve(client, &self.initiative.1, Archived::Exclude).await?;
+        let project_id = refs::project::resolve(client, &self.project.1).await?;
         let data = pagination::collect_within(
             None,
             |after, _first| {

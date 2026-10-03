@@ -11,9 +11,7 @@ use crate::graphql::operations::team::{
 };
 use crate::graphql::pagination::{self, Page};
 use crate::platform::prompt::Choice;
-use crate::refs::{
-    ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup, resolve_team_with_transport,
-};
+use crate::refs::{self, team::ResolvedTeam, team::TeamReference};
 
 pub fn run(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete team")
@@ -24,17 +22,17 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
         ctx.require_tty("--force")?;
     }
     let scope = ctx.scope()?;
-    let source = prepare_team_lookup(&args.team, &scope)?;
+    let source = TeamReference::parse(&args.team, &scope)?;
     let target = args
         .move_issues
         .as_deref()
-        .map(|target| prepare_team_lookup(target, &scope))
+        .map(|target| TeamReference::parse(target, &scope))
         .transpose()?;
     let client = ctx.client()?;
     let (team, target, issues) = ctx.spin(true, async {
-        let team = resolve_team_with_transport(&source, client).await?;
+        let team = refs::team::resolve(client, &source).await?;
         let target = match &target {
-            Some(target) => Some(resolve_team_with_transport(target, client).await?),
+            Some(target) => Some(refs::team::resolve(client, target).await?),
             None => None,
         };
         if target.as_ref().is_some_and(|target| target.id == team.id) {
@@ -120,7 +118,7 @@ fn choose_target(
         "Team {} ({}) has {count} issue(s). They must move to another team before it is deleted.\n",
         team.key, team.name
     ))?;
-    let mut teams = ctx.spin(true, fetch_all_teams_with_transport(client))?;
+    let mut teams = ctx.spin(true, refs::team::fetch_all(client))?;
     teams.retain(|other| other.id != team.id);
     if teams.is_empty() {
         return Err(Error::new("There is no other team to move the issues to"));

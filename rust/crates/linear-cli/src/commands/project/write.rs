@@ -15,9 +15,11 @@ use crate::graphql::operations::project::{
 };
 use crate::graphql::operations::template::GetTemplates;
 use crate::refs::{
-    self, InitiativeReference, PreparedTeamLookup, ResolvedTeam, WorkspaceScope,
-    prepare_initiative_lookup, prepare_team_lookup, reject_linear_url,
-    resolve_initiative_with_transport, resolve_team_with_transport,
+    self, WorkspaceScope,
+    initiative::{Archived, InitiativeReference},
+    reject_linear_url,
+    team::ResolvedTeam,
+    team::TeamReference,
 };
 
 /// Linear's limit on a project description.
@@ -116,27 +118,16 @@ pub async fn labels(client: &LinearClient, values: &[String]) -> Result<Vec<Reso
     Ok(labels)
 }
 
-pub fn prepare_teams(
-    values: &[String],
-    scope: &WorkspaceScope<'_>,
-) -> Result<Vec<PreparedTeamLookup>> {
+pub fn prepare_teams(values: &[String], scope: &WorkspaceScope<'_>) -> Result<Vec<TeamReference>> {
     values
         .iter()
-        .map(|value| prepare_team_lookup(value, scope))
+        .map(|value| TeamReference::parse(value, scope))
         .collect()
 }
 
 /// The teams named by `teams`, without duplicates.
-pub async fn teams(
-    client: &LinearClient,
-    teams: &[PreparedTeamLookup],
-) -> Result<Vec<ResolvedTeam>> {
-    let resolved = try_join_all(
-        teams
-            .iter()
-            .map(|team| resolve_team_with_transport(team, client)),
-    )
-    .await?;
+pub async fn teams(client: &LinearClient, teams: &[TeamReference]) -> Result<Vec<ResolvedTeam>> {
+    let resolved = try_join_all(teams.iter().map(|team| refs::team::resolve(client, team))).await?;
     let mut unique: Vec<ResolvedTeam> = Vec::new();
     for team in resolved {
         if !unique.iter().any(|kept| kept.id == team.id) {
@@ -149,10 +140,10 @@ pub async fn teams(
 pub fn prepare_initiatives(
     values: &[String],
     scope: &WorkspaceScope<'_>,
-) -> Result<Vec<(String, InitiativeReference)>> {
+) -> Result<Vec<InitiativeReference>> {
     values
         .iter()
-        .map(|value| Ok((value.clone(), prepare_initiative_lookup(value, scope)?)))
+        .map(|value| InitiativeReference::parse(value, scope))
         .collect()
 }
 
@@ -160,19 +151,19 @@ pub fn prepare_initiatives(
 /// given by UUID is looked up for its name.
 pub async fn initiatives(
     client: &LinearClient,
-    initiatives: &[(String, InitiativeReference)],
+    initiatives: &[InitiativeReference],
 ) -> Result<Vec<ResolvedRef>> {
     let mut resolved: Vec<ResolvedRef> = Vec::new();
-    for (original, reference) in initiatives {
-        let initiative = match reference {
-            InitiativeReference::Id(id) => {
+    for reference in initiatives {
+        let initiative = match reference.id() {
+            Some(id) => {
                 let data: GetInitiativeByIdForUpdate = client
                     .query(InitiativeIdVariables {
                         id: cynic::Id::new(id),
                     })
                     .await?;
                 let found = data.initiatives.nodes.into_iter().next().ok_or_else(|| {
-                    Error::not_found("Initiative", original)
+                    Error::not_found("Initiative", reference.input())
                         .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
                 })?;
                 ResolvedRef {
@@ -180,9 +171,9 @@ pub async fn initiatives(
                     label: found.name,
                 }
             }
-            InitiativeReference::NameOrSlug(_) | InitiativeReference::UrlSlug(_) => ResolvedRef {
-                id: resolve_initiative_with_transport(reference, original, client).await?,
-                label: original.clone(),
+            None => ResolvedRef {
+                id: refs::initiative::resolve(client, reference, Archived::Exclude).await?,
+                label: reference.input().to_owned(),
             },
         };
         if !resolved.iter().any(|kept| kept.id == initiative.id) {

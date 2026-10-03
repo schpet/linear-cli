@@ -9,8 +9,6 @@ use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
-pub use resolve_team::ResolveTeam;
-
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct CreateTeamVariables {
     pub input: TeamCreateInput,
@@ -185,24 +183,19 @@ pub struct ResolveTeamVariables {
     pub is_uuid: bool,
 }
 
-#[allow(non_snake_case)]
-mod resolve_team {
-    use super::*;
-
-    #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-    #[cynic(
-        schema = "linear",
-        graphql_type = "Query",
-        variables = "ResolveTeamVariables"
-    )]
-    pub struct ResolveTeam {
-        #[arguments(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] })]
-        pub teams: TeamNodes,
-        #[arguments(filter: { id: { eq: $id } })]
-        #[directives(include(if: $is_uuid))]
-        #[cynic(rename = "teams", alias)]
-        pub teamById: Option<TeamNodes>,
-    }
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "ResolveTeamVariables"
+)]
+pub struct ResolveTeam {
+    #[arguments(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] })]
+    pub teams: TeamNodes,
+    #[arguments(filter: { id: { eq: $id } })]
+    #[directives(include(if: $is_uuid))]
+    #[cynic(rename = "teams", alias)]
+    pub team_by_id: Option<TeamNodes>,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

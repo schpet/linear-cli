@@ -8,7 +8,7 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::template::{GetTemplates, Template};
 use crate::platform::collation;
-use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
+use crate::refs::{self, team::TeamReference};
 
 pub fn run(ctx: &Ctx, args: &TemplateList) -> Result<()> {
     list(ctx, args).context("Failed to list templates")
@@ -18,12 +18,12 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
     let team = args
         .team
         .as_deref()
-        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
     let client = ctx.client()?;
     let (templates, team_id) = ctx.spin(!args.json, async {
         let team_id = match &team {
-            Some(lookup) => Some(resolve_team_with_transport(lookup, client).await?.id),
+            Some(lookup) => Some(refs::team::resolve(client, lookup).await?.id),
             None => None,
         };
         let data: GetTemplates = client.query(()).await?;

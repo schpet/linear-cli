@@ -11,7 +11,7 @@ use crate::graphql::operations::status_update::{
     InitiativeUpdateNode, ListInitiativeUpdates, ListInitiativeUpdatesVariables,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::refs::{prepare_initiative_lookup, resolve_initiative_with_transport};
+use crate::refs::{self, initiative::InitiativeReference};
 
 pub fn run(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
     list(ctx, args).context("Failed to list initiative updates")
@@ -19,10 +19,11 @@ pub fn run(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
     let original = &args.initiative_id;
-    let reference = prepare_initiative_lookup(original, &ctx.scope()?)?;
+    let reference = InitiativeReference::parse(original, &ctx.scope()?)?;
     let client = ctx.client()?;
     let initiative = ctx.spin(!args.json, async {
-        let id = resolve_initiative_with_transport(&reference, original, client).await?;
+        let id = refs::initiative::resolve(client, &reference, refs::initiative::Archived::Exclude)
+            .await?;
         pagination::collect_within(
             args.limit.max(),
             |after, first| {

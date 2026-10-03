@@ -99,7 +99,7 @@ fn initiative_create_resolves_names_and_reads_body_files() {
     );
     assert_eq!(
         api.variables("ResolveInitiativeByName"),
-        json!({ "name": "Roadmap" })
+        json!({ "name": "Roadmap", "includeArchived": false })
     );
     let input = &api.variables("CreateInitiativeUpdate")["input"];
     assert_eq!(input["initiativeId"], INITIATIVE_ID);

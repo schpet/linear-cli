@@ -5,6 +5,7 @@ use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::operations::comment::CommentConnection;
 use crate::graphql::operations::comment::{GetInitiativeComments, GetInitiativeCommentsVariables};
+use crate::refs::{self, initiative::Archived};
 
 pub fn run(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
     list(ctx, args).context("Failed to list comments")
@@ -15,7 +16,7 @@ fn list(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
     let reference = super::reference(ctx, original)?;
     let client = ctx.client()?;
     let nodes = ctx.spin(!args.json, async {
-        let id = super::resolve(client, &reference, original, super::Archived::Exclude).await?;
+        let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
         comments::fetch::<GetInitiativeComments>(client, original, &id, args.limit).await
     })?;
     comments::print(ctx, &nodes, args.json, "initiative")

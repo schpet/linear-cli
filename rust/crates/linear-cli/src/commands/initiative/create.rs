@@ -1,4 +1,5 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
+use crate::refs;
 use chrono::NaiveDate;
 
 use crate::cli::initiative::InitiativeCreate;
@@ -39,7 +40,7 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
     let client = ctx.client()?;
     let created = ctx.spin(true, async {
         let owner_id = match &input.owner {
-            Some(owner) => Some(crate::commands::user::resolve(client, owner, "Owner").await?),
+            Some(owner) => Some(refs::user::resolve(client, owner, "Owner").await?),
             None => None,
         };
         submit(client, input.into_create(owner_id)).await

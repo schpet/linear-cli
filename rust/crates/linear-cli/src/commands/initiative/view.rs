@@ -14,6 +14,7 @@ use crate::graphql::operations::initiative::{
 use crate::graphql::operations::initiative::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::project::ProjectStatusType;
 use crate::graphql::scalars;
+use crate::refs::{self, initiative::Archived};
 
 pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     view(ctx, args).context("Failed to view initiative")
@@ -24,7 +25,7 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     let reference = super::reference(ctx, original)?;
     let client = ctx.client()?;
     let detail = ctx.spin(!args.json, async {
-        let id = super::resolve(client, &reference, original, super::Archived::Exclude).await?;
+        let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
         fetch(client, id, original).await
     })?;
     if args.web || args.app {

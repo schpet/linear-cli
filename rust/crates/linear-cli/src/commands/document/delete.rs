@@ -6,6 +6,7 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::document::{DeleteDocument, DocumentDetails, GetDocumentForDelete};
+use crate::refs;
 
 pub fn run(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete document")
@@ -55,7 +56,7 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
     let targets: Vec<_> = ids
         .into_iter()
         .map(|original| {
-            let id = crate::refs::resolve_document_reference(&original, &scope);
+            let id = refs::document::parse(&original, &scope);
             (original, id)
         })
         .collect();

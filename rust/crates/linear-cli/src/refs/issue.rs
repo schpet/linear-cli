@@ -28,9 +28,7 @@ pub fn prepare_issue_reference(
             Some(LinearUrlRef::Issue { identifier, .. }) => {
                 return Ok(IssueReference::Identifier(identifier));
             }
-            Some(_) => {
-                return Err(Error::new("issue URL kind mismatch"));
-            }
+            Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
             None => {}
         }
         if let Some(id) = issue_identifier(input) {

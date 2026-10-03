@@ -10,7 +10,7 @@ use crate::error::{Result, ResultExt};
 use crate::graphql::operations::cycle::{self, GetTeamCycles, GetTeamCyclesVariables};
 use crate::graphql::pagination::{self, Page};
 use crate::platform::style;
-use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
+use crate::refs::{self, team::TeamReference};
 
 pub fn run(ctx: &Ctx, args: &CycleList) -> Result<()> {
     list(ctx, args).context("Failed to list cycles")
@@ -18,10 +18,10 @@ pub fn run(ctx: &Ctx, args: &CycleList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &CycleList) -> Result<()> {
     let team = team_or_configured(ctx, args.team.as_deref())?;
-    let lookup = prepare_team_lookup(&team, &ctx.scope()?)?;
+    let lookup = TeamReference::parse(&team, &ctx.scope()?)?;
     let client = ctx.client()?;
     let mut cycles = ctx.spin(!args.json, async {
-        let team = resolve_team_with_transport(&lookup, client).await?;
+        let team = refs::team::resolve(client, &lookup).await?;
         fetch(client, &team.id).await
     })?;
     args.limit.apply(&mut cycles);

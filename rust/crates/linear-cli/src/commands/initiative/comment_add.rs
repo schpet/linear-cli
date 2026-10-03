@@ -3,6 +3,7 @@ use crate::cli::initiative::InitiativeCommentAdd;
 use crate::commands::comment_add::{self, CommentTarget};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
+use crate::refs::{self, initiative::Archived};
 
 pub fn run(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     add(ctx, args).context("Failed to add comment")
@@ -20,7 +21,7 @@ fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     let client = ctx.client()?;
     let comment = ctx.spin(true, async {
         let initiative_id =
-            super::resolve(client, &reference, original, super::Archived::Exclude).await?;
+            refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
         let target = CommentTarget::Initiative { initiative_id };
         let input = comment_add::build_input(target, body, args.parent.as_deref(), None);
         comment_add::create(client, input).await

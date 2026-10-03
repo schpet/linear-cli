@@ -17,7 +17,7 @@ use crate::graphql::operations::project::{
 use crate::graphql::scalars::TimelessDate;
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
-use crate::refs::{self, prepare_initiative_lookup, resolve_initiative_with_transport};
+use crate::refs::{self, initiative::InitiativeReference};
 
 pub fn run(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     create(ctx, args).context("Failed to create project")
@@ -53,7 +53,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     write::plain_references(&args.template, "a template name or UUID")?;
     let scope = ctx.scope()?;
     let initiative = match args.initiative.as_deref() {
-        Some(original) => Some((original, prepare_initiative_lookup(original, &scope)?)),
+        Some(original) => Some((original, InitiativeReference::parse(original, &scope)?)),
         None => None,
     };
     let interactive =
@@ -102,7 +102,8 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         let initiative_id = match &initiative {
             Some((original, reference)) => Some((
                 *original,
-                resolve_initiative_with_transport(reference, original, client).await?,
+                refs::initiative::resolve(client, reference, refs::initiative::Archived::Exclude)
+                    .await?,
             )),
             None => None,
         };
@@ -111,7 +112,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             None => None,
         };
         let lead_id = match &draft.lead {
-            Some(lead) => Some(crate::commands::user::resolve(client, lead, "Lead").await?),
+            Some(lead) => Some(refs::user::resolve(client, lead, "Lead").await?),
             None => None,
         };
         let status_id = match draft.status {
@@ -126,7 +127,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             .collect();
         let mut member_ids = Vec::new();
         for member in &args.member {
-            member_ids.push(crate::commands::user::resolve(client, member, "User").await?);
+            member_ids.push(refs::user::resolve(client, member, "User").await?);
         }
         let input = ProjectCreateInput {
             name,
@@ -231,7 +232,7 @@ fn prompt(
         draft.description = (!description.is_empty()).then_some(description);
     }
     if draft.teams.is_empty() {
-        let teams = ctx.spin(true, refs::fetch_all_teams_with_transport(ctx.client()?))?;
+        let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
         let default_team = configured_team_key(ctx.options());
         let start = teams
             .iter()

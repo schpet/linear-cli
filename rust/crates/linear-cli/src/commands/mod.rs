@@ -20,7 +20,6 @@ pub mod project;
 pub mod project_update;
 pub mod prosemirror;
 pub mod relative_time;
-pub mod release_lookup;
 pub mod schema;
 pub mod status_update;
 pub mod table;

@@ -11,7 +11,7 @@ use crate::graphql::operations::status_update::{
     ListProjectUpdates, ListProjectUpdatesVariables, ProjectUpdateNode,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference};
 
 pub fn run(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
     list(ctx, args).context("Failed to list project updates")
@@ -19,10 +19,10 @@ pub fn run(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
     let original = &args.project_id;
-    let reference = prepare_project_lookup(original, &ctx.scope()?)?;
+    let reference = ProjectReference::parse(original, &ctx.scope()?)?;
     let client = ctx.client()?;
     let project = ctx.spin(!args.json, async {
-        let id = resolve_project_with_transport(&reference, original, client).await?;
+        let id = refs::project::resolve(client, &reference).await?;
         pagination::collect_within(
             args.limit.max(),
             |after, first| {

@@ -17,10 +17,7 @@ use crate::graphql::operations::status_update::{
 };
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
-use crate::refs::{
-    InitiativeReference, ProjectReference, prepare_initiative_lookup, prepare_project_lookup,
-    resolve_initiative_with_transport, resolve_project_with_transport,
-};
+use crate::refs::{self, initiative::InitiativeReference, project::ProjectReference};
 
 /// What a status update is posted to, as the user named it.
 #[derive(Clone, Copy)]
@@ -55,21 +52,20 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
     let (original, reference) = match target {
         Target::Project(original) => (
             original,
-            Reference::Project(prepare_project_lookup(original, &ctx.scope()?)?),
+            Reference::Project(ProjectReference::parse(original, &ctx.scope()?)?),
         ),
         Target::Initiative(original) => (
             original,
-            Reference::Initiative(prepare_initiative_lookup(original, &ctx.scope()?)?),
+            Reference::Initiative(InitiativeReference::parse(original, &ctx.scope()?)?),
         ),
     };
     let client = ctx.client()?;
     let id = ctx.spin(true, async {
         match &reference {
-            Reference::Project(reference) => {
-                resolve_project_with_transport(reference, original, client).await
-            }
+            Reference::Project(reference) => refs::project::resolve(client, reference).await,
             Reference::Initiative(reference) => {
-                resolve_initiative_with_transport(reference, original, client).await
+                refs::initiative::resolve(client, reference, refs::initiative::Archived::Exclude)
+                    .await
             }
         }
     })?;

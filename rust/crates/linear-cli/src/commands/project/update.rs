@@ -21,7 +21,7 @@ use crate::graphql::operations::team::TeamRef;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::TimelessDate;
 use crate::refs::{
-    InitiativeReference, PreparedTeamLookup, prepare_project_lookup, resolve_project_with_transport,
+    self, initiative::InitiativeReference, project::ProjectReference, team::TeamReference,
 };
 
 pub fn run(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
@@ -103,7 +103,7 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
         "a project label name",
     )?;
     let original = &args.project_id;
-    let reference = prepare_project_lookup(original, &scope)?;
+    let reference = ProjectReference::parse(original, &scope)?;
     let mut input = ProjectUpdateInput {
         name: Edit::set_or_unchanged(fields.name.clone()),
         description: Edit::set_or_unchanged(write::description(fields)?),
@@ -123,12 +123,12 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
     };
     let client = ctx.client()?;
     let shown = ctx.spin(true, async {
-        let id = resolve_project_with_transport(&reference, original, client).await?;
+        let id = refs::project::resolve(client, &reference).await?;
         if let Some(status) = fields.status {
             input.status_id = Edit::Set(write::status_id(client, status).await?);
         }
         input.lead_id = match &fields.lead {
-            Some(lead) => Edit::Set(crate::commands::user::resolve(client, lead, "Lead").await?),
+            Some(lead) => Edit::Set(refs::user::resolve(client, lead, "Lead").await?),
             None if args.clear_lead => Edit::Clear,
             None => Edit::Unchanged,
         };
@@ -153,7 +153,7 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
 async fn team_ids(
     client: &LinearClient,
     project_id: &str,
-    change: &SetChange<PreparedTeamLookup>,
+    change: &SetChange<TeamReference>,
 ) -> Result<Option<Vec<String>>> {
     let (add, remove) = match change {
         SetChange::Keep => return Ok(None),
@@ -193,10 +193,7 @@ async fn team_ids(
     Ok(Some(result))
 }
 
-async fn team_refs(
-    client: &LinearClient,
-    teams: &[PreparedTeamLookup],
-) -> Result<Vec<ResolvedRef>> {
+async fn team_refs(client: &LinearClient, teams: &[TeamReference]) -> Result<Vec<ResolvedRef>> {
     Ok(write::teams(client, teams)
         .await?
         .into_iter()
@@ -252,7 +249,7 @@ async fn label_ids(
 async fn initiative_changes(
     client: &LinearClient,
     project_id: &str,
-    change: &SetChange<(String, InitiativeReference)>,
+    change: &SetChange<InitiativeReference>,
 ) -> Result<(Vec<InitiativeChange>, Option<Shown>)> {
     let (desired, labels, links, shown) = match change {
         SetChange::Keep => return Ok((Vec::new(), None)),

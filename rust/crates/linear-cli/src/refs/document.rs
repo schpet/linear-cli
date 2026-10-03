@@ -1,10 +1,10 @@
-//! Local document URL reduction, before credential selection.
+//! Documents, referenced by UUID, slug ID or document URL. The API accepts
+//! either ID form directly, so a document needs no lookup request.
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind};
-use crate::error::Error;
-pub fn resolve_document_reference(
-    input: &str,
-    scope: &WorkspaceScope<'_>,
-) -> Result<String, Error> {
+use crate::error::Result;
+
+/// The UUID or slug ID that `input` names.
+pub fn parse(input: &str, scope: &WorkspaceScope<'_>) -> Result<String> {
     match expect_url_kind(
         input,
         LinearUrlKind::Document,
@@ -12,9 +12,7 @@ pub fn resolve_document_reference(
         scope,
     )? {
         Some(LinearUrlRef::Document { slug_id, .. }) => Ok(slug_id),
-        Some(_) => Err(Error::new(
-            "document URL kind check returned a different kind",
-        )),
+        Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
         None => Ok(input.to_owned()),
     }
 }

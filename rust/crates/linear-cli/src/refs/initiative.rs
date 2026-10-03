@@ -1,104 +1,118 @@
-//! Strict initiative references: URL slug, UUID, plain slug, then exact name.
+//! Initiatives, referenced by UUID, slug ID, exact name or initiative URL.
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
 use crate::client::LinearClient;
-use crate::error::Error;
-use crate::graphql::operations::common::NameVariables;
+use crate::error::{Error, Result};
 use crate::graphql::operations::initiative::{
-    ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
+    InitiativeNameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
 };
+
+/// An initiative argument, checked locally.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum InitiativeReference {
+pub struct InitiativeReference {
+    input: String,
+    target: Target,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Target {
     Id(String),
-    NameOrSlug(String),
+    /// A slug ID, else an exact name.
+    NameOrSlug,
+    /// The slug ID from an initiative URL.
     UrlSlug(String),
 }
-pub fn prepare_initiative_lookup(
-    input: &str,
-    scope: &WorkspaceScope<'_>,
-) -> Result<InitiativeReference, Error> {
-    match expect_url_kind(
-        input,
-        LinearUrlKind::Initiative,
-        "an initiative URL, UUID, slug ID, or exact name",
-        scope,
-    )? {
-        Some(LinearUrlRef::Initiative { slug_id, .. }) => Ok(InitiativeReference::UrlSlug(slug_id)),
-        Some(_) => Err(Error::new(
-            "initiative URL kind check returned a different kind",
-        )),
-        None if is_linear_uuid(input) => Ok(InitiativeReference::Id(input.to_owned())),
-        None => Ok(InitiativeReference::NameOrSlug(input.to_owned())),
+
+/// Whether a slug or name may match an archived initiative.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Archived {
+    Exclude,
+    Include,
+}
+
+impl InitiativeReference {
+    pub fn parse(input: &str, scope: &WorkspaceScope<'_>) -> Result<Self> {
+        let target = match expect_url_kind(
+            input,
+            LinearUrlKind::Initiative,
+            "an initiative URL, UUID, slug ID, or exact name",
+            scope,
+        )? {
+            Some(LinearUrlRef::Initiative { slug_id, .. }) => Target::UrlSlug(slug_id),
+            Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
+            None if is_linear_uuid(input) => Target::Id(input.to_owned()),
+            None => Target::NameOrSlug,
+        };
+        Ok(Self {
+            input: input.to_owned(),
+            target,
+        })
+    }
+
+    pub fn input(&self) -> &str {
+        &self.input
+    }
+
+    /// The UUID, when the argument was one.
+    pub fn id(&self) -> Option<&str> {
+        match &self.target {
+            Target::Id(id) => Some(id),
+            Target::NameOrSlug | Target::UrlSlug(_) => None,
+        }
     }
 }
-pub async fn resolve_initiative_with_transport(
-    reference: &InitiativeReference,
-    original: &str,
+
+/// The ID of the initiative `reference` names: a UUID as given, else a slug
+/// ID, else an exact (case-insensitive) name. A URL's slug never falls back
+/// to a name.
+pub async fn resolve(
     client: &LinearClient,
-) -> Result<String, Error> {
-    resolve_initiative_with(
-        reference,
-        original,
-        |variables| async move { Ok(client.query(variables).await?) },
-        |variables| async move { Ok(client.query(variables).await?) },
-    )
-    .await
-}
-pub async fn resolve_initiative_with<S, SF, N, NF>(
     reference: &InitiativeReference,
-    original: &str,
-    mut slug_fetch: S,
-    mut name_fetch: N,
-) -> Result<String, Error>
-where
-    S: FnMut(UrlSlugVariables) -> SF,
-    SF: std::future::Future<Output = Result<ResolveInitiativeBySlug, Error>>,
-    N: FnMut(NameVariables) -> NF,
-    NF: std::future::Future<Output = Result<ResolveInitiativeByName, Error>>,
-{
-    let slug = match reference {
-        InitiativeReference::Id(id) => return Ok(id.clone()),
-        InitiativeReference::UrlSlug(slug) | InitiativeReference::NameOrSlug(slug) => slug,
+    archived: Archived,
+) -> Result<String> {
+    let include_archived = archived == Archived::Include;
+    let slug = match &reference.target {
+        Target::Id(id) => return Ok(id.clone()),
+        Target::UrlSlug(slug) => slug,
+        Target::NameOrSlug => &reference.input,
     };
-    let data = slug_fetch(UrlSlugVariables {
-        slug_id: slug.clone(),
-        include_archived: Some(false),
-    })
-    .await?;
-    if let Some(id) = data
-        .initiatives
-        .nodes
-        .into_iter()
-        .next()
-        .map(|initiative| initiative.id.into_inner())
-        .filter(|id| matches!(reference, InitiativeReference::UrlSlug(_)) || !id.is_empty())
-    {
-        return Ok(id);
+    let data: ResolveInitiativeBySlug = client
+        .query(UrlSlugVariables {
+            slug_id: slug.clone(),
+            include_archived,
+        })
+        .await?;
+    if let Some(initiative) = data.initiatives.nodes.into_iter().next() {
+        return Ok(initiative.id.into_inner());
     }
-    if matches!(reference, InitiativeReference::UrlSlug(_)) {
-        return Err(Error::not_found("Initiative", original).with_hint("The initiative in that URL may have been deleted, or be in a workspace this key cannot see."));
+    if let Target::UrlSlug(_) = reference.target {
+        return Err(
+            Error::not_found("Initiative", &reference.input).with_hint(
+                "The initiative in that URL may have been deleted, or be in a workspace this key cannot see.",
+            ),
+        );
     }
-    let data = name_fetch(NameVariables { name: slug.clone() }).await?;
-    let matches = data.initiatives.nodes;
+    let data: ResolveInitiativeByName = client
+        .query(InitiativeNameVariables {
+            name: reference.input.clone(),
+            include_archived,
+        })
+        .await?;
+    let mut matches = data.initiatives.nodes;
     if matches.len() > 1 {
-        let listing = matches
-            .iter()
-            .map(|item| format!("  {} — {} ({})", item.name, item.slug_id, item.id.inner()))
-            .collect::<Vec<_>>()
-            .join("\n");
-        return Err(Error::new(format!(
-            "Initiative \"{original}\" is ambiguous; it matches multiple initiatives:\n{listing}"
-        ))
+        return Err(super::ambiguous(
+            "Initiative",
+            &reference.input,
+            matches
+                .iter()
+                .map(|item| format!("{} — {} ({})", item.name, item.slug_id, item.id.inner())),
+        )
         .with_hint("Pass the initiative's slug ID or UUID instead."));
     }
     matches
-        .into_iter()
-        .next()
+        .pop()
         .map(|item| item.id.into_inner())
         .ok_or_else(|| {
-            Error::not_found("Initiative", original)
+            Error::not_found("Initiative", &reference.input)
                 .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
         })
 }
-
-#[cfg(test)]
-mod tests;

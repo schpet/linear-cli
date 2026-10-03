@@ -22,7 +22,7 @@ use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::Float;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::platform::{collation, style};
-use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
+use crate::refs::{self, team::TeamReference};
 
 pub fn run(ctx: &Ctx, args: &ProjectList) -> Result<()> {
     list(ctx, args).context("Failed to list projects")
@@ -32,7 +32,7 @@ fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
     let team_lookup = args
         .team
         .as_deref()
-        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
     let configured = if args.all_teams {
         None
@@ -45,9 +45,7 @@ fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
     let client = ctx.client()?;
     let team_key = async {
         match &team_lookup {
-            Some(lookup) => {
-                Ok::<_, Error>(Some(resolve_team_with_transport(lookup, client).await?.key))
-            }
+            Some(lookup) => Ok::<_, Error>(Some(refs::team::resolve(client, lookup).await?.key)),
             None => Ok(configured.clone()),
         }
     };

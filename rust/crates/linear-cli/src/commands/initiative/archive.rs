@@ -9,9 +9,10 @@ use crate::graphql::operations::initiative::{
     ArchiveInitiative, DeleteInitiative, GetInitiativeForArchive, GetInitiativeForDelete,
 };
 use crate::platform::prompt::Text;
-use crate::refs::InitiativeReference;
-
-use super::Archived;
+use crate::refs::{
+    self,
+    initiative::{Archived, InitiativeReference},
+};
 
 pub fn archive(ctx: &Ctx, args: &InitiativeArchive) -> Result<()> {
     let request = Request {
@@ -98,7 +99,7 @@ fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     let reference = super::reference(ctx, original)?;
     let client = ctx.client()?;
     let details = ctx.spin(true, async {
-        let id = super::resolve(client, &reference, original, mode.archived()).await?;
+        let id = refs::initiative::resolve(client, &reference, mode.archived()).await?;
         details(client, &id, mode)
             .await?
             .ok_or_else(|| Error::not_found("Initiative", original))
@@ -179,7 +180,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     let targets: Vec<_> = ids
         .into_iter()
         .map(|original| {
-            let reference = crate::refs::prepare_initiative_lookup(&original, &scope);
+            let reference = InitiativeReference::parse(&original, &scope);
             (original, reference)
         })
         .collect();
@@ -207,7 +208,7 @@ async fn run_item(
     mode: Mode,
 ) -> BulkResult {
     let row = async {
-        let id = super::resolve(client, &reference?, &original, mode.archived()).await?;
+        let id = refs::initiative::resolve(client, &reference?, mode.archived()).await?;
         let Some(details) = details(client, &id, mode).await? else {
             return Ok(BulkResult {
                 id: original.clone(),

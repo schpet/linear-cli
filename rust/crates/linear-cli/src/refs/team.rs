@@ -1,10 +1,7 @@
-//! Team-reference preparation and typed lookup, without command context or
-//! credential or client construction.
-
-use std::future::Future;
+//! Teams, referenced by key, name, UUID or team URL.
 
 use crate::client::LinearClient;
-use crate::error::Error;
+use crate::error::{Error, Result};
 use crate::graphql::operations::team::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables, TeamRef,
 };
@@ -14,10 +11,25 @@ use crate::platform::collation;
 use super::uuid::is_linear_uuid;
 use super::workspace::{WorkspaceScope, expect_team_url};
 
+/// A team argument, checked locally: a team URL is reduced to its key.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PreparedTeamLookup {
-    original: String,
+pub struct TeamReference {
+    input: String,
     lookup: String,
+}
+
+impl TeamReference {
+    pub fn parse(input: &str, scope: &WorkspaceScope<'_>) -> Result<Self> {
+        if input.trim().is_empty() {
+            return Err(Error::new("Team reference is empty")
+                .with_hint("Pass a team key, name, or ID, e.g. --team ENG."));
+        }
+        let lookup = expect_team_url(input, scope)?.unwrap_or_else(|| input.to_owned());
+        Ok(Self {
+            input: input.to_owned(),
+            lookup,
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,40 +49,23 @@ impl From<TeamRef> for ResolvedTeam {
     }
 }
 
-/// Prepare before building a client: URL and workspace errors have priority.
-pub fn prepare_team_lookup(
-    original: &str,
-    scope: &WorkspaceScope<'_>,
-) -> Result<PreparedTeamLookup, Error> {
-    if original.trim().is_empty() {
-        return Err(Error::new("Team reference is empty")
-            .with_hint("Pass a team key, name, or ID, e.g. --team ENG."));
-    }
-    let lookup = expect_team_url(original, scope)?.unwrap_or_else(|| original.to_owned());
-    Ok(PreparedTeamLookup {
-        original: original.to_owned(),
-        lookup,
-    })
-}
-
-/// One first-page `ResolveTeam` request. An absent result is not an error here.
-pub async fn find_team<F, Fut>(
-    prepared: &PreparedTeamLookup,
-    fetch: F,
-) -> Result<Option<ResolvedTeam>, Error>
-where
-    F: FnOnce(ResolveTeamVariables) -> Fut,
-    Fut: Future<Output = Result<ResolveTeam, Error>>,
-{
-    let is_uuid = is_linear_uuid(&prepared.lookup);
-    let result = fetch(ResolveTeamVariables {
-        reference: prepared.lookup.clone(),
-        id: is_uuid.then(|| cynic::Id::new(prepared.lookup.clone())),
-        is_uuid,
-    })
-    .await?;
-    let wanted = prepared.lookup.to_lowercase();
-    let candidates: Vec<ResolvedTeam> = result
+/// The team `reference` names, by key, then UUID, then exact name (all
+/// case-insensitive), or `None` when nothing matches.
+pub async fn find(
+    client: &LinearClient,
+    reference: &TeamReference,
+) -> Result<Option<ResolvedTeam>> {
+    let lookup = &reference.lookup;
+    let is_uuid = is_linear_uuid(lookup);
+    let data: ResolveTeam = client
+        .query(ResolveTeamVariables {
+            reference: lookup.clone(),
+            id: is_uuid.then(|| cynic::Id::new(lookup.clone())),
+            is_uuid,
+        })
+        .await?;
+    let wanted = lookup.to_lowercase();
+    let candidates: Vec<ResolvedTeam> = data
         .teams
         .nodes
         .into_iter()
@@ -82,58 +77,40 @@ where
     {
         return Ok(Some(team.clone()));
     }
-    if let Some(team) = result
-        .teamById
+    if let Some(team) = data
+        .team_by_id
         .and_then(|teams| teams.nodes.into_iter().next())
     {
         return Ok(Some(team.into()));
     }
-    let by_name: Vec<_> = candidates
+    let mut by_name: Vec<ResolvedTeam> = candidates
         .into_iter()
         .filter(|team| team.name.to_lowercase() == wanted)
         .collect();
     if by_name.len() > 1 {
-        return Err(Error::new(format!(
-            "Team name \"{}\" is ambiguous: {}",
-            prepared.lookup,
+        return Err(super::ambiguous(
+            "Team",
+            &reference.input,
             by_name
                 .iter()
-                .map(|team| format!("{} ({})", team.key, team.name))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ))
+                .map(|team| format!("{} ({})", team.key, team.name)),
+        )
         .with_hint("Use the team key instead of the name."));
     }
-    Ok(by_name.into_iter().next())
+    Ok(by_name.pop())
 }
 
-/// Resolve a key, name or UUID, fetching every team only when the first query
-/// misses. All request and decode failures pass through without command context.
-pub async fn resolve_team<ResolveFetch, ResolveFuture, AllFetch, AllFuture>(
-    prepared: &PreparedTeamLookup,
-    resolve_fetch: ResolveFetch,
-    all_fetch: AllFetch,
-) -> Result<ResolvedTeam, Error>
-where
-    ResolveFetch: FnOnce(ResolveTeamVariables) -> ResolveFuture,
-    ResolveFuture: Future<Output = Result<ResolveTeam, Error>>,
-    AllFetch: FnMut(GetAllTeamsVariables) -> AllFuture,
-    AllFuture: Future<Output = Result<GetAllTeams, Error>>,
-{
-    if let Some(team) = find_team(prepared, resolve_fetch).await? {
+/// The team `reference` names; when nothing matches, the error lists every
+/// team key.
+pub async fn resolve(client: &LinearClient, reference: &TeamReference) -> Result<ResolvedTeam> {
+    if let Some(team) = find(client, reference).await? {
         return Ok(team);
     }
-
-    let mut teams = fetch_all_teams(all_fetch).await?;
-
-    let suggestion = if teams.is_empty() {
+    let mut teams = fetch_all(client).await?;
+    let hint = if teams.is_empty() {
         "This workspace has no teams you can access.".to_owned()
     } else {
-        teams.sort_by(|left, right| {
-            collation::compare(&left.key, &right.key).then_with(|| {
-                collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
-            })
-        });
+        teams.sort_by(|left, right| collation::compare(&left.key, &right.key));
         format!(
             "Valid team keys: {}. Run `linear team list` to see all teams.",
             teams
@@ -143,40 +120,27 @@ where
                 .join(", ")
         )
     };
-    Err(Error::not_found("Team", &prepared.original).with_hint(suggestion))
+    Err(Error::not_found("Team", &reference.input).with_hint(hint))
 }
 
-/// Execute through a client that the caller already built after preparation.
-pub async fn resolve_team_with_transport(
-    prepared: &PreparedTeamLookup,
-    client: &LinearClient,
-) -> Result<ResolvedTeam, Error> {
-    resolve_team(
-        prepared,
-        |variables| async move { Ok(client.query(variables).await?) },
-        |variables| async move { Ok(client.query(variables).await?) },
-    )
-    .await
-}
-
-/// Fetches every team, sorted by lowercased name.
-pub async fn fetch_all_teams<F, Fut>(mut all_fetch: F) -> Result<Vec<ResolvedTeam>, Error>
-where
-    F: FnMut(GetAllTeamsVariables) -> Fut,
-    Fut: Future<Output = Result<GetAllTeams, Error>>,
-{
-    let mut teams = pagination::collect(None, |after, first| {
-        let response = all_fetch(GetAllTeamsVariables {
-            first: Some(first),
-            after,
-        });
-        async move {
-            let teams = response.await?.teams;
-            Ok(Page {
-                nodes: teams.nodes.into_iter().map(ResolvedTeam::from).collect(),
-                page_info: teams.page_info,
+/// Every team the key can access, sorted by name.
+pub async fn fetch_all(client: &LinearClient) -> Result<Vec<ResolvedTeam>> {
+    let mut teams = pagination::collect(None, |after, first| async move {
+        let data: GetAllTeams = client
+            .query(GetAllTeamsVariables {
+                first: Some(first),
+                after,
             })
-        }
+            .await?;
+        Ok(Page {
+            nodes: data
+                .teams
+                .nodes
+                .into_iter()
+                .map(ResolvedTeam::from)
+                .collect(),
+            page_info: data.teams.page_info,
+        })
     })
     .await?;
     teams.sort_by(|left, right| {
@@ -184,12 +148,3 @@ where
     });
     Ok(teams)
 }
-
-pub async fn fetch_all_teams_with_transport(
-    client: &LinearClient,
-) -> Result<Vec<ResolvedTeam>, Error> {
-    fetch_all_teams(|variables| async move { Ok(client.query(variables).await?) }).await
-}
-
-#[cfg(test)]
-mod tests;

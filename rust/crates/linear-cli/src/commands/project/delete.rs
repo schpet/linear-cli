@@ -4,7 +4,7 @@ use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::project::{DeleteProject, DeleteProjectVariables};
-use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference};
 
 pub fn run(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete project")
@@ -12,14 +12,14 @@ pub fn run(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
 
 fn delete(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
     let original = &args.project_id;
-    let reference = prepare_project_lookup(original, &ctx.scope()?)?;
+    let reference = ProjectReference::parse(original, &ctx.scope()?)?;
     let question = format!("Are you sure you want to delete project {original}?");
     if !confirm::deletion(ctx, args.force, &question)? {
         return Ok(());
     }
     let client = ctx.client()?;
     let result: DeleteProject = ctx.spin(true, async {
-        let id = resolve_project_with_transport(&reference, original, client).await?;
+        let id = refs::project::resolve(client, &reference).await?;
         Ok::<_, Error>(client.mutate(DeleteProjectVariables { id }).await?)
     })?;
     let payload = result.project_delete;

@@ -12,9 +12,7 @@ use crate::ctx::{self, Ctx};
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::user::GetViewer;
 use crate::platform::prompt::Choice;
-use crate::refs::{
-    ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup, resolve_team_with_transport,
-};
+use crate::refs::{self, team::ResolvedTeam, team::TeamReference};
 
 const BANNER: &str = "\n██      ██ ███    ██ ███████  █████  ██████      ██████ ██      ██\n██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██\n██      ██ ██ ██  ██ █████   ███████ ██████     ██      ██      ██\n██      ██ ██  ██ ██ ██      ██   ██ ██   ██    ██      ██      ██\n███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██\n\n";
 const HEADER: &str = "# linear cli\n# https://github.com/schpet/linear-cli\n\n";
@@ -53,7 +51,7 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
     let team = args
         .team
         .as_deref()
-        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
     if asks {
         ctx.print(BANNER)?;
@@ -75,8 +73,8 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
             .organization
             .url_key;
         let team = match &team {
-            Some(lookup) => Team::Given(resolve_team_with_transport(lookup, &client).await?),
-            None => Team::Choose(fetch_all_teams_with_transport(&client).await?),
+            Some(lookup) => Team::Given(refs::team::resolve(&client, lookup).await?),
+            None => Team::Choose(refs::team::fetch_all(&client).await?),
         };
         Ok::<_, Error>((url_key, team))
     })?;

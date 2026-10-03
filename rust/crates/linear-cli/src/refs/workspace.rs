@@ -130,7 +130,7 @@ pub fn expect_team_url(input: &str, scope: &WorkspaceScope<'_>) -> Result<Option
     )? {
         Some(LinearUrlRef::Team { team_key, .. }) => Ok(Some(team_key)),
         None => Ok(None),
-        Some(_) => Err(Error::new("team URL kind check returned a different kind")),
+        Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
     }
 }
 

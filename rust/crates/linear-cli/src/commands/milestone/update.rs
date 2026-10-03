@@ -7,7 +7,7 @@ use crate::graphql::operations::milestone::{
     UpdatedMilestone,
 };
 use crate::graphql::scalars::TimelessDate;
-use crate::refs::{prepare_project_lookup, reject_linear_url, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference, reject_linear_url};
 
 pub fn run(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
     update(ctx, args).context("Failed to update milestone")
@@ -16,15 +16,13 @@ pub fn run(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
 fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
     reject_linear_url(&args.id, "a milestone UUID")?;
     let project = match args.project.as_deref() {
-        Some(project) => Some((prepare_project_lookup(project, &ctx.scope()?)?, project)),
+        Some(project) => Some(ProjectReference::parse(project, &ctx.scope()?)?),
         None => None,
     };
     let client = ctx.client()?;
     let milestone = ctx.spin(true, async {
         let project_id = match &project {
-            Some((reference, original)) => {
-                Some(resolve_project_with_transport(reference, original, client).await?)
-            }
+            Some(reference) => Some(refs::project::resolve(client, reference).await?),
             None => None,
         };
         let result: UpdateProjectMilestone = client

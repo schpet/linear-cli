@@ -8,17 +8,17 @@ use crate::graphql::operations::milestone::{
     ProjectMilestoneCreateInput,
 };
 use crate::graphql::scalars::TimelessDate;
-use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference};
 
 pub fn run(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
     create(ctx, args).context("Failed to create milestone")
 }
 
 fn create(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
-    let project = prepare_project_lookup(&args.project, &ctx.scope()?)?;
+    let project = ProjectReference::parse(&args.project, &ctx.scope()?)?;
     let client = ctx.client()?;
     let milestone = ctx.spin(true, async {
-        let project_id = resolve_project_with_transport(&project, &args.project, client).await?;
+        let project_id = refs::project::resolve(client, &project).await?;
         submit(client, project_id, args).await
     })?;
     ctx.print(render(&milestone))

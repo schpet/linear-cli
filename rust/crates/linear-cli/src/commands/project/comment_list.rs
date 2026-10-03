@@ -5,7 +5,7 @@ use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::operations::comment::CommentConnection;
 use crate::graphql::operations::comment::{GetProjectComments, GetProjectCommentsVariables};
-use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference};
 
 pub fn run(ctx: &Ctx, args: &ProjectCommentList) -> Result<()> {
     list(ctx, args).context("Failed to list comments")
@@ -13,10 +13,10 @@ pub fn run(ctx: &Ctx, args: &ProjectCommentList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &ProjectCommentList) -> Result<()> {
     let original = &args.project;
-    let reference = prepare_project_lookup(original, &ctx.scope()?)?;
+    let reference = ProjectReference::parse(original, &ctx.scope()?)?;
     let client = ctx.client()?;
     let nodes = ctx.spin(!args.json, async {
-        let id = resolve_project_with_transport(&reference, original, client).await?;
+        let id = refs::project::resolve(client, &reference).await?;
         comments::fetch::<GetProjectComments>(client, original, &id, args.limit).await
     })?;
     comments::print(ctx, &nodes, args.json, "project")

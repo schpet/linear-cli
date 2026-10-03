@@ -7,6 +7,7 @@ use crate::graphql::operations::initiative::{
     ArchivedLookupVariables, GetInitiativeForUnarchive, UnarchiveDetail, UnarchiveInitiative,
     UnarchiveVariables,
 };
+use crate::refs::{self, initiative::Archived};
 
 pub fn run(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     unarchive(ctx, args).context("Failed to unarchive initiative")
@@ -20,7 +21,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     let reference = super::reference(ctx, original)?;
     let client = ctx.client()?;
     let detail = ctx.spin(true, async {
-        let id = super::resolve(client, &reference, original, super::Archived::Include).await?;
+        let id = refs::initiative::resolve(client, &reference, Archived::Include).await?;
         details(client, &id, original).await
     })?;
     if detail.archived_at.is_none() {

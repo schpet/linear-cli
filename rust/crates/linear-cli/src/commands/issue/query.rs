@@ -8,7 +8,7 @@ use crate::config::OptionSource;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue_read::{IssueFilter, ListedIssue};
-use crate::refs::{ResolvedTeam, is_linear_uuid};
+use crate::refs::{is_linear_uuid, team::ResolvedTeam};
 
 use super::read;
 

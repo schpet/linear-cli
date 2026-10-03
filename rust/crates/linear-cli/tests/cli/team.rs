@@ -137,6 +137,86 @@ fn members_json_resolves_the_team_and_includes_inactive_with_all() {
     );
 }
 
+fn members_page() -> Value {
+    json!({ "team": { "members": page(vec![], Value::Null, false) } })
+}
+
+#[test]
+fn a_team_key_match_beats_a_team_named_like_the_key() {
+    let api = MockLinear::start();
+    api.on(
+        "ResolveTeam",
+        json!({ "teams": { "nodes": [
+            { "id": "t-named", "key": "DES", "name": "eng" },
+            { "id": ENG_ID, "key": "ENG", "name": "Engineering" },
+        ] } }),
+    )
+    .on("GetTeamMembers", members_page());
+    Cli::for_api(&api)
+        .run(&["team", "members", "eng", "--json"])
+        .success();
+    assert_eq!(api.variables("GetTeamMembers")["teamKey"], "ENG");
+}
+
+#[test]
+fn a_team_uuid_resolves_by_id() {
+    const UUID: &str = "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+    let api = MockLinear::start();
+    api.on(
+        "ResolveTeam",
+        json!({
+            "teams": { "nodes": [] },
+            "team_by_id": { "nodes": [{ "id": UUID, "key": "OPS", "name": "Operations" }] }
+        }),
+    )
+    .on("GetTeamMembers", members_page());
+    Cli::for_api(&api)
+        .run(&["team", "members", UUID, "--json"])
+        .success();
+    assert_eq!(
+        api.variables("ResolveTeam"),
+        json!({ "reference": UUID, "id": UUID, "isUuid": true })
+    );
+    assert_eq!(api.variables("GetTeamMembers")["teamKey"], "OPS");
+}
+
+#[test]
+fn an_ambiguous_team_name_lists_the_matching_teams() {
+    let api = MockLinear::start();
+    api.on(
+        "ResolveTeam",
+        json!({ "teams": { "nodes": [
+            { "id": "t-z", "key": "Z", "name": "Design" },
+            { "id": "t-a", "key": "A", "name": "design" },
+        ] } }),
+    );
+    Cli::for_api(&api)
+        .run(&["team", "members", "Design"])
+        .failure()
+        .stderr_has("Team \"Design\" is ambiguous; it matches:\n  Z (Design)\n  A (design)")
+        .stderr_has("Use the team key instead of the name.");
+    assert_eq!(api.operations(), ["ResolveTeam"]);
+}
+
+#[test]
+fn an_unknown_team_lists_every_team_key() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", json!({ "teams": { "nodes": [] } }))
+        .on(
+            "GetAllTeams",
+            json!({ "teams": page(vec![json!({ "id": "t-z", "key": "ZED", "name": "Zed" })], json!("c1"), true) }),
+        )
+        .on(
+            "GetAllTeams",
+            json!({ "teams": page(vec![json!({ "id": "t-a", "key": "ABC", "name": "Alpha" })], Value::Null, false) }),
+        );
+    Cli::for_api(&api)
+        .run(&["team", "members", "nope"])
+        .failure()
+        .stderr_has("Team not found: nope")
+        .stderr_has("Valid team keys: ABC (Alpha), ZED (Zed).");
+}
+
 #[test]
 fn members_default_to_the_configured_team_and_active_members() {
     let api = MockLinear::start();

@@ -105,25 +105,21 @@ pub fn select(
     let eligible = |t: &Template| t.template_type == scope.word() && available(t, team_ids);
     let candidates: Vec<_> = matches.iter().copied().filter(|t| eligible(t)).collect();
     if candidates.len() > 1 {
-        return Err(Error::new(format!(
-            "Template name \"{reference}\" is ambiguous: it matches {} templates",
-            candidates.len()
-        ))
-        .with_hint(format!(
-            "Pass the template ID instead: {}",
-            candidates
-                .iter()
-                .map(|t| format!(
+        return Err(crate::refs::ambiguous(
+            "Template",
+            reference,
+            candidates.iter().map(|t| {
+                format!(
                     "{} ({}, {})",
                     t.id.inner(),
                     t.template_type,
                     t.team
                         .as_ref()
                         .map_or("Workspace", |team| team.key.as_str())
-                ))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )));
+                )
+            }),
+        )
+        .with_hint("Pass the template ID instead."));
     }
     if let Some(t) = candidates.first() {
         return Ok((*t).clone());

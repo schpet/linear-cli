@@ -1,7 +1,7 @@
-//! Shared project reference resolution for UUID, exact name, slug and URL.
+//! Projects, referenced by UUID, exact name, slug ID or project URL.
 
 use crate::client::LinearClient;
-use crate::error::Error;
+use crate::error::{Error, Result};
 use crate::graphql::operations::project::{
     GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
 };
@@ -10,80 +10,95 @@ use super::is_linear_uuid;
 use super::url::{LinearUrlKind, LinearUrlRef};
 use super::workspace::{WorkspaceScope, expect_url_kind};
 
+/// A project argument, checked locally.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ProjectReference {
+pub struct ProjectReference {
+    input: String,
+    target: Target,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Target {
     Id(String),
-    NameOrSlug(String),
+    /// An exact name, else a slug ID.
+    NameOrSlug,
+    /// The slug ID from a project URL.
     Slug(String),
 }
 
-pub fn prepare_project_lookup(
-    input: &str,
-    scope: &WorkspaceScope<'_>,
-) -> Result<ProjectReference, Error> {
-    match expect_url_kind(
-        input,
-        LinearUrlKind::Project,
-        "a project URL, UUID, slug ID, or exact name",
-        scope,
-    )? {
-        Some(LinearUrlRef::Project { slug_id, .. }) => Ok(ProjectReference::Slug(slug_id)),
-        Some(_) => Err(Error::new(
-            "project URL kind check returned a different kind",
-        )),
-        None if is_linear_uuid(input) => Ok(ProjectReference::Id(input.to_owned())),
-        None => Ok(ProjectReference::NameOrSlug(input.to_owned())),
+impl ProjectReference {
+    pub fn parse(input: &str, scope: &WorkspaceScope<'_>) -> Result<Self> {
+        let target = match expect_url_kind(
+            input,
+            LinearUrlKind::Project,
+            "a project URL, UUID, slug ID, or exact name",
+            scope,
+        )? {
+            Some(LinearUrlRef::Project { slug_id, .. }) => Target::Slug(slug_id),
+            Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
+            None if is_linear_uuid(input) => Target::Id(input.to_owned()),
+            None => Target::NameOrSlug,
+        };
+        Ok(Self {
+            input: input.to_owned(),
+            target,
+        })
     }
-}
 
-pub async fn resolve_project_with_transport(
-    reference: &ProjectReference,
-    original: &str,
-    client: &LinearClient,
-) -> Result<String, Error> {
-    match reference {
-        ProjectReference::Id(id) => Ok(id.clone()),
-        ProjectReference::Slug(slug) => find_slug(slug, client)
-            .await?
-            .ok_or_else(|| not_found(original)),
-        ProjectReference::NameOrSlug(name) => {
-            let data: GetProjectIdByName = client
-                .query(ProjectReferenceVariables { name: name.clone() })
-                .await?;
-            let matches = data.projects.nodes;
-            if matches.len() > 1 {
-                return Err(Error::new(format!(
-                    "Project \"{name}\" is ambiguous; it matches {} projects:\n{}",
-                    matches.len(),
-                    matches
-                        .iter()
-                        .map(|item| format!("  {}", item.id.inner()))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                ))
-                .with_hint(
-                    "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
-                ));
-            }
-            if let Some(id) = matches
-                .into_iter()
-                .next()
-                .map(|project| project.id.into_inner())
-                .filter(|id| !id.is_empty())
-            {
-                return Ok(id);
-            }
-            find_slug(name, client)
-                .await?
-                .ok_or_else(|| not_found(original))
+    /// A project already known by its UUID.
+    pub fn from_id(id: String) -> Self {
+        Self {
+            input: id.clone(),
+            target: Target::Id(id),
+        }
+    }
+
+    pub fn input(&self) -> &str {
+        &self.input
+    }
+
+    /// The UUID, when the argument was one.
+    pub fn id(&self) -> Option<&str> {
+        match &self.target {
+            Target::Id(id) => Some(id),
+            Target::NameOrSlug | Target::Slug(_) => None,
         }
     }
 }
 
-async fn find_slug(slug: &str, client: &LinearClient) -> Result<Option<String>, Error> {
+/// The ID of the project `reference` names: a UUID as given, else an exact
+/// name (refusing an ambiguous one), else a slug ID; `None` when nothing
+/// matches.
+pub async fn find(client: &LinearClient, reference: &ProjectReference) -> Result<Option<String>> {
+    let slug = match &reference.target {
+        Target::Id(id) => return Ok(Some(id.clone())),
+        Target::Slug(slug) => slug,
+        Target::NameOrSlug => {
+            let data: GetProjectIdByName = client
+                .query(ProjectReferenceVariables {
+                    name: reference.input.clone(),
+                })
+                .await?;
+            let mut matches = data.projects.nodes;
+            if matches.len() > 1 {
+                return Err(super::ambiguous(
+                    "Project",
+                    &reference.input,
+                    matches.iter().map(|project| project.id.inner().to_owned()),
+                )
+                .with_hint(
+                    "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
+                ));
+            }
+            if let Some(project) = matches.pop() {
+                return Ok(Some(project.id.into_inner()));
+            }
+            &reference.input
+        }
+    };
     let data: GetProjectIdBySlugId = client
         .query(ProjectSlugVariables {
-            slug_id: slug.to_owned(),
+            slug_id: slug.clone(),
         })
         .await?;
     Ok(data
@@ -91,12 +106,14 @@ async fn find_slug(slug: &str, client: &LinearClient) -> Result<Option<String>, 
         .nodes
         .into_iter()
         .next()
-        .map(|project| project.id.into_inner())
-        .filter(|id| !id.is_empty()))
+        .map(|project| project.id.into_inner()))
 }
 
-fn not_found(original: &str) -> Error {
-    Error::not_found("Project", original).with_hint(
-        "Pass a project UUID, slug ID (from `linear project list`), or exact project name.",
-    )
+/// The ID of the project `reference` names.
+pub async fn resolve(client: &LinearClient, reference: &ProjectReference) -> Result<String> {
+    find(client, reference).await?.ok_or_else(|| {
+        Error::not_found("Project", &reference.input).with_hint(
+            "Pass a project UUID, slug ID (from `linear project list`), or exact project name.",
+        )
+    })
 }

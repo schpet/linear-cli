@@ -1,30 +1,38 @@
-//! Linear URL classification, local workspace checks and typed team lookup.
-mod cycle;
-mod project;
-mod team;
+//! References to Linear entities: Linear URLs, the local workspace check, and
+//! one module per entity that parses an argument (before any request) and
+//! resolves it to an ID.
+pub mod cycle;
+pub mod document;
+pub mod initiative;
+mod issue;
+pub mod project;
+pub mod release;
+pub mod team;
 mod url;
+pub mod user;
 mod uuid;
 pub mod workflow_states;
 mod workspace;
 
-pub use cycle::{CycleNumber, CycleNumberProblem};
-pub use project::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
-pub use team::{
-    PreparedTeamLookup, ResolvedTeam, fetch_all_teams, fetch_all_teams_with_transport, find_team,
-    prepare_team_lookup, resolve_team, resolve_team_with_transport,
-};
-pub use url::{CycleSelector, LinearUrlKind, LinearUrlRef};
+pub use issue::{IssueReference, find_issue_identifier, prepare_issue_reference};
+pub use url::{LinearUrlKind, LinearUrlRef};
 pub use uuid::is_linear_uuid;
 pub use workspace::{WorkspaceScope, expect_url_kind, reject_comment_url, reject_linear_url};
-mod document;
-mod initiative;
-pub use document::resolve_document_reference;
-pub use initiative::{
-    InitiativeReference, prepare_initiative_lookup, resolve_initiative_with_transport,
-};
 
-mod issue;
-pub use issue::{IssueReference, find_issue_identifier, prepare_issue_reference};
+use crate::error::Error;
+
+/// `input` names more than one `entity` (like "Team"); `candidates` describe
+/// each match, one per line. Callers add a hint naming an unambiguous form.
+pub fn ambiguous(entity: &str, input: &str, candidates: impl IntoIterator<Item = String>) -> Error {
+    let listing: Vec<String> = candidates
+        .into_iter()
+        .map(|candidate| format!("  {candidate}"))
+        .collect();
+    Error::new(format!(
+        "{entity} \"{input}\" is ambiguous; it matches:\n{}",
+        listing.join("\n")
+    ))
+}
 
 #[cfg(test)]
 mod test_support;

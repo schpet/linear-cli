@@ -234,7 +234,7 @@ fn view_resolves_slugs_then_names_and_shows_details() {
     );
     assert_eq!(
         api.variables("ResolveInitiativeByName"),
-        json!({ "name": "Roadmap" })
+        json!({ "name": "Roadmap", "includeArchived": false })
     );
 }
 
@@ -251,6 +251,18 @@ fn view_resolves_urls_by_slug() {
         json!({ "slugId": "1a2b3c4d5e6f", "includeArchived": false })
     );
     assert_eq!(api.variables("GetInitiativeDetails"), json!({ "id": ID }));
+}
+
+#[test]
+fn view_of_a_missing_url_never_falls_back_to_a_name() {
+    let api = MockLinear::start();
+    api.on("ResolveInitiativeBySlug", none());
+    Cli::for_api(&api)
+        .run(&["initiative", "view", URL])
+        .failure()
+        .stderr_has("Initiative not found")
+        .stderr_has("may have been deleted");
+    assert_eq!(api.operations(), ["ResolveInitiativeBySlug"]);
 }
 
 #[test]
@@ -324,6 +336,24 @@ fn create_sends_input_and_reports_the_url() {
             }
         })
     );
+}
+
+#[test]
+fn create_refuses_an_owner_name_shared_by_two_people() {
+    let api = MockLinear::start();
+    api.on(
+        "LookupUser",
+        json!({ "users": { "nodes": [
+            { "id": "user-1", "name": "Sam Lee", "displayName": "sam", "email": "lee@example.com" },
+            { "id": "user-2", "name": "Sam Ray", "displayName": "sam", "email": "ray@example.com" },
+        ] } }),
+    );
+    Cli::for_api(&api)
+        .run(&["initiative", "create", "-n", "Roadmap", "-o", "sam"])
+        .failure()
+        .stderr_has("Owner \"sam\" is ambiguous; it matches:")
+        .stderr_has("Sam Ray (sam, ray@example.com)");
+    assert_eq!(api.operations(), ["LookupUser"]);
 }
 
 #[test]
@@ -421,7 +451,7 @@ fn update_resolves_names() {
         .success();
     assert_eq!(
         api.variables("ResolveInitiativeByName"),
-        json!({ "name": "Roadmap" })
+        json!({ "name": "Roadmap", "includeArchived": false })
     );
     assert_eq!(
         api.variables("UpdateInitiative"),
@@ -550,7 +580,7 @@ fn archive_requires_a_target() {
 fn delete_with_force_resolves_names_and_deletes() {
     let api = MockLinear::start();
     api.on("ResolveInitiativeBySlug", none())
-        .on("ResolveInitiativeByNameIncludingArchived", by_id(ID))
+        .on("ResolveInitiativeByName", by_id(ID))
         .on(
             "GetInitiativeForDelete",
             json!({ "initiative": {
@@ -571,8 +601,8 @@ fn delete_with_force_resolves_names_and_deletes() {
         json!({ "slugId": "Roadmap", "includeArchived": true })
     );
     assert_eq!(
-        api.variables("ResolveInitiativeByNameIncludingArchived"),
-        json!({ "name": "Roadmap" })
+        api.variables("ResolveInitiativeByName"),
+        json!({ "name": "Roadmap", "includeArchived": true })
     );
     assert_eq!(api.variables("DeleteInitiative"), json!({ "id": ID }));
 }
@@ -701,7 +731,7 @@ fn unarchive_with_force_unarchives() {
 fn unarchive_resolves_archived_names() {
     let api = MockLinear::start();
     api.on("ResolveInitiativeBySlug", none())
-        .on("ResolveInitiativeByNameIncludingArchived", by_id(ID))
+        .on("ResolveInitiativeByName", by_id(ID))
         .on("GetInitiativeForUnarchive", unarchive_detail())
         .on(
             "UnarchiveInitiative",
@@ -714,8 +744,8 @@ fn unarchive_resolves_archived_names() {
         .run(&["initiative", "unarchive", "Roadmap", "-y"])
         .success();
     assert_eq!(
-        api.variables("ResolveInitiativeByNameIncludingArchived"),
-        json!({ "name": "Roadmap" })
+        api.variables("ResolveInitiativeByName"),
+        json!({ "name": "Roadmap", "includeArchived": true })
     );
     assert_eq!(api.variables("UnarchiveInitiative"), json!({ "id": ID }));
 }
@@ -923,8 +953,10 @@ fn comment_add_rejects_ambiguous_names() {
     Cli::for_api(&api)
         .run(&["initiative", "comment", "add", "Roadmap", "-b", "Hi"])
         .failure()
-        .stderr_has("ambiguous")
-        .stderr_has("6f5e4d3c2b1a");
+        .stderr_has(&format!(
+            "Initiative \"Roadmap\" is ambiguous; it matches:\n  Roadmap — 1a2b3c4d5e6f ({ID})\n  roadmap — 6f5e4d3c2b1a ({OTHER_ID})"
+        ))
+        .stderr_has("Pass the initiative's slug ID or UUID instead.");
     assert!(!api.operations().contains(&"AddComment".to_owned()));
 }
 

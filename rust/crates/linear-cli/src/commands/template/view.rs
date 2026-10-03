@@ -114,26 +114,22 @@ fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template,
             };
             Err(Error::not_found("Template", reference).with_hint(suggestion))
         }
-        count => {
-            let ids: Vec<String> = matches
-                .iter()
-                .map(|template| {
-                    format!(
-                        "{} ({}, {})",
-                        template.id.inner(),
-                        template.template_type,
-                        template
-                            .team
-                            .as_ref()
-                            .map_or("Workspace", |team| team.key.as_str())
-                    )
-                })
-                .collect();
-            Err(Error::new(format!(
-                "Template name \"{reference}\" is ambiguous: it matches {count} templates"
-            ))
-            .with_hint(format!("Pass the template ID instead: {}", ids.join(", "))))
-        }
+        _ => Err(crate::refs::ambiguous(
+            "Template",
+            reference,
+            matches.iter().map(|template| {
+                format!(
+                    "{} ({}, {})",
+                    template.id.inner(),
+                    template.template_type,
+                    template
+                        .team
+                        .as_ref()
+                        .map_or("Workspace", |team| team.key.as_str())
+                )
+            }),
+        )
+        .with_hint("Pass the template ID instead.")),
     }
 }
 

@@ -1,4 +1,5 @@
 //! `initiative update`: fields from flags or prompts, then one mutation.
+use crate::refs::{self, initiative::Archived};
 use chrono::NaiveDate;
 
 use crate::cli::initiative::InitiativeUpdate;
@@ -45,7 +46,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     let client = ctx.client()?;
     let (id, changes) = if prompting {
         let (id, current) = ctx.spin(true, async {
-            let id = super::resolve(client, &reference, original, super::Archived::Exclude).await?;
+            let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
             let current = details(client, &id, original).await?;
             Ok::<_, Error>((id, current))
         })?;
@@ -58,13 +59,13 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     } else {
         let id = ctx.spin(
             true,
-            super::resolve(client, &reference, original, super::Archived::Exclude),
+            refs::initiative::resolve(client, &reference, Archived::Exclude),
         )?;
         (id, flags)
     };
     let updated = ctx.spin(true, async {
         let owner_id = match &changes.owner {
-            Some(owner) => Some(crate::commands::user::resolve(client, owner, "Owner").await?),
+            Some(owner) => Some(refs::user::resolve(client, owner, "Owner").await?),
             None => None,
         };
         submit(client, &id, changes.into_input(owner_id)).await

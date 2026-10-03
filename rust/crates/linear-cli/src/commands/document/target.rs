@@ -8,7 +8,8 @@ use crate::error::{Error, Result};
 use crate::graphql::operations::document::*;
 use crate::graphql::operations::initiative::IDComparator;
 use crate::refs::{
-    self, InitiativeReference, LinearUrlKind, LinearUrlRef, PreparedTeamLookup, ProjectReference,
+    self, LinearUrlKind, LinearUrlRef, cycle::CycleReference, initiative::Archived,
+    initiative::InitiativeReference, project::ProjectReference, team::TeamReference,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -23,23 +24,16 @@ pub enum Kind {
 
 /// A target checked locally, ready to look up.
 pub enum PreparedTarget {
-    Project {
-        original: String,
-        reference: ProjectReference,
-    },
+    Project(ProjectReference),
     Issue {
         original: String,
         id: String,
     },
-    Initiative {
-        original: String,
-        reference: InitiativeReference,
-    },
-    Team(PreparedTeamLookup),
+    Initiative(InitiativeReference),
+    Team(TeamReference),
     Cycle {
-        team: PreparedTeamLookup,
-        reference: String,
-        url: Option<LinearUrlRef>,
+        team: TeamReference,
+        cycle: CycleReference,
     },
     Release(String),
 }
@@ -69,10 +63,9 @@ impl TargetOptions<'_> {
 pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTarget>> {
     let scope = ctx.scope()?;
     if let Some(original) = target.project {
-        return Ok(Some(PreparedTarget::Project {
-            original: original.to_owned(),
-            reference: refs::prepare_project_lookup(original, &scope)?,
-        }));
+        return Ok(Some(PreparedTarget::Project(ProjectReference::parse(
+            original, &scope,
+        )?)));
     }
     if let Some(original) = target.issue {
         let url = refs::expect_url_kind(
@@ -93,10 +86,9 @@ pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTa
         }));
     }
     if let Some(original) = target.initiative {
-        return Ok(Some(PreparedTarget::Initiative {
-            original: original.to_owned(),
-            reference: refs::prepare_initiative_lookup(original, &scope)?,
-        }));
+        return Ok(Some(PreparedTarget::Initiative(
+            InitiativeReference::parse(original, &scope)?,
+        )));
     }
     if let Some(reference) = target.cycle {
         let configured = configured_team_key(ctx.options());
@@ -105,18 +97,12 @@ pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTa
                 .with_hint("Pass --team <key, name, or ID> or configure a default team.")
         })?;
         return Ok(Some(PreparedTarget::Cycle {
-            team: refs::prepare_team_lookup(team, &scope)?,
-            reference: reference.to_owned(),
-            url: refs::expect_url_kind(
-                reference,
-                LinearUrlKind::Cycle,
-                "a cycle URL, number, or name",
-                &scope,
-            )?,
+            team: TeamReference::parse(team, &scope)?,
+            cycle: CycleReference::parse(reference, &scope)?,
         }));
     }
     if let Some(team) = target.team {
-        return Ok(Some(PreparedTarget::Team(refs::prepare_team_lookup(
+        return Ok(Some(PreparedTarget::Team(TeamReference::parse(
             team, &scope,
         )?)));
     }
@@ -130,26 +116,17 @@ pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTa
 /// The target's kind and Linear ID.
 pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(Kind, String)> {
     match target {
-        PreparedTarget::Project {
-            original,
-            reference,
-        } => Ok((
+        PreparedTarget::Project(reference) => Ok((
             Kind::Project,
-            refs::resolve_project_with_transport(reference, original, client).await?,
+            refs::project::resolve(client, reference).await?,
         )),
-        PreparedTarget::Initiative {
-            original,
-            reference,
-        } => Ok((
+        PreparedTarget::Initiative(reference) => Ok((
             Kind::Initiative,
-            refs::resolve_initiative_with_transport(reference, original, client).await?,
+            refs::initiative::resolve(client, reference, Archived::Exclude).await?,
         )),
-        PreparedTarget::Team(reference) => Ok((
-            Kind::Team,
-            refs::resolve_team_with_transport(reference, client)
-                .await?
-                .id,
-        )),
+        PreparedTarget::Team(reference) => {
+            Ok((Kind::Team, refs::team::resolve(client, reference).await?.id))
+        }
         PreparedTarget::Issue { original, id } => {
             let not_found = || {
                 Error::not_found("Issue", original)
@@ -170,20 +147,16 @@ pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(
                 data.issue.ok_or_else(not_found)?.id.into_inner(),
             ))
         }
-        PreparedTarget::Cycle {
-            team,
-            reference,
-            url,
-        } => {
-            let team = refs::resolve_team_with_transport(team, client).await?;
-            let id =
-                crate::commands::cycle::view::resolve_id(client, &team.id, reference, url.as_ref())
-                    .await?;
-            Ok((Kind::Cycle, id))
+        PreparedTarget::Cycle { team, cycle } => {
+            let team = refs::team::resolve(client, team).await?;
+            Ok((
+                Kind::Cycle,
+                refs::cycle::resolve(client, &team.id, cycle).await?,
+            ))
         }
         PreparedTarget::Release(original) => Ok((
             Kind::Release,
-            crate::commands::release_lookup::resolve(client, original).await?,
+            refs::release::resolve(client, original).await?,
         )),
     }
 }

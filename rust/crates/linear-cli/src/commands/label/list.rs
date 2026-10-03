@@ -13,7 +13,7 @@ use crate::graphql::operations::label::{
 use crate::graphql::operations::team::StringComparator;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::{collation, style};
-use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
+use crate::refs::{self, team::TeamReference};
 
 const WORKSPACE: &str = "Workspace";
 
@@ -22,7 +22,7 @@ enum Scope {
     /// Only labels without a team.
     Workspace,
     /// A team's labels plus workspace labels.
-    Team(PreparedTeamLookup),
+    Team(TeamReference),
     All,
 }
 
@@ -41,7 +41,7 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
             None => configured_team_key(ctx.options()),
         };
         match team {
-            Some(team) => Scope::Team(prepare_team_lookup(&team, &ctx.scope()?)?),
+            Some(team) => Scope::Team(TeamReference::parse(&team, &ctx.scope()?)?),
             None => Scope::All,
         }
     };
@@ -50,7 +50,7 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
         let filter = match &scope {
             Scope::Workspace => Some(workspace_only_filter()),
             Scope::Team(lookup) => {
-                let team = resolve_team_with_transport(lookup, client).await?;
+                let team = refs::team::resolve(client, lookup).await?;
                 Some(team_filter(team.key))
             }
             Scope::All => None,

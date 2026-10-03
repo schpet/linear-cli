@@ -196,3 +196,122 @@ fn view_explains_numbers_that_cannot_be_cycle_numbers() {
         );
     }
 }
+
+fn lookup_page(key: &str, enabled: bool, nodes: Value, end_cursor: Value) -> Value {
+    json!({ "team": {
+        "key": key, "cyclesEnabled": enabled,
+        "cycles": {
+            "nodes": nodes,
+            "pageInfo": { "hasNextPage": !end_cursor.is_null(), "endCursor": end_cursor }
+        },
+        "activeCycle": null
+    } })
+}
+
+fn lookup_cycle(id: &str, number: u32, name: &str) -> Value {
+    json!({
+        "id": id, "number": number, "name": name,
+        "startsAt": "2026-02-10T00:00:00.000Z", "isNext": false, "isPrevious": false
+    })
+}
+
+#[test]
+fn view_reads_every_cycle_page_and_prefers_a_number_over_a_later_name() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup_page(
+                "ENG",
+                true,
+                json!([lookup_cycle("cycle-5", 5, "Other")]),
+                json!("next"),
+            ),
+        )
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup_page(
+                "ENG",
+                true,
+                json!([lookup_cycle("named-5", 6, "5")]),
+                Value::Null,
+            ),
+        )
+        .on("GetCycleDetails", details());
+    Cli::for_api(&api)
+        .run(&["cycle", "view", "5", "--team", "ENG", "--json"])
+        .success();
+    let pages: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .filter(|request| request.operation.as_deref() == Some("GetTeamCyclesForLookup"))
+        .map(|request| request.variables)
+        .collect();
+    assert_eq!(
+        pages,
+        [
+            json!({ "teamId": ENG_ID, "after": null }),
+            json!({ "teamId": ENG_ID, "after": "next" }),
+        ]
+    );
+    assert_eq!(api.variables("GetCycleDetails"), json!({ "id": "cycle-5" }));
+}
+
+#[test]
+fn view_fails_on_the_first_page_when_cycles_are_disabled() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup_page("ENG", false, json!([]), json!("more")),
+        );
+    Cli::for_api(&api)
+        .run(&["cycle", "view", "5", "--team", "ENG"])
+        .failure()
+        .stderr_has("Cycles are not enabled for team ENG");
+}
+
+#[test]
+fn view_checks_a_cycle_url_team_against_the_working_team() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup_page("ENG", true, json!([]), Value::Null),
+        );
+    Cli::for_api(&api)
+        .run(&[
+            "cycle",
+            "view",
+            "https://linear.app/acme/team/OPS/cycle/5",
+            "--team",
+            "ENG",
+        ])
+        .failure()
+        .stderr_has("That cycle URL is for team OPS, but this command is working in team ENG.");
+}
+
+#[test]
+fn view_takes_the_team_from_a_cycle_url() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup_page(
+                "eng",
+                true,
+                json!([lookup_cycle("cycle-5", 5, "Sprint 5")]),
+                Value::Null,
+            ),
+        )
+        .on("GetCycleDetails", details());
+    Cli::for_api(&api)
+        .run(&[
+            "cycle",
+            "view",
+            "https://linear.app/acme/team/ENG/cycle/5",
+            "--json",
+        ])
+        .success();
+    assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
+}

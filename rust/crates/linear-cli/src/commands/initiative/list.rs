@@ -4,8 +4,8 @@ use serde::Serialize;
 use crate::cli::initiative::InitiativeList;
 use crate::cli::values;
 use crate::client::LinearClient;
+use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
-use crate::commands::{json, user};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::initiative::{
@@ -17,6 +17,7 @@ use crate::graphql::operations::team::StringComparator;
 use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::platform::{collation, style};
+use crate::refs;
 
 pub fn run(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
     if args.web || args.app {
@@ -33,7 +34,7 @@ fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
     let client = ctx.client()?;
     let mut initiatives = ctx.spin(!args.json, async {
         let owner = match &args.owner {
-            Some(owner) => Some(user::resolve(client, owner, "Owner").await?),
+            Some(owner) => Some(refs::user::resolve(client, owner, "Owner").await?),
             None => None,
         };
         fetch(client, filter(status, owner), args.archived).await

@@ -13,9 +13,7 @@ use crate::graphql::operations::milestone::{
 };
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::Float;
-use crate::refs::{
-    is_linear_uuid, prepare_project_lookup, reject_linear_url, resolve_project_with_transport,
-};
+use crate::refs::{self, is_linear_uuid, project::ProjectReference, reject_linear_url};
 
 const LIST_PREVIEW: usize = 10;
 
@@ -26,7 +24,7 @@ pub fn run(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
 fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
     reject_linear_url(&args.milestone, "a milestone name or UUID")?;
     let project = match args.project.as_deref() {
-        Some(project) => Some((prepare_project_lookup(project, &ctx.scope()?)?, project)),
+        Some(project) => Some((ProjectReference::parse(project, &ctx.scope()?)?, project)),
         None => None,
     };
     let by_name = !is_linear_uuid(&args.milestone);
@@ -40,8 +38,7 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
     let milestone = ctx.spin(!args.json, async {
         let id = match &project {
             Some((reference, original)) if by_name => {
-                let project_id =
-                    resolve_project_with_transport(reference, original, client).await?;
+                let project_id = refs::project::resolve(client, reference).await?;
                 super::id_by_name(client, &project_id, &args.milestone).await?
             }
             Some(_) | None => args.milestone.clone(),

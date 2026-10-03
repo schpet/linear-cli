@@ -12,17 +12,17 @@ use crate::graphql::operations::milestone::{
 };
 use crate::graphql::pagination::{self, Page};
 use crate::platform::collation;
-use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference};
 
 pub fn run(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
     list(ctx, args).context("Failed to list milestones")
 }
 
 fn list(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
-    let project = prepare_project_lookup(&args.project, &ctx.scope()?)?;
+    let project = ProjectReference::parse(&args.project, &ctx.scope()?)?;
     let client = ctx.client()?;
     let mut milestones = ctx.spin(!args.json, async {
-        let project_id = resolve_project_with_transport(&project, &args.project, client).await?;
+        let project_id = refs::project::resolve(client, &project).await?;
         fetch(client, &args.project, &project_id).await
     })?;
     args.limit.apply(&mut milestones);

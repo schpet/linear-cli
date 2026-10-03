@@ -4,7 +4,6 @@ use serde::Serialize;
 
 use super::common::DeletePayload;
 use super::common::IdVariablesFields;
-use super::common::NameVariablesFields;
 use super::project::ProjectStatusType;
 use super::team::StringComparator;
 use super::user::UserRef;
@@ -237,10 +236,20 @@ pub struct RemoveProjectFromInitiative {
     pub initiative_to_project_delete: DeletePayload,
 }
 
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct InitiativeNameVariables {
+    pub name: String,
+    pub include_archived: bool,
+}
+
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "InitiativeNameVariables"
+)]
 pub struct ResolveInitiativeByName {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
+    #[arguments(filter: { name: { eqIgnoreCase: $name } }, includeArchived: $include_archived)]
     pub initiatives: InitiativeNameConnection,
 }
 
@@ -256,13 +265,6 @@ pub struct InitiativeName {
     pub id: cynic::Id,
     pub name: String,
     pub slug_id: String,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct ResolveInitiativeByNameIncludingArchived {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } }, includeArchived: true)]
-    pub initiatives: InitiativeNameConnection,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -462,7 +464,7 @@ pub struct InitiativeViewProjectStatus {
 #[derive(cynic::QueryVariables, Clone, Debug, Eq, PartialEq)]
 pub struct UrlSlugVariables {
     pub slug_id: String,
-    pub include_archived: Option<bool>,
+    pub include_archived: bool,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]

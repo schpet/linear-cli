@@ -99,6 +99,51 @@ fn list_filters_by_project_and_limit() {
     );
 }
 
+fn releases(nodes: Value, end_cursor: Value) -> Value {
+    let has_next = !end_cursor.is_null();
+    json!({ "releases": page(nodes, end_cursor, has_next) })
+}
+
+#[test]
+fn list_by_release_counts_a_release_on_two_pages_once() {
+    const RELEASE_ID: &str = "00000000-0000-4000-9000-000000000060";
+    let release = json!({ "id": RELEASE_ID, "name": "Summer", "version": "2026.8" });
+    let api = MockLinear::start();
+    api.on("ResolveReleases", releases(json!([release]), json!("next")))
+        .on("ResolveReleases", releases(json!([release]), Value::Null))
+        .on(
+            "ListDocuments",
+            json!({ "documents": page(json!([]), Value::Null, false) }),
+        );
+    Cli::for_api(&api)
+        .run(&["document", "list", "--release", "2026.8", "--json"])
+        .success();
+    assert_eq!(
+        api.variables("ListDocuments")["filter"],
+        json!({ "release": { "id": { "eq": RELEASE_ID } } })
+    );
+}
+
+#[test]
+fn list_by_an_ambiguous_release_lists_the_matches() {
+    let api = MockLinear::start();
+    api.on(
+        "ResolveReleases",
+        releases(
+            json!([
+                { "id": "release-1", "name": "Summer", "version": "2026.8" },
+                { "id": "release-2", "name": "2026.8", "version": null },
+            ]),
+            Value::Null,
+        ),
+    );
+    Cli::for_api(&api)
+        .run(&["document", "list", "--release", "2026.8"])
+        .failure()
+        .stderr_has("Release \"2026.8\" is ambiguous; it matches:\n  Summer (2026.8) — release-1\n  2026.8 — release-2")
+        .stderr_has("Pass the release UUID instead.");
+}
+
 #[test]
 fn view_raw_prints_markdown_from_a_url() {
     let api = MockLinear::start();

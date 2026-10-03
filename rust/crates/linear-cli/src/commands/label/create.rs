@@ -8,16 +8,13 @@ use crate::graphql::operations::label::{
     CreateIssueLabel, CreateIssueLabelPayload, CreateIssueLabelVariables, IssueLabelCreateInput,
 };
 use crate::platform::prompt::{Choice, Prompter, Text};
-use crate::refs::{
-    PreparedTeamLookup, ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup,
-    resolve_team_with_transport,
-};
+use crate::refs::{self, team::ResolvedTeam, team::TeamReference};
 
 /// Where the label lives.
 enum Team {
     Workspace,
     /// A `--team` reference, resolved before the label is created.
-    Reference(PreparedTeamLookup),
+    Reference(TeamReference),
     /// A team picked at the prompt.
     Picked(String),
 }
@@ -45,7 +42,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
     let team = args
         .team
         .as_deref()
-        .map(|team| prepare_team_lookup(team, &ctx.scope()?))
+        .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
     let fields = if interactive {
         prompt(ctx, args, team)?
@@ -64,7 +61,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
     let created = ctx.spin(true, async {
         let team_id = match &fields.team {
             Team::Workspace => None,
-            Team::Reference(lookup) => Some(resolve_team_with_transport(lookup, client).await?.id),
+            Team::Reference(lookup) => Some(refs::team::resolve(client, lookup).await?.id),
             Team::Picked(id) => Some(id.clone()),
         };
         client
@@ -84,7 +81,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
 
 /// Asks for every field not given as a flag. The team list is fetched between
 /// the description and team prompts.
-fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<PreparedTeamLookup>) -> Result<Fields> {
+fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<TeamReference>) -> Result<Fields> {
     ctx.print("\nCreate a new label\n\n")?;
     let prompter = ctx.prompter()?;
     let name = match &args.name {
@@ -103,7 +100,7 @@ fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<PreparedTeamLookup>) -> Re
     let team = match team {
         Some(lookup) => Team::Reference(lookup),
         None => {
-            let teams = ctx.spin(true, fetch_all_teams_with_transport(ctx.client()?))?;
+            let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
             pick_team(&prompter, teams, configured_team_key(ctx.options()))?
         }
     };

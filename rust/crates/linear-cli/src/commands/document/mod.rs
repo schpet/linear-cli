@@ -11,6 +11,7 @@ use crate::cli::document::{DocumentCommand, DocumentCommentCommand};
 use crate::client::RequestError;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
+use crate::refs;
 
 pub fn run(ctx: &Ctx, command: &DocumentCommand) -> Result<()> {
     match command {
@@ -28,7 +29,7 @@ pub fn run(ctx: &Ctx, command: &DocumentCommand) -> Result<()> {
 
 /// The document's slug ID or UUID from a document argument, which may be a URL.
 fn reference(ctx: &Ctx, input: &str) -> Result<String> {
-    crate::refs::resolve_document_reference(input, &ctx.scope()?)
+    refs::document::parse(input, &ctx.scope()?)
 }
 
 /// `document(id:)` is non-null, so Linear reports a missing document as a

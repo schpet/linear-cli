@@ -19,7 +19,7 @@ use crate::graphql::operations::project::{
 use crate::graphql::pagination::{self, Page, PageInfo, Pages};
 use crate::platform::collation;
 use crate::platform::prompt::Choice;
-use crate::refs::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
+use crate::refs::{self, project::ProjectReference};
 
 const PAGE_SIZE: i32 = 250;
 
@@ -28,30 +28,21 @@ pub fn run(ctx: &Ctx, args: &ProjectView) -> Result<()> {
 }
 
 fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
-    let (original, reference) = match &args.project_id {
-        Some(original) => (
-            original.clone(),
-            prepare_project_lookup(original, &ctx.scope()?)?,
-        ),
-        None => {
-            let id = pick(ctx, args)?;
-            (id.clone(), ProjectReference::Id(id))
-        }
+    let reference = match &args.project_id {
+        Some(original) => ProjectReference::parse(original, &ctx.scope()?)?,
+        None => ProjectReference::from_id(pick(ctx, args)?),
     };
     if args.web || args.app {
-        let id = match reference {
-            ProjectReference::Id(id) => id,
-            reference => ctx.spin(
-                true,
-                resolve_project_with_transport(&reference, &original, ctx.client()?),
-            )?,
+        let id = match reference.id() {
+            Some(id) => id.to_owned(),
+            None => ctx.spin(true, refs::project::resolve(ctx.client()?, &reference))?,
         };
         return ctx.open_in_linear(&format!("project/{id}"), args.app);
     }
     let client = ctx.client()?;
     let project = ctx.spin(!args.json, async {
-        let id = resolve_project_with_transport(&reference, &original, client).await?;
-        fetch_details(client, &id, &original).await
+        let id = refs::project::resolve(client, &reference).await?;
+        fetch_details(client, &id, reference.input()).await
     })?;
     if args.json {
         return ctx.print(json::render(&project));
