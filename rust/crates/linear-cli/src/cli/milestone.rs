@@ -28,7 +28,7 @@ pub enum MilestoneCommand {
 
 #[derive(Debug, Args)]
 pub struct MilestoneList {
-    /// Project ID, slug or name
+    /// Project ID, slug, or name
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: String,
     /// Maximum number of milestones to show (a number or `all`)
@@ -46,7 +46,7 @@ pub struct MilestoneView {
     /// List every issue instead of the first 10
     #[arg(long)]
     pub all: bool,
-    /// Project (ID, slug or name) to find the milestone name in
+    /// Project (ID, slug, or name) to find the milestone name in
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
     /// Print JSON
@@ -56,7 +56,7 @@ pub struct MilestoneView {
 
 #[derive(Debug, Args)]
 pub struct MilestoneCreate {
-    /// Project ID, slug or name
+    /// Project ID, slug, or name
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: String,
     /// Milestone name
@@ -71,6 +71,7 @@ pub struct MilestoneCreate {
 }
 
 #[derive(Debug, Args)]
+#[command(override_usage = "linear milestone update [OPTIONS] <ID>")]
 #[command(group(
     ArgGroup::new("changes")
         .required(true)
@@ -92,7 +93,7 @@ pub struct MilestoneUpdate {
     /// Position among the project's milestones
     #[arg(long, value_name = "NUMBER", value_parser = super::values::sort_order, allow_negative_numbers = true)]
     pub sort_order: Option<Float>,
-    /// Move the milestone to this project (ID, slug or name)
+    /// Move the milestone to this project (ID, slug, or name)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
 }

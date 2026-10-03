@@ -29,7 +29,7 @@ pub enum DocumentCommand {
     /// Delete a document (moves it to the trash)
     #[command(visible_alias = "d")]
     Delete(DocumentDelete),
-    /// Comment on a document
+    /// Add and list comments on a document
     Comment(DocumentComment),
 }
 

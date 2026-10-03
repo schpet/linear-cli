@@ -37,7 +37,7 @@ pub enum InitiativeCommand {
     AddProject(InitiativeAddProject),
     /// Remove a project from an initiative
     RemoveProject(InitiativeRemoveProject),
-    /// Comment on an initiative
+    /// Add and list comments on an initiative
     Comment(InitiativeComment),
 }
 

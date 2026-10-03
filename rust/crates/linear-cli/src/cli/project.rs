@@ -30,7 +30,7 @@ pub enum ProjectCommand {
     Update(ProjectUpdate),
     /// Delete a project (moves it to the trash)
     Delete(ProjectDelete),
-    /// Comment on a project
+    /// Add and list comments on a project
     Comment(ProjectComment),
 }
 

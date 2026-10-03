@@ -57,7 +57,7 @@ pub enum IssueCommand {
     /// Open a GitHub pull request for an issue
     #[command(visible_alias = "pr")]
     PullRequest(IssuePullRequest),
-    /// Comment on an issue
+    /// Add, list, edit, and delete comments on an issue
     Comment(IssueComment),
     /// Upload a file and attach it to an issue
     ///

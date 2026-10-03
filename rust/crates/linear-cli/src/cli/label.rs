@@ -22,7 +22,7 @@ pub enum LabelCommand {
 
 #[derive(Debug, Args)]
 pub struct LabelList {
-    /// Show this team's labels (key, name or ID) plus workspace labels
+    /// Show this team's labels (key, name, or ID) plus workspace labels
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Show only workspace labels
@@ -50,7 +50,7 @@ pub struct LabelCreate {
     /// Label description
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub description: Option<String>,
-    /// Team (key, name or ID) for a team label; omit for a workspace label
+    /// Team (key, name, or ID) for a team label; omit for a workspace label
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Also prompt for the optional fields
@@ -63,7 +63,7 @@ pub struct LabelDelete {
     /// Label name or ID
     #[arg(value_name = "LABEL")]
     pub name_or_id: String,
-    /// Team (key, name or ID) whose label to delete, when names repeat
+    /// Team (key, name, or ID) whose label to delete, when names repeat
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     #[command(flatten)]

@@ -50,10 +50,10 @@ pub struct TeamCreate {
 
 #[derive(Debug, Args)]
 pub struct TeamDelete {
-    /// Team key, name or ID
+    /// Team key, name, or ID
     #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub team: String,
-    /// Move the team's issues to this team (key, name or ID) first
+    /// Move the team's issues to this team (key, name, or ID) first
     #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
     pub move_issues: Option<String>,
     #[command(flatten)]
@@ -84,7 +84,7 @@ pub struct TeamAutolinks {}
 
 #[derive(Debug, Args)]
 pub struct TeamMembers {
-    /// Team key, name or ID; defaults to the configured team
+    /// Team key, name, or ID; defaults to the configured team
     #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Include deactivated members
@@ -100,7 +100,7 @@ pub struct TeamMembers {
 
 #[derive(Debug, Args)]
 pub struct TeamStates {
-    /// Team key, name or ID; defaults to the configured team
+    /// Team key, name, or ID; defaults to the configured team
     #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Maximum number of states to show (a number or `all`)

@@ -19,7 +19,7 @@ pub enum CycleCommand {
 
 #[derive(Debug, Args)]
 pub struct CycleList {
-    /// Team key, name or ID; defaults to the configured team
+    /// Team key, name, or ID; defaults to the configured team
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Maximum number of cycles to show, newest first (a number or `all`)
@@ -32,10 +32,10 @@ pub struct CycleList {
 
 #[derive(Debug, Args)]
 pub struct CycleView {
-    /// Cycle name, number, `active`, `next`, `previous` or an offset like +1
+    /// Cycle name, number, `active`, `next`, `previous`, or an offset like +1
     #[arg(value_name = "CYCLE")]
     pub cycle_ref: String,
-    /// Team key, name or ID; defaults to the configured team
+    /// Team key, name, or ID; defaults to the configured team
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Print JSON
