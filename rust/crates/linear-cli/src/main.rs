@@ -10,9 +10,5 @@ fn main() -> ExitCode {
     // command grammar alone, before anything else runs.
     clap_complete::CompleteEnv::with_factory(linear_cli::cli::command).complete();
     // Help, version and usage errors never read configuration.
-    let cli = match Cli::try_parse() {
-        Ok(cli) => cli,
-        Err(error) => error.exit(),
-    };
-    ExitCode::from(linear_cli::app::main(cli))
+    ExitCode::from(linear_cli::app::main(Cli::parse()))
 }

@@ -721,7 +721,7 @@ fn archive_bulk_reports_unusable_references_and_archives_the_rest() {
         "eng-1",
     ]);
     run.failure()
-        .stdout_has("no team is set")
+        .stdout_has("Issue number 3 needs a team")
         .stdout_has("is not an entity this command can use");
     let ids: Vec<Value> = api
         .requests()

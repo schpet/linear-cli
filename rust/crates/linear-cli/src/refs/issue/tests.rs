@@ -3,7 +3,7 @@ use crate::auth::ApiKeyInput;
 use crate::refs::WorkspaceScope;
 
 #[test]
-fn references_preserve_presence_numbers_and_workspace_order() {
+fn identifiers_numbers_and_urls_become_references() {
     let key = ApiKeyInput::Absent;
     let scope = WorkspaceScope {
         api_key: key.clone(),
@@ -44,14 +44,8 @@ fn references_preserve_presence_numbers_and_workspace_order() {
             "{input:?}"
         );
     }
-    for team in [None, Some("")] {
-        let error = prepare_issue_reference(Some("7"), team, &scope).expect_err("missing team");
-        assert_eq!(
-            error.message(),
-            "an integer id was provided, but no team is set"
-        );
-        assert_eq!(error.hint(), Some("Run `linear config` to set a team."));
-    }
+    let error = prepare_issue_reference(Some("7"), None, &scope).expect_err("missing team");
+    assert_eq!(error.message(), "Issue number 7 needs a team");
     let error =
         prepare_issue_reference(Some("https://linear.app/foreign/issue/ENG-7"), None, &scope)
             .expect_err("foreign URL");

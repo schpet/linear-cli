@@ -181,8 +181,7 @@ pub fn stdout_width(ctx: &Ctx) -> Option<usize> {
     if !ctx.stdout_tty() {
         return None;
     }
-    terminal_size::terminal_size_of(std::io::stdout())
-        .map(|(terminal_size::Width(width), _)| usize::from(width))
+    crate::platform::pager::stdout_size().map(|size| usize::from(size.columns))
 }
 
 /// How many terminal columns `text` occupies.

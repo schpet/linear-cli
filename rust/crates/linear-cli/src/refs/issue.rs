@@ -38,9 +38,9 @@ pub fn prepare_issue_reference(
     if input.starts_with(|c: char| ('1'..='9').contains(&c))
         && input.bytes().all(|b| b.is_ascii_digit())
     {
-        let team = team_key.filter(|value| !value.is_empty()).ok_or_else(|| {
-            Error::new("an integer id was provided, but no team is set")
-                .with_hint("Run `linear config` to set a team.")
+        let team = team_key.ok_or_else(|| {
+            Error::new(format!("Issue number {input} needs a team"))
+                .with_hint("Pass a full identifier like ENG-123, or run `linear config` to set a default team.")
         })?;
         return Ok(
             issue_identifier(&format!("{}-{input}", team.to_uppercase()))
