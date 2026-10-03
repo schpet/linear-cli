@@ -5,7 +5,6 @@ use std::cell::RefCell;
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::project::ProjectUpdate;
-use crate::commands::milestone::create::outcome_unknown;
 use crate::commands::project::collections::{
     self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
 };
@@ -479,7 +478,7 @@ async fn apply(
                     change.description()
                 )),
             ),
-            Err(error) if outcome_unknown(&error) => (FailedWrite::Unknown, Error::from(error)),
+            Err(error) if error.outcome_unknown() => (FailedWrite::Unknown, Error::from(error)),
             Err(error) => (FailedWrite::Rejected, Error::from(error)),
         };
         let diagnostic = collections::partial_diagnostic(changes, applied, outcome, updated_fields);

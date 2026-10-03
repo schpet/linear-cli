@@ -10,7 +10,7 @@ use crate::graphql::operations::milestone_create::{
     ProjectMilestoneCreateInput,
 };
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::{GraphQlTransport, NetworkPhase, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
 pub fn run(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
@@ -44,34 +44,12 @@ async fn submit(
             },
         },
     ));
-    let result: CreateProjectMilestone = client.execute(&request).await.map_err(|failure| {
-        let uncertain = outcome_unknown(&failure);
-        let mut error = Error::from(failure);
-        if uncertain {
-            error.push_message("; milestone may already exist");
-        }
-        error
-    })?;
+    let result: CreateProjectMilestone = client.execute(&request).await.map_err(|failure| failure.into_create_error("milestone"))?;
     let payload = result.project_milestone_create;
     if !payload.success {
         return Err(Error::new("Linear did not create the milestone"));
     }
     Ok(payload.project_milestone)
-}
-
-/// Only a failed connection proves nothing was sent. A timeout, any later
-/// network failure (a reset after the request was written surfaces as a
-/// request-phase error), or an undecodable success response leaves the
-/// create's outcome unknown; errors Linear reported do not.
-pub(crate) fn outcome_unknown(failure: &TransportFailure) -> bool {
-    match failure {
-        TransportFailure::Timeout { .. } | TransportFailure::Response(_) => true,
-        TransportFailure::Network { phase, .. } => !matches!(phase, NetworkPhase::Connect),
-        TransportFailure::ResponseTooLarge { status, .. } => status.is_success(),
-        TransportFailure::RequestBody(_)
-        | TransportFailure::GraphQl { .. }
-        | TransportFailure::Http { .. } => false,
-    }
 }
 
 fn render(milestone: &CreatedMilestone) -> String {

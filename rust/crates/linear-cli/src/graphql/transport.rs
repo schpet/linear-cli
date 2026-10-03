@@ -629,6 +629,32 @@ impl StdError for TransportFailure {
     }
 }
 
+impl TransportFailure {
+    /// Whether the request may have reached Linear and taken effect anyway: a
+    /// timeout, a network failure after connecting (a reset after the request
+    /// was written surfaces as a request-phase error), or an undecodable
+    /// success response. Errors Linear reported mean nothing changed.
+    pub fn outcome_unknown(&self) -> bool {
+        match self {
+            Self::Timeout { .. } | Self::Response(_) => true,
+            Self::Network { phase, .. } => !matches!(phase, NetworkPhase::Connect),
+            Self::ResponseTooLarge { status, .. } => status.is_success(),
+            Self::RequestBody(_) | Self::GraphQl { .. } | Self::Http { .. } => false,
+        }
+    }
+
+    /// The error for a failed create, noting that `entity` may already exist
+    /// when the outcome is unknown. Creates are never retried.
+    pub fn into_create_error(self, entity: &str) -> Error {
+        let uncertain = self.outcome_unknown();
+        let mut error = Error::from(self);
+        if uncertain {
+            error.push_message(&format!("; {entity} may already exist"));
+        }
+        error
+    }
+}
+
 impl From<TransportFailure> for Error {
     fn from(failure: TransportFailure) -> Self {
         let message = failure.to_string();

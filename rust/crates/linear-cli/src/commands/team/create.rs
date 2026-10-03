@@ -5,7 +5,6 @@ use std::io::{Read, Write};
 use cynic::MutationBuilder;
 
 use crate::cli::team::TeamCreate;
-use crate::commands::milestone::create::outcome_unknown;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -108,14 +107,10 @@ fn answer<T>(outcome: Result<PromptOutcome<T>>) -> Result<T> {
 /// Linear says the team may already exist; nothing is retried.
 async fn submit(client: &GraphQlTransport, input: TeamCreateInput) -> Result<CreatedTeam> {
     let request = GraphQlRequest::with_variables(CreateTeam::build(CreateTeamVariables { input }));
-    let result: CreateTeam = client.execute(&request).await.map_err(|failure| {
-        let uncertain = outcome_unknown(&failure);
-        let mut error = Error::from(failure);
-        if uncertain {
-            error.push_message("; team may already exist");
-        }
-        error
-    })?;
+    let result: CreateTeam = client
+        .execute(&request)
+        .await
+        .map_err(|failure| failure.into_create_error("team"))?;
     let payload = result.team_create;
     if !payload.success {
         return Err(Error::new("Linear did not create the team"));

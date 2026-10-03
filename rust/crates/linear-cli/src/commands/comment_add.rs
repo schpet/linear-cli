@@ -141,14 +141,7 @@ pub async fn create(
     let result: AddComment = transport
         .execute(&request(input))
         .await
-        .map_err(|failure| {
-            let uncertain = crate::commands::milestone::create::outcome_unknown(&failure);
-            let mut error = Error::from(failure);
-            if uncertain {
-                error.push_message("; comment may already exist");
-            }
-            error
-        })?;
+        .map_err(|failure| failure.into_create_error("comment"))?;
     if !result.comment_create.success {
         return Err(Error::new("Failed to create comment"));
     }

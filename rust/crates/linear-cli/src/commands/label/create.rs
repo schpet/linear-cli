@@ -4,7 +4,6 @@ use std::io::{Read, Write};
 use cynic::MutationBuilder;
 
 use crate::cli::label::{LabelCreate, hex_color};
-use crate::commands::milestone::create::outcome_unknown;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -97,14 +96,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
         client
             .execute::<CreateIssueLabel, _>(&request)
             .await
-            .map_err(|failure| {
-                let uncertain = outcome_unknown(&failure);
-                let mut error = Error::from(failure);
-                if uncertain {
-                    error.push_message("; the label may have been created");
-                }
-                error
-            })
+            .map_err(|failure| failure.into_create_error("label"))
     })?;
     ctx.print(render(&created.issue_label_create)?)
 }

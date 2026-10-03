@@ -228,14 +228,7 @@ async fn submit(
         GraphQlRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables {
             input,
         }));
-    let result: CreateInitiative = client.execute(&request).await.map_err(|failure| {
-        let uncertain = crate::commands::milestone::create::outcome_unknown(&failure);
-        let mut error = Error::from(failure);
-        if uncertain {
-            error.push_message("; initiative may already exist");
-        }
-        error
-    })?;
+    let result: CreateInitiative = client.execute(&request).await.map_err(|failure| failure.into_create_error("initiative"))?;
     if !result.initiative_create.success {
         return Err(Error::new("Linear did not create the initiative"));
     }
