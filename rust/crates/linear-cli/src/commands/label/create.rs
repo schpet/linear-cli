@@ -50,7 +50,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
             color: args
                 .color
                 .clone()
-                .unwrap_or_else(|| color::INDIGO.to_owned()),
+                .map_or_else(|| color::INDIGO.to_owned(), String::from),
             description: args.description.clone(),
             team: team.map_or(Team::Workspace, Team::Reference),
         }
@@ -93,7 +93,7 @@ fn prompt(
         None => prompter.text(Text::new("Label name:").required())?,
     };
     let color = match &args.color {
-        Some(color) => color.clone(),
+        Some(color) => color.clone().into(),
         None if optional => pick_color(&prompter)?,
         None => color::INDIGO.to_owned(),
     };

@@ -5,7 +5,7 @@ use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::UserRef;
+use super::values::{HexColor, UserRef};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -142,7 +142,7 @@ pub struct ProjectCreate {
     pub icon: Option<String>,
     /// Color, like #5E6AD2
     #[arg(long)]
-    pub color: Option<String>,
+    pub color: Option<HexColor>,
     /// Add the project to this initiative (ID, slug, or name)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub initiative: Option<String>,

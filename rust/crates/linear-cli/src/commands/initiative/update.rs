@@ -4,7 +4,7 @@ use crate::refs::{self, initiative::Archived};
 use chrono::NaiveDate;
 
 use crate::cli::initiative::InitiativeUpdate;
-use crate::cli::values::{UserRef, date, hex_color};
+use crate::cli::values::{HexColor, UserRef, date};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -30,7 +30,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         status: args.status.map(Into::into),
         owner: args.owner.clone(),
         target_date: args.target_date,
-        color: args.color.clone(),
+        color: args.color.clone().map(String::from),
         icon: args.icon.clone(),
     };
     let interactive = ctx.optional_prompts(args.interactive)?;
@@ -181,10 +181,12 @@ fn prompt(prompter: &Prompter<'_>, current: &CurrentInitiative) -> Result<Change
         changes.target_date = Some(value);
     }
     let default = current.color.as_deref().unwrap_or("");
-    let value = prompter.parsed(
-        Text::new("Color (hex, e.g., #5E6AD2):").with_default(default),
-        &hex_color,
-    )?;
+    let value = prompter
+        .parsed(
+            Text::new("Color (hex, e.g., #5E6AD2):").with_default(default),
+            &str::parse::<HexColor>,
+        )?
+        .map(String::from);
     if let Some(value) = value
         && value != default
     {

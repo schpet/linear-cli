@@ -26,7 +26,7 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
         status: args.status,
         owner: args.owner.clone(),
         target_date: args.target_date,
-        color: args.color.clone(),
+        color: args.color.clone().map(String::from),
         icon: args.icon.clone(),
     };
     let optional = ctx.optional_prompts(args.interactive)?;

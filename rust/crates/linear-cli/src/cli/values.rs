@@ -59,14 +59,27 @@ pub fn date_or_datetime(value: &str) -> Result<DateTime<Utc>, String> {
         .map_err(|_| format!("expected a YYYY-MM-DD date or an RFC 3339 date-time, got {value:?}"))
 }
 
-/// A `#RRGGBB` color.
-pub fn hex_color(value: &str) -> Result<String, String> {
-    let digits = value
-        .strip_prefix('#')
-        .filter(|digits| digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit()));
-    match digits {
-        Some(_) => Ok(value.to_owned()),
-        None => Err(format!("expected a hex color like #5E6AD2, got {value:?}")),
+/// A `#RRGGBB` color, as written.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HexColor(String);
+
+impl FromStr for HexColor {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, String> {
+        let digits = value
+            .strip_prefix('#')
+            .filter(|digits| digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit()));
+        match digits {
+            Some(_) => Ok(Self(value.to_owned())),
+            None => Err(format!("expected a hex color like #5E6AD2, got {value:?}")),
+        }
+    }
+}
+
+impl From<HexColor> for String {
+    fn from(color: HexColor) -> Self {
+        color.0
     }
 }
 
@@ -182,9 +195,9 @@ mod tests {
 
     #[test]
     fn hex_color_needs_six_digits() {
-        assert_eq!(hex_color("#5e6AD2"), Ok("#5e6AD2".to_owned()));
+        assert_eq!("#5e6AD2".parse(), Ok(HexColor("#5e6AD2".to_owned())));
         for invalid in ["5E6AD2", "#5E6AD", "#5E6AD2F", "#GGGGGG"] {
-            assert!(hex_color(invalid).is_err(), "{invalid}");
+            assert!(invalid.parse::<HexColor>().is_err(), "{invalid}");
         }
     }
 }

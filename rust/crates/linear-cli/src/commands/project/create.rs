@@ -138,7 +138,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             label_ids: (!label_ids.is_empty()).then_some(label_ids),
             member_ids: (!member_ids.is_empty()).then_some(member_ids),
             icon: args.icon.clone(),
-            color: args.color.clone(),
+            color: args.color.clone().map(String::from),
             template_id,
         };
         let project = submit(client, input).await?;

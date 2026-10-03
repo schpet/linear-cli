@@ -5,7 +5,7 @@ use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::{InitiativeStatus, UserRef};
+use super::values::{HexColor, InitiativeStatus, UserRef};
 use crate::graphql::scalars::Float;
 
 #[derive(Debug, Args)]
@@ -103,8 +103,8 @@ pub struct InitiativeCreate {
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
     /// Color, like #5E6AD2
-    #[arg(long, short, value_parser = super::values::hex_color)]
-    pub color: Option<String>,
+    #[arg(long, short)]
+    pub color: Option<HexColor>,
     /// Icon name
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
@@ -145,8 +145,8 @@ pub struct InitiativeUpdate {
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
     /// New color, like #5E6AD2
-    #[arg(long, value_parser = super::values::hex_color)]
-    pub color: Option<String>,
+    #[arg(long)]
+    pub color: Option<HexColor>,
     /// New icon name
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,

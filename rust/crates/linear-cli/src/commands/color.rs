@@ -1,5 +1,5 @@
 //! The colors offered when a label or initiative is created interactively.
-use crate::cli::values::hex_color;
+use crate::cli::values::HexColor;
 use crate::error::Result;
 use crate::platform::prompt::{Prompter, Text};
 
@@ -30,7 +30,8 @@ pub fn custom(prompter: &Prompter<'_>) -> Result<String> {
     Ok(prompter
         .parsed(
             Text::new("Enter hex color (e.g., #FF5733):").required(),
-            &hex_color,
+            &str::parse::<HexColor>,
         )?
-        .expect("a required answer is never blank"))
+        .expect("a required answer is never blank")
+        .into())
 }

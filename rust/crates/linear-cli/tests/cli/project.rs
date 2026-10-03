@@ -690,6 +690,9 @@ fn create_and_update_reject_invalid_values_before_any_request() {
         &[
             "project", "create", "-n", "X", "-t", "SRC", "--status", "done",
         ],
+        &[
+            "project", "create", "-n", "X", "-t", "SRC", "--color", "blue",
+        ],
         &["project", "update", ID, "--priority", "extreme"],
         &["project", "update", ID, "--target-date", "2025-02-30"],
         &[

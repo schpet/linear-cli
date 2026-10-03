@@ -1,6 +1,8 @@
 use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
+use super::values::HexColor;
+
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct Label {
@@ -43,8 +45,8 @@ pub struct LabelCreate {
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub name: Option<String>,
     /// Color, like #EB5757
-    #[arg(long, short, value_parser = super::values::hex_color)]
-    pub color: Option<String>,
+    #[arg(long, short)]
+    pub color: Option<HexColor>,
     /// Label description
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub description: Option<String>,
