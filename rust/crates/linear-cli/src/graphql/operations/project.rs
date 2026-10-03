@@ -799,8 +799,8 @@ pub struct TeamCollectionFilter {
 #[derive(cynic::InputObject, Clone, Debug, Default, PartialEq, Eq)]
 #[cynic(schema = "linear")]
 pub struct ProjectStatusFilter {
-    #[cynic(skip_serializing_if = "Option::is_none")]
-    pub name: Option<StringComparator>,
+    #[cynic(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub status_type: Option<StringComparator>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]

@@ -82,14 +82,7 @@ pub async fn statuses(client: &LinearClient) -> Result<Vec<StatusOption>> {
 
 /// The ID of the workspace's first status of kind `status`.
 pub async fn status_id(client: &LinearClient, status: Status) -> Result<String> {
-    let kind = match status {
-        Status::Planned => ProjectStatusType::Planned,
-        Status::Started => ProjectStatusType::Started,
-        Status::Paused => ProjectStatusType::Paused,
-        Status::Completed => ProjectStatusType::Completed,
-        Status::Canceled => ProjectStatusType::Canceled,
-        Status::Backlog => ProjectStatusType::Backlog,
-    };
+    let kind = ProjectStatusType::from(status);
     statuses(client)
         .await?
         .into_iter()

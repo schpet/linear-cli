@@ -112,7 +112,13 @@ fn list_json_filters_by_team_and_status() {
         json!({ "projects": page(json!([list_node("Roadmap")])) }),
     );
     let run = Cli::for_api(&api).run(&[
-        "project", "list", "--team", "ENG", "--status", "Started", "--json",
+        "project",
+        "list",
+        "--team",
+        "ENG",
+        "--status",
+        "In Progress",
+        "--json",
     ]);
     assert_json(
         &Value::Array(run.success().json_nodes()),
@@ -124,7 +130,7 @@ fn list_json_filters_by_team_and_status() {
         json!({
             "filter": {
                 "accessibleTeams": { "some": { "key": { "eq": "ENG" } } },
-                "status": { "name": { "eq": "Started" } }
+                "status": { "type": { "eq": "started" } }
             },
             "first": 100
         })

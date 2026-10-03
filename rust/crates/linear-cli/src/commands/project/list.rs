@@ -5,7 +5,7 @@ use std::time::SystemTime;
 
 use serde::Serialize;
 
-use crate::cli::project::ProjectList;
+use crate::cli::project::{ProjectList, Status};
 use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::ago;
@@ -53,7 +53,7 @@ fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
         let team_key = ctx.spin(true, team_key)?;
         return ctx.open_in_linear(&projects_path(team_key.as_deref()), args.app);
     }
-    let status = args.status.as_deref();
+    let status = args.status;
     let mut projects = ctx.spin(!args.json, async {
         let team_key = team_key.await?;
         fetch(client, filter(team_key.as_deref(), status)).await
@@ -76,7 +76,7 @@ fn projects_path(team_key: Option<&str>) -> String {
     )
 }
 
-pub(super) fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<ProjectFilter> {
+pub(super) fn filter(team_key: Option<&str>, status: Option<Status>) -> Option<ProjectFilter> {
     let accessible_teams = team_key.map(|key| TeamCollectionFilter {
         some: Some(TeamFilter {
             key: Some(StringComparator {
@@ -86,9 +86,9 @@ pub(super) fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<Pro
             ..Default::default()
         }),
     });
-    let status = status.map(|name| ProjectStatusFilter {
-        name: Some(StringComparator {
-            eq: Some(name.to_owned()),
+    let status = status.map(|status| ProjectStatusFilter {
+        status_type: Some(StringComparator {
+            eq: Some(ProjectStatusType::from(status).as_str().to_owned()),
             ..Default::default()
         }),
     });

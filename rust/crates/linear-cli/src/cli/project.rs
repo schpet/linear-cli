@@ -6,6 +6,7 @@ use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
 use super::values::{HexColor, UserRef};
+use crate::graphql::operations::project::ProjectStatusType;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -41,9 +42,9 @@ pub struct ProjectList {
     /// Show every team's projects
     #[arg(long, conflicts_with = "team")]
     pub all_teams: bool,
-    /// Show only projects with this status name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
-    pub status: Option<String>,
+    /// Show only projects with this status
+    #[arg(long, ignore_case = true)]
+    pub status: Option<Status>,
     /// Open the projects page in the browser
     #[arg(long, short)]
     pub web: bool,
@@ -122,6 +123,19 @@ pub enum Status {
     Paused,
     Completed,
     Canceled,
+}
+
+impl From<Status> for ProjectStatusType {
+    fn from(status: Status) -> Self {
+        match status {
+            Status::Backlog => Self::Backlog,
+            Status::Planned => Self::Planned,
+            Status::Started => Self::Started,
+            Status::Paused => Self::Paused,
+            Status::Completed => Self::Completed,
+            Status::Canceled => Self::Canceled,
+        }
+    }
 }
 
 #[derive(Debug, Args)]
