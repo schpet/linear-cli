@@ -92,3 +92,6 @@ fn line_column(text: &str, offset: usize) -> (usize, usize) {
         + 1;
     (line, column)
 }
+
+#[cfg(test)]
+mod tests;

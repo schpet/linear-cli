@@ -29,3 +29,6 @@ pub use startup::{
     ChildEnvOverlay, DisplaySettings, StartupConfig, StartupReport, load_startup, render_diagnostic,
 };
 pub use transport::TransportEnvInputs;
+
+#[cfg(test)]
+mod test_support;

@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use linear_cli::config::{
-    AssignSelf, ConfigInputs, ConfigOptionError, ConfigOptions, ConfigTier, EndpointSource,
-    IssueSort, OptionErrorReason, OptionInputs, OptionKey, OptionSource, OsFamily, PrTemplateCli,
-    RawConfigFile, SelectedEnv, Vcs, parse_config_tier,
-};
+use super::*;
+use crate::config::{ConfigInputs, OsFamily, RawConfigFile, SelectedEnv, parse_config_tier};
 
 fn tier(path: &str, content: &str) -> ConfigTier {
     parse_config_tier(RawConfigFile {

@@ -294,3 +294,6 @@ pub fn render_diagnostic(diagnostic: &ConfigDiagnostic, color: bool) -> String {
         style::gray(suggestion, color)
     )
 }
+
+#[cfg(test)]
+mod tests;

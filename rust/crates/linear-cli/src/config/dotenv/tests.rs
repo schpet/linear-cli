@@ -1,12 +1,8 @@
-use std::fs;
 use std::path::Path;
 
-use linear_cli::config::{
-    ConfigFailure, DiagnosticReason, FileKind, FileSource, ReadCandidate, RealFileSource,
-    SelectedEnv, load_env, read_config_candidate,
-};
-
-use super::TempTree;
+use super::*;
+use crate::config::test_support::TempTree;
+use crate::config::{FileKind, FileSource, RealFileSource};
 
 fn load(tree: &TempTree, root: Option<&Path>) -> SelectedEnv {
     load_env(&tree.inputs(), &RealFileSource, root).unwrap()
@@ -222,7 +218,7 @@ fn windows_line_endings_and_a_byte_order_mark_are_accepted() {
 fn cwd_file_wins_over_the_repo_root_file() {
     let tree = TempTree::new();
     tree.write("repo/.env", b"LINEAR_TEAM_ID=ROOT\n");
-    let root = tree.0.join("repo");
+    let root = tree.join("repo");
     let selected = load(&tree, Some(&root));
     assert_eq!(applied(&selected, "LINEAR_TEAM_ID"), Some("ROOT"));
     assert_eq!(selected.source_path, Some(root.join(".env")));
@@ -230,7 +226,7 @@ fn cwd_file_wins_over_the_repo_root_file() {
     tree.write(".env", b"OTHER=1\n");
     let selected = load(&tree, Some(&root));
     assert!(selected.applied.is_empty());
-    assert_eq!(selected.source_path, Some(tree.0.join(".env")));
+    assert_eq!(selected.source_path, Some(tree.join(".env")));
 
     assert_eq!(load(&TempTree::new(), None).source_path, None);
 }
@@ -260,8 +256,8 @@ fn invalid_utf8_and_oversized_files_are_fatal() {
     tree.write(".env", &vec![b'x'; 1024 * 1024 + 1]);
     tree.write("repo/.env", b"LINEAR_TEAM_ID=root\n");
     assert!(matches!(
-        load_env(&tree.inputs(), &RealFileSource, Some(&tree.0.join("repo"))),
-        Err(error) if matches!(&error.failure, ConfigFailure::Oversize { path } if path == &tree.0.join(".env"))
+        load_env(&tree.inputs(), &RealFileSource, Some(&tree.join("repo"))),
+        Err(error) if matches!(&error.failure, ConfigFailure::Oversize { path } if path == &tree.join(".env"))
     ));
     tree.write(".env", &vec![b'x'; 1024 * 1024]);
     assert!(load_env(&tree.inputs(), &RealFileSource, None).is_ok());
@@ -272,13 +268,13 @@ fn unusable_files_warn_in_lookup_order() {
     let tree = TempTree::new();
     tree.mkdir(".env");
     tree.mkdir("repo/.env");
-    let root = tree.0.join("repo");
+    let root = tree.join("repo");
     let selected = load(&tree, Some(&root));
     assert_eq!(selected.diagnostics.len(), 2);
-    assert_eq!(selected.diagnostics[0].path, tree.0.join(".env"));
+    assert_eq!(selected.diagnostics[0].path, tree.join(".env"));
     assert_eq!(selected.diagnostics[1].path, root.join(".env"));
 
-    let selected = load(&tree, Some(&tree.0));
+    let selected = load(&tree, Some(tree.path()));
     assert_eq!(selected.diagnostics.len(), 1, "the same file is read once");
 }
 
@@ -297,28 +293,4 @@ fn nonregular_files_are_never_read() {
     let selected = load_env(&tree.inputs(), &Fake, None).unwrap();
     assert_eq!(selected.diagnostics.len(), 1);
     assert!(selected.applied.is_empty());
-}
-
-#[test]
-fn config_file_reader_distinguishes_missing_empty_large_and_directory() {
-    let tree = TempTree::new();
-    assert!(matches!(
-        read_config_candidate(&RealFileSource, &tree.0.join("missing.toml")),
-        ReadCandidate::Absent
-    ));
-    tree.write("empty.toml", b"");
-    assert!(matches!(
-        read_config_candidate(&RealFileSource, &tree.0.join("empty.toml")),
-        ReadCandidate::Contents(file) if file.bytes.is_empty()
-    ));
-    tree.write("large.toml", &vec![b'x'; 1024 * 1024 + 1]);
-    assert!(matches!(
-        read_config_candidate(&RealFileSource, &tree.0.join("large.toml")),
-        ReadCandidate::TooLarge { .. }
-    ));
-    fs::create_dir(tree.0.join("directory.toml")).unwrap();
-    assert!(matches!(
-        read_config_candidate(&RealFileSource, &tree.0.join("directory.toml")),
-        ReadCandidate::Poisoned { .. }
-    ));
 }

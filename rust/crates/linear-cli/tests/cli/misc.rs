@@ -2,8 +2,12 @@
 use crate::support::{Cli, MockLinear};
 
 #[test]
-fn markdown_prints_the_reference() {
-    let run = Cli::new().run(&["markdown"]);
+fn markdown_prints_the_reference_offline() {
+    // Offline commands never build a network client.
+    let run = Cli::new()
+        .env("HTTPS_PROXY", "http://proxy.example.invalid:3128")
+        .env("SSL_CERT_FILE", "/missing/ca.pem")
+        .run(&["markdown"]);
     run.success()
         .stdout_has("+++ [")
         .stdout_has("linear team members");

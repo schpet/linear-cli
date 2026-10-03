@@ -110,3 +110,6 @@ fn relevant(name: &str, os: OsFamily) -> bool {
                 | "DENO_CERT"
         )
 }
+
+#[cfg(test)]
+mod tests;

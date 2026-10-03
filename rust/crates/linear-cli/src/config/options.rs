@@ -690,3 +690,6 @@ fn endpoint(inputs: &OptionInputs<'_>) -> Result<ResolvedEndpoint, ConfigOptionE
         source,
     })
 }
+
+#[cfg(test)]
+mod tests;

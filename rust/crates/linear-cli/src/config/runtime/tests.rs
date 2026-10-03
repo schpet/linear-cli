@@ -1,7 +1,6 @@
 use std::ffi::OsString;
-use std::path::PathBuf;
 
-use linear_cli::config::{OsFamily, ProcessEnvError, ProcessEnvSnapshot};
+use super::*;
 
 #[test]
 fn process_snapshot_filters_and_preserves_empty_values() {

@@ -66,3 +66,6 @@ pub fn discover_config_paths(inputs: &ConfigInputs, repo_root: Option<&Path>) ->
         project: candidates,
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -143,3 +143,6 @@ pub(crate) fn lexical(path: &Path) -> PathBuf {
     }
     out
 }
+
+#[cfg(test)]
+mod tests;

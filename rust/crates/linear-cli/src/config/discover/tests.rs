@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use linear_cli::config::{
-    ConfigInputs, OsFamily, RealFileSource, discover_config_paths, repo_root,
-};
-
-use super::TempTree;
+use super::*;
+use crate::config::OsFamily;
 
 fn inputs() -> ConfigInputs {
     ConfigInputs {
@@ -95,33 +92,4 @@ fn absent_global_bases_produce_no_global_candidate() {
         .process_env
         .insert("APPDATA".to_owned(), String::new());
     assert!(discover_config_paths(&inputs, None).global.is_empty());
-}
-
-#[test]
-fn repo_root_is_the_nearest_git_or_jj_ancestor() {
-    let tree = TempTree::new();
-    tree.mkdir("plain/sub");
-    assert_eq!(repo_root(&tree.0.join("plain/sub"), &RealFileSource), None);
-
-    tree.mkdir("git/.git");
-    tree.mkdir("git/a/b");
-    assert_eq!(
-        repo_root(&tree.0.join("git/a/b"), &RealFileSource),
-        Some(tree.0.join("git"))
-    );
-
-    // A worktree's `.git` is a file.
-    tree.write("worktree/.git", b"gitdir: /elsewhere\n");
-    tree.mkdir("worktree/src");
-    assert_eq!(
-        repo_root(&tree.0.join("worktree/src"), &RealFileSource),
-        Some(tree.0.join("worktree"))
-    );
-
-    tree.mkdir("jj/.jj");
-    tree.mkdir("jj/nested/.jj-not");
-    assert_eq!(
-        repo_root(&tree.0.join("jj/nested"), &RealFileSource),
-        Some(tree.0.join("jj"))
-    );
 }

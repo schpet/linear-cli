@@ -91,13 +91,16 @@ fn missing_credentials_fail_with_a_login_hint() {
 }
 
 #[test]
-fn help_and_version_ignore_invalid_configuration() {
+fn help_version_and_usage_errors_ignore_invalid_configuration() {
     let cli = Cli::new()
         .env("LINEAR_GRAPHQL_ENDPOINT", "not a url")
         .file("cwd/.linear.toml", "issue_sort = 'sideways'\n");
     cli.run(&["--help"]).success().stdout_has("Usage");
     cli.run(&["issue", "--help"]).success().stdout_has("Usage");
     cli.run(&["--version"]).success();
+    let usage = cli.run(&["frobnicate"]);
+    usage.usage_error();
+    assert!(!usage.stderr.contains("issue_sort"), "{}", usage.stderr);
     cli.run(&["team", "id"]).failure().stderr_has("issue_sort");
 }
 

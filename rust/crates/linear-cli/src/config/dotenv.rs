@@ -426,3 +426,6 @@ pub fn load_env(
     }
     Ok(result)
 }
+
+#[cfg(test)]
+mod tests;

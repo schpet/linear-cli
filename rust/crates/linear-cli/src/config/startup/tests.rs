@@ -1,17 +1,13 @@
-#![cfg(unix)]
-
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
 
-use linear_cli::config::{
+use super::*;
+use crate::config::{
     ConfigDiagnostic, DiagnosticReason, FileKind, FileSource, IssueSort, OptionSource, OsFamily,
-    ProcessEnvSnapshot, load_startup, render_diagnostic,
+    ProcessEnvSnapshot,
 };
 
 enum Entry {
@@ -142,7 +138,11 @@ fn pager_is_captured_only_from_process_environment() {
         assert_eq!(ready.pager.as_deref(), Some(std::ffi::OsStr::new(value)));
         assert_eq!(ready.child_env.get("PAGER"), None);
     }
+}
 
+#[cfg(unix)]
+#[test]
+fn a_pager_that_is_not_utf8_is_kept_as_is() {
     use std::os::unix::ffi::OsStringExt;
     let invalid = OsString::from_vec(vec![0xff]);
     let process = ProcessEnvSnapshot::from_vars_os(
@@ -151,7 +151,7 @@ fn pager_is_captured_only_from_process_environment() {
         [(OsString::from("PAGER"), invalid.clone())],
     )
     .unwrap();
-    let ready = load_startup(&process, &files).result.unwrap();
+    let ready = load_startup(&process, &MemFiles::default()).result.unwrap();
     assert_eq!(ready.pager, Some(invalid));
 }
 
@@ -330,193 +330,4 @@ fn warning_templates_are_colored_only_on_request() {
         render_diagnostic(&diagnostic, false),
         format!("{body}\n{suggestion}\n")
     );
-}
-
-static NEXT_BINARY: AtomicU64 = AtomicU64::new(0);
-
-struct BinaryTree {
-    root: PathBuf,
-}
-
-impl BinaryTree {
-    fn new() -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "linear-config-binary-{}-{}",
-            std::process::id(),
-            NEXT_BINARY.fetch_add(1, Ordering::Relaxed)
-        ));
-        for name in ["cwd", "home", "bin", "repo"] {
-            fs::create_dir_all(root.join(name)).unwrap();
-        }
-        Self {
-            root: fs::canonicalize(root).expect("canonical private config sandbox"),
-        }
-    }
-
-    fn path(&self, relative: &str) -> PathBuf {
-        self.root.join(relative)
-    }
-
-    fn file(&self, relative: &str, contents: &[u8]) {
-        let path = self.path(relative);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, contents).unwrap();
-    }
-
-    fn command(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_linear"));
-        command
-            .env_clear()
-            .current_dir(self.path("cwd"))
-            .env("HOME", self.path("home"))
-            .env("XDG_CONFIG_HOME", self.path("home"))
-            .env("APPDATA", self.path("home"))
-            .env("PATH", self.path("bin"))
-            .env("LANG", "C.UTF-8")
-            .env("TZ", "UTC");
-        command
-    }
-}
-
-impl Drop for BinaryTree {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.root).unwrap();
-    }
-}
-
-#[test]
-fn binary_usage_errors_do_not_read_config() {
-    let tree = BinaryTree::new();
-    tree.file("cwd/linear.toml", b"issue_sort = 'alphabetical'\n");
-    let output = tree
-        .command()
-        .arg("frobnicate")
-        .env("NO_COLOR", "1")
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    assert!(!String::from_utf8_lossy(&output.stderr).contains("issue_sort"));
-}
-
-#[test]
-fn binary_commands_report_invalid_config() {
-    let tree = BinaryTree::new();
-    tree.file("cwd/linear.toml", b"issue_sort = 'alphabetical'\n");
-    let output = tree
-        .command()
-        .args(["team", "id"])
-        .env("NO_COLOR", "1")
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert_eq!(
-        output.stderr,
-        format!(
-            "✗ invalid config option issue_sort from project config {}: unknown variant `alphabetical`, expected `manual` or `priority`\n  Fix issue_sort in project config {}.\n",
-            tree.path("cwd/linear.toml").display(),
-            tree.path("cwd/linear.toml").display()
-        ).as_bytes()
-    );
-}
-
-#[test]
-fn binary_version_reads_no_config() {
-    let tree = BinaryTree::new();
-    tree.file("cwd/.env", b"LINEAR_TEAM_ID='unterminated\n");
-    let output = tree.command().arg("-V").output().unwrap();
-    assert_eq!(output.status.code(), Some(0));
-    assert_eq!(output.stdout, b"linear 3.0.0-alpha.1\n");
-    assert!(output.stderr.is_empty());
-}
-
-#[test]
-fn binary_dotenv_warnings_are_colored_only_on_a_terminal() {
-    let tree = BinaryTree::new();
-    tree.file("cwd/.env", b"LINEAR_TEAM_ID='unterminated\n");
-    let diagnostic = ConfigDiagnostic {
-        path: tree.path("cwd/.env"),
-        reason: DiagnosticReason::InvalidLines(vec!["LINEAR_TEAM_ID".to_owned()]),
-    };
-    let output = tree.command().args(["team", "id"]).output().unwrap();
-    assert!(
-        output
-            .stderr
-            .starts_with(render_diagnostic(&diagnostic, false).as_bytes())
-    );
-}
-
-#[test]
-fn binary_reads_config_from_the_repository_root() {
-    let tree = BinaryTree::new();
-    tree.file("cwd/.jj/repo", b"");
-    tree.file("cwd/linear.toml", b"vcs = 'invalid'\n");
-    fs::create_dir_all(tree.path("cwd/sub")).unwrap();
-    let output = tree
-        .command()
-        .current_dir(tree.path("cwd/sub"))
-        .args(["team", "id"])
-        .env("NO_COLOR", "1")
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert_eq!(output.stderr, format!(
-        "✗ invalid config option vcs from project config {}: unknown variant `invalid`, expected `git` or `jj`\n  Fix vcs in project config {}.\n",
-        tree.path("cwd/linear.toml").display(),
-        tree.path("cwd/linear.toml").display(),
-    ).as_bytes());
-}
-
-#[test]
-fn binary_help_ignores_invalid_config() {
-    let tree = BinaryTree::new();
-    let output = tree
-        .command()
-        .arg("--help")
-        .env("NO_COLOR", "1")
-        .env("LINEAR_GRAPHQL_ENDPOINT", "bad")
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(0));
-    assert!(String::from_utf8_lossy(&output.stdout).contains("Usage"));
-}
-#[test]
-fn binary_offline_markdown_needs_no_credential() {
-    let tree = BinaryTree::new();
-    let output = tree
-        .command()
-        .arg("markdown")
-        .env("NO_COLOR", "1")
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(0));
-    assert!(output.stderr.is_empty());
-    assert!(
-        String::from_utf8(output.stdout)
-            .unwrap()
-            .contains("+++ [Server log]")
-    );
-}
-
-#[test]
-fn binary_offline_markdown_ignores_transport_settings() {
-    let tree = BinaryTree::new();
-    let baseline = tree.command().arg("markdown").output().expect("binary");
-    assert_eq!(baseline.status.code(), Some(0));
-    for (name, value) in [
-        ("HTTPS_PROXY", "http://proxy.example.invalid:3128"),
-        ("SSL_CERT_FILE", "/missing/sentinel-ca.pem"),
-        ("DENO_CERT", "/missing/sentinel-ca.pem"),
-    ] {
-        let output = tree
-            .command()
-            .arg("markdown")
-            .env(name, value)
-            .output()
-            .expect("binary");
-        assert_eq!(output.status.code(), Some(0), "{name}");
-        assert_eq!(output.stdout, baseline.stdout, "{name}");
-        assert!(output.stderr.is_empty(), "{name}");
-    }
 }
