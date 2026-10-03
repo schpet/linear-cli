@@ -17,7 +17,7 @@ fn applied<'a>(selected: &'a SelectedEnv, key: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn values_follow_dotenv_quoting_and_substitution() {
+fn values_follow_dotenv_quoting() {
     let tree = TempTree::new();
     tree.write(
         ".env",
@@ -28,7 +28,6 @@ LINEAR_B="hello\nworld"
 LINEAR_C='$WORD'
 LINEAR_D=
 LINEAR_E=plain # trailing comment
-LINEAR_F=${LINEAR_UNSET_FOR_TEST}
 LINEAR_H="a\"b"
 LINEAR_I="x\\n"
 LINEAR_L='literal\n'
@@ -36,6 +35,8 @@ LINEAR_M="cost \$5"
 LINEAR_BASE=base
 LINEAR_N="${LINEAR_BASE}/x"
 LINEAR_O=a#b
+LINEAR_P=cost $5
+LINEAR_Q="quoted" # comment
 LINEAR_G='oops
 "#,
     );
@@ -45,13 +46,14 @@ LINEAR_G='oops
     assert_eq!(applied(&selected, "LINEAR_C"), Some("$WORD"));
     assert_eq!(applied(&selected, "LINEAR_D"), Some(""));
     assert_eq!(applied(&selected, "LINEAR_E"), Some("plain"));
-    assert_eq!(applied(&selected, "LINEAR_F"), Some(""));
     assert_eq!(applied(&selected, "LINEAR_H"), Some("a\"b"));
     assert_eq!(applied(&selected, "LINEAR_I"), Some("x\\n"));
     assert_eq!(applied(&selected, "LINEAR_L"), Some("literal\\n"));
     assert_eq!(applied(&selected, "LINEAR_M"), Some("cost $5"));
     assert_eq!(applied(&selected, "LINEAR_N"), Some("base/x"));
     assert_eq!(applied(&selected, "LINEAR_O"), Some("a#b"));
+    assert_eq!(applied(&selected, "LINEAR_P"), Some("cost $5"));
+    assert_eq!(applied(&selected, "LINEAR_Q"), Some("quoted"));
     assert_eq!(applied(&selected, "LINEAR_G"), None);
     assert_eq!(
         selected
@@ -60,6 +62,45 @@ LINEAR_G='oops
             .map(|d| &d.reason)
             .collect::<Vec<_>>(),
         [&DiagnosticReason::InvalidLines(vec!["LINEAR_G".to_owned()])]
+    );
+}
+
+#[test]
+fn references_expand_only_when_braced_and_set() {
+    let tree = TempTree::new();
+    tree.write(
+        ".env",
+        br#"LINEAR_API_KEY=${SECRET_KEY}
+LINEAR_TEAM_ID=$SECRET_KEY
+LINEAR_WORKSPACE="${UNSET_VARIABLE}"
+LINEAR_ISSUE_SORT=lin_api_ab$cd
+"#,
+    );
+    let mut inputs = tree.inputs();
+    inputs
+        .process_env
+        .insert("SECRET_KEY".to_owned(), "lin_api_real".to_owned());
+    let selected = load_env(&inputs, &RealFileSource, None).unwrap();
+    assert_eq!(applied(&selected, "LINEAR_API_KEY"), Some("lin_api_real"));
+    assert_eq!(applied(&selected, "LINEAR_TEAM_ID"), None);
+    assert_eq!(applied(&selected, "LINEAR_WORKSPACE"), None);
+    assert_eq!(applied(&selected, "LINEAR_ISSUE_SORT"), None);
+    let reference = |key: &str, name: &str, braced| DiagnosticReason::Reference {
+        key: key.to_owned(),
+        name: name.to_owned(),
+        braced,
+    };
+    assert_eq!(
+        selected
+            .diagnostics
+            .into_iter()
+            .map(|d| d.reason)
+            .collect::<Vec<_>>(),
+        [
+            reference("LINEAR_TEAM_ID", "SECRET_KEY", false),
+            reference("LINEAR_WORKSPACE", "UNSET_VARIABLE", true),
+            reference("LINEAR_ISSUE_SORT", "cd", false),
+        ]
     );
 }
 

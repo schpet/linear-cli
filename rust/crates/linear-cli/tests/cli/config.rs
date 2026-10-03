@@ -77,6 +77,21 @@ fn dotenv_supplies_linear_variables_unless_ignored() {
 }
 
 #[test]
+fn dotenv_never_sends_a_misread_variable_reference_as_the_key() {
+    let cli = Cli::new()
+        .file("cwd/.env", "LINEAR_API_KEY=$SECRET_KEY\n")
+        .env_remove("LINEAR_IGNORE_ENV_FILE")
+        .env("SECRET_KEY", "key-secret");
+    cli.run(&["auth", "token"])
+        .failure()
+        .stderr_has("Ignoring LINEAR_API_KEY")
+        .stderr_has("$SECRET_KEY is not expanded")
+        .stderr_has("${NAME}");
+    let cli = cli.file("cwd/.env", "LINEAR_API_KEY=${SECRET_KEY}\n");
+    assert_eq!(stdout(&cli, &["auth", "token"]), "key-secret");
+}
+
+#[test]
 fn invalid_config_fails_with_the_file_path() {
     Cli::new()
         .file("cwd/.linear.toml", "team_id = \"unterminated\n")

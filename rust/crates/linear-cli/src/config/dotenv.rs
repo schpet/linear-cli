@@ -9,6 +9,13 @@ pub enum DiagnosticReason {
     Unusable(String),
     /// Lines for these keys could not be parsed.
     InvalidLines(Vec<String>),
+    /// The value for `key` refers to the variable `name` in a way that is not
+    /// expanded: a bare `$name`, or `${name}` when it is not set.
+    Reference {
+        key: String,
+        name: String,
+        braced: bool,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -101,50 +108,251 @@ fn admitted(key: &str) -> bool {
         .any(|prefix| key.starts_with(prefix))
 }
 
-/// The key a line that failed to parse was meant to set, if any.
-fn intended_key(line: &str) -> Option<&str> {
-    let line = line.trim_start();
-    let line = line.strip_prefix("export ").unwrap_or(line);
-    let (key, _) = line.split_once('=')?;
-    Some(key.trim())
+/// Why a `.env` line was not used.
+enum Problem {
+    Malformed,
+    Reference { name: String, braced: bool },
 }
 
-/// Parses a `.env` file with dotenvy (which expands `$VAR` references) and
-/// keeps the admitted keys the process environment does not already set.
+/// One `KEY=value` line, or why it was rejected. `key` is `None` when the
+/// line does not name one.
+struct Entry {
+    key: Option<String>,
+    value: Result<String, Problem>,
+}
+
+/// Parses `.env` text: `[export] KEY=value` lines and `#` comments. Single
+/// quotes keep their content literally; double-quoted and unquoted values
+/// take `\` escapes and `${NAME}` references to the process environment or
+/// an earlier key in the file. A bare `$NAME` is rejected rather than
+/// guessed at, and an unset `${NAME}` is an error, never an empty string.
+/// Quoted values may span lines.
+fn entries(text: &str, process_env: &BTreeMap<String, String>) -> Vec<Entry> {
+    let text = text.replace("\r\n", "\n");
+    let mut chars = text.chars().peekable();
+    let mut entries = Vec::new();
+    let mut earlier = BTreeMap::new();
+    loop {
+        while chars.next_if(|c| c.is_whitespace()).is_some() {}
+        let Some(first) = chars.peek().copied() else {
+            break;
+        };
+        if first == '#' {
+            skip_line(&mut chars);
+            continue;
+        }
+        let head: String =
+            std::iter::from_fn(|| chars.next_if(|c| !matches!(c, '=' | '\n'))).collect();
+        if chars.next_if_eq(&'=').is_none() {
+            entries.push(Entry {
+                key: None,
+                value: Err(Problem::Malformed),
+            });
+            continue;
+        }
+        let head = head.trim();
+        let key = head
+            .strip_prefix("export ")
+            .unwrap_or(head)
+            .trim()
+            .to_owned();
+        let value = if valid_key(&key) {
+            value(&mut chars, process_env, &earlier)
+        } else {
+            skip_line(&mut chars);
+            Err(Problem::Malformed)
+        };
+        if let Ok(value) = &value {
+            earlier.insert(key.clone(), value.clone());
+        }
+        entries.push(Entry {
+            key: Some(key),
+            value,
+        });
+    }
+    entries
+}
+
+type Chars<'a> = std::iter::Peekable<std::str::Chars<'a>>;
+
+fn skip_line(chars: &mut Chars<'_>) {
+    while chars.next_if(|c| *c != '\n').is_some() {}
+}
+
+fn valid_key(key: &str) -> bool {
+    key.chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && key
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.'))
+}
+
+/// The value after `KEY=`, consuming the rest of its line.
+fn value(
+    chars: &mut Chars<'_>,
+    process_env: &BTreeMap<String, String>,
+    earlier: &BTreeMap<String, String>,
+) -> Result<String, Problem> {
+    while chars.next_if(|c| matches!(c, ' ' | '\t')).is_some() {}
+    let mut out = String::new();
+    // The first problem is reported once the whole value is consumed.
+    let mut problem = None;
+    let mut note = |result: Result<(), Problem>| {
+        if let Err(error) = result {
+            problem.get_or_insert(error);
+        }
+    };
+    match chars.peek() {
+        Some('\'') => {
+            chars.next();
+            loop {
+                match chars.next() {
+                    Some('\'') => break,
+                    Some(c) => out.push(c),
+                    None => return Err(Problem::Malformed),
+                }
+            }
+            note(end_of_line(chars));
+        }
+        Some('"') => {
+            chars.next();
+            loop {
+                match chars.next() {
+                    Some('"') => break,
+                    Some(c) => note(special(c, chars, &mut out, process_env, earlier)),
+                    None => return Err(Problem::Malformed),
+                }
+            }
+            note(end_of_line(chars));
+        }
+        _ => {
+            let mut after_space = true;
+            while let Some(c) = chars.next_if(|c| *c != '\n') {
+                if c == '#' && after_space {
+                    skip_line(chars);
+                    break;
+                }
+                after_space = matches!(c, ' ' | '\t');
+                note(special(c, chars, &mut out, process_env, earlier));
+            }
+            out.truncate(out.trim_end().len());
+        }
+    }
+    match problem {
+        Some(problem) => Err(problem),
+        None => Ok(out),
+    }
+}
+
+/// Appends `c` to `out`, handling a `\` escape or a `$` reference it starts.
+fn special(
+    c: char,
+    chars: &mut Chars<'_>,
+    out: &mut String,
+    process_env: &BTreeMap<String, String>,
+    earlier: &BTreeMap<String, String>,
+) -> Result<(), Problem> {
+    let name_char = |c: &char| c.is_ascii_alphanumeric() || *c == '_';
+    match c {
+        '\\' => match chars.next_if(|c| *c != '\n') {
+            Some('n') => out.push('\n'),
+            Some(escaped @ ('\\' | '\'' | '"' | '$' | ' ')) => out.push(escaped),
+            _ => return Err(Problem::Malformed),
+        },
+        '$' if chars.next_if_eq(&'{').is_some() => {
+            let name: String = std::iter::from_fn(|| chars.next_if(name_char)).collect();
+            if name.is_empty() || chars.next_if_eq(&'}').is_none() {
+                return Err(Problem::Malformed);
+            }
+            // The snapshot holds only the variables this program reads, so
+            // other names come from the live environment.
+            let value = process_env
+                .get(&name)
+                .cloned()
+                .or_else(|| std::env::var(&name).ok())
+                .or_else(|| earlier.get(&name).cloned());
+            match value {
+                Some(value) => out.push_str(&value),
+                None => return Err(Problem::Reference { name, braced: true }),
+            }
+        }
+        '$' if chars
+            .peek()
+            .is_some_and(|c| c.is_ascii_alphabetic() || *c == '_') =>
+        {
+            let name = std::iter::from_fn(|| chars.next_if(name_char)).collect();
+            return Err(Problem::Reference {
+                name,
+                braced: false,
+            });
+        }
+        c => out.push(c),
+    }
+    Ok(())
+}
+
+/// After a closing quote only whitespace or a `#` comment may follow.
+fn end_of_line(chars: &mut Chars<'_>) -> Result<(), Problem> {
+    while chars.next_if(|c| matches!(c, ' ' | '\t')).is_some() {}
+    match chars.peek() {
+        None | Some('\n') => Ok(()),
+        Some('#') => {
+            skip_line(chars);
+            Ok(())
+        }
+        Some(_) => {
+            skip_line(chars);
+            Err(Problem::Malformed)
+        }
+    }
+}
+
+/// Parses a `.env` file and keeps the admitted keys the process environment
+/// does not already set.
 fn parse_selected(
     text: &str,
     process_env: &BTreeMap<String, String>,
     path: &Path,
 ) -> (BTreeMap<String, String>, Vec<ConfigDiagnostic>) {
-    let mut applied = BTreeMap::new();
-    let mut invalid = Vec::new();
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    for item in dotenvy::from_read_iter(text.as_bytes()) {
-        match item {
-            Ok((key, value)) => {
-                if admitted(&key) && !process_env.contains_key(&key) {
-                    applied.insert(key, value);
-                }
+    let mut applied = BTreeMap::new();
+    let mut rejected = Vec::new();
+    for entry in entries(text, process_env) {
+        let Some(key) = entry.key.filter(|key| admitted(key)) else {
+            continue;
+        };
+        if process_env.contains_key(&key) {
+            continue;
+        }
+        match entry.value {
+            Ok(value) => {
+                applied.insert(key, value);
             }
-            Err(dotenvy::Error::LineParse(line, _)) => {
-                if let Some(key) = intended_key(&line).filter(|key| admitted(key)) {
-                    invalid.push(key.to_owned());
-                }
-            }
-            // Reading from memory cannot fail, and failed substitutions
-            // expand to an empty string rather than an error.
-            Err(error) => invalid.push(format!("(unreadable line: {error})")),
+            Err(problem) => rejected.push((key, problem)),
         }
     }
-    invalid.retain(|key| !process_env.contains_key(key) && !applied.contains_key(key));
-    let diagnostics = if invalid.is_empty() {
-        Vec::new()
-    } else {
-        vec![ConfigDiagnostic {
-            path: path.to_owned(),
-            reason: DiagnosticReason::InvalidLines(invalid),
-        }]
-    };
+    rejected.retain(|(key, _)| !applied.contains_key(key));
+    let mut invalid = Vec::new();
+    let mut diagnostics = Vec::new();
+    for (key, problem) in rejected {
+        match problem {
+            Problem::Malformed => invalid.push(key),
+            Problem::Reference { name, braced } => diagnostics.push(ConfigDiagnostic {
+                path: path.to_owned(),
+                reason: DiagnosticReason::Reference { key, name, braced },
+            }),
+        }
+    }
+    if !invalid.is_empty() {
+        diagnostics.insert(
+            0,
+            ConfigDiagnostic {
+                path: path.to_owned(),
+                reason: DiagnosticReason::InvalidLines(invalid),
+            },
+        );
+    }
     (applied, diagnostics)
 }
 
