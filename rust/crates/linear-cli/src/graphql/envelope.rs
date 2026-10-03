@@ -44,43 +44,6 @@ impl GraphQlRequest {
     }
 }
 
-/// The JSON body sent for one GraphQL operation.
-///
-/// `variables` and `operationName` are omitted when absent.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct LegacyRequest<V> {
-    pub query: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub variables: Option<V>,
-    #[serde(rename = "operationName", skip_serializing_if = "Option::is_none")]
-    pub operation_name: Option<String>,
-}
-
-impl<V: Serialize> LegacyRequest<V> {
-    /// Wraps an operation whose variables struct is always sent.
-    ///
-    /// Individual keys inside `variables` may still be omitted by the variables
-    /// struct's own `skip_serializing_if` attributes.
-    pub fn with_variables<F>(operation: Operation<F, V>) -> Self {
-        Self {
-            query: operation.query,
-            variables: Some(operation.variables),
-            operation_name: operation.operation_name.map(|name| name.into_owned()),
-        }
-    }
-}
-
-impl LegacyRequest<()> {
-    /// Wraps an operation with no variables; the `variables` key is omitted.
-    pub fn without_variables<F>(operation: Operation<F, ()>) -> Self {
-        Self {
-            query: operation.query,
-            variables: None,
-            operation_name: operation.operation_name.map(|name| name.into_owned()),
-        }
-    }
-}
-
 /// A GraphQL error with Linear's `extensions` retained as JSON.
 ///
 /// `extensions.userPresentableMessage` is preferred when rendering a message;

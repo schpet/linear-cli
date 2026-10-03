@@ -26,7 +26,7 @@ use serde::de::DeserializeOwned;
 
 use cynic::Operation;
 
-use crate::graphql::envelope::{GraphQlRequest, LegacyRequest, ResponseError, parse_response};
+use crate::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};
 
 pub use config::{
     ApiKey, ApiKeyError, ClientBuildError, ClientConfig, Deadline, EndpointUrl, ResponseCap,
@@ -186,24 +186,6 @@ impl LinearClient {
             }
             other => other,
         })
-    }
-
-    /// Sends a prepared envelope and returns the exact response.
-    pub async fn send_legacy<V: Serialize>(
-        &self,
-        request: &LegacyRequest<V>,
-    ) -> Result<RawHttpResponse, RequestError> {
-        let body = serde_json::to_vec(request).map_err(RequestError::RequestBody)?;
-        self.post(body).await
-    }
-
-    /// Sends a typed operation's envelope and classifies the response.
-    pub async fn execute_legacy<T: DeserializeOwned, V: Serialize>(
-        &self,
-        request: &LegacyRequest<V>,
-    ) -> Result<T, RequestError> {
-        let response = self.send_legacy(request).await?;
-        self.classify(response)
     }
 
     fn failure(&self, failure: ExchangeFailure) -> RequestError {
