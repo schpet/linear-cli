@@ -30,7 +30,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
     let status = status_filter(args.status, args.all_statuses);
-    super::check_owner(args.owner.as_deref())?;
+    super::common::check_owner(args.owner.as_deref())?;
     let client = ctx.client()?;
     let mut initiatives = ctx.spin(!args.json, async {
         let owner = match &args.owner {

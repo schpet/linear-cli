@@ -28,7 +28,7 @@ fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     let original = args.document_id.as_deref().ok_or_else(|| {
         Error::new("Document ID required").with_hint("Use --bulk for multiple documents.")
     })?;
-    let id = super::reference(ctx, original)?;
+    let id = super::common::reference(ctx, original)?;
     let client = ctx.client()?;
     let document = ctx.spin(true, async {
         details(client, &id)
@@ -105,7 +105,7 @@ async fn details(client: &LinearClient, id: &str) -> Result<Option<DocumentDetai
     let data: GetDocumentForDelete = client
         .query(IdVariables { id: id.to_owned() })
         .await
-        .map_err(|failure| super::not_found(failure, id))?;
+        .map_err(|failure| super::common::not_found(failure, id))?;
     Ok(data.document)
 }
 

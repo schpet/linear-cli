@@ -2,11 +2,11 @@
 //! the optional initiative link.
 use chrono::NaiveDate;
 
+use super::common;
 use crate::cli::project::{ProjectCreate, Status};
 use crate::cli::values::{self, Priority};
 use crate::client::LinearClient;
 use crate::commands::outcome;
-use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -44,14 +44,14 @@ enum StatusChoice {
 
 fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     let fields = &args.fields;
-    let description = write::description(fields)?;
-    let content = write::content(fields)?;
-    write::plain_references(
+    let description = common::description(fields)?;
+    let content = common::content(fields)?;
+    common::plain_references(
         fields.lead.iter().chain(&args.member),
         "an email, username, display name, or @me",
     )?;
-    write::plain_references(&args.label, "a project label name")?;
-    write::plain_references(&args.template, "a template name or UUID")?;
+    common::plain_references(&args.label, "a project label name")?;
+    common::plain_references(&args.template, "a template name or UUID")?;
     let scope = ctx.scope()?;
     let initiative = match args.initiative.as_deref() {
         Some(original) => Some((original, InitiativeReference::parse(original, &scope)?)),
@@ -92,10 +92,10 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     } else {
         draft.teams
     };
-    let teams = write::prepare_teams(&teams, &scope)?;
+    let teams = common::prepare_teams(&teams, &scope)?;
     let client = ctx.client()?;
     let (project, linked) = ctx.spin(!args.json, async {
-        let team_ids: Vec<_> = write::teams(client, &teams)
+        let team_ids: Vec<_> = common::teams(client, &teams)
             .await?
             .into_iter()
             .map(|team| team.id)
@@ -109,7 +109,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             None => None,
         };
         let template_id = match &args.template {
-            Some(template) => Some(write::template(client, template, &team_ids).await?),
+            Some(template) => Some(common::template(client, template, &team_ids).await?),
             None => None,
         };
         let lead_id = match &draft.lead {
@@ -117,11 +117,11 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             None => None,
         };
         let status_id = match draft.status {
-            Some(StatusChoice::Kind(status)) => Some(write::status_id(client, status).await?),
+            Some(StatusChoice::Kind(status)) => Some(common::status_id(client, status).await?),
             Some(StatusChoice::Id(id)) => Some(id),
             None => None,
         };
-        let label_ids: Vec<_> = write::labels(client, &args.label)
+        let label_ids: Vec<_> = common::labels(client, &args.label)
             .await?
             .into_iter()
             .map(|label| label.id)
@@ -267,7 +267,7 @@ fn prompt(
         draft.teams = vec![prompter.select_from("Team:", choices, start)?];
     }
     if draft.status.is_none() {
-        let statuses = ctx.spin(true, write::statuses(ctx.client()?))?;
+        let statuses = ctx.spin(true, common::statuses(ctx.client()?))?;
         if !statuses.is_empty() {
             let start = statuses
                 .iter()

@@ -17,7 +17,7 @@ pub fn run(ctx: &Ctx, args: &DocumentView) -> Result<()> {
 
 fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
     let original = &args.id;
-    let id = super::reference(ctx, original)?;
+    let id = super::common::reference(ctx, original)?;
     let client = ctx.client()?;
     if args.web {
         let document = ctx.spin(true, body(client, &id, original))?;
@@ -64,7 +64,7 @@ async fn body(client: &LinearClient, id: &str, original: &str) -> Result<Documen
     let data: GetDocument = client
         .query(GetDocumentVariables { id: id.to_owned() })
         .await
-        .map_err(|failure| super::not_found(failure, original))?;
+        .map_err(|failure| super::common::not_found(failure, original))?;
     data.document
         .ok_or_else(|| Error::not_found("Document", original))
 }
@@ -86,7 +86,7 @@ async fn with_comments(
                 let data: GetDocumentWithComments = client
                     .query(variables)
                     .await
-                    .map_err(|failure| super::not_found(failure, original))?;
+                    .map_err(|failure| super::common::not_found(failure, original))?;
                 data.document
                     .ok_or_else(|| Error::not_found("Document", original))
             }

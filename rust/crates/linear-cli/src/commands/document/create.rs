@@ -1,28 +1,23 @@
-//! `document create` and `document update`: fields from flags, stdin, an
-//! editor or prompts, then one mutation.
-use crate::cli::document::{DocumentCreate, DocumentUpdate};
-use crate::client::LinearClient;
+//! `document create`: fields from flags, stdin, an editor or prompts, then
+//! one mutation.
+use crate::cli::document::DocumentCreate;
 use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
-use crate::graphql::pagination::{self, Page};
 use crate::platform::editor;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
-use super::target::{self, Kind, PreparedTarget, TargetOptions};
+use super::common::{attach, read_file};
+use super::target::{self, Kind, TargetOptions};
 
-pub fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
-    create_document(ctx, args).context("Failed to create document")
+pub fn run(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
+    create(ctx, args).context("Failed to create document")
 }
 
-pub fn update(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
-    update_document(ctx, args).context("Failed to update document")
-}
-
-fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
+fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
     let flags = TargetOptions {
         project: args.project.as_deref(),
         issue: args.issue.as_deref(),
@@ -118,164 +113,6 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         &created.title,
         Some(&created.url),
     ))
-}
-
-fn update_document(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
-    let id = super::reference(ctx, &args.document_id)?;
-    let target = target::prepare(
-        ctx,
-        TargetOptions {
-            project: args.project.as_deref(),
-            issue: args.issue.as_deref(),
-            initiative: args.initiative.as_deref(),
-            team: args.team.as_deref(),
-            cycle: args.cycle.as_deref(),
-            release: args.release.as_deref(),
-        },
-    )?;
-    let metadata = args.title.is_some() || args.icon.is_some() || target.is_some();
-    let content = match (&args.content, &args.content_file) {
-        (Some(content), _) => Some(content.clone()),
-        (None, Some(path)) => Some(read_file(path)?),
-        // Piped stdin is the new content when nothing else is being changed.
-        (None, None) if !args.edit && !metadata && !ctx.stdin_tty() => {
-            text_input::read_stdin(std::io::stdin().lock())?
-        }
-        (None, None) => None,
-    };
-    let edit = args.edit && content.is_none();
-    if content.is_none() && !edit && !metadata {
-        return Err(Error::new("No update fields provided").with_hint(
-            "Use --title, --content, --content-file, --icon, --edit, or re-point the attachment with --project, --issue, --initiative, --team, --cycle, or --release.",
-        ));
-    }
-    let client = ctx.client()?;
-    let mut input = DocumentUpdateInput {
-        title: args.title.clone(),
-        icon: args.icon.clone(),
-        content,
-        ..Default::default()
-    };
-    if target.is_some() {
-        ctx.spin(true, attach(client, &mut input, target.as_ref()))?;
-    }
-    if edit {
-        let document = ctx.spin(true, for_edit(client, &id))?;
-        let seed = document.content.unwrap_or_default();
-        ctx.print(format!("Opening {} in editor...\n", document.title))?;
-        let edited = ctx.edit_text(&seed)?;
-        if edited == seed {
-            return ctx.print("No changes made; the document is unchanged.\n");
-        }
-        let Some(content) = text_input::edited_body(&edited) else {
-            return ctx.print("No changes made; the document is unchanged.\n");
-        };
-        input.content = Some(content);
-    }
-    let updated = ctx.spin(true, async {
-        if input.content.is_some() && !args.force {
-            refuse_inline_comments(client, &id).await?;
-        }
-        let data: UpdateDocument = client
-            .mutate(UpdateDocumentVariables {
-                id: id.clone(),
-                input,
-            })
-            .await?;
-        if !data.document_update.success {
-            return Err(Error::new("Linear did not update the document"));
-        }
-        Ok(data.document_update.document)
-    })?;
-    ctx.print(outcome::done(
-        "Updated",
-        "document",
-        &updated.title,
-        Some(&updated.url),
-    ))
-}
-
-/// Looks up the target and sets its ID in the field for its kind.
-async fn attach(
-    client: &LinearClient,
-    input: &mut DocumentUpdateInput,
-    target: Option<&PreparedTarget>,
-) -> Result<()> {
-    let Some(target) = target else {
-        return Ok(());
-    };
-    let (kind, id) = target::resolve(target, client).await?;
-    let field = match kind {
-        Kind::Project => &mut input.project_id,
-        Kind::Issue => &mut input.issue_id,
-        Kind::Initiative => &mut input.initiative_id,
-        Kind::Team => &mut input.team_id,
-        Kind::Cycle => &mut input.cycle_id,
-        Kind::Release => &mut input.release_id,
-    };
-    *field = Some(id);
-    Ok(())
-}
-
-async fn for_edit(client: &LinearClient, id: &str) -> Result<DocumentForEdit> {
-    let data: GetDocumentForEdit = client
-        .query(DocumentEditVariables { id: id.to_owned() })
-        .await
-        .map_err(|failure| super::not_found(failure, id))?;
-    data.document
-        .ok_or_else(|| Error::not_found("Document", id))
-}
-
-/// Replacing the Markdown can detach or hide inline comments, so content
-/// updates stop while any open comment quotes the document.
-async fn refuse_inline_comments(client: &LinearClient, id: &str) -> Result<()> {
-    let comments = pagination::collect(None, |after, _first| {
-        let variables = DocumentGuardVariables {
-            id: id.to_owned(),
-            after,
-        };
-        async move {
-            let data: DocumentInlineCommentGuard = client
-                .query(variables)
-                .await
-                .map_err(|failure| super::not_found(failure, id))?;
-            let document = data
-                .document
-                .ok_or_else(|| Error::not_found("Document", id))?;
-            Ok::<_, Error>(Page {
-                nodes: document.comments.nodes,
-                page_info: document.comments.page_info,
-            })
-        }
-    })
-    .await?;
-    let open_quote = comments.into_iter().find_map(|comment| {
-        let open = comment.resolved_at.is_none() && comment.archived_at.is_none();
-        comment
-            .quoted_text
-            .filter(|_| open)
-            .map(|quoted| (comment.id, quoted))
-    });
-    match open_quote {
-        None => Ok(()),
-        Some((comment, quoted)) => Err(Error::new(
-            "Refusing to update document content because this document has inline comments.",
-        )
-        .with_hint(format!(
-            "Updating Markdown content can detach or hide Linear document comments. First review comment {} quoting \"{quoted}\", then rerun with --force if you accept that risk.",
-            comment.inner()
-        ))),
-    }
-}
-
-fn read_file(path: &str) -> Result<String> {
-    text_input::read_file(path).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            Error::not_found("File", path)
-        } else {
-            Error::new(format!("Failed to read {path}: {error}")).with_source(error)
-        }
-    })
 }
 
 /// Opens an empty editor. An editor failure is reported on stderr and

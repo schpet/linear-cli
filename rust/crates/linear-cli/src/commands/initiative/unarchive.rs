@@ -19,7 +19,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
         ctx.require_tty("--force")?;
     }
     let original = &args.initiative_id;
-    let reference = super::reference(ctx, original)?;
+    let reference = super::common::reference(ctx, original)?;
     let client = ctx.client()?;
     let detail = ctx.spin(true, async {
         let id = refs::initiative::resolve(client, &reference, Archived::Include).await?;

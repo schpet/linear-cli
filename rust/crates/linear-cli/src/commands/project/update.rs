@@ -1,6 +1,7 @@
 //! `project update`: resolve every reference first, then apply the field
 //! update and the initiative links in order.
 
+use super::common;
 use crate::cli::project::ProjectUpdate;
 use crate::cli::values::Priority;
 use crate::client::LinearClient;
@@ -8,7 +9,6 @@ use crate::commands::outcome;
 use crate::commands::project::collections::{
     self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
 };
-use crate::commands::project::write;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::edit::Edit;
@@ -63,9 +63,9 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
     let fields = &args.fields;
     let scope = ctx.scope()?;
     let teams = SetChange::new(
-        write::prepare_teams(&args.team, &scope)?,
-        write::prepare_teams(&args.add_team, &scope)?,
-        write::prepare_teams(&args.remove_team, &scope)?,
+        common::prepare_teams(&args.team, &scope)?,
+        common::prepare_teams(&args.add_team, &scope)?,
+        common::prepare_teams(&args.remove_team, &scope)?,
     );
     let labels = SetChange::new(
         args.label.clone(),
@@ -73,9 +73,9 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
         args.remove_label.clone(),
     );
     let initiatives = SetChange::new(
-        write::prepare_initiatives(&args.initiative, &scope)?,
-        write::prepare_initiatives(&args.add_initiative, &scope)?,
-        write::prepare_initiatives(&args.remove_initiative, &scope)?,
+        common::prepare_initiatives(&args.initiative, &scope)?,
+        common::prepare_initiatives(&args.add_initiative, &scope)?,
+        common::prepare_initiatives(&args.remove_initiative, &scope)?,
     );
     let changes_fields = fields.name.is_some()
         || fields.description.is_some()
@@ -95,8 +95,8 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
             "Pass at least one field to change, like --name, --status, --lead, or --add-team.",
         ));
     }
-    write::plain_references(&fields.lead, "an email, username, display name, or @me")?;
-    write::plain_references(
+    common::plain_references(&fields.lead, "an email, username, display name, or @me")?;
+    common::plain_references(
         args.label
             .iter()
             .chain(&args.add_label)
@@ -107,8 +107,8 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
     let reference = ProjectReference::parse(original, &scope)?;
     let mut input = ProjectUpdateInput {
         name: Edit::set_or_unchanged(fields.name.clone()),
-        description: Edit::set_or_unchanged(write::description(fields)?),
-        content: Edit::set_or_unchanged(write::content(fields)?),
+        description: Edit::set_or_unchanged(common::description(fields)?),
+        content: Edit::set_or_unchanged(common::content(fields)?),
         start_date: if args.clear_start_date {
             Edit::Clear
         } else {
@@ -126,7 +126,7 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
     let shown = ctx.spin(true, async {
         let id = refs::project::resolve(client, &reference).await?;
         if let Some(status) = fields.status {
-            input.status_id = Edit::Set(write::status_id(client, status).await?);
+            input.status_id = Edit::Set(common::status_id(client, status).await?);
         }
         input.lead_id = match &fields.lead {
             Some(lead) => Edit::Set(refs::user::resolve(client, lead, "Lead").await?),
@@ -195,7 +195,7 @@ async fn team_ids(
 }
 
 async fn team_refs(client: &LinearClient, teams: &[TeamReference]) -> Result<Vec<ResolvedRef>> {
-    Ok(write::teams(client, teams)
+    Ok(common::teams(client, teams)
         .await?
         .into_iter()
         .map(|team| ResolvedRef {
@@ -212,10 +212,10 @@ async fn label_ids(
 ) -> Result<Option<Vec<String>>> {
     let (add, remove) = match change {
         SetChange::Keep => return Ok(None),
-        SetChange::Replace(labels) => return Ok(Some(ids(&write::labels(client, labels).await?))),
+        SetChange::Replace(labels) => return Ok(Some(ids(&common::labels(client, labels).await?))),
         SetChange::Edit { add, remove } => (
-            write::labels(client, add).await?,
-            write::labels(client, remove).await?,
+            common::labels(client, add).await?,
+            common::labels(client, remove).await?,
         ),
     };
     no_overlap("label", &add, &remove)?;
@@ -255,13 +255,13 @@ async fn initiative_changes(
     let (desired, labels, links, shown) = match change {
         SetChange::Keep => return Ok((Vec::new(), None)),
         SetChange::Replace(initiatives) => {
-            let replacement = write::initiatives(client, initiatives).await?;
+            let replacement = common::initiatives(client, initiatives).await?;
             let (links, shown) = current_links(client, project_id).await?;
             (ids(&replacement), replacement, links, shown)
         }
         SetChange::Edit { add, remove } => {
-            let add = write::initiatives(client, add).await?;
-            let remove = write::initiatives(client, remove).await?;
+            let add = common::initiatives(client, add).await?;
+            let remove = common::initiatives(client, remove).await?;
             no_overlap("initiative", &add, &remove)?;
             let (links, shown) = current_links(client, project_id).await?;
             let current: Vec<_> = links

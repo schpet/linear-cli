@@ -1,15 +1,14 @@
-//! `linear project`.
-pub mod collections;
-pub mod comment_add;
-pub mod comment_list;
-pub mod create;
-pub mod delete;
-pub mod list;
-pub mod update;
-pub mod view;
-pub mod write;
+//! `linear project`: projects and their comments.
+mod collections;
+mod comment;
+mod common;
+mod create;
+mod delete;
+mod list;
+mod update;
+mod view;
 
-use crate::cli::project::{ProjectCommand, ProjectCommentCommand};
+use crate::cli::project::ProjectCommand;
 use crate::ctx::Ctx;
 use crate::error::Result;
 
@@ -20,9 +19,6 @@ pub fn run(ctx: &Ctx, command: &ProjectCommand) -> Result<()> {
         ProjectCommand::Create(args) => create::run(ctx, args),
         ProjectCommand::Update(args) => update::run(ctx, args),
         ProjectCommand::Delete(args) => delete::run(ctx, args),
-        ProjectCommand::Comment(args) => match &args.command {
-            ProjectCommentCommand::Add(args) => comment_add::run(ctx, args),
-            ProjectCommentCommand::List(args) => comment_list::run(ctx, args),
-        },
+        ProjectCommand::Comment(args) => comment::run(ctx, &args.command),
     }
 }

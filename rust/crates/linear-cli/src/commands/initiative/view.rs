@@ -22,7 +22,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
 
 fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     let original = &args.initiative_id;
-    let reference = super::reference(ctx, original)?;
+    let reference = super::common::reference(ctx, original)?;
     let client = ctx.client()?;
     let detail = ctx.spin(!args.json, async {
         let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;

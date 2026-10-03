@@ -23,7 +23,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
 
 fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     let original = &args.initiative_id;
-    let reference = super::reference(ctx, original)?;
+    let reference = super::common::reference(ctx, original)?;
     let flags = Changes {
         name: args.name.clone(),
         description: args.description.clone(),
@@ -33,7 +33,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         color: args.color.clone(),
         icon: args.icon.clone(),
     };
-    super::check_owner(flags.owner.as_deref())?;
+    super::common::check_owner(flags.owner.as_deref())?;
     let prompting = flags.is_empty();
     if prompting && !args.interactive {
         return Err(Error::new("No changes specified").with_hint(

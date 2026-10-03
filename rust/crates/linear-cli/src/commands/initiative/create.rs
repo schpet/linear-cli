@@ -107,7 +107,7 @@ fn prompt(options: &mut Fields, prompter: &Prompter<'_>) -> Result<()> {
     }
     if options.owner.as_deref().is_none_or(str::is_empty) {
         let check = |owner: &str| {
-            super::check_owner(Some(owner)).map_err(|error| error.message().to_owned())
+            super::common::check_owner(Some(owner)).map_err(|error| error.message().to_owned())
         };
         options.owner = optional(prompter.text(
             Text::new("Owner (username, email, or @me - press Enter to skip):").with_check(&check),
@@ -153,7 +153,7 @@ fn validate(fields: Fields) -> Result<Valid> {
         .ok_or_else(|| Error::new("Initiative name is required. Use --name or -n flag."))?;
     let nonempty = |value: Option<String>| value.filter(|value| !value.is_empty());
     let owner = nonempty(fields.owner);
-    super::check_owner(owner.as_deref())?;
+    super::common::check_owner(owner.as_deref())?;
     Ok(Valid {
         name,
         description: nonempty(fields.description),

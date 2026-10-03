@@ -13,7 +13,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
     let original = &args.initiative;
-    let reference = super::reference(ctx, original)?;
+    let reference = crate::commands::initiative::common::reference(ctx, original)?;
     let client = ctx.client()?;
     let nodes = ctx.spin(!args.json, async {
         let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;

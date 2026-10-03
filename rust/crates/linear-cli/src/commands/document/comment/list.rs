@@ -11,7 +11,7 @@ pub fn run(ctx: &Ctx, args: &DocumentCommentList) -> Result<()> {
 }
 
 fn list(ctx: &Ctx, args: &DocumentCommentList) -> Result<()> {
-    let id = super::reference(ctx, &args.document)?;
+    let id = crate::commands::document::common::reference(ctx, &args.document)?;
     let client = ctx.client()?;
     let nodes = ctx.spin(
         !args.json,
