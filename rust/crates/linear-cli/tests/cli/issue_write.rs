@@ -502,7 +502,7 @@ fn update_milestone_uses_the_issue_project() {
     assert_eq!(api.variables("GetIssueProjectId"), json!({ "id": "ENG-1" }));
     assert_eq!(
         api.variables("GetProjectMilestonesForLookup"),
-        json!({ "projectId": PROJECT_ID })
+        json!({ "projectId": PROJECT_ID, "name": "Beta" })
     );
     assert_eq!(
         update_input(&api),

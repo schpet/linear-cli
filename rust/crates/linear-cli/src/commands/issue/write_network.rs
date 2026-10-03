@@ -369,7 +369,7 @@ impl Backend for NetworkBackend {
         Ok(sorted_names(rows))
     }
     async fn milestone(&self, project_id: String, reference: String) -> Result<String, Error> {
-        crate::commands::issue::read::milestone_id_without_terminal_lf(
+        crate::commands::issue::read::milestone_id(
             &self.transport,
             &reference,
             Some(project_id.as_str()).filter(|project| !project.is_empty()),

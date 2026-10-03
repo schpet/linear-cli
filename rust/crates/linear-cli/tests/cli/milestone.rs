@@ -199,8 +199,7 @@ fn view_by_name_resolves_within_the_project() {
     api.on(
         "GetProjectMilestonesForLookup",
         json!({ "project": { "projectMilestones": { "nodes": [
-            { "id": MILESTONE_ID, "name": "Launch" },
-            { "id": "m-other", "name": "Beta" }
+            { "id": MILESTONE_ID, "name": "Launch" }
         ] } } }),
     )
     .on("GetMilestoneDetails", details(vec![], Value::Null, false));
@@ -208,12 +207,22 @@ fn view_by_name_resolves_within_the_project() {
         .run(&[
             "milestone",
             "view",
-            "Launch",
+            "launch",
             "--project",
             PROJECT_ID,
             "--json",
         ])
         .success();
+    // Linear filters by name, so milestones past the first page are found.
+    assert_eq!(
+        api.variables("GetProjectMilestonesForLookup"),
+        json!({ "projectId": PROJECT_ID, "name": "launch" })
+    );
+    assert!(
+        api.request("GetProjectMilestonesForLookup")
+            .query
+            .contains("eqIgnoreCase: $name")
+    );
     assert_eq!(api.variables("GetMilestoneDetails")["id"], MILESTONE_ID);
 }
 

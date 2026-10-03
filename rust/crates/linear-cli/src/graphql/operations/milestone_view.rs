@@ -78,6 +78,7 @@ pub struct DetailState {
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct LookupVariables {
     pub project_id: String,
+    pub name: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
@@ -92,8 +93,13 @@ pub struct GetProjectMilestonesForLookup {
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Project")]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Project",
+    variables = "LookupVariables"
+)]
 pub struct LookupProject {
+    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
     pub project_milestones: Option<LookupConnection>,
 }
 

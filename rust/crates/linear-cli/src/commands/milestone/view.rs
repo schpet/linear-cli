@@ -11,8 +11,7 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_view::{
-    DetailMilestone, DetailVariables, GetMilestoneDetails, GetProjectMilestonesForLookup,
-    LookupVariables,
+    DetailMilestone, DetailVariables, GetMilestoneDetails,
 };
 use crate::graphql::operations::number::Float;
 use crate::graphql::pagination::{self, Page, PaginationError};
@@ -47,7 +46,7 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
             Some((reference, original)) if by_name => {
                 let project_id =
                     resolve_project_with_transport(reference, original, client).await?;
-                find_by_name(client, &args.milestone, &project_id).await?
+                super::id_by_name(client, &project_id, &args.milestone).await?
             }
             Some(_) | None => args.milestone.clone(),
         };
@@ -59,26 +58,6 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
         let markdown = markdown(&milestone, args.all, Utc::now(), &chrono::Local);
         ctx.show_markdown(&markdown, false)
     }
-}
-
-/// The ID of the project's milestone named `name`, ignoring case.
-async fn find_by_name(client: &GraphQlTransport, name: &str, project_id: &str) -> Result<String> {
-    let request =
-        GraphQlRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
-            project_id: project_id.to_owned(),
-        }));
-    let data: GetProjectMilestonesForLookup = client.execute(&request).await?;
-    let project = data
-        .project
-        .ok_or_else(|| Error::not_found("Project", project_id))?;
-    let wanted = name.to_lowercase();
-    project
-        .project_milestones
-        .into_iter()
-        .flat_map(|connection| connection.nodes)
-        .find(|milestone| milestone.name.to_lowercase() == wanted)
-        .map(|milestone| milestone.id.into_inner())
-        .ok_or_else(|| Error::not_found("Milestone", name))
 }
 
 /// The milestone with its first page of issues, or every issue with `all`.

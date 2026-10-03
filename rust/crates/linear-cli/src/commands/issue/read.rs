@@ -447,54 +447,18 @@ async fn project_id_query_ending(
         .next()
         .map(|p| p.id.into_inner()))
 }
+/// A milestone UUID, or the ID of the named milestone in `project`.
 pub async fn milestone_id(
     transport: &GraphQlTransport,
     value: &str,
     project: Option<&str>,
-) -> Result<String, Error> {
-    milestone_id_query_ending(transport, value, project, true).await
-}
-pub async fn milestone_id_without_terminal_lf(
-    transport: &GraphQlTransport,
-    value: &str,
-    project: Option<&str>,
-) -> Result<String, Error> {
-    milestone_id_query_ending(transport, value, project, false).await
-}
-async fn milestone_id_query_ending(
-    transport: &GraphQlTransport,
-    value: &str,
-    project: Option<&str>,
-    terminal_lf: bool,
 ) -> Result<String, Error> {
     if is_linear_uuid(value) {
         return Ok(value.to_owned());
     }
     reject_linear_url(value, "a milestone name or UUID")?;
     let project = project.ok_or_else(|| validation(format!("Cannot resolve milestone \"{value}\" without --project")).with_hint("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
-    use crate::graphql::operations::milestone_view::{
-        GetProjectMilestonesForLookup, LookupVariables,
-    };
-    let result: GetProjectMilestonesForLookup = exchange(
-        transport,
-        &issue_write_query_ending(
-            GraphQlRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
-                project_id: project.to_owned(),
-            })),
-            terminal_lf,
-        ),
-    )
-    .await?;
-    let rows = result
-        .project
-        .ok_or_else(|| Error::not_found("Project", project))?
-        .project_milestones
-        .map(|p| p.nodes)
-        .unwrap_or_default();
-    rows.into_iter()
-        .find(|m| m.name.to_lowercase() == value.to_lowercase())
-        .map(|m| m.id.into_inner())
-        .ok_or_else(|| Error::not_found("Milestone", value))
+    crate::commands::milestone::id_by_name(transport, project, value).await
 }
 /// The page size to request: what is still wanted, capped at Linear's maximum of 100.
 fn page_size(limit: Option<NonZeroU32>, fetched: usize, unlimited: i32) -> i32 {
