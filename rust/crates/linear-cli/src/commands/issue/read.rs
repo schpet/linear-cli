@@ -765,7 +765,7 @@ pub(super) fn resolve_project(
     };
     match rows.as_slice() {
         [] => return Err(Error::not_found("Project", value)),
-        _ if !ctx.stdin_tty() => {
+        _ if !ctx.interactive() => {
             return Err(Error::new(format!(
                 "Project \"{value}\" not found. Similar projects: {}",
                 names().join(", ")

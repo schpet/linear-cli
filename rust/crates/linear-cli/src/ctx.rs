@@ -323,19 +323,21 @@ impl Ctx {
         self.block_on(crate::graphql::operations::viewer::url_key(client))
     }
 
-    /// Stdin and stdout are both terminals, so a command may ask for what its
-    /// flags left out without being told to.
+    /// Stdin and stdout are both terminals. This is the one condition under
+    /// which a command asks questions, whether for missing values or for
+    /// confirmation; with output piped or input redirected it never prompts.
     pub fn interactive(&self) -> bool {
         self.terminal.stdin_tty && self.terminal.stdout_tty
     }
 
-    /// Fails unless stdin is a terminal, naming `flag` as the way to skip the prompt.
+    /// Fails unless the command may ask questions (see [`Ctx::interactive`]),
+    /// naming `flag` as the way to skip the prompt.
     pub fn require_tty(&self, flag: &str) -> Result<()> {
-        if self.terminal.stdin_tty {
+        if self.interactive() {
             Ok(())
         } else {
             Err(Error::new(
-                "This command needs to ask for confirmation, but stdin is not a terminal",
+                "This command needs to ask for confirmation, but it is not running in a terminal",
             )
             .with_hint(format!("Pass {flag} to proceed without a prompt.")))
         }
@@ -351,7 +353,7 @@ impl Ctx {
     /// Questions on the terminal. Commands check for a terminal first, with an
     /// error naming the flags to pass instead; this refusal is the backstop.
     pub fn prompter(&self) -> Result<Prompter<'_>> {
-        if !self.terminal.stdin_tty {
+        if !self.interactive() {
             return Err(Error::new("This command needs a terminal to ask questions")
                 .with_hint("Pass the values as flags instead."));
         }

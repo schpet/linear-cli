@@ -61,7 +61,7 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
             (Some(content), _) => Some(content.clone()),
             (None, Some(path)) => Some(read_file(path)?),
             (None, None) if !ctx.stdin_tty() => text_input::read_stdin(std::io::stdin().lock())?,
-            (None, None) if ctx.stdout_tty() => {
+            (None, None) if ctx.interactive() => {
                 ctx.print("Opening editor for document content...\n")?;
                 let content = optional_editor(ctx)?;
                 if content.is_none() {

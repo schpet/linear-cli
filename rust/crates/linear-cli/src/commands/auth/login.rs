@@ -177,7 +177,7 @@ fn offer_migration(
         "Your credentials are stored as plaintext in the credentials file.",
         color,
     );
-    if !ctx.stdin_tty() {
+    if !ctx.interactive() {
         return ctx.print(format!(
             "\n{notice}\nRun `linear auth migrate` to move them to the system keyring.\n"
         ));

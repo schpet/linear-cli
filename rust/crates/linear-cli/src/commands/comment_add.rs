@@ -62,7 +62,7 @@ fn read_body_file(path: &str) -> Result<String, Error> {
 
 /// Asks for the body on the terminal; without one it fails, naming --body.
 pub fn prompt(ctx: &Ctx) -> Result<String> {
-    if !ctx.stdin_tty() {
+    if !ctx.interactive() {
         return Err(Error::new("No comment body given")
             .with_hint("Pass --body or --body-file, or run in a terminal to be prompted."));
     }

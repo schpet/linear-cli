@@ -117,7 +117,7 @@ fn scoped(labels: Vec<Label>, team_key: Option<&str>) -> Vec<Label> {
 
 /// Asks which of several same-named labels to delete.
 fn choose(ctx: &Ctx, name: &str, labels: &[Label]) -> Result<Label> {
-    if !ctx.stdin_tty() {
+    if !ctx.interactive() {
         return Err(
             Error::new(format!("Multiple labels named \"{name}\" found"))
                 .with_hint("Pass --team to pick one, or delete it by UUID."),

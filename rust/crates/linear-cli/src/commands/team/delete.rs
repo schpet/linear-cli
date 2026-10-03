@@ -111,7 +111,7 @@ fn choose_target(
     team: &ResolvedTeam,
     count: usize,
 ) -> Result<ResolvedTeam> {
-    if !ctx.stdin_tty() {
+    if !ctx.interactive() {
         return Err(Error::new(format!(
             "Team {} has {count} issue(s) to move before it can be deleted",
             team.key

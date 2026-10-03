@@ -37,7 +37,7 @@ fn set_default(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
 }
 
 fn pick(ctx: &Ctx, workspaces: &[String], current: Option<&str>) -> Result<String> {
-    if !ctx.stdin_tty() {
+    if !ctx.interactive() {
         return Err(Error::new("No workspace given")
             .with_hint("Name it: `linear auth default <workspace>`."));
     }

@@ -40,13 +40,13 @@ pub fn run(ctx: &Ctx, args: &Config) -> Result<()> {
 fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
     let workspaces = stored_workspaces(ctx)?;
     let asks = args.team.is_none() || args.sort.is_none() || workspaces.len() > 1;
-    if asks && !ctx.stdin_tty() {
+    if asks && !ctx.interactive() {
         let mut flags = vec!["--team <team>", "--sort <manual|priority>"];
         if workspaces.len() > 1 {
             flags.push("--workspace <workspace>");
         }
         return Err(Error::new(
-            "Some settings are missing and stdin is not a terminal to ask for them",
+            "Some settings are missing and there is no terminal to ask for them",
         )
         .with_hint(format!("Pass {}.", flags.join(" and "))));
     }

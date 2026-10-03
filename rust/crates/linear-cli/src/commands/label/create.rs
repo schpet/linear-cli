@@ -52,7 +52,7 @@ pub fn run(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
 
 fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
     let interactive = args.interactive || args.name.is_none();
-    if interactive && !ctx.stdin_tty() {
+    if interactive && !ctx.interactive() {
         return Err(match args.name {
             None => Error::new("Label name is required")
                 .with_hint("Pass --name, or run in a terminal to be prompted."),

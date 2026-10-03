@@ -22,7 +22,7 @@ fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     let id = &args.comment_id;
     let body = prepare_body(id, args.body.as_deref(), args.body_file.as_deref())?;
     let body = body.filter(|body| !needs_prompt(Some(body)));
-    if body.is_none() && !ctx.stdin_tty() {
+    if body.is_none() && !ctx.interactive() {
         return Err(Error::new("No comment body given")
             .with_hint("Pass --body or --body-file, or run in a terminal to be prompted."));
     }
