@@ -186,6 +186,7 @@ impl Cli {
             }
             if started.elapsed() > TIMEOUT {
                 child.kill().expect("kill hung linear");
+                child.wait().expect("reap hung linear");
                 panic!("linear {args:?} did not exit within {TIMEOUT:?}");
             }
             thread::sleep(Duration::from_millis(5));
