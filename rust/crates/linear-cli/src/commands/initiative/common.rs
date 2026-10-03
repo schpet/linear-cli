@@ -15,14 +15,6 @@ pub fn reference(ctx: &Ctx, input: &str) -> Result<InitiativeReference> {
     InitiativeReference::parse(input, &ctx.scope()?)
 }
 
-/// Rejects a Linear URL where an owner is expected, before any request.
-pub fn check_owner(owner: Option<&str>) -> Result<()> {
-    match owner {
-        Some(owner) => refs::reject_linear_url(owner, "an email, username, display name, or @me"),
-        None => Ok(()),
-    }
-}
-
 /// The initiative and project arguments, parsed without a request.
 pub struct Pair {
     initiative: InitiativeReference,

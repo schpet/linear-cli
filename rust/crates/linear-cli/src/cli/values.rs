@@ -1,8 +1,46 @@
 //! Flag value types and parsers shared across commands.
+use std::fmt;
+use std::str::FromStr;
+
 use chrono::{DateTime, NaiveDate, Utc};
 use clap::ValueEnum;
 
 use crate::graphql::scalars::Float;
+use crate::refs::reject_linear_url;
+
+/// A user: yourself, or someone to look up.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum UserRef {
+    /// `@me`, also spelled `self`.
+    Me,
+    /// An email, a username (display name), or a name or part of one.
+    Query(String),
+}
+
+impl FromStr for UserRef {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, String> {
+        match value {
+            "" => Err("expected a user".to_owned()),
+            "@me" | "self" => Ok(Self::Me),
+            _ => {
+                reject_linear_url(value, "an email, username, name, or @me")
+                    .map_err(|error| error.message().to_owned())?;
+                Ok(Self::Query(value.to_owned()))
+            }
+        }
+    }
+}
+
+impl fmt::Display for UserRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Me => f.write_str("@me"),
+            Self::Query(query) => f.write_str(query),
+        }
+    }
+}
 
 /// A `YYYY-MM-DD` calendar date.
 pub fn date(value: &str) -> Result<NaiveDate, String> {
@@ -126,6 +164,19 @@ mod tests {
         assert_eq!(json("-1.5"), Ok("-1.5".to_owned()));
         for invalid in ["", "abc", "NaN", "inf", "1e999"] {
             assert!(sort_order(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn user_refs_spell_yourself_two_ways_and_refuse_urls() {
+        assert_eq!("@me".parse(), Ok(UserRef::Me));
+        assert_eq!("self".parse(), Ok(UserRef::Me));
+        assert_eq!(
+            "ada@example.com".parse(),
+            Ok(UserRef::Query("ada@example.com".to_owned()))
+        );
+        for invalid in ["", "https://linear.app/acme/profiles/ada"] {
+            assert!(invalid.parse::<UserRef>().is_err(), "{invalid}");
         }
     }
 

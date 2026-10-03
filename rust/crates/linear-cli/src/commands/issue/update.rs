@@ -3,7 +3,10 @@ use super::write::{self as shared, Backend};
 use chrono::NaiveDate;
 
 use crate::{
-    cli::{issue::IssueUpdate, values::Priority},
+    cli::{
+        issue::IssueUpdate,
+        values::{Priority, UserRef},
+    },
     commands::outcome,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
@@ -27,7 +30,7 @@ fn update(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
 #[derive(Clone, Debug, Default)]
 pub struct Fields {
     pub title: Option<String>,
-    pub assignee: Option<String>,
+    pub assignee: Option<UserRef>,
     pub unassign: bool,
     pub due_date: Option<NaiveDate>,
     pub clear_due_date: bool,
@@ -236,10 +239,10 @@ pub async fn input<B: Backend>(
         None => None,
     };
     let assignee = match &fields.assignee {
-        Some(value) => {
-            let id = backend.user(value.clone()).await?;
+        Some(user) => {
+            let id = backend.user(user.clone()).await?;
             if id.is_empty() {
-                return Err(Error::not_found("User", value));
+                return Err(Error::not_found("User", &user.to_string()));
             }
             Some(id)
         }

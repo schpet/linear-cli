@@ -4,7 +4,7 @@ use crate::refs;
 use chrono::NaiveDate;
 
 use crate::cli::initiative::InitiativeCreate;
-use crate::cli::values::{InitiativeStatus, date};
+use crate::cli::values::{InitiativeStatus, UserRef, date};
 use crate::client::LinearClient;
 use crate::commands::color;
 use crate::ctx::Ctx;
@@ -52,7 +52,7 @@ struct Fields {
     name: Option<String>,
     description: Option<String>,
     status: Option<InitiativeStatus>,
-    owner: Option<String>,
+    owner: Option<UserRef>,
     target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
@@ -63,7 +63,7 @@ struct Valid {
     name: String,
     description: Option<String>,
     status: Option<InitiativeStatus>,
-    owner: Option<String>,
+    owner: Option<UserRef>,
     target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
@@ -106,13 +106,11 @@ fn prompt(options: &mut Fields, prompter: &Prompter<'_>, all: bool) -> Result<()
         .collect();
         options.status = Some(prompter.select("Status:", choices)?);
     }
-    if options.owner.as_deref().is_none_or(str::is_empty) {
-        let check = |owner: &str| {
-            super::common::check_owner(Some(owner)).map_err(|error| error.message().to_owned())
-        };
-        options.owner = optional(prompter.text(
-            Text::new("Owner (username, email, or @me - press Enter to skip):").with_check(&check),
-        )?);
+    if options.owner.is_none() {
+        options.owner = prompter.parsed(
+            Text::new("Owner (username, email, or @me - press Enter to skip):"),
+            &str::parse::<UserRef>,
+        )?;
     }
     if options.target_date.is_none() {
         options.target_date = prompter.parsed(
@@ -153,13 +151,11 @@ fn validate(fields: Fields) -> Result<Valid> {
         .filter(|name| !name.is_empty())
         .ok_or_else(|| Error::new("Initiative name is required. Use --name or -n flag."))?;
     let nonempty = |value: Option<String>| value.filter(|value| !value.is_empty());
-    let owner = nonempty(fields.owner);
-    super::common::check_owner(owner.as_deref())?;
     Ok(Valid {
         name,
         description: nonempty(fields.description),
         status: fields.status,
-        owner,
+        owner: fields.owner,
         target_date: fields.target_date,
         color: nonempty(fields.color),
         icon: nonempty(fields.icon),

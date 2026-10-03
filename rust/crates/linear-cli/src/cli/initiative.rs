@@ -3,7 +3,7 @@ use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
 use super::LINEAR_MARKDOWN;
-use super::values::InitiativeStatus;
+use super::values::{InitiativeStatus, UserRef};
 use crate::graphql::scalars::Float;
 
 #[derive(Debug, Args)]
@@ -47,9 +47,9 @@ pub struct InitiativeList {
     /// Show initiatives of every status
     #[arg(long)]
     pub all_statuses: bool,
-    /// Show only initiatives owned by this user (username or email)
-    #[arg(long, short, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub owner: Option<String>,
+    /// Show only initiatives owned by this user: a username, email, name, or @me
+    #[arg(long, short, value_name = "USER")]
+    pub owner: Option<UserRef>,
     /// Open the initiatives page in the browser
     #[arg(long, short)]
     pub web: bool,
@@ -94,9 +94,9 @@ pub struct InitiativeCreate {
     /// Initiative status [default: planned]
     #[arg(long, short, ignore_case = true)]
     pub status: Option<InitiativeStatus>,
-    /// Owner: a username, email, or @me
-    #[arg(long, short, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub owner: Option<String>,
+    /// Owner: a username, email, name, or @me
+    #[arg(long, short, value_name = "USER")]
+    pub owner: Option<UserRef>,
     /// Target date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
@@ -136,9 +136,9 @@ pub struct InitiativeUpdate {
     /// New status
     #[arg(long, ignore_case = true)]
     pub status: Option<InitiativeStatus>,
-    /// New owner: a username, email, or @me
-    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub owner: Option<String>,
+    /// New owner: a username, email, name, or @me
+    #[arg(long, value_name = "USER")]
+    pub owner: Option<UserRef>,
     /// New target date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,

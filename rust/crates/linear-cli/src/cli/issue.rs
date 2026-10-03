@@ -3,6 +3,7 @@ use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum};
 
 use super::LINEAR_MARKDOWN;
+use super::values::UserRef;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -103,9 +104,9 @@ pub struct IssueList {
 /// Filters `issue list` and `issue query` share.
 #[derive(Debug, Args)]
 pub struct IssueFilters {
-    /// Show only issues assigned to this user (username, email, name, or @me)
-    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub assignee: Option<String>,
+    /// Show only issues assigned to this user: a username, email, name, or @me
+    #[arg(long, value_name = "USER")]
+    pub assignee: Option<UserRef>,
     /// Show issues of every assignee
     #[arg(long, short = 'A', conflicts_with_all = ["assignee", "unassigned"])]
     pub all_assignees: bool,
@@ -323,9 +324,9 @@ pub struct IssueCreate {
     /// Team (key, name, or ID); defaults to the configured team
     #[arg(long)]
     pub team: Option<String>,
-    /// Assignee: a username, email, name, or self
+    /// Assignee: a username, email, name, or @me
     #[arg(long, short, value_name = "USER")]
-    pub assignee: Option<String>,
+    pub assignee: Option<UserRef>,
     /// Workflow state, by name or type
     #[arg(long, short)]
     pub state: Option<String>,
@@ -395,9 +396,9 @@ pub struct IssueUpdate {
     /// Move the issue to this team (key, name, or ID)
     #[arg(long)]
     pub team: Option<String>,
-    /// Assignee: a username, email, name, or self
+    /// Assignee: a username, email, name, or @me
     #[arg(long, short, value_name = "USER")]
-    pub assignee: Option<String>,
+    pub assignee: Option<UserRef>,
     /// Remove the assignee
     #[arg(long)]
     pub unassign: bool,

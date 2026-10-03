@@ -2,6 +2,7 @@ use super::{
     create::{Input, Templates},
     write::{self as domain, Backend, Created, Label, Named, Parent, State, Updated},
 };
+use crate::cli::values::UserRef;
 use crate::client::LinearClient;
 use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::issue::GetIssueId;
@@ -79,12 +80,8 @@ impl Backend for NetworkBackend {
         let data: ops::GetUserSettings = self.client.query(()).await?;
         Ok(data.user_settings.auto_assign_to_self)
     }
-    async fn user(&self, reference: String) -> Result<String, Error> {
-        refs::reject_linear_url(&reference, "an email, username, display name, or @me")?;
-        if reference == "self" || reference == "@me" {
-            return self.viewer().await;
-        }
-        refs::user::resolve(&self.client, &reference, "User").await
+    async fn user(&self, user: UserRef) -> Result<String, Error> {
+        refs::user::resolve(&self.client, &user, "User").await
     }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
         let states = refs::workflow_states::fetch(&self.client, team_key).await?;

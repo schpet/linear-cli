@@ -4,7 +4,7 @@ use crate::refs::{self, initiative::Archived};
 use chrono::NaiveDate;
 
 use crate::cli::initiative::InitiativeUpdate;
-use crate::cli::values::{date, hex_color};
+use crate::cli::values::{UserRef, date, hex_color};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -33,7 +33,6 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         color: args.color.clone(),
         icon: args.icon.clone(),
     };
-    super::common::check_owner(flags.owner.as_deref())?;
     let interactive = ctx.optional_prompts(args.interactive)?;
     let prompting = flags.is_empty();
     if prompting && !interactive {
@@ -82,7 +81,7 @@ struct Changes {
     name: Option<String>,
     description: Option<String>,
     status: Option<InitiativeStatus>,
-    owner: Option<String>,
+    owner: Option<UserRef>,
     target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,

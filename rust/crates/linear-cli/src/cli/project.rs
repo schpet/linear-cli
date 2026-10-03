@@ -3,6 +3,7 @@ use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum};
 
 use super::LINEAR_MARKDOWN;
+use super::values::UserRef;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -95,9 +96,9 @@ pub struct ProjectFields {
     /// Project status
     #[arg(long, short, ignore_case = true)]
     pub status: Option<Status>,
-    /// Project lead: a username, email, or @me
-    #[arg(long, short, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub lead: Option<String>,
+    /// Project lead: a username, email, name, or @me
+    #[arg(long, short, value_name = "USER")]
+    pub lead: Option<UserRef>,
     /// Start date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub start_date: Option<NaiveDate>,
@@ -131,9 +132,9 @@ pub struct ProjectCreate {
     /// Project label; repeat for several labels
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
-    /// Project member: a username, email, display name, or @me; repeatable
-    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
-    pub member: Vec<String>,
+    /// Project member: a username, email, name, or @me; repeatable
+    #[arg(long, value_name = "USER")]
+    pub member: Vec<UserRef>,
     /// Project icon
     #[arg(long)]
     pub icon: Option<String>,

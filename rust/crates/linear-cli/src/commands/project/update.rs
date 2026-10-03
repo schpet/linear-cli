@@ -95,7 +95,6 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
             "Pass at least one field to change, like --name, --status, --lead, or --add-team.",
         ));
     }
-    common::plain_references(&fields.lead, "an email, username, display name, or @me")?;
     common::plain_references(
         args.label
             .iter()

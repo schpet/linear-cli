@@ -1,6 +1,7 @@
 use crate::config::AssignSelf;
 use crate::refs::team::ResolvedTeam;
 use crate::{
+    cli::values::UserRef,
     error::Error,
     graphql::{edit::Edit, operations::issue::IssueUpdateInput},
     platform::prompt::Text,
@@ -105,7 +106,7 @@ pub trait Backend: Clone + Send + 'static {
     ) -> impl Future<Output = Result<Vec<Named>, Error>> + Send;
     fn viewer(&self) -> impl Future<Output = Result<String, Error>> + Send;
     fn auto_assign(&self) -> impl Future<Output = Result<bool, Error>> + Send;
-    fn user(&self, reference: String) -> impl Future<Output = Result<String, Error>> + Send;
+    fn user(&self, user: UserRef) -> impl Future<Output = Result<String, Error>> + Send;
     fn states(&self, team_key: String) -> impl Future<Output = Result<Vec<State>, Error>> + Send;
     fn state(
         &self,

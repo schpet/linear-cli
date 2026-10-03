@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::{Value, json};
 
 use super::prompt;
+use crate::cli::values::UserRef;
 use crate::commands::issue::create::{self, Fields};
 use crate::commands::issue::write::{
     Backend, CreateSettings, Created, Label, Named, Parent, State, Ui, Updated,
@@ -59,7 +60,7 @@ impl Backend for Linear {
     async fn auto_assign(&self) -> Result<bool, Error> {
         unreachable!("auto assign")
     }
-    async fn user(&self, _: String) -> Result<String, Error> {
+    async fn user(&self, _: UserRef) -> Result<String, Error> {
         unreachable!("user")
     }
     async fn states(&self, _: String) -> Result<Vec<State>, Error> {

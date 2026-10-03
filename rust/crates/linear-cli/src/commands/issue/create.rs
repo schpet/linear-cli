@@ -3,7 +3,10 @@ use chrono::NaiveDate;
 use super::write::{self as shared, Backend, CreateSettings, Named, Parent, Ui};
 use super::write_network::NetworkBackend;
 use crate::{
-    cli::{issue::IssueCreate, values::Priority},
+    cli::{
+        issue::IssueCreate,
+        values::{Priority, UserRef},
+    },
     commands::{outcome, team_key::configured_team_key},
     config::AssignSelf,
     ctx::Ctx,
@@ -188,7 +191,7 @@ impl Ui for Prompts<'_> {
 pub struct Fields {
     pub title: Option<String>,
     pub start: bool,
-    pub assignee: Option<String>,
+    pub assignee: Option<UserRef>,
     pub due_date: Option<NaiveDate>,
     pub parent: Option<String>,
     pub priority: Option<Priority>,
@@ -311,13 +314,13 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         None => None,
     };
     let assignee = if fields.start && fields.assignee.is_none() {
-        Some("self".to_owned())
+        Some(UserRef::Me)
     } else {
         fields.assignee.clone()
     };
-    if fields.start && assignee.as_deref() != Some("self") {
+    if fields.start && assignee != Some(UserRef::Me) {
         return Err(shared::validation(
-            "Cannot use --start and a non-self --assignee",
+            "Cannot use --start with an --assignee other than @me",
         ));
     }
     // State BEFORE always-self Viewer, even when explicit assignee later overrides.
@@ -330,8 +333,8 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
     } else {
         None
     };
-    if let Some(value) = assignee.as_deref().filter(|value| !value.is_empty()) {
-        assignee_id = Some(backend.user(value.to_owned()).await?)
+    if let Some(user) = assignee {
+        assignee_id = Some(backend.user(user).await?)
     }
     let mut label_ids = Vec::new();
     for value in &fields.labels {

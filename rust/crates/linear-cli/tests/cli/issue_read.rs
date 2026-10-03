@@ -470,6 +470,40 @@ fn list_filters_by_another_assignee_or_none() {
 }
 
 #[test]
+fn query_takes_yourself_as_at_me_or_self_without_a_lookup() {
+    let api = MockLinear::start();
+    api.on("GetIssuesForQuery", issues(vec![], None))
+        .on("GetIssuesForQuery", issues(vec![], None));
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    for me in ["@me", "self"] {
+        cli.run(&["issue", "query", "--assignee", me, "--json"])
+            .success();
+    }
+    for request in api.requests() {
+        assert_eq!(
+            request.variables["filter"]["assignee"],
+            json!({ "isMe": { "eq": true } })
+        );
+    }
+}
+
+#[test]
+fn user_flags_refuse_linear_urls_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    let url = "https://linear.app/acme/profiles/ada";
+    for args in [
+        &["issue", "list", "--assignee", url][..],
+        &["issue", "update", "ENG-1", "-a", url],
+        &["project", "create", "-n", "P", "--lead", url],
+        &["initiative", "list", "--owner", url],
+    ] {
+        cli.run(args).usage_error().stderr_has("Linear URL");
+    }
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn list_assignee_filters_conflict_with_each_other() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");

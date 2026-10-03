@@ -106,7 +106,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             state,
             assignee: filter::assignee_filter(
                 client,
-                filters.assignee.as_deref(),
+                filters.assignee.as_ref(),
                 filters.unassigned,
                 false,
             )

@@ -1,18 +1,22 @@
 //! Users, referenced by `@me` (or `self`), email, display name or part of a
 //! name.
+use crate::cli::values::UserRef;
 use crate::client::LinearClient;
 use crate::error::{Error, Result};
 use crate::graphql::operations::user::{
     GetViewerId, LookupUser, LookupUserNode, LookupUserVariables,
 };
 
-/// The ID of the user `input` names. `role` names the user's part in the
+/// The ID of the user `user` names. `role` names the user's part in the
 /// not-found error, like "Owner".
-pub async fn resolve(client: &LinearClient, input: &str, role: &str) -> Result<String> {
-    if input == "@me" || input == "self" {
-        let data: GetViewerId = client.query(()).await?;
-        return Ok(data.viewer.id.into_inner());
-    }
+pub async fn resolve(client: &LinearClient, user: &UserRef, role: &str) -> Result<String> {
+    let input = match user {
+        UserRef::Me => {
+            let data: GetViewerId = client.query(()).await?;
+            return Ok(data.viewer.id.into_inner());
+        }
+        UserRef::Query(input) => input.as_str(),
+    };
     let data: LookupUser = client
         .query(LookupUserVariables {
             input: input.to_owned(),

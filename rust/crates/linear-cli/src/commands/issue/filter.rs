@@ -1,4 +1,5 @@
 //! Issue list filters built from command-line flags, and the lookups they need.
+use crate::cli::values::UserRef;
 use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::operations::issue_read::*;
@@ -252,11 +253,11 @@ pub fn entity_filters(
 }
 pub async fn assignee_filter(
     client: &LinearClient,
-    input: Option<&str>,
+    input: Option<&UserRef>,
     unassigned: bool,
     mine: bool,
 ) -> Result<Option<NullableUserFilter>, Error> {
-    if mine {
+    if mine || input == Some(&UserRef::Me) {
         return Ok(Some(NullableUserFilter {
             is_me: Some(BooleanComparator { eq: Some(true) }),
             ..Default::default()
@@ -268,10 +269,9 @@ pub async fn assignee_filter(
             ..Default::default()
         }));
     }
-    let Some(input) = input.filter(|s| !s.is_empty()) else {
+    let Some(input) = input else {
         return Ok(None);
     };
-    reject_linear_url(input, "an email, username, display name, or @me")?;
     let id = cynic::Id::new(refs::user::resolve(client, input, "User").await?);
     Ok(Some(NullableUserFilter {
         id: Some(IDComparator {

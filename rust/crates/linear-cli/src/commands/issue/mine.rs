@@ -78,7 +78,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
             },
             assignee: filter::assignee_filter(
                 client,
-                filters.assignee.as_deref(),
+                filters.assignee.as_ref(),
                 filters.unassigned,
                 mine,
             )

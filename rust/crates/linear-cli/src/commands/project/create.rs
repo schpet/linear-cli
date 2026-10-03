@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 
 use super::common;
 use crate::cli::project::{ProjectCreate, Status};
-use crate::cli::values::{self, Priority};
+use crate::cli::values::{self, Priority, UserRef};
 use crate::client::LinearClient;
 use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
@@ -30,7 +30,7 @@ struct Draft {
     description: Option<String>,
     teams: Vec<String>,
     status: Option<StatusChoice>,
-    lead: Option<String>,
+    lead: Option<UserRef>,
     start_date: Option<NaiveDate>,
     target_date: Option<NaiveDate>,
 }
@@ -46,10 +46,6 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     let fields = &args.fields;
     let description = common::description(fields)?;
     let content = common::content(fields)?;
-    common::plain_references(
-        fields.lead.iter().chain(&args.member),
-        "an email, username, display name, or @me",
-    )?;
     common::plain_references(&args.label, "a project label name")?;
     common::plain_references(&args.template, "a template name or UUID")?;
     let scope = ctx.scope()?;
@@ -287,14 +283,10 @@ fn prompt(
         }
     }
     if draft.lead.is_none() {
-        let plain = |lead: &str| {
-            refs::reject_linear_url(lead, "an email, username, display name, or @me")
-                .map_err(|error| error.message().to_owned())
-        };
-        let lead = prompter.text(
-            Text::new("Lead (username, email, or @me - press Enter to skip):").with_check(&plain),
+        draft.lead = prompter.parsed(
+            Text::new("Lead (username, email, or @me - press Enter to skip):"),
+            &str::parse::<UserRef>,
         )?;
-        draft.lead = (!lead.is_empty()).then_some(lead);
     }
     for (field, message) in [
         (
