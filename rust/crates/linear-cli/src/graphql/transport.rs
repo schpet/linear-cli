@@ -1101,3 +1101,6 @@ impl GraphQlTransport {
         )))
     }
 }
+
+#[cfg(test)]
+mod tests;

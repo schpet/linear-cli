@@ -146,3 +146,6 @@ where
     put(&mut parent, Page { nodes, page_info });
     Ok(parent)
 }
+
+#[cfg(test)]
+mod tests;

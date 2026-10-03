@@ -1,6 +1,6 @@
-use linear_cli::graphql::envelope::{ResponseError, graphql_message, is_not_found, parse_response};
-use linear_cli::graphql::operations::agent_session::GetAgentSessionDetails;
-use linear_cli::graphql::operations::issue_update::UpdateIssue;
+use super::{GraphQlRequest, ResponseError, graphql_message, is_not_found, parse_response};
+use crate::graphql::operations::agent_session::GetAgentSessionDetails;
+use crate::graphql::operations::issue_update::UpdateIssue;
 use serde_json::Value;
 
 const SUCCESS_BODY: &str = r#"{"data":{"issueUpdate":{"success":true,"issue":{"id":"i1","identifier":"ENG-1","url":"https://linear.app/x/issue/ENG-1","title":"T"}}}}"#;
@@ -42,7 +42,7 @@ fn errors_only_classify_as_graphql_without_partial_data() {
         other => panic!("expected GraphQl, got {other:?}"),
     }
     assert_eq!(error.to_string(), "Could not find referenced Issue.");
-    let app: linear_cli::error::Error = error.into();
+    let app: crate::error::Error = error.into();
     assert_eq!(app.to_string(), "Could not find referenced Issue.");
 }
 
@@ -127,7 +127,7 @@ fn errors_with_null_root_field_incompatible_with_the_type_are_graphql_errors() {
         }
         other => panic!("expected GraphQl, got {other:?}"),
     }
-    let app: linear_cli::error::Error = error.into();
+    let app: crate::error::Error = error.into();
     assert_eq!(app.to_string(), "Entity not found: AgentSession");
 }
 
@@ -201,7 +201,7 @@ fn well_formed_json_with_the_wrong_shape_is_unexpected_shape_not_malformed() {
         );
         assert!(message.contains(fragment), "{body}: {message}");
         assert!(std::error::Error::source(&error).is_some());
-        let app: linear_cli::error::Error = error.into();
+        let app: crate::error::Error = error.into();
         assert_eq!(
             app.context("Failed to update issue").to_string(),
             format!("Failed to update issue: {message}")
@@ -214,4 +214,60 @@ fn unknown_top_level_envelope_keys_are_tolerated() {
     let body = r#"{"data":{"issueUpdate":{"success":true,"issue":null}},"extensions":{"cost":1}}"#;
     let data: UpdateIssue = parse_response(body.as_bytes()).expect("data");
     assert!(data.issue_update.success);
+}
+
+#[test]
+fn request_envelope_carries_query_variables_and_operation_name() {
+    use cynic::QueryBuilder;
+
+    use crate::graphql::operations::teams::{GetTeams, GetTeamsVariables};
+
+    let operation = GetTeams::build(GetTeamsVariables {
+        filter: None,
+        first: Some(100),
+        after: None,
+    });
+    let query = operation.query.clone();
+    let request = GraphQlRequest::with_variables(operation);
+    assert_eq!(
+        serde_json::to_value(&request).expect("request"),
+        serde_json::json!({"query": query, "variables": {"first": 100}, "operationName": "GetTeams"})
+    );
+}
+
+#[test]
+fn request_envelope_without_variables_omits_the_variables_key() {
+    let request = GraphQlRequest::<()> {
+        query: "query Viewer { viewer { id } }".to_owned(),
+        variables: None,
+        operation_name: Some("Viewer".to_owned()),
+    };
+    assert_eq!(
+        serde_json::to_string(&request).expect("string"),
+        r#"{"query":"query Viewer { viewer { id } }","operationName":"Viewer"}"#
+    );
+    let anonymous = GraphQlRequest::<()> {
+        query: "{ viewer { id } }".to_owned(),
+        variables: None,
+        operation_name: None,
+    };
+    assert_eq!(
+        serde_json::to_string(&anonymous).expect("string"),
+        r#"{"query":"{ viewer { id } }"}"#
+    );
+}
+
+#[test]
+fn raw_variables_keep_an_explicit_null() {
+    // `linear api` forwards user variables untouched, including nulls.
+    let request = GraphQlRequest {
+        query: "query ($after: String) { teams(after: $after) { nodes { id } } }".to_owned(),
+        variables: Some(serde_json::json!({"first": 100, "after": null})),
+        operation_name: None,
+    };
+    let text = serde_json::to_string(&request).expect("string");
+    assert!(
+        text.ends_with(r#""variables":{"first":100,"after":null}}"#),
+        "{text}"
+    );
 }

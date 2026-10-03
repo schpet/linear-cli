@@ -20,6 +20,7 @@ mod issue_write;
 mod label;
 mod milestone;
 mod misc;
+mod network;
 mod project;
 mod status_update;
 mod team;

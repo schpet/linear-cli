@@ -1,10 +1,12 @@
+use serde_json::{Value, from_value, json, to_string, to_value};
+
 use cynic::QueryBuilder;
-use linear_cli::graphql::envelope::parse_response;
-use linear_cli::graphql::operations::agent_session::{
+
+use super::{
     AgentActivityContent, AgentActivityType, AgentSessionStatus, AgentSessionType,
     GetAgentSessionDetails, GetAgentSessionDetailsVariables,
 };
-use serde_json::{Value, from_value, json, to_string, to_value};
+use crate::graphql::envelope::parse_response;
 
 fn content(value: Value) -> AgentActivityContent {
     from_value(value).expect("union member parses")
@@ -99,7 +101,7 @@ fn member_with_wrong_field_shape_is_rejected() {
     );
 }
 
-const SESSION_BODY: &str = r#"{"data":{"agentSession":{"id":"s1","status":"awaitingInput","type":"commentThread","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-02T00:00:00.000Z","startedAt":null,"endedAt":null,"dismissedAt":null,"summary":null,"externalLink":"https://example.invalid/s1","creator":{"name":"Ada"},"appUser":{"name":"Bot"},"dismissedBy":null,"issue":{"identifier":"ENG-7","title":"Port","url":"https://linear.app/x/issue/ENG-7"},"activities":{"nodes":[{"id":"a1","createdAt":"2026-09-01T00:00:01.000Z","content":{"__typename":"AgentActivityThoughtContent","type":"thought","body":"thinking"}},{"id":"a2","createdAt":"2026-09-01T00:00:02.000Z","content":{"__typename":"AgentActivityActionContent","type":"action","action":"grep","parameter":"foo","result":null}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}"#;
+const SESSION_BODY: &str = r#"{"data":{"agentSession":{"id":"s1","status":"awaitingInput","type":"commentThread","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-02T00:00:00.000Z","startedAt":null,"endedAt":null,"dismissedAt":null,"summary":null,"externalLink":"https://example.invalid/s1","creator":{"name":"Ada"},"appUser":{"name":"Bot"},"dismissedBy":null,"issue":{"identifier":"ENG-7","title":"Fix login","url":"https://linear.app/x/issue/ENG-7"},"activities":{"nodes":[{"id":"a1","createdAt":"2026-09-01T00:00:01.000Z","content":{"__typename":"AgentActivityThoughtContent","type":"thought","body":"thinking"}},{"id":"a2","createdAt":"2026-09-01T00:00:02.000Z","content":{"__typename":"AgentActivityActionContent","type":"action","action":"grep","parameter":"foo","result":null}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}"#;
 
 #[test]
 fn full_session_document_parses_and_renders_in_document_order() {
@@ -134,7 +136,7 @@ fn full_session_document_parses_and_renders_in_document_order() {
   "dismissedBy": null,
   "issue": {
     "identifier": "ENG-7",
-    "title": "Port",
+    "title": "Fix login",
     "url": "https://linear.app/x/issue/ENG-7"
   },
   "activities": [
@@ -162,19 +164,35 @@ fn full_session_document_parses_and_renders_in_document_order() {
 }
 
 #[test]
-fn session_document_matches_the_expected_selection_plus_typename() {
+fn enums_use_exact_schema_spellings_and_reject_unknown_values() {
+    let parsed: AgentActivityType = from_value(json!("thought")).expect("lowercase");
+    assert_eq!(parsed, AgentActivityType::Thought);
+    assert_eq!(to_value(parsed).expect("value"), Value::from("thought"));
+    let error = from_value::<AgentActivityType>(json!("THOUGHT")).expect_err("wrong case");
+    assert!(error.to_string().contains("unknown variant"), "{error}");
+    assert!(from_value::<AgentActivityType>(json!("Thought")).is_err());
+    assert!(from_value::<AgentActivityType>(json!(0)).is_err());
+
+    let status: AgentSessionStatus = from_value(json!("awaitingInput")).expect("camelCase");
+    assert_eq!(status, AgentSessionStatus::AwaitingInput);
+    assert_eq!(
+        to_value(status).expect("value"),
+        Value::from("awaitingInput")
+    );
+    assert!(from_value::<AgentSessionStatus>(json!("AWAITING_INPUT")).is_err());
+    assert!(from_value::<AgentSessionStatus>(json!("awaiting_input")).is_err());
+}
+
+#[test]
+fn session_details_page_through_activities() {
     let operation = GetAgentSessionDetails::build(GetAgentSessionDetailsVariables {
         id: "s1".to_owned(),
         first: 100,
-        after: None,
+        after: Some("cursor".to_owned()),
     });
     assert_eq!(
-        operation.operation_name.as_deref(),
-        Some("GetAgentSessionDetails")
-    );
-    assert_eq!(
         to_value(&operation.variables).expect("variables"),
-        json!({"id": "s1", "first": 100, "after": null})
+        json!({"id": "s1", "first": 100, "after": "cursor"})
     );
     assert!(
         operation

@@ -331,3 +331,6 @@ pub struct ListSession {
     pub creator: Option<UserName>,
     pub app_user: UserName,
 }
+
+#[cfg(test)]
+mod tests;

@@ -126,3 +126,53 @@ impl<T: schema::variable::Variable> schema::variable::Variable for Edit<T> {
 
 impl<T, L> cynic::coercions::CoercesTo<Option<L>> for Edit<T> where T: cynic::coercions::CoercesTo<L>
 {}
+
+#[cfg(test)]
+mod tests {
+    use super::Edit;
+    use serde_json::{Value, json, to_value};
+
+    #[test]
+    fn unchanged_refuses_direct_serialization() {
+        let error = to_value(Edit::<i32>::Unchanged).expect_err("must not serialize");
+        assert!(
+            error
+                .to_string()
+                .contains("Edit::Unchanged must be omitted")
+        );
+        assert_eq!(to_value(Edit::<i32>::Clear).expect("null"), Value::Null);
+        assert_eq!(to_value(Edit::Set(7)).expect("value"), json!(7));
+    }
+
+    #[test]
+    fn deserialization_always_fails_so_a_missing_field_can_never_become_clear() {
+        for body in ["null", "true", "1", r#""x""#] {
+            let error = serde_json::from_str::<Edit<bool>>(body).expect_err(body);
+            assert!(
+                error
+                    .to_string()
+                    .contains("Edit<T> is a write-only adapter and cannot be deserialized"),
+                "{body}: {error}"
+            );
+        }
+        #[derive(serde::Deserialize)]
+        struct Probe {
+            #[allow(dead_code)]
+            trashed: Edit<bool>,
+        }
+        for body in ["{}", r#"{"trashed":null}"#, r#"{"trashed":true}"#] {
+            assert!(serde_json::from_str::<Probe>(body).is_err(), "{body}");
+        }
+    }
+
+    #[test]
+    fn helpers_convert_options_and_default_to_unchanged() {
+        assert_eq!(Edit::<i32>::default(), Edit::Unchanged);
+        assert_eq!(Edit::set_or_clear(None::<i32>), Edit::Clear);
+        assert_eq!(Edit::set_or_clear(Some(1)), Edit::Set(1));
+        assert_eq!(Edit::set_or_unchanged(None::<i32>), Edit::Unchanged);
+        assert_eq!(Edit::from(2), Edit::Set(2));
+        assert!(Edit::<i32>::Unchanged.is_unchanged());
+        assert!(!Edit::<i32>::Clear.is_unchanged());
+    }
+}

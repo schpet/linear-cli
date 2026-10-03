@@ -1,10 +1,8 @@
-//! Cursor pagination without any network: pages come from closures.
-
 use std::collections::VecDeque;
 use std::num::NonZeroU32;
 
-use linear_cli::error::Error;
-use linear_cli::graphql::pagination::{Page, PageInfo, Pages, collect, collect_within};
+use super::{Page, PageInfo, Pages, collect, collect_within};
+use crate::error::Error;
 
 fn page(nodes: &[&str], has_next_page: bool, end_cursor: Option<&str>) -> Page<String> {
     Page {

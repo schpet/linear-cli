@@ -6,8 +6,6 @@ mod release_lookup;
 
 mod agent_session;
 
-mod markdown_download;
-
 mod project_write_server;
 
 mod issue_archive_delete;

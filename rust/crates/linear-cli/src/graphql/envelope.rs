@@ -244,3 +244,6 @@ pub fn is_not_found(errors: &[ResponseGraphQlError]) -> bool {
         message.contains("not found") || message.contains("could not find")
     })
 }
+
+#[cfg(test)]
+mod tests;

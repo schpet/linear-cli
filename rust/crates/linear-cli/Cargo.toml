@@ -62,10 +62,6 @@ name = "commands"
 path = "tests/commands/main.rs"
 
 [[test]]
-name = "graphql"
-path = "tests/graphql/main.rs"
-
-[[test]]
 name = "config"
 path = "tests/config/main.rs"
 

@@ -102,3 +102,131 @@ pub struct UpdatedIssue {
     pub url: String,
     pub title: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use cynic::MutationBuilder;
+    use serde_json::{Value, json, to_string, to_value};
+
+    use super::{IssueUpdateInput, SlaDayCountType, UpdateIssue, UpdateIssueVariables};
+    use crate::graphql::edit::Edit;
+    use crate::graphql::scalars::{Json, TimelessDate};
+
+    fn variables(input: IssueUpdateInput) -> UpdateIssueVariables {
+        UpdateIssue::build(UpdateIssueVariables {
+            id: "issue-1".to_owned(),
+            input,
+        })
+        .variables
+    }
+
+    fn value(input: IssueUpdateInput) -> Value {
+        to_value(variables(input)).expect("variables serialize")
+    }
+
+    #[test]
+    fn only_edited_fields_are_sent() {
+        assert_eq!(
+            value(IssueUpdateInput::default()),
+            json!({"id": "issue-1", "input": {}})
+        );
+        assert_eq!(
+            to_string(&variables(IssueUpdateInput {
+                title: Edit::Set("x".to_owned()),
+                ..IssueUpdateInput::default()
+            }))
+            .expect("variables serialize"),
+            r#"{"id":"issue-1","input":{"title":"x"}}"#
+        );
+    }
+
+    #[test]
+    fn clear_sends_an_explicit_null_for_each_cleared_field() {
+        let variables = value(IssueUpdateInput {
+            assignee_id: Edit::Clear,
+            due_date: Edit::Clear,
+            parent_id: Edit::Clear,
+            estimate: Edit::Clear,
+            project_id: Edit::Clear,
+            project_milestone_id: Edit::Clear,
+            cycle_id: Edit::Clear,
+            // Linear restores a trashed issue when `trashed` is null.
+            trashed: Edit::Clear,
+            sla_type: Edit::Clear,
+            ..IssueUpdateInput::default()
+        });
+        assert_eq!(
+            variables,
+            json!({
+                "id": "issue-1",
+                "input": {
+                    "assigneeId": null,
+                    "dueDate": null,
+                    "parentId": null,
+                    "estimate": null,
+                    "projectId": null,
+                    "projectMilestoneId": null,
+                    "cycleId": null,
+                    "trashed": null,
+                    "slaType": null
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn falsy_values_are_sent_not_omitted() {
+        assert_eq!(
+            value(IssueUpdateInput {
+                title: Edit::Set(String::new()),
+                estimate: Edit::Set(0),
+                priority: Edit::Set(0),
+                trashed: Edit::Set(false),
+                label_ids: Some(Vec::new()),
+                description: Edit::Set(String::new()),
+                ..IssueUpdateInput::default()
+            }),
+            json!({
+                "id": "issue-1",
+                "input": {
+                    "title": "",
+                    "priority": 0,
+                    "estimate": 0,
+                    "description": "",
+                    "labelIds": [],
+                    "trashed": false
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn scalars_lists_and_enums_keep_their_wire_form() {
+        let variables = value(IssueUpdateInput {
+            due_date: Edit::Set(TimelessDate("2026-09-30".to_owned())),
+            description_data: Edit::Set(Json(r#"{"type":"doc"}"#.to_owned())),
+            added_label_ids: Some(vec!["l1".to_owned(), "l2".to_owned()]),
+            removed_label_ids: Some(vec![]),
+            team_id: Edit::Set("team-1".to_owned()),
+            state_id: Edit::Set("state-1".to_owned()),
+            sla_type: Edit::Set(SlaDayCountType::OnlyBusinessDays),
+            ..IssueUpdateInput::default()
+        });
+        // `JSON` is stringified: the value is a JSON string, not an embedded object.
+        assert_eq!(
+            variables,
+            json!({
+                "id": "issue-1",
+                "input": {
+                    "dueDate": "2026-09-30",
+                    "descriptionData": "{\"type\":\"doc\"}",
+                    "addedLabelIds": ["l1", "l2"],
+                    "removedLabelIds": [],
+                    "teamId": "team-1",
+                    "stateId": "state-1",
+                    "slaType": "onlyBusinessDays"
+                }
+            })
+        );
+    }
+}
