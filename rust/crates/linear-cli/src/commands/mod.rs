@@ -2,6 +2,7 @@
 pub mod api;
 pub mod auth;
 pub mod bulk;
+pub mod color;
 pub mod comment_add;
 pub mod comments;
 pub mod completions;

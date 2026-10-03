@@ -3,7 +3,8 @@ use chrono::NaiveDate;
 use cynic::MutationBuilder;
 
 use crate::cli::initiative::InitiativeCreate;
-use crate::cli::values::{InitiativeStatus, date, hex_color};
+use crate::cli::values::{InitiativeStatus, date};
+use crate::commands::color;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -113,50 +114,27 @@ fn prompt(options: &mut Fields, prompter: &Prompter<'_>) -> Result<()> {
         )?);
     }
     if options.target_date.is_none() {
-        let check = |raw: &str| date(raw).map(drop);
-        let answer = prompter.text(
-            Text::new("Target date (YYYY-MM-DD - press Enter to skip):").with_check(&check),
+        options.target_date = prompter.parsed(
+            Text::new("Target date (YYYY-MM-DD - press Enter to skip):"),
+            &date,
         )?;
-        options.target_date = optional_date(&answer).map_err(Error::new)?;
     }
     if options.color.as_deref().is_none_or(str::is_empty) {
         let mut colors = vec![Choice::new("Skip (use default)", Color::Skip)];
         colors.extend(
-            PALETTE
+            color::PALETTE
                 .into_iter()
-                .map(|(name, hex)| Choice::new(format!("{name} ({hex})"), Color::Hex(hex))),
+                .map(|(name, hex)| Choice::new(color::label(name, hex), Color::Hex(hex))),
         );
         colors.push(Choice::new("Custom color", Color::Custom));
         options.color = match prompter.select("Color (optional):", colors)? {
             Color::Skip => None,
             Color::Hex(hex) => Some(hex.to_owned()),
-            Color::Custom => {
-                let check = |raw: &str| hex_color(raw).map(drop);
-                Some(
-                    prompter.text(
-                        Text::new("Enter hex color (e.g., #FF5733):")
-                            .required()
-                            .with_check(&check),
-                    )?,
-                )
-            }
+            Color::Custom => Some(color::custom(prompter)?),
         };
     }
     Ok(())
 }
-
-const PALETTE: [(&str, &str); 10] = [
-    ("Red", "#EB5757"),
-    ("Orange", "#F2994A"),
-    ("Yellow", "#F2C94C"),
-    ("Green", "#27AE60"),
-    ("Teal", "#0D9488"),
-    ("Blue", "#2F80ED"),
-    ("Indigo", "#5E6AD2"),
-    ("Purple", "#8B5CF6"),
-    ("Pink", "#BB6BD9"),
-    ("Gray", "#6B6F76"),
-];
 
 enum Color {
     Skip,
@@ -166,15 +144,6 @@ enum Color {
 
 fn optional(value: String) -> Option<String> {
     if value.is_empty() { None } else { Some(value) }
-}
-
-/// A prompted date; blank means none.
-fn optional_date(value: &str) -> std::result::Result<Option<NaiveDate>, String> {
-    if value.is_empty() {
-        Ok(None)
-    } else {
-        date(value).map(Some)
-    }
 }
 
 fn validate(fields: Fields) -> Result<Valid> {

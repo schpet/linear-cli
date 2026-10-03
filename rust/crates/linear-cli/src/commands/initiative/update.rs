@@ -174,24 +174,24 @@ fn prompt(prompter: &Prompter<'_>, current: &CurrentInitiative) -> Result<Change
         .target_date
         .as_ref()
         .map_or("", |date| date.0.as_str());
-    let check = |value: &str| date(value).map(drop);
-    let value = prompter.text(
-        Text::new("Target date (YYYY-MM-DD):")
-            .with_default(default)
-            .with_check(&check),
+    let value = prompter.parsed(
+        Text::new("Target date (YYYY-MM-DD):").with_default(default),
+        &date,
     )?;
-    if value != default && !value.is_empty() {
-        changes.target_date = Some(date(&value).map_err(Error::new)?);
+    if let Some(value) = value
+        && value.format("%Y-%m-%d").to_string() != default
+    {
+        changes.target_date = Some(value);
     }
     let default = current.color.as_deref().unwrap_or("");
-    let check = |value: &str| hex_color(value).map(drop);
-    let value = prompter.text(
-        Text::new("Color (hex, e.g., #5E6AD2):")
-            .with_default(default)
-            .with_check(&check),
+    let value = prompter.parsed(
+        Text::new("Color (hex, e.g., #5E6AD2):").with_default(default),
+        &hex_color,
     )?;
-    if value != default && !value.is_empty() {
-        changes.color = Some(hex_color(&value).map_err(Error::new)?);
+    if let Some(value) = value
+        && value != default
+    {
+        changes.color = Some(value);
     }
     Ok(changes)
 }

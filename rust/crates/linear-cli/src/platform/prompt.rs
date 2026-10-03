@@ -48,6 +48,24 @@ impl<'a> Prompter<'a> {
             .expect("the prompt only accepts valid answers"))
     }
 
+    /// The value `parse` makes of a nonblank answer to `text`, asking again
+    /// with the parse error until one parses; `None` for a blank answer
+    /// (possible only when `text` is neither required nor defaulted).
+    pub fn parsed<T>(
+        &self,
+        text: Text<'_>,
+        parse: &dyn Fn(&str) -> std::result::Result<T, String>,
+    ) -> Result<Option<T>> {
+        let check = |raw: &str| parse(raw).map(drop);
+        let answer = self.text(text.with_check(&check))?;
+        if answer.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(
+            parse(&answer).expect("the prompt only accepts answers that parse"),
+        ))
+    }
+
     /// A masked answer, such as an API key. It is trimmed.
     pub fn secret(&self, message: &str, help: &str) -> Result<String> {
         self.stdout.flush()?;

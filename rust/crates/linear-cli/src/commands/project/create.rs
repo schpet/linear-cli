@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use cynic::MutationBuilder;
 
 use crate::cli::project::{ProjectCreate, Status};
-use crate::cli::values::Priority;
+use crate::cli::values::{self, Priority};
 use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -271,11 +271,6 @@ fn prompt(
         )?;
         draft.lead = (!lead.is_empty()).then_some(lead);
     }
-    let date = |answer: &str| {
-        NaiveDate::parse_from_str(answer, "%Y-%m-%d")
-            .map(drop)
-            .map_err(|_| "Enter a date like 2025-01-31".to_owned())
-    };
     for (field, message) in [
         (
             &mut draft.start_date,
@@ -287,13 +282,7 @@ fn prompt(
         ),
     ] {
         if field.is_none() {
-            let answer = prompter.text(Text::new(message).with_check(&date))?;
-            if !answer.is_empty() {
-                *field = Some(
-                    NaiveDate::parse_from_str(&answer, "%Y-%m-%d")
-                        .expect("the prompt only accepts valid dates"),
-                );
-            }
+            *field = prompter.parsed(Text::new(message), &values::date)?;
         }
     }
     Ok(())

@@ -2,7 +2,7 @@
 use cynic::MutationBuilder;
 
 use crate::cli::label::LabelCreate;
-use crate::cli::values::hex_color;
+use crate::commands::color;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -15,20 +15,6 @@ use crate::refs::{
     PreparedTeamLookup, ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup,
     resolve_team_with_transport,
 };
-
-const INDIGO: &str = "#5E6AD2";
-const PALETTE: [(&str, &str); 10] = [
-    ("Red", "#EB5757"),
-    ("Orange", "#F2994A"),
-    ("Yellow", "#F2C94C"),
-    ("Green", "#27AE60"),
-    ("Teal", "#0D9488"),
-    ("Blue", "#2F80ED"),
-    ("Indigo", INDIGO),
-    ("Purple", "#8B5CF6"),
-    ("Pink", "#BB6BD9"),
-    ("Gray", "#6B6F76"),
-];
 
 /// Where the label lives.
 enum Team {
@@ -69,7 +55,10 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
     } else {
         Fields {
             name: args.name.clone().expect("non-interactive runs have a name"),
-            color: args.color.clone().unwrap_or_else(|| INDIGO.to_owned()),
+            color: args
+                .color
+                .clone()
+                .unwrap_or_else(|| color::INDIGO.to_owned()),
             description: args.description.clone(),
             team: team.map_or(Team::Workspace, Team::Reference),
         }
@@ -133,29 +122,18 @@ fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<PreparedTeamLookup>) -> Re
 
 /// A palette color, or a custom hex color; Indigo is the default.
 fn pick_color(prompter: &Prompter<'_>) -> Result<String> {
-    let mut choices: Vec<_> = PALETTE
+    let mut choices: Vec<_> = color::PALETTE
         .iter()
-        .map(|(name, color)| Choice::new(format!("{name} ({color})"), Some(*color)))
+        .map(|(name, hex)| Choice::new(color::label(name, hex), Some(*hex)))
         .collect();
     choices.push(Choice::new("Custom color", None));
-    let indigo = PALETTE
+    let indigo = color::PALETTE
         .iter()
-        .position(|(_, color)| *color == INDIGO)
+        .position(|(_, hex)| *hex == color::INDIGO)
         .expect("the palette has indigo");
     match prompter.select_from("Color:", choices, indigo)? {
-        Some(color) => Ok(color.to_owned()),
-        None => {
-            let check = |raw: &str| {
-                hex_color(raw)
-                    .map(drop)
-                    .map_err(|_| "Please enter a valid hex color (e.g., #FF5733)".to_owned())
-            };
-            prompter.text(
-                Text::new("Enter hex color (e.g., #FF5733):")
-                    .required()
-                    .with_check(&check),
-            )
-        }
+        Some(hex) => Ok(hex.to_owned()),
+        None => color::custom(prompter),
     }
 }
 
