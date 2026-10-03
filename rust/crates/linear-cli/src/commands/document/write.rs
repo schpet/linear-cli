@@ -328,24 +328,13 @@ impl Fields {
 
 fn prompted(ctx: &Ctx) -> Result<Fields> {
     let default_team = configured_team_key(ctx.options());
-    let editor = editor::configured(&ctx.config().child_env)
-        .as_deref()
-        .and_then(editor_label);
+    let editor = editor::configured_name(&ctx.config().child_env);
     prompt(
         ctx,
         &ctx.prompter()?,
         editor.as_deref(),
         default_team.as_deref(),
     )
-}
-
-/// The editor's file name after the last `/`, for the content menu.
-pub fn editor_label(name: &std::ffi::OsStr) -> Option<String> {
-    name.to_string_lossy()
-        .rsplit('/')
-        .next()
-        .map(str::to_owned)
-        .filter(|label| !label.is_empty())
 }
 
 /// Asks for the title, content, icon and attachment. The content can come

@@ -68,6 +68,19 @@ pub fn configured(env: &ChildEnvOverlay) -> Option<OsString> {
         .or_else(|| git_editor(env))
 }
 
+/// The configured editor's program name (`vim` for `/usr/bin/vim -f`), for
+/// prompts that offer to open it.
+pub fn configured_name(env: &ChildEnvOverlay) -> Option<String> {
+    program_name(&configured(env)?.to_string_lossy())
+}
+
+fn program_name(command: &str) -> Option<String> {
+    let program = command.split_whitespace().next()?;
+    Path::new(program)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+}
+
 fn git_editor(env: &ChildEnvOverlay) -> Option<OsString> {
     let output = Command::new("git")
         .args(["config", "core.editor"])
@@ -137,5 +150,17 @@ impl Drop for TempFile {
     fn drop(&mut self) {
         // Best effort: the file lives in the system temporary directory.
         let _ignored = fs::remove_file(&self.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::program_name;
+
+    #[test]
+    fn program_name_is_the_first_word_without_its_directory() {
+        assert_eq!(program_name("/usr/bin/vim").as_deref(), Some("vim"));
+        assert_eq!(program_name("code --wait").as_deref(), Some("code"));
+        assert_eq!(program_name("  "), None);
     }
 }
