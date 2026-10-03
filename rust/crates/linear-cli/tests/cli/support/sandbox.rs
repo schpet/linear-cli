@@ -137,8 +137,11 @@ impl Cli {
 
     /// Argv (without the program name) of every invocation of the stub `name`.
     pub fn calls(&self, name: &str) -> Vec<Vec<String>> {
-        let Ok(log) = std::fs::read_to_string(self.path(&format!("calls/{name}"))) else {
-            return Vec::new();
+        let path = self.path(&format!("calls/{name}"));
+        let log = match std::fs::read_to_string(&path) {
+            Ok(log) => log,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+            Err(error) => panic!("read stub log {}: {error}", path.display()),
         };
         log.split_terminator('\u{1e}')
             .map(|call| call.split_terminator('\u{1f}').map(str::to_owned).collect())

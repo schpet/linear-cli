@@ -910,13 +910,22 @@ fn with_image(api: &MockLinear) -> (Value, String) {
 
 /// Every file under `dir`, recursively.
 fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
+        Err(error) => panic!("read directory {}: {error}", dir.display()),
     };
     let mut files = Vec::new();
     for entry in entries {
-        let path = entry.expect("directory entry").path();
-        if path.is_dir() {
+        let path = entry
+            .unwrap_or_else(|error| panic!("read directory entry in {}: {error}", dir.display()))
+            .path();
+        let is_dir = match path.metadata() {
+            Ok(metadata) => metadata.is_dir(),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => panic!("stat {}: {error}", path.display()),
+        };
+        if is_dir {
             files.extend(files_under(&path));
         } else {
             files.push(path);
@@ -1194,5 +1203,43 @@ fn view_fetches_every_page_of_long_collections() {
     assert_eq!(
         api.variables("GetIssueCommentsPage"),
         json!({ "id": "ENG-1", "first": 100, "after": "comment-cursor" })
+    );
+}
+
+#[test]
+fn cache_file_reads_report_errors_instead_of_returning_no_files() {
+    let cli = Cli::new().file("ordinary-file", "x");
+    let failure = std::panic::catch_unwind(|| files_under(&cli.path("ordinary-file")))
+        .expect_err("not a directory must not become an empty file list");
+    let message = failure.downcast_ref::<String>().expect("panic message");
+    assert!(message.contains("ordinary-file"), "{message}");
+}
+
+#[test]
+fn cache_file_reads_report_symlink_metadata_errors() {
+    let cli = Cli::new();
+    std::fs::create_dir(cli.path("directory")).expect("cache directory");
+    std::os::unix::fs::symlink("loop", cli.path("directory/loop")).expect("looping symlink");
+    let failure = std::panic::catch_unwind(|| files_under(&cli.path("directory")))
+        .expect_err("a symlink loop must not be listed as a file");
+    let message = failure.downcast_ref::<String>().expect("panic message");
+    assert!(message.contains("directory/loop"), "{message}");
+}
+
+#[test]
+fn cache_file_reads_preserve_missing_paths_and_follow_directory_symlinks() {
+    let cli = Cli::new().file("directory/real/a", "a");
+    assert!(files_under(&cli.path("missing")).is_empty());
+    std::os::unix::fs::symlink("real", cli.path("directory/link")).expect("directory symlink");
+    std::os::unix::fs::symlink("missing", cli.path("directory/broken")).expect("dangling symlink");
+    let mut files = files_under(&cli.path("directory"));
+    files.sort();
+    assert_eq!(
+        files,
+        [
+            cli.path("directory/broken"),
+            cli.path("directory/link/a"),
+            cli.path("directory/real/a")
+        ]
     );
 }

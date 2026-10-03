@@ -117,3 +117,19 @@ fn json_helpers_compare_output_with_flattened_fixtures() {
     let nested = std::panic::catch_unwind(|| assert_json(&entity, &entity));
     assert!(nested.is_err(), "output may not contain connections");
 }
+
+#[test]
+fn stub_call_reads_report_errors_instead_of_returning_no_calls() {
+    let cli = Cli::new();
+    std::fs::write(cli.path("calls/invalid"), [0xff, 0x1e]).expect("invalid UTF-8 log");
+    std::fs::create_dir(cli.path("calls/directory")).expect("directory log");
+    for name in ["invalid", "directory"] {
+        let failure = catch_unwind(AssertUnwindSafe(|| cli.calls(name)))
+            .expect_err("read failure must not become an empty call list");
+        let message = failure.downcast_ref::<String>().expect("panic message");
+        assert!(
+            message.contains(&cli.path(&format!("calls/{name}")).display().to_string()),
+            "{message}"
+        );
+    }
+}
