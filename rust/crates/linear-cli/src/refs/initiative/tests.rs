@@ -1,26 +1,20 @@
-use linear_cli::auth::ApiKeyInput;
-use linear_cli::error::Error;
-use linear_cli::graphql::envelope::parse_response;
-use linear_cli::refs::{
-    InitiativeReference, WorkspaceScope, prepare_initiative_lookup, resolve_document_reference,
-    resolve_initiative_with,
-};
-use serde_json::json;
 use std::cell::RefCell;
 use std::future::ready;
+
+use serde_json::json;
+
+use super::*;
+use crate::auth::ApiKeyInput;
+use crate::error::Error;
+use crate::graphql::envelope::parse_response;
+use crate::refs::resolve_document_reference;
+use crate::refs::test_support::absent_scope;
+
 const ID: &str = "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d";
-fn scope<'a>(key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
-    WorkspaceScope {
-        cli_workspace: None,
-        sourced_workspace: None,
-        default_workspace: None,
-        api_key: key.clone(),
-    }
-}
 #[test]
 fn comment_references_validate_urls_locally_and_reduce_only_document_urls() {
     let key = ApiKeyInput::Absent;
-    let mut local = scope(&key);
+    let mut local = absent_scope(&key);
     assert_eq!(
         prepare_initiative_lookup(ID, &local).expect("id"),
         InitiativeReference::Id(ID.into())
@@ -134,7 +128,7 @@ async fn strict_initiative_missing_url_never_attempts_name_and_slug_errors_propa
     let no_name = |_| ready(Err(Error::not_found("unexpected", "name")));
     let error = resolve_initiative_with(
         &InitiativeReference::UrlSlug("abc123def456".into()),
-        "original URL",
+        "the URL",
         |_| {
             ready(
                 parse_response(
@@ -149,7 +143,7 @@ async fn strict_initiative_missing_url_never_attempts_name_and_slug_errors_propa
     )
     .await
     .expect_err("missing url");
-    assert_eq!(error.message(), "Initiative not found: original URL");
+    assert_eq!(error.message(), "Initiative not found: the URL");
     assert_eq!(
         error.hint(),
         Some(

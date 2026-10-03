@@ -10,3 +10,23 @@ pub fn is_linear_uuid(value: &str) -> bool {
             }
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uuid_shape_matches_linear_without_version_or_variant_rules() {
+        assert!(is_linear_uuid("ABCDEF01-2345-6789-abCD-ef0123456789"));
+        assert!(is_linear_uuid("00000000-0000-0000-0000-000000000000"));
+        for input in [
+            "abcdef01-2345-6789-abcd-ef012345678",
+            "abcdef012345-6789-abcd-ef0123456789",
+            "abcdef01-2345-6789-abcd-ef012345678g",
+            "abcdef01-2345-6789-abcd-ef0123456789\n",
+            "abcdef01-2345-6789-abcd-ef012345678é",
+        ] {
+            assert!(!is_linear_uuid(input), "{input}");
+        }
+    }
+}

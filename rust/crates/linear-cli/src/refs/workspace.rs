@@ -133,3 +133,6 @@ pub fn expect_team_url(input: &str, scope: &WorkspaceScope<'_>) -> Result<Option
         Some(_) => Err(Error::new("team URL kind check returned a different kind")),
     }
 }
+
+#[cfg(test)]
+mod tests;

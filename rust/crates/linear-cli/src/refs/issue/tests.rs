@@ -1,8 +1,6 @@
-use linear_cli::auth::ApiKeyInput;
-use linear_cli::platform::vcs::{parse_git_branch, parse_jj_trailers};
-use linear_cli::refs::{
-    IssueReference, WorkspaceScope, find_issue_identifier, prepare_issue_reference,
-};
+use super::*;
+use crate::auth::ApiKeyInput;
+use crate::refs::WorkspaceScope;
 
 #[test]
 fn references_preserve_presence_numbers_and_workspace_order() {
@@ -78,39 +76,4 @@ fn word_boundaries_are_ascii_only_including_non_ascii_neighbors() {
     ] {
         assert_eq!(find_issue_identifier(text).as_deref(), expected, "{text}");
     }
-}
-#[test]
-fn raw_jj_joining_and_newline_parsing() {
-    for (text, expected) in [
-        ("Fixes ABC-123Fixes DEF-456", Some("DEF-456")),
-        ("Fixes ABC-123 References DEF-456", Some("ABC-123")),
-        (
-            "Fixes ABC-123\nFixes DEF-456\n\nFixes XYZ-9",
-            Some("DEF-456"),
-        ),
-        ("\n\nNo issue\nFixes XYZ-9", Some("XYZ-9")),
-        ("", None),
-        (" ENG-7 ", Some("ENG-7")),
-    ] {
-        assert_eq!(parse_jj_trailers(text).as_deref(), expected);
-    }
-}
-#[test]
-fn git_exit_one_is_a_detached_head() {
-    assert_eq!(
-        parse_git_branch(Some(1), "ENG-7", "").expect("detached"),
-        None
-    );
-    assert_eq!(
-        parse_git_branch(Some(0), " feature/eng-7-x\n", "warning")
-            .expect("branch")
-            .as_deref(),
-        Some("ENG-7")
-    );
-    assert_eq!(parse_git_branch(Some(0), "\n", "").expect("empty"), None);
-    let error = parse_git_branch(Some(128), "ENG-7", " fatal: denied\n").expect_err("fatal");
-    assert_eq!(
-        error.message(),
-        "Failed to get current branch: fatal: denied"
-    );
 }

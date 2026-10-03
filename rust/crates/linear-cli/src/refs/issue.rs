@@ -90,3 +90,6 @@ pub fn find_issue_identifier(text: &str) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests;

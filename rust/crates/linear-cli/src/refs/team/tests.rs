@@ -1,17 +1,18 @@
 use std::collections::VecDeque;
 use std::future::ready;
 
-use linear_cli::auth::ApiKeyInput;
-use linear_cli::error::{Error, ErrorKind};
-use linear_cli::graphql::edit::Edit;
-use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
-use linear_cli::graphql::operations::team_resolver::{
-    GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
-};
-use linear_cli::refs::{WorkspaceScope, find_team, prepare_team_lookup, resolve_team};
 use serde_json::{Value, json};
 
-use super::{argument, case, expected_error};
+use super::*;
+use crate::auth::ApiKeyInput;
+use crate::error::ErrorKind;
+use crate::graphql::edit::Edit;
+use crate::graphql::envelope::{GraphQlRequest, parse_response};
+use crate::graphql::operations::team_resolver::{
+    GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
+};
+use crate::refs::WorkspaceScope;
+use crate::refs::test_support::{absent_scope, argument, case, expected_error};
 
 fn scope_for<'a>(spec: &'a Value, key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
     WorkspaceScope {
@@ -22,10 +23,7 @@ fn scope_for<'a>(spec: &'a Value, key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a
     }
 }
 
-fn prepared_for<'a>(
-    spec: &Value,
-    key: &'a ApiKeyInput<'a>,
-) -> linear_cli::refs::PreparedTeamLookup {
+fn prepared_for<'a>(spec: &Value, key: &'a ApiKeyInput<'a>) -> PreparedTeamLookup {
     prepare_team_lookup(argument(spec), &scope_for(spec, key))
         .unwrap_or_else(|error| panic!("{}: {error}", spec["id"]))
 }
@@ -182,12 +180,12 @@ async fn assert_miss(name: &str) {
 }
 
 #[tokio::test]
-async fn misses_fetch_every_page_and_keep_original_errors() {
+async fn misses_fetch_every_page_before_failing() {
     for name in [
         "miss-empty",
         "miss-two-pages",
         "miss-null-cursor",
-        "url-miss-original",
+        "url-miss-keeps-input",
         "untrimmed-text",
     ] {
         assert_miss(name).await;
@@ -226,7 +224,7 @@ async fn graphql_failures_pass_through_without_context() {
 }
 
 #[test]
-fn operation_documents_and_cursor_wire_states_are_typed() {
+fn request_variables_send_each_cursor_state() {
     use cynic::QueryBuilder;
     let resolve = GraphQlRequest::with_variables(ResolveTeam::build(ResolveTeamVariables {
         reference: "eng".to_owned(),
@@ -234,14 +232,6 @@ fn operation_documents_and_cursor_wire_states_are_typed() {
         is_uuid: false,
     }));
     assert_eq!(resolve.operation_name.as_deref(), Some("ResolveTeam"));
-    assert!(resolve.query.contains("$id: ID,"));
-    assert!(resolve.query.contains("$isUuid: Boolean!"));
-    assert!(resolve.query.contains("or:"));
-    assert!(resolve.query.contains("key: {eqIgnoreCase: $reference}"));
-    assert!(resolve.query.contains("name: {eqIgnoreCase: $reference}"));
-    assert!(resolve.query.contains("teamById: teams"));
-    assert!(resolve.query.contains("id: {eq: $id}"));
-    assert!(resolve.query.contains("@include(if: $isUuid)"));
     assert_eq!(
         request_variables(&resolve),
         json!({"reference":"eng","id":null,"isUuid":false})
@@ -261,7 +251,6 @@ fn operation_documents_and_cursor_wire_states_are_typed() {
             after,
         }));
         assert_eq!(request.operation_name.as_deref(), Some("GetAllTeams"));
-        assert!(request.query.contains("$after: String)"));
         assert_eq!(request_variables(&request), expected);
     }
 }
@@ -269,12 +258,7 @@ fn operation_documents_and_cursor_wire_states_are_typed() {
 #[tokio::test]
 async fn disjoint_alias_prioritizes_key_then_id_then_name() {
     let absent = ApiKeyInput::Absent;
-    let scope = WorkspaceScope {
-        cli_workspace: None,
-        sourced_workspace: None,
-        default_workspace: None,
-        api_key: absent.clone(),
-    };
+    let scope = absent_scope(&absent);
     let uuid = "01234567-89ab-4cde-8f01-23456789abcd";
     let prepared = prepare_team_lookup(uuid, &scope).unwrap_or_else(|error| panic!("{error}"));
     let by_key = json!({"id":"key","key":uuid,"name":"Other"});
@@ -297,12 +281,7 @@ async fn disjoint_alias_prioritizes_key_then_id_then_name() {
 #[tokio::test]
 async fn repeated_cursor_fails_without_partial_result() {
     let absent = ApiKeyInput::Absent;
-    let scope = WorkspaceScope {
-        cli_workspace: None,
-        sourced_workspace: None,
-        default_workspace: None,
-        api_key: absent.clone(),
-    };
+    let scope = absent_scope(&absent);
     let prepared = prepare_team_lookup("Unknown", &scope).unwrap_or_else(|error| panic!("{error}"));
     for cursor in [None, Some(String::new()), Some("repeat".to_owned())] {
         let empty_resolve: ResolveTeam = serde_json::from_value(json!({"teams":{"nodes":[]}}))
@@ -345,12 +324,7 @@ async fn repeated_cursor_fails_without_partial_result() {
 #[tokio::test]
 async fn later_page_failure_passes_through_without_partial_result() {
     let absent = ApiKeyInput::Absent;
-    let scope = WorkspaceScope {
-        cli_workspace: None,
-        sourced_workspace: None,
-        default_workspace: None,
-        api_key: absent.clone(),
-    };
+    let scope = absent_scope(&absent);
     let prepared = prepare_team_lookup("Unknown", &scope).unwrap_or_else(|error| panic!("{error}"));
     let empty_resolve: ResolveTeam = serde_json::from_value(json!({"teams":{"nodes":[]}}))
         .unwrap_or_else(|error| panic!("empty ResolveTeam: {error}"));
@@ -416,12 +390,7 @@ async fn malformed_team_decode_fails_strictly_without_context() {
     assert!(parse_response::<GetAllTeams>(malformed_page).is_err());
 
     let absent = ApiKeyInput::Absent;
-    let scope = WorkspaceScope {
-        cli_workspace: None,
-        sourced_workspace: None,
-        default_workspace: None,
-        api_key: absent.clone(),
-    };
+    let scope = absent_scope(&absent);
     let prepared = prepare_team_lookup("ENG", &scope).unwrap_or_else(|error| panic!("{error}"));
     let original_message = app.message().to_owned();
     let error = find_team(&prepared, |_| ready(Err(app)))

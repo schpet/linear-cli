@@ -865,7 +865,7 @@
       }
     ]
   },
-  "url-miss-original": {
+  "url-miss-keeps-input": {
     "reference": "https://linear.app/acme/team/missing",
     "cli_workspace": "acme",
     "default_workspace": "acme",

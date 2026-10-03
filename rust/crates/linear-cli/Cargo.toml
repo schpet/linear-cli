@@ -62,10 +62,6 @@ name = "commands"
 path = "tests/commands/main.rs"
 
 [[test]]
-name = "refs"
-path = "tests/refs/main.rs"
-
-[[test]]
 name = "cli"
 path = "tests/cli/main.rs"
 

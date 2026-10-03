@@ -25,3 +25,6 @@ pub use initiative::{
 
 mod issue;
 pub use issue::{IssueReference, find_issue_identifier, prepare_issue_reference};
+
+#[cfg(test)]
+mod test_support;

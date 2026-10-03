@@ -105,3 +105,6 @@ where
                 .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
         })
 }
+
+#[cfg(test)]
+mod tests;

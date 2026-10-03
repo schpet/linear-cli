@@ -365,3 +365,6 @@ pub fn parse_linear_url(value: &str) -> LinearUrlParse {
         )),
     }
 }
+
+#[cfg(test)]
+mod tests;

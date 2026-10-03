@@ -205,3 +205,6 @@ pub async fn fetch_all_teams_with_transport(
     fetch_all_teams(|request| async move { transport.execute(&request).await.map_err(Error::from) })
         .await
 }
+
+#[cfg(test)]
+mod tests;
