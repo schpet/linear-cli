@@ -134,7 +134,7 @@ pub struct IssueMine {
 
 #[derive(Debug, Args)]
 pub struct IssueQuery {
-    #[arg(long = "search", help = "Full-text search term", value_name = "term", value_parser = super::nonempty_string)]
+    #[arg(long = "search", help = "Full-text search term (cannot be combined with --milestone)", value_name = "term", value_parser = super::nonempty_string, conflicts_with = "milestone")]
     pub search: Option<String>,
     #[arg(
         requires = "search",

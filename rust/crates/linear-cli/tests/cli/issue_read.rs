@@ -643,6 +643,10 @@ fn query_validation_fails_before_any_request() {
     cli.run(&["issue", "query", "--search", "x", "--sort", "manual"])
         .usage_error()
         .stderr_has("--sort");
+    let milestone = "f0000000-0000-4000-8000-000000000003";
+    cli.run(&["issue", "query", "--search", "x", "--milestone", milestone])
+        .usage_error()
+        .stderr_has("--milestone");
     assert!(api.requests().is_empty());
 }
 

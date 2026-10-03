@@ -117,8 +117,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             project,
             args.project_label.as_deref(),
             cycle,
-            // Search does not filter by milestone.
-            if search.is_some() { None } else { milestone },
+            milestone,
             &args.label,
         );
         filter::apply_dates(&mut filter, args.created_after, args.updated_after);
