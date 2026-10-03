@@ -4,7 +4,7 @@ use std::time::SystemTime;
 use crate::commands::relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::error::Error;
-use crate::graphql::operations::number::{Float, WholeNumber};
+use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::{
@@ -401,7 +401,7 @@ pub async fn mine(
     filter: IssueFilter,
     priority: bool,
     limit: Option<NonZeroU32>,
-) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
+) -> Result<Vec<ListedIssue>, Error> {
     let mut rows = pagination::collect(limit, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetIssuesForState::build(GetIssuesForStateVariables {
@@ -419,7 +419,7 @@ pub async fn mine(
         }
     })
     .await?;
-    sort_mine(&mut rows);
+    sort(&mut rows);
     Ok(rows)
 }
 pub async fn query(
@@ -428,7 +428,7 @@ pub async fn query(
     priority: bool,
     limit: Option<NonZeroU32>,
     archived: bool,
-) -> Result<Vec<GetIssuesForQueryIssuesNodes>, Error> {
+) -> Result<Vec<ListedIssue>, Error> {
     let mut rows = pagination::collect(limit, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetIssuesForQuery::build(GetIssuesForQueryVariables {
@@ -447,7 +447,7 @@ pub async fn query(
         }
     })
     .await?;
-    sort_query(&mut rows);
+    sort(&mut rows);
     Ok(rows)
 }
 pub async fn search(
@@ -501,21 +501,9 @@ fn type_order(a: &str, b: &str) -> std::cmp::Ordering {
         }
     })
 }
-pub fn sort_mine(rows: &mut [GetIssuesForStateIssuesNodes]) {
-    let multi = rows
-        .first()
-        .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
-    rows.sort_by(|a, b| {
-        type_order(&a.state.r#type, &b.state.r#type).then_with(|| {
-            if multi {
-                std::cmp::Ordering::Equal
-            } else {
-                b.state.position.get().total_cmp(&a.state.position.get())
-            }
-        })
-    });
-}
-pub fn sort_query(rows: &mut [GetIssuesForQueryIssuesNodes]) {
+/// Orders issues by workflow state type, then (within one team) by the
+/// state's position, highest first.
+pub fn sort(rows: &mut [ListedIssue]) {
     let multi = rows
         .first()
         .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
@@ -580,96 +568,47 @@ pub fn cycle_short(
     };
     (format!("#{}", c.number), kind)
 }
-#[derive(Clone, Debug)]
-pub struct TableRow {
-    pub identifier: String,
-    pub title: String,
-    pub priority: WholeNumber,
-    pub estimate: Option<Float>,
-    pub initials: Option<String>,
-    pub state_name: String,
-    pub state_color: String,
-    pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
-    pub team: String,
-    pub cycles_enabled: bool,
-    pub anchor: Option<WholeNumber>,
-    pub labels: Vec<GetIssuesForStateIssuesNodesLabelsNodes>,
-    pub blocked: bool,
-    pub updated: String,
-}
-impl From<GetIssuesForStateIssuesNodes> for TableRow {
-    fn from(r: GetIssuesForStateIssuesNodes) -> Self {
-        Self {
-            identifier: r.identifier,
-            title: r.title,
-            priority: r.priority,
-            estimate: r.estimate,
-            initials: r.assignee.map(|a| a.initials),
-            state_name: r.state.name,
-            state_color: r.state.color,
-            cycle: r.cycle,
-            team: r.team.key,
-            cycles_enabled: r.team.cycles_enabled,
-            anchor: r.team.active_cycle.map(|c| c.number),
-            labels: r.labels.nodes,
-            blocked: r.inverse_relations.nodes.iter().any(|x| {
-                x.r#type == "blocks"
-                    && !matches!(x.issue.state.r#type.as_str(), "completed" | "canceled")
-            }),
-            updated: r.updated_at.0,
-        }
-    }
-}
-impl From<GetIssuesForQueryIssuesNodes> for TableRow {
-    fn from(r: GetIssuesForQueryIssuesNodes) -> Self {
-        Self {
-            identifier: r.identifier,
-            title: r.title,
-            priority: r.priority,
-            estimate: r.estimate,
-            initials: r.assignee.map(|a| a.initials),
-            state_name: r.state.name,
-            state_color: r.state.color,
-            cycle: r.cycle,
-            team: r.team.key,
-            cycles_enabled: r.team.cycles_enabled,
-            anchor: r.team.active_cycle.map(|c| c.number),
-            labels: r.labels.nodes,
-            blocked: r.inverse_relations.nodes.iter().any(|x| {
-                x.r#type == "blocks"
-                    && !matches!(x.issue.state.r#type.as_str(), "completed" | "canceled")
-            }),
-            updated: r.updated_at.0,
-        }
-    }
-}
-impl From<SearchIssuesSearchIssuesNodes> for TableRow {
+impl From<SearchIssuesSearchIssuesNodes> for ListedIssue {
+    /// A search hit as a listed issue; the search metadata is not shown in
+    /// tables.
     fn from(r: SearchIssuesSearchIssuesNodes) -> Self {
         Self {
+            id: r.id,
             identifier: r.identifier,
             title: r.title,
+            url: r.url,
             priority: r.priority,
+            priority_label: r.priority_label,
             estimate: r.estimate,
-            initials: r.assignee.map(|a| a.initials),
-            state_name: r.state.name,
-            state_color: r.state.color,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            state: r.state,
+            assignee: r.assignee,
+            team: r.team,
+            project: r.project,
+            project_milestone: r.project_milestone,
             cycle: r.cycle,
-            team: r.team.key,
-            cycles_enabled: r.team.cycles_enabled,
-            anchor: r.team.active_cycle.map(|c| c.number),
-            labels: r.labels.nodes,
-            blocked: r.inverse_relations.nodes.iter().any(|x| {
-                x.r#type == "blocks"
-                    && !matches!(x.issue.state.r#type.as_str(), "completed" | "canceled")
-            }),
-            updated: r.updated_at.0,
+            labels: r.labels,
+            inverse_relations: r.inverse_relations,
         }
     }
+}
+/// Whether an unfinished issue blocks `issue`.
+fn blocked(issue: &ListedIssue) -> bool {
+    issue.inverse_relations.nodes.iter().any(|relation| {
+        relation.r#type == "blocks"
+            && !matches!(
+                relation.issue.state.r#type.as_str(),
+                "completed" | "canceled"
+            )
+    })
 }
 /// Issues as a table. `team` adds the team column and `assignee` the
 /// assignee initials.
-pub fn table(rows: &[TableRow], team: bool, assignee: bool, now: SystemTime) -> Table {
-    let show_cycle = rows.iter().any(|r| r.cycle.is_some() || r.cycles_enabled);
+pub fn table(rows: &[ListedIssue], team: bool, assignee: bool, now: SystemTime) -> Table {
+    let show_cycle = rows
+        .iter()
+        .any(|r| r.cycle.is_some() || r.team.cycles_enabled);
     let mut columns = vec![Column::fixed("◌"), Column::fixed("ID")];
     if team {
         columns.push(Column::fixed("TEAM"));
@@ -694,11 +633,11 @@ pub fn table(rows: &[TableRow], team: bool, assignee: bool, now: SystemTime) -> 
             Cell::from(r.identifier.as_str()),
         ];
         if team {
-            cells.push(Cell::from(r.team.as_str()));
+            cells.push(Cell::from(r.team.key.as_str()));
         }
         cells.push(Cell::from(r.title.as_str()));
-        cells.push(labels_cell(&r.labels));
-        cells.push(if r.blocked {
+        cells.push(labels_cell(&r.labels.nodes));
+        cells.push(if blocked(r) {
             Cell::styled("⊘", style::yellow)
         } else {
             Cell::from("")
@@ -709,7 +648,8 @@ pub fn table(rows: &[TableRow], team: bool, assignee: bool, now: SystemTime) -> 
                 .map_or_else(|| "-".to_owned(), ToString::to_string),
         ));
         if show_cycle {
-            let (text, kind) = cycle_short(r.cycle.as_ref(), r.anchor);
+            let anchor = r.team.active_cycle.as_ref().map(|cycle| cycle.number);
+            let (text, kind) = cycle_short(r.cycle.as_ref(), anchor);
             cells.push(match kind {
                 CycleKind::Active => Cell::styled(text, style::green),
                 CycleKind::Past | CycleKind::None => Cell::styled(text, style::gray),
@@ -718,18 +658,19 @@ pub fn table(rows: &[TableRow], team: bool, assignee: bool, now: SystemTime) -> 
         }
         if assignee {
             let initials = r
-                .initials
-                .as_deref()
+                .assignee
+                .as_ref()
+                .map(|assignee| assignee.initials.as_str())
                 .filter(|s| !s.is_empty())
                 .unwrap_or("-");
             cells.push(Cell::from(initials.chars().take(2).collect::<String>()));
         }
-        let state_color = r.state_color.clone();
-        cells.push(Cell::styled(r.state_name.as_str(), move |text, on| {
+        let state_color = r.state.color.clone();
+        cells.push(Cell::styled(r.state.name.as_str(), move |text, on| {
             style::rgb(text, &state_color, on)
         }));
         cells.push(Cell::styled(
-            relative_time::format_relative_time(&r.updated, now.into(), &chrono::Local),
+            relative_time::format_relative_time(&r.updated_at.0, now.into(), &chrono::Local),
             style::gray,
         ));
         table.row(cells);

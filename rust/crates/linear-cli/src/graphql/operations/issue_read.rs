@@ -200,12 +200,6 @@ pub struct GetIssuesForStateVariables {
     pub after: Option<String>,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "User")]
-#[serde(rename_all = "camelCase")]
-pub struct GetIssuesForStateIssuesNodesAssignee {
-    pub initials: String,
-}
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "WorkflowState")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssuesForStateIssuesNodesState {
@@ -291,30 +285,6 @@ pub struct GetIssuesForStateIssuesNodesInverseRelationsNodes {
 pub struct GetIssuesForStateIssuesNodesInverseRelations {
     pub nodes: Vec<GetIssuesForStateIssuesNodesInverseRelationsNodes>,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Issue")]
-#[serde(rename_all = "camelCase")]
-pub struct GetIssuesForStateIssuesNodes {
-    pub id: cynic::Id,
-    pub identifier: String,
-    pub title: String,
-    pub priority: WholeNumber,
-    pub estimate: Option<Float>,
-    pub assignee: Option<GetIssuesForStateIssuesNodesAssignee>,
-    pub state: GetIssuesForStateIssuesNodesState,
-    pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
-    pub team: GetIssuesForStateIssuesNodesTeam,
-    pub labels: GetIssuesForStateIssuesNodesLabels,
-    #[arguments(first : 100)]
-    pub inverse_relations: GetIssuesForStateIssuesNodesInverseRelations,
-    pub updated_at: DateTime,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "IssueConnection")]
-pub struct GetIssuesForStateIssues {
-    pub nodes: Vec<GetIssuesForStateIssuesNodes>,
-    pub page_info: crate::graphql::pagination::PageInfo,
-}
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
@@ -323,7 +293,7 @@ pub struct GetIssuesForStateIssues {
 )]
 pub struct GetIssuesForState {
     #[arguments(filter : $filter, sort : $sort, first : $first, after : $after)]
-    pub issues: GetIssuesForStateIssues,
+    pub issues: ListedIssues,
 }
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct GetIssuesForQueryVariables {
@@ -371,10 +341,11 @@ pub struct GetIssuesForQueryIssuesNodesProjectMilestone {
     pub id: cynic::Id,
     pub name: String,
 }
+/// One issue in `issue mine`, `issue query` and `issue start` lists.
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 #[serde(rename_all = "camelCase")]
-pub struct GetIssuesForQueryIssuesNodes {
+pub struct ListedIssue {
     pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
@@ -396,8 +367,8 @@ pub struct GetIssuesForQueryIssuesNodes {
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueConnection")]
-pub struct GetIssuesForQueryIssues {
-    pub nodes: Vec<GetIssuesForQueryIssuesNodes>,
+pub struct ListedIssues {
+    pub nodes: Vec<ListedIssue>,
     pub page_info: crate::graphql::pagination::PageInfo,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
@@ -408,7 +379,7 @@ pub struct GetIssuesForQueryIssues {
 )]
 pub struct GetIssuesForQuery {
     #[arguments(filter : $filter, sort : $sort, first : $first, after : $after, includeArchived : $include_archived)]
-    pub issues: GetIssuesForQueryIssues,
+    pub issues: ListedIssues,
 }
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct SearchIssuesVariables {
@@ -427,17 +398,6 @@ pub struct SearchIssuesVariables {
     pub order_by: Option<PaginationOrderBy>,
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "WorkflowState")]
-#[serde(rename_all = "camelCase")]
-pub struct SearchIssuesSearchIssuesNodesState {
-    pub id: cynic::Id,
-    pub name: String,
-    pub color: String,
-    #[cynic(rename = "type")]
-    #[serde(rename = "type")]
-    pub r#type: String,
-}
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueSearchResult")]
 #[serde(rename_all = "camelCase")]
 pub struct SearchIssuesSearchIssuesNodes {
@@ -450,7 +410,7 @@ pub struct SearchIssuesSearchIssuesNodes {
     pub estimate: Option<Float>,
     pub created_at: DateTime,
     pub updated_at: DateTime,
-    pub state: SearchIssuesSearchIssuesNodesState,
+    pub state: GetIssuesForStateIssuesNodesState,
     pub assignee: Option<GetIssuesForQueryIssuesNodesAssignee>,
     pub team: GetIssuesForQueryIssuesNodesTeam,
     pub project: Option<GetIssuesForQueryIssuesNodesProject>,

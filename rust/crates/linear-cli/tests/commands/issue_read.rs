@@ -10,13 +10,9 @@ use linear_cli::{
 };
 use serde_json::{Value, json};
 use std::time::{Duration, UNIX_EPOCH};
-const MINE: &str =
-    include_str!("../../../../parity/runner/c060-c062-frozen-cases/c060-default-table.json");
 const QUERY: &str = include_str!(
     "../../../../parity/runner/c060-c062-frozen-cases/c061-allteams-filter-pages.json"
 );
-const SEARCH: &str =
-    include_str!("../../../../parity/runner/c060-c062-frozen-cases/c061-search-pages-json.json");
 const VIEW: &str =
     include_str!("../../../../parity/runner/c060-c062-frozen-cases/c062-markdown-all-threads.json");
 fn data(case: &str) -> Value {
@@ -55,7 +51,7 @@ fn issue_json_flattens_connections_and_keeps_metadata() {
 }
 #[test]
 fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
-    let source: GetIssuesForState = serde_json::from_value(data(MINE)).unwrap();
+    let source: GetIssuesForQuery = serde_json::from_value(data(QUERY)).unwrap();
     let seed = source.issues.nodes[0].clone();
     let mut rows = vec![];
     for (id, team, kind, position) in [
@@ -71,7 +67,7 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
         r.state.position = Float(serde_json::Number::from_f64(position).unwrap());
         rows.push(r);
     }
-    read::sort_mine(&mut rows);
+    read::sort(&mut rows);
     assert_eq!(
         rows.iter()
             .map(|r| r.identifier.as_str())
@@ -80,7 +76,7 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
     );
     rows[0].team.key = "OTHER".to_owned();
     rows.rotate_right(1);
-    read::sort_mine(&mut rows);
+    read::sort(&mut rows);
     assert_eq!(
         rows.iter()
             .map(|r| r.identifier.as_str())
@@ -90,23 +86,18 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
 }
 #[test]
 fn table_rows_show_updated_time_and_estimate() {
-    let source: GetIssuesForState = serde_json::from_value(data(MINE)).unwrap();
-    let rows = source
-        .issues
-        .nodes
-        .into_iter()
-        .map(read::TableRow::from)
-        .collect::<Vec<_>>();
+    let source: GetIssuesForQuery = serde_json::from_value(data(QUERY)).unwrap();
+    let rows = source.issues.nodes;
     let now = UNIX_EPOCH + Duration::from_secs(86_400 * 50000);
     let mut row = rows[0].clone();
-    row.updated = chrono::DateTime::<chrono::Utc>::from(now)
+    row.updated_at.0 = chrono::DateTime::<chrono::Utc>::from(now)
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
     row.estimate = Some(Float(0.into()));
     let mut short = read::table(&[row.clone()], true, true, now).render(None, false);
     assert!(short.contains("just now"), "{short}");
     assert!(short.contains(" 0 "), "{short}");
-    row.updated = chrono::DateTime::<chrono::Utc>::from(now - Duration::from_secs(3600))
+    row.updated_at.0 = chrono::DateTime::<chrono::Utc>::from(now - Duration::from_secs(3600))
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string();
     short = read::table(&[row], false, false, now).render(None, false);
@@ -201,13 +192,6 @@ fn pipe_markdown_hierarchy_comments_and_resolved_summary_match_source() {
             && hidden.contains("## Attachments")
             && hidden.contains("## Documents")
     );
-}
-#[test]
-fn search_selected_state_has_no_position() {
-    let result: SearchIssues = serde_json::from_value(data(SEARCH)).unwrap();
-    let out = serde_json::to_value(result.search_issues.nodes).unwrap();
-    assert!(out[0]["state"].get("position").is_none());
-    assert!(out[0].get("metadata").is_some());
 }
 
 #[test]

@@ -7,10 +7,10 @@ use crate::commands::team_key::configured_team_key;
 use crate::config::OptionSource;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue_read::IssueFilter;
+use crate::graphql::operations::issue_read::{IssueFilter, ListedIssue};
 use crate::refs::{ResolvedTeam, is_linear_uuid};
 
-use super::read::{self, TableRow};
+use super::read;
 
 pub fn run(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     query(ctx, args).context("Failed to query issues")
@@ -142,7 +142,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                 if args.json {
                     return Ok(Output::Json(json::render(&data)));
                 }
-                data.into_iter().map(TableRow::from).collect::<Vec<_>>()
+                data.into_iter().map(ListedIssue::from).collect::<Vec<_>>()
             }
             None => {
                 let data = read::query(
@@ -156,7 +156,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                 if args.json {
                     return Ok(Output::Json(json::render(&data)));
                 }
-                data.into_iter().map(TableRow::from).collect::<Vec<_>>()
+                data
             }
         };
         Ok::<_, Error>(Output::Table(read::table(

@@ -9,7 +9,7 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue_read::IssueFilter;
 use crate::refs::is_linear_uuid;
 
-use super::read::{self, TableRow};
+use super::read;
 
 /// Linear's "assigned to me" view filter, base64 JSON.
 const ASSIGNED_TO_ME: &str =
@@ -100,7 +100,6 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
         read::apply_dates(&mut filter, args.created_after, args.updated_after);
         read::mine(client, filter, priority, args.limit.max()).await
     })?;
-    let rows = rows.into_iter().map(TableRow::from).collect::<Vec<_>>();
     let table = read::table(&rows, false, false, SystemTime::now());
     read::print_table(ctx, &table, !args.no_pager)
 }

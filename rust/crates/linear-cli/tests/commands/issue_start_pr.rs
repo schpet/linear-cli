@@ -341,4 +341,3 @@ fn gh_non_success_is_handled_not_forwarded_and_has_no_retry() {
         assert_eq!(gh.calls, 1);
     }
 }
-

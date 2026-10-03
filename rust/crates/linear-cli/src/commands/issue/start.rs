@@ -175,10 +175,10 @@ pub async fn list(
     transport: &GraphQlTransport,
     filter: IssueFilter,
     priority: bool,
-) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
+) -> Result<Vec<ListedIssue>, Error> {
     issue_read::mine(transport, filter, priority, None).await
 }
-fn choices(issues: &[GetIssuesForStateIssuesNodes], team: &str) -> Result<Vec<Choice<String>>> {
+fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
     if issues.is_empty() {
         return Err(Error::new(format!("Unstarted issues not found: {team}")));
     }
