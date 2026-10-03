@@ -90,6 +90,17 @@ fn bounded_failure(prefix: &str, failure: ExchangeFailure, deadline: Deadline) -
     }
 }
 
+/// Whether a download from `url` carries the API key: only for exactly
+/// `https://uploads.linear.app` (default port, no user name or password),
+/// where Linear serves private uploads.
+fn authenticates(url: &Url) -> bool {
+    url.scheme() == "https"
+        && url.host_str() == Some("uploads.linear.app")
+        && url.port().is_none()
+        && url.username().is_empty()
+        && url.password().is_none()
+}
+
 impl LinearClient {
     /// Downloads an image referenced from Markdown.
     pub async fn download_markdown_image(&self, url: &str) -> Result<Vec<u8>, Error> {
@@ -102,8 +113,9 @@ impl LinearClient {
     }
 
     /// GETs an `http(s)` URL within the download deadline and size cap. The
-    /// API key is sent only to Linear's private upload host; reqwest drops it
-    /// if a redirect leaves that host.
+    /// API key is sent only to Linear's private upload origin (see
+    /// [`authenticates`]); a redirect elsewhere drops it, and no redirect may
+    /// leave HTTPS.
     async fn download(&self, original: &str, failure_prefix: &str) -> Result<Vec<u8>, Error> {
         let url = Url::parse(original)
             .map_err(|error| Error::new(format!("Invalid URL: '{original}'")).with_source(error))?;
@@ -113,7 +125,7 @@ impl LinearClient {
                 url.scheme()
             )));
         }
-        let authenticated = url.host_str() == Some("uploads.linear.app");
+        let authenticated = authenticates(&url);
         let mut request = self
             .http
             .get(url)
@@ -219,5 +231,28 @@ impl LinearClient {
             response.status,
             String::from_utf8_lossy(&response.body)
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_exact_https_upload_origin_gets_the_api_key() {
+        let authenticated = |url: &str| authenticates(&Url::parse(url).expect("URL"));
+        assert!(authenticated("https://uploads.linear.app/org/file.png"));
+        assert!(authenticated("https://uploads.linear.app:443/org/file.png"));
+        for url in [
+            "http://uploads.linear.app/org/file.png",
+            "http://uploads.linear.app:443/org/file.png",
+            "https://uploads.linear.app:8443/org/file.png",
+            "https://user@uploads.linear.app/org/file.png",
+            "https://:secret@uploads.linear.app/org/file.png",
+            "https://uploads.linear.app.example.com/file.png",
+            "https://public.linear.app/file.png",
+        ] {
+            assert!(!authenticated(url), "{url}");
+        }
     }
 }

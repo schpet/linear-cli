@@ -30,10 +30,17 @@ struct TlsObserved {
     handshake: bool,
 }
 
-/// Accepts one connection and answers one HTTPS request with the leaf
-/// certificate (valid for `uploads.linear.app`, `localhost` and
-/// `127.0.0.1`). As a proxy, it first accepts a `CONNECT` request.
-fn tls_listener(proxy: bool) -> (u16, JoinHandle<TlsObserved>) {
+fn ok_response() -> String {
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{OK_BODY}",
+        OK_BODY.len()
+    )
+}
+
+/// Accepts one connection and answers one HTTPS request with `response`,
+/// using the leaf certificate (valid for `uploads.linear.app`, `localhost`
+/// and `127.0.0.1`). As a proxy, it first accepts a `CONNECT` request.
+fn tls_listener(proxy: bool, response: String) -> (u16, JoinHandle<TlsObserved>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
     let port = listener.local_addr().expect("address").port();
     let handle = thread::spawn(move || {
@@ -76,11 +83,9 @@ fn tls_listener(proxy: bool) -> (u16, JoinHandle<TlsObserved>) {
             let mut request = [0_u8; 4096];
             let count = tls.read(&mut request).await.expect("TLS request");
             assert!(count > 0);
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{OK_BODY}",
-                OK_BODY.len()
-            );
-            tls.write_all(response.as_bytes()).await.expect("TLS response");
+            tls.write_all(response.as_bytes())
+                .await
+                .expect("TLS response");
             tls.shutdown().await.expect("TLS close");
             TlsObserved {
                 connect,
@@ -99,7 +104,7 @@ fn cli(endpoint: &str) -> Cli {
 
 #[test]
 fn ssl_cert_file_roots_verify_a_private_certificate() {
-    let (port, server) = tls_listener(false);
+    let (port, server) = tls_listener(false, ok_response());
     let run = cli(&format!("https://localhost:{port}/graphql"))
         .env("SSL_CERT_FILE", &tls_fixture("test-ca.pem"))
         .run(&["api", QUERY]);
@@ -109,7 +114,7 @@ fn ssl_cert_file_roots_verify_a_private_certificate() {
 
 #[test]
 fn an_unrelated_ca_bundle_fails_the_handshake() {
-    let (port, server) = tls_listener(false);
+    let (port, server) = tls_listener(false, ok_response());
     cli(&format!("https://localhost:{port}/graphql"))
         .env("SSL_CERT_FILE", &tls_fixture("wrong-ca.pem"))
         .run(&["api", QUERY])
@@ -121,7 +126,7 @@ fn an_unrelated_ca_bundle_fails_the_handshake() {
 #[test]
 fn https_proxy_variables_route_requests_through_connect() {
     for proxy_var in ["HTTPS_PROXY", "https_proxy"] {
-        let (port, server) = tls_listener(true);
+        let (port, server) = tls_listener(true, ok_response());
         let run = cli("https://uploads.linear.app/graphql")
             .env(proxy_var, &format!("http://127.0.0.1:{port}"))
             .env("SSL_CERT_FILE", &tls_fixture("test-ca.pem"))
@@ -135,6 +140,25 @@ fn https_proxy_variables_route_requests_through_connect() {
             "{proxy_var}: {connect:?}"
         );
     }
+}
+
+#[test]
+fn a_redirect_from_https_to_plain_http_is_refused() {
+    let api = MockLinear::start();
+    let (port, server) = tls_listener(
+        false,
+        format!(
+            "HTTP/1.1 307 Temporary Redirect\r\nLocation: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            api.url()
+        ),
+    );
+    cli(&format!("https://localhost:{port}/graphql"))
+        .env("SSL_CERT_FILE", &tls_fixture("test-ca.pem"))
+        .run(&["api", QUERY])
+        .failure()
+        .stderr_has("refusing to follow a redirect from HTTPS to plain HTTP");
+    assert!(server.join().expect("TLS server").handshake);
+    assert!(api.requests().is_empty());
 }
 
 #[test]

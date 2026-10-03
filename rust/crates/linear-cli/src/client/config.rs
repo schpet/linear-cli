@@ -323,6 +323,24 @@ fn load_pem_bundle(path: &Path) -> Result<Vec<Certificate>, ClientBuildError> {
     Ok(certificates)
 }
 
+/// Follows up to [`MAX_REDIRECTS`] redirects, never from HTTPS to plain
+/// HTTP. reqwest itself drops the API key when a redirect changes host or
+/// port; refusing downgrades keeps it off the wire on the same host too.
+fn follow_redirect(attempt: reqwest::redirect::Attempt<'_>) -> reqwest::redirect::Action {
+    let downgrade = attempt.url().scheme() != "https"
+        && attempt
+            .previous()
+            .iter()
+            .any(|previous| previous.scheme() == "https");
+    if downgrade {
+        attempt.error("refusing to follow a redirect from HTTPS to plain HTTP")
+    } else if attempt.previous().len() > MAX_REDIRECTS {
+        attempt.error("too many redirects")
+    } else {
+        attempt.follow()
+    }
+}
+
 /// Builds the `reqwest` client: HTTP/1.1, bounded redirects, no retries,
 /// gzip/brotli/deflate responses, proxies from the environment, and trusted
 /// roots from the operating system, the bundled Mozilla set and the optional
@@ -330,7 +348,7 @@ fn load_pem_bundle(path: &Path) -> Result<Vec<Certificate>, ClientBuildError> {
 pub(super) fn build_client(config: &ClientConfig) -> Result<Client, ClientBuildError> {
     let mut builder = Client::builder()
         .user_agent(USER_AGENT_VALUE)
-        .redirect(Policy::limited(MAX_REDIRECTS))
+        .redirect(Policy::custom(follow_redirect))
         .referer(false)
         .retry(reqwest::retry::never());
     if let Some(path) = &config.ca_bundle {
