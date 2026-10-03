@@ -371,19 +371,10 @@ fn create_rejects_invalid_typed_values_before_any_request() {
     assert!(api.requests().is_empty(), "{:?}", api.operations());
 }
 
-/// Without `--team`, updates resolve the team from the issue identifier and send it back as
-/// `teamId`. That is redundant, so `update_input` leaves it out.
-fn expect_own_team(api: &MockLinear) {
-    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"));
-}
-
+/// The `UpdateIssue` input, which never moves the issue without `--team`.
 fn update_input(api: &MockLinear) -> Value {
-    let mut input = input(api, "UpdateIssue");
-    let team = input
-        .as_object_mut()
-        .expect("input object")
-        .remove("teamId");
-    assert!(matches!(team, None | Some(Value::String(_))), "{team:?}");
+    let input = input(api, "UpdateIssue");
+    assert!(input.get("teamId").is_none(), "{input}");
     input
 }
 
@@ -463,7 +454,6 @@ fn update_with_every_field_sends_resolved_ids() {
 #[test]
 fn update_clears_fields_with_nulls() {
     let api = MockLinear::start();
-    expect_own_team(&api);
     api.on("UpdateIssue", updated("ENG-1", "Same"));
     Cli::for_api(&api)
         .run(&[
@@ -490,7 +480,6 @@ fn update_clears_fields_with_nulls() {
 #[test]
 fn update_milestone_uses_the_issue_project() {
     let api = MockLinear::start();
-    expect_own_team(&api);
     api.on(
         "GetIssueProjectId",
         json!({ "issue": { "project": { "id": PROJECT_ID } } }),
@@ -530,9 +519,31 @@ fn update_conflicting_flags_fail_before_any_request() {
 }
 
 #[test]
+fn update_resolves_the_issue_team_for_states_without_moving_the_issue() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("GetWorkflowStates", states())
+        .on("UpdateIssue", updated("ENG-1", "Same"));
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "-s", "Done"])
+        .success();
+    assert_eq!(api.variables("ResolveTeam")["reference"], "ENG");
+    assert_eq!(update_input(&api), json!({ "stateId": "state-done" }));
+}
+
+#[test]
+fn update_without_changes_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1"])
+        .failure()
+        .stderr_has("No changes given");
+    assert!(api.requests().is_empty(), "{:?}", api.operations());
+}
+
+#[test]
 fn update_reports_an_unsuccessful_mutation() {
     let api = MockLinear::start();
-    expect_own_team(&api);
     let mut rejected = updated("ENG-1", "x");
     rejected["issueUpdate"]["success"] = json!(false);
     api.on("UpdateIssue", rejected);
@@ -724,7 +735,7 @@ fn archive_bulk_reports_unusable_references_and_archives_the_rest() {
 #[test]
 fn update_refuses_to_add_and_remove_the_same_label() {
     let api = MockLinear::start();
-    expect_own_team(&api);
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"));
     api.on("GetIssueLabelIdByNameForTeam", label("label-bug", "Bug"))
         .on("GetIssueLabelIdByNameForTeam", label("label-bug", "Bug"));
     Cli::for_api(&api)

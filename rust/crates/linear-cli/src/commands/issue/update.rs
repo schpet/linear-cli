@@ -51,8 +51,74 @@ pub struct Fields {
     pub clear_cycle: bool,
 }
 impl Fields {
+    /// Whether resolving the flags needs the issue's team.
+    fn needs_team(&self) -> bool {
+        self.state.is_some()
+            || self.labels.is_some()
+            || self.add_labels.is_some()
+            || self.remove_labels.is_some()
+            || self.cycle.is_some()
+    }
+
+    /// Whether no flag asks for any change.
+    fn is_empty(&self) -> bool {
+        let Self {
+            title,
+            assignee,
+            unassign,
+            due_date,
+            clear_due_date,
+            parent,
+            clear_parent,
+            priority,
+            estimate,
+            clear_estimate,
+            description,
+            description_file,
+            labels,
+            add_labels,
+            remove_labels,
+            team,
+            project,
+            clear_project,
+            state,
+            milestone,
+            clear_milestone,
+            cycle,
+            clear_cycle,
+        } = self;
+        title.is_none()
+            && assignee.is_none()
+            && !unassign
+            && due_date.is_none()
+            && !clear_due_date
+            && parent.is_none()
+            && !clear_parent
+            && priority.is_none()
+            && estimate.is_none()
+            && !clear_estimate
+            && description.is_none()
+            && description_file.is_none()
+            && labels.is_none()
+            && add_labels.is_none()
+            && remove_labels.is_none()
+            && team.is_none()
+            && project.is_none()
+            && !clear_project
+            && state.is_none()
+            && milestone.is_none()
+            && !clear_milestone
+            && cycle.is_none()
+            && !clear_cycle
+    }
+
     /// Flag conflicts, checked before reading files, inferring an issue or any request.
     pub fn local(&self) -> Result<Option<String>, Error> {
+        if self.is_empty() {
+            return Err(Error::new("No changes given").with_hint(
+                "Pass the fields to change, like --title, --state or --assignee. Run `linear issue update --help` for all of them.",
+            ));
+        }
         let conflicts = [
             (
                 self.unassign && self.assignee.is_some(),
@@ -119,11 +185,15 @@ impl Fields {
 }
 async fn labels<B: Backend>(
     backend: &B,
-    team: &str,
+    team: Option<&str>,
     names: Option<&[String]>,
 ) -> Result<Vec<String>, Error> {
     let mut ids = Vec::new();
-    for name in names.unwrap_or_default() {
+    let Some(names) = names else {
+        return Ok(ids);
+    };
+    let team = team.expect("label flags resolve the team");
+    for name in names {
         let id = backend
             .label(team.to_owned(), name.clone())
             .await?
@@ -145,15 +215,24 @@ pub async fn input<B: Backend>(
     fields: &Fields,
     description: Option<String>,
 ) -> Result<IssueUpdateInput, Error> {
-    // Always resolve team, including a no-flags update. No no-op shortcut.
-    let reference = fields
-        .team
-        .clone()
-        .or_else(|| issue_id.rsplit_once('-').map(|(key, _)| key.to_owned()))
-        .ok_or_else(|| shared::validation("Could not determine team key from issue ID"))?;
-    let team = backend.team(reference).await?;
+    // States, labels and cycles belong to a team: the one the issue moves to,
+    // or else its own. Only `--team` itself changes the issue's team.
+    let team = if fields.team.is_some() || fields.needs_team() {
+        let reference = fields
+            .team
+            .clone()
+            .or_else(|| issue_id.rsplit_once('-').map(|(key, _)| key.to_owned()))
+            .ok_or_else(|| shared::validation("Could not determine team key from issue ID"))?;
+        Some(backend.team(reference).await?)
+    } else {
+        None
+    };
+    let team_key = team.as_ref().map(|team| team.key.as_str());
     let state = match &fields.state {
-        Some(value) => Some(backend.state(team.key.clone(), value.clone()).await?),
+        Some(value) => {
+            let team = team_key.expect("--state resolves the team");
+            Some(backend.state(team.to_owned(), value.clone()).await?)
+        }
         None => None,
     };
     let assignee = match &fields.assignee {
@@ -166,9 +245,9 @@ pub async fn input<B: Backend>(
         }
         None => None,
     };
-    let replacements = labels(backend, &team.key, fields.labels.as_deref()).await?;
-    let added = labels(backend, &team.key, fields.add_labels.as_deref()).await?;
-    let removed = labels(backend, &team.key, fields.remove_labels.as_deref()).await?;
+    let replacements = labels(backend, team_key, fields.labels.as_deref()).await?;
+    let added = labels(backend, team_key, fields.add_labels.as_deref()).await?;
+    let removed = labels(backend, team_key, fields.remove_labels.as_deref()).await?;
     if added.iter().any(|id| removed.contains(id)) {
         return Err(
             shared::validation("Cannot add and remove the same label in one update")
@@ -197,7 +276,10 @@ pub async fn input<B: Backend>(
         None => None,
     };
     let cycle = match &fields.cycle {
-        Some(value) => Some(backend.cycle(team.id.clone(), value.clone()).await?),
+        Some(value) => {
+            let team = team.as_ref().expect("--cycle resolves the team");
+            Some(backend.cycle(team.id.clone(), value.clone()).await?)
+        }
         None => None,
     };
     // Parent read is deliberately late: after all other resolvers, while input assembles.
@@ -223,7 +305,10 @@ pub async fn input<B: Backend>(
         label_ids: fields.labels.as_ref().map(|_| replacements),
         added_label_ids: fields.add_labels.as_ref().map(|_| added),
         removed_label_ids: fields.remove_labels.as_ref().map(|_| removed),
-        team_id: Edit::Set(team.id),
+        team_id: match (&fields.team, team) {
+            (Some(_), Some(team)) => Edit::Set(team.id),
+            _ => Edit::Unchanged,
+        },
         project_id: shared::edit(fields.clear_project, project),
         project_milestone_id: shared::edit(fields.clear_milestone, milestone),
         cycle_id: shared::edit(fields.clear_cycle, cycle),
