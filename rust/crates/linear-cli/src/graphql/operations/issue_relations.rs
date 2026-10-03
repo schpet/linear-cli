@@ -136,12 +136,6 @@ pub struct CreateIssueRelation {
 #[cynic(schema = "linear", graphql_type = "IssueRelationPayload")]
 pub struct CreatedPayload {
     pub success: bool,
-    pub issue_relation: RelationId,
-}
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "IssueRelation")]
-pub struct RelationId {
-    pub id: cynic::Id,
 }
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct DeleteVariables {

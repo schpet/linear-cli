@@ -22,7 +22,6 @@ fn auth_status_has_exact_name_selection_and_no_variables() {
         "organization",
         "name",
         "urlKey",
-        "logoUrl",
     ];
     let mut rest = query;
     for field in fields {
@@ -42,7 +41,6 @@ fn auth_status_decodes_nullable_logo_without_defaults() {
         }
     }))
     .expect("schema-valid response");
-    assert_eq!(data.viewer.organization.logo_url, None);
     assert_eq!(data.viewer.display_name, "Ali");
     let error = serde_json::from_value::<AuthStatus>(json!({"viewer": {"name": "Alice"}}))
         .expect_err("missing non-null fields reject");

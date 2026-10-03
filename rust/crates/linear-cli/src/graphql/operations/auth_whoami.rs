@@ -25,5 +25,4 @@ pub struct AuthViewer {
 pub struct AuthOrganization {
     pub name: String,
     pub url_key: String,
-    pub logo_url: Option<String>,
 }

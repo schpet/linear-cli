@@ -426,7 +426,6 @@ pub struct SearchIssuesSearchIssuesNodes {
 pub struct SearchIssuesSearchIssues {
     pub nodes: Vec<SearchIssuesSearchIssuesNodes>,
     pub page_info: crate::graphql::pagination::PageInfo,
-    pub total_count: WholeNumber,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
