@@ -1,4 +1,7 @@
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
+
+use super::LINEAR_MARKDOWN;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -9,136 +12,168 @@ pub struct Document {
 
 #[derive(Debug, Subcommand)]
 pub enum DocumentCommand {
-    #[command(name = "list", about = "List documents", visible_aliases = ["l"])]
+    /// List documents
+    #[command(visible_alias = "l")]
     List(DocumentList),
-    #[command(name = "view", about = "View a document's content", visible_aliases = ["v"])]
+    /// Show a document
+    #[command(visible_alias = "v")]
     View(DocumentView),
-    #[command(name = "create", about = "Create a new document", long_about = "Create a new document\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference.", visible_aliases = ["c"])]
+    /// Create a document
+    #[command(visible_alias = "c", after_long_help = LINEAR_MARKDOWN)]
     Create(DocumentCreate),
-    #[command(name = "update", about = "Update an existing document", long_about = "Update an existing document\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference.", visible_aliases = ["u"])]
+    /// Update a document
+    #[command(visible_alias = "u", after_long_help = LINEAR_MARKDOWN)]
     Update(DocumentUpdate),
-    #[command(name = "delete", about = "Delete a document (moves to trash)", visible_aliases = ["d"])]
+    /// Delete a document (moves it to the trash)
+    #[command(visible_alias = "d")]
     Delete(DocumentDelete),
-    #[command(name = "comment", about = "Manage document comments")]
+    /// Comment on a document
     Comment(DocumentComment),
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentList {
-    #[arg(long = "project", conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    /// Show this project's documents (ID, slug, or name)
+    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
-    #[arg(long = "issue", conflicts_with_all = ["initiative", "team", "cycle", "release"], help = "Filter by issue (identifier like TC-123)", value_name = "issue", value_parser = super::nonempty_string)]
+    /// Show this issue's documents (like ENG-123)
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub issue: Option<String>,
-    #[arg(long = "initiative", conflicts_with_all = ["team", "cycle", "release"], help = "Filter by initiative (UUID, slug ID, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Show this initiative's documents (ID, slug, or name)
+    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub initiative: Option<String>,
-    #[arg(long = "team", conflicts_with = "release", help = "Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
+    /// Show this team's documents (key, name, or ID); with --cycle, the cycle's team
+    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "cycle", conflicts_with = "release", help = "Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
+    /// Show this cycle's documents: a name, number, `active`, `next`, `previous`, or an offset like +1
+    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
-    #[arg(long = "release", help = "Filter by release (UUID, name, or version)", value_name = "release", value_parser = super::nonempty_string)]
+    /// Show this release's documents (ID, name, or version)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub release: Option<String>,
-    #[arg(long = "json", help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long)]
     pub json: bool,
-    #[arg(long = "limit", help = "Maximum number of documents to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "50")]
+    /// Maximum number of documents to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "50")]
     pub limit: super::Limit,
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentView {
-    #[arg(value_name = "id", value_parser = super::nonempty_string)]
+    /// Document ID or slug
+    #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new())]
     pub id: String,
-    #[arg(long = "raw", help = "Output raw markdown without rendering")]
+    /// Print the Markdown source instead of rendering it
+    #[arg(long)]
     pub raw: bool,
-    #[arg(long = "web", short = 'w', help = "Open document in browser")]
+    /// Open the document in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(long = "json", help = "Output full document as JSON")]
+    /// Print JSON
+    #[arg(long)]
     pub json: bool,
-    #[arg(
-        long = "no-download",
-        help = "Keep remote URLs instead of downloading files"
-    )]
+    /// Keep remote image and file URLs instead of downloading them
+    #[arg(long)]
     pub no_download: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentCreate {
-    #[arg(long = "title", short = 't', help = "Document title (required)", value_name = "title", value_parser = super::nonempty_string)]
+    /// Document title
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,
-    #[arg(long = "content", short = 'c', help = "Markdown content (inline)", value_name = "content", value_parser = super::nonempty_string)]
+    /// Document text, in Markdown
+    #[arg(long, short, value_name = "MARKDOWN", value_parser = NonEmptyStringValueParser::new())]
     pub content: Option<String>,
-    #[arg(long = "content-file", short = 'f', help = "Read content from file", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the document from a Markdown file
+    #[arg(long, short = 'f', value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub content_file: Option<String>,
-    #[arg(long = "project", conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], help = "Attach to project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    /// Attach the document to a project (ID, slug, or name)
+    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
-    #[arg(long = "issue", conflicts_with_all = ["initiative", "team", "cycle", "release"], help = "Attach to issue (identifier like TC-123)", value_name = "issue", value_parser = super::nonempty_string)]
+    /// Attach the document to an issue (like ENG-123)
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub issue: Option<String>,
-    #[arg(long = "initiative", conflicts_with_all = ["team", "cycle", "release"], help = "Attach to initiative (UUID, slug ID, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Attach the document to an initiative (ID, slug, or name)
+    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub initiative: Option<String>,
-    #[arg(long = "team", conflicts_with = "release", help = "Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
+    /// Attach the document to a team (key, name, or ID); with --cycle, the cycle's team
+    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "cycle", conflicts_with = "release", help = "Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
+    /// Attach the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1
+    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
-    #[arg(long = "release", help = "Attach to release (UUID, name, or version)", value_name = "release", value_parser = super::nonempty_string)]
+    /// Attach the document to a release (ID, name, or version)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub release: Option<String>,
-    #[arg(long = "icon", help = "Document icon (emoji)", value_name = "icon", value_parser = super::nonempty_string)]
+    /// Document icon (an emoji)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
-    #[arg(
-        long = "interactive",
-        short = 'i',
-        help = "Interactive mode with prompts",
-        conflicts_with_all = ["project", "issue", "initiative", "team", "cycle", "release"]
-    )]
+    /// Also prompt for the optional fields
+    #[arg(long, short, conflicts_with_all = ["project", "issue", "initiative", "team", "cycle", "release"])]
     pub interactive: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentUpdate {
-    #[arg(value_name = "documentId", value_parser = super::nonempty_string)]
+    /// Document ID or slug
+    #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new())]
     pub document_id: String,
-    #[arg(long = "title", short = 't', help = "New title for the document", value_name = "title", value_parser = super::nonempty_string)]
+    /// New title
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,
-    #[arg(long = "content", short = 'c', help = "New markdown content (inline)", value_name = "content", value_parser = super::nonempty_string)]
+    /// New text, in Markdown
+    #[arg(long, short, value_name = "MARKDOWN", value_parser = NonEmptyStringValueParser::new())]
     pub content: Option<String>,
-    #[arg(long = "content-file", short = 'f', help = "Read new content from file", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the new text from a Markdown file
+    #[arg(long, short = 'f', value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub content_file: Option<String>,
-    #[arg(long = "icon", help = "New icon (emoji)", value_name = "icon", value_parser = super::nonempty_string)]
+    /// New icon (an emoji)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
-    #[arg(long = "project", conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], help = "Re-point to project (UUID, slug ID, or name); replaces the current attachment", value_name = "project", value_parser = super::nonempty_string)]
+    /// Move the document to a project (ID, slug, or name)
+    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
-    #[arg(long = "issue", conflicts_with_all = ["initiative", "team", "cycle", "release"], help = "Re-point to issue (identifier like TC-123); replaces the current attachment", value_name = "issue", value_parser = super::nonempty_string)]
+    /// Move the document to an issue (like ENG-123)
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub issue: Option<String>,
-    #[arg(long = "initiative", conflicts_with_all = ["team", "cycle", "release"], help = "Re-point to initiative (UUID, slug ID, or name); replaces the current attachment", value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Move the document to an initiative (ID, slug, or name)
+    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
     pub initiative: Option<String>,
-    #[arg(long = "team", conflicts_with = "release", help = "Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead", value_name = "team", value_parser = super::nonempty_string)]
+    /// Move the document to a team (key, name, or ID); with --cycle, the cycle's team
+    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "cycle", conflicts_with = "release", help = "Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)", value_name = "cycle", value_parser = super::nonempty_string)]
+    /// Move the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1
+    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
-    #[arg(long = "release", help = "Re-point to release (UUID, name, or version); replaces the current attachment", value_name = "release", value_parser = super::nonempty_string)]
+    /// Move the document to a release (ID, name, or version)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub release: Option<String>,
-    #[arg(
-        long = "edit",
-        short = 'e',
-        help = "Open current content in $EDITOR for editing"
-    )]
+    /// Edit the current text in $EDITOR
+    #[arg(long, short)]
     pub edit: bool,
-    #[arg(
-        long = "force",
-        help = "Update content even when document comments may lose inline anchors"
-    )]
+    /// Replace the text even if inline comments may lose their anchors
+    #[arg(long)]
     pub force: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentDelete {
-    #[arg(value_name = "documentId", value_parser = super::nonempty_string, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Document ID or slug
+    #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub document_id: Option<String>,
-    #[arg(long = "yes", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short)]
     pub yes: bool,
-    #[arg(long = "bulk", help = "Delete multiple documents by slug or ID", value_name = "ids", value_parser = super::nonempty_string, num_args = 0..)]
+    /// Delete several documents (ID or slug)
+    #[arg(long, value_name = "DOCUMENTS", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
     pub bulk: Option<Vec<String>>,
-    #[arg(long = "bulk-file", help = "Read document slugs/IDs from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
+    /// Read documents from a file, one per line
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub bulk_file: Option<String>,
-    #[arg(long = "bulk-stdin", help = "Read document slugs/IDs from stdin")]
+    /// Read documents from stdin, one per line
+    #[arg(long)]
     pub bulk_stdin: bool,
 }
 
@@ -151,34 +186,38 @@ pub struct DocumentComment {
 
 #[derive(Debug, Subcommand)]
 pub enum DocumentCommentCommand {
-    #[command(
-        name = "add",
-        about = "Add a comment or reply to a document (by ID or slug)",
-        long_about = "Add a comment or reply to a document (by ID or slug)\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Comment on a document, or reply to a comment
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Add(DocumentCommentAdd),
-    #[command(name = "list", about = "List comments on a document (by ID or slug)")]
+    /// List a document's comments
     List(DocumentCommentList),
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentCommentAdd {
-    #[arg(value_name = "document", value_parser = super::nonempty_string)]
+    /// Document ID or slug
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub document: String,
-    #[arg(long = "body", short = 'b', help = "Comment body text", value_name = "text", value_parser = super::nonempty_string)]
+    /// Comment text, in Markdown
+    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read comment body from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the comment from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub body_file: Option<String>,
-    #[arg(long = "parent", short = 'p', visible_aliases = ["reply-to"], help = "Reply to a top-level comment by ID (the reply joins that thread)", value_name = "commentId", value_parser = super::nonempty_string)]
+    /// Reply to this top-level comment (by ID)
+    #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct DocumentCommentList {
-    #[arg(value_name = "document", value_parser = super::nonempty_string)]
+    /// Document ID or slug
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub document: String,
-    #[arg(long = "limit", help = "Maximum number of comments to fetch (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of comments to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }

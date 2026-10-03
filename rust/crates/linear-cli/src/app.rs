@@ -32,7 +32,8 @@ pub fn main(cli: Cli) -> u8 {
 }
 
 fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
-    let Cli { workspace, command } = cli;
+    let Cli { global, command } = cli;
+    let workspace = global.workspace;
     let command = match command {
         RootCommand::Completions(action) => return completions_command(&action),
         RootCommand::Markdown(_) => return markdown(),

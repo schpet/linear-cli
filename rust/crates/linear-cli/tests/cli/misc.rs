@@ -60,7 +60,7 @@ fn completion_requests_reach_every_command_depth() {
     assert_eq!(flags, ["--body", "--body-file"]);
     let statuses = fish_candidates(&cli, &["issue", "agent-session", "list", "--status", ""]);
     assert!(
-        statuses.contains(&"awaitingInput".to_owned()),
+        statuses.contains(&"awaiting-input".to_owned()),
         "{statuses:?}"
     );
     let commands = fish_candidates(&cli, &["iss"]);

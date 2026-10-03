@@ -1,5 +1,7 @@
 use clap::{Args, Subcommand};
 
+use super::LINEAR_MARKDOWN;
+
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct InitiativeUpdate {
@@ -9,15 +11,18 @@ pub struct InitiativeUpdate {
 
 #[derive(Debug, Subcommand)]
 pub enum InitiativeUpdateCommand {
-    #[command(name = "create", about = "Create a new status update for an initiative", long_about = "Create a new status update for an initiative\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference.", visible_aliases = ["c"])]
+    /// Post a status update on an initiative
+    #[command(visible_alias = "c", after_long_help = LINEAR_MARKDOWN)]
     Create(InitiativeUpdateCreate),
-    #[command(name = "list", about = "List status updates for an initiative", visible_aliases = ["l", "ls"])]
+    /// List an initiative's status updates
+    #[command(visible_aliases = ["l", "ls"])]
     List(InitiativeUpdateList),
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeUpdateCreate {
-    #[arg(value_name = "initiativeId")]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE")]
     pub initiative_id: String,
     #[command(flatten)]
     pub update: super::project_update::StatusUpdateArgs,
@@ -25,10 +30,13 @@ pub struct InitiativeUpdateCreate {
 
 #[derive(Debug, Args)]
 pub struct InitiativeUpdateList {
-    #[arg(value_name = "initiativeId")]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE")]
     pub initiative_id: String,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(long = "limit", help = "Maximum number of updates to show, newest first (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "10")]
+    /// Maximum number of updates to show, newest first (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "10")]
     pub limit: super::Limit,
 }

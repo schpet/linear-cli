@@ -1,5 +1,8 @@
 use chrono::NaiveDate;
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum};
+
+use super::LINEAR_MARKDOWN;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -10,209 +13,202 @@ pub struct Project {
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectCommand {
-    #[command(name = "list", about = "List projects")]
+    /// List projects
     List(ProjectList),
-    #[command(name = "view", about = "View project details", visible_aliases = ["v"])]
+    /// Show a project
+    #[command(visible_alias = "v")]
     View(ProjectView),
-    #[command(
-        name = "create",
-        about = "Create a new Linear project",
-        long_about = "Create a new Linear project\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Create a project
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Create(ProjectCreate),
-    #[command(
-        name = "update",
-        about = "Update a Linear project",
-        long_about = "Update a Linear project\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Update a project
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Update(ProjectUpdate),
-    #[command(name = "delete", about = "Delete (trash) a Linear project")]
+    /// Delete a project (moves it to the trash)
     Delete(ProjectDelete),
-    #[command(name = "comment", about = "Manage project comments")]
+    /// Comment on a project
     Comment(ProjectComment),
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectList {
-    #[arg(long = "team", help = "Filter by team key, name, or ID", value_name = "team", value_parser = super::nonempty_string)]
+    /// Show this team's projects (key, name, or ID); defaults to the configured team
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(
-        long = "all-teams",
-        help = "Show projects from all teams",
-        conflicts_with = "team"
-    )]
+    /// Show every team's projects
+    #[arg(long, conflicts_with = "team")]
     pub all_teams: bool,
-    #[arg(long = "status", help = "Filter by status name", value_name = "status", value_parser = super::nonempty_string)]
+    /// Show only projects with this status name
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub status: Option<String>,
-    #[arg(long = "web", short = 'w', help = "Open in web browser")]
+    /// Open the projects page in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
+    /// Open the projects page in the Linear app
+    #[arg(long, short)]
     pub app: bool,
-    #[arg(long = "limit", help = "Maximum number of projects to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of projects to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectView {
-    #[arg(value_name = "projectId")]
+    /// Project ID, slug, or name; asked for when omitted
+    #[arg(value_name = "PROJECT")]
     pub project_id: Option<String>,
-    #[arg(long = "web", short = 'w', help = "Open in web browser")]
+    /// Open the project in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
+    /// Open the project in the Linear app
+    #[arg(long, short)]
     pub app: bool,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(long = "no-pager", help = "Disable automatic paging for long output")]
+    /// Do not page long output
+    #[arg(long)]
     pub no_pager: bool,
 }
 
-/// The scalar fields `project create` and `project update` share.
+/// The fields `project create` and `project update` share.
 #[derive(Debug, Args)]
 pub struct ProjectFields {
-    #[arg(long = "name", short = 'n', help = "Project name", value_name = "name", value_parser = super::nonempty_string)]
+    /// Project name
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub name: Option<String>,
-    #[arg(
-        long = "description",
-        short = 'd',
-        help = "Project description (max 255 characters, enforced by Linear's API)",
-        value_name = "description",
-        conflicts_with = "description_file"
-    )]
+    /// Short summary, up to 255 characters
+    #[arg(long, short, conflicts_with = "description_file")]
     pub description: Option<String>,
-    #[arg(long = "description-file", short = 'f', help = "Read project description from file (still subject to the 255-character API limit)", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the summary from a file
+    #[arg(long, short = 'f', value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub description_file: Option<String>,
-    #[arg(
-        long = "content",
-        help = "Project overview markdown",
-        value_name = "markdown",
-        conflicts_with = "content_file"
-    )]
+    /// Project overview, in Markdown
+    #[arg(long, value_name = "MARKDOWN", conflicts_with = "content_file")]
     pub content: Option<String>,
-    #[arg(long = "content-file", help = "Read project overview markdown from a file", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the overview from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub content_file: Option<String>,
-    #[arg(
-        long = "status",
-        short = 's',
-        help = "Project status",
-        value_name = "status",
-        ignore_case = true
-    )]
+    /// Project status
+    #[arg(long, short, ignore_case = true)]
     pub status: Option<Status>,
-    #[arg(long = "lead", short = 'l', help = "Project lead (username, email, or @me)", value_name = "lead", value_parser = super::nonempty_string)]
+    /// Project lead: a username, email, or @me
+    #[arg(long, short, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
     pub lead: Option<String>,
-    #[arg(long = "start-date", help = "Start date (YYYY-MM-DD)", value_name = "startDate", value_parser = super::values::date)]
+    /// Start date (YYYY-MM-DD)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub start_date: Option<NaiveDate>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::values::date)]
+    /// Target date (YYYY-MM-DD)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
-    #[arg(
-        long = "priority",
-        help = "Project priority",
-        value_name = "priority",
-        ignore_case = true
-    )]
+    /// Project priority, by name or number (0 none, 1 urgent to 4 low)
+    #[arg(long, ignore_case = true)]
     pub priority: Option<super::values::Priority>,
 }
 
 /// A project status, by its kind.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Status {
-    #[value(name = "planned")]
-    Planned,
-    #[value(name = "started", aliases = ["in-progress", "in progress"])]
-    Started,
-    #[value(name = "paused")]
-    Paused,
-    #[value(name = "completed")]
-    Completed,
-    #[value(name = "canceled")]
-    Canceled,
-    #[value(name = "backlog")]
     Backlog,
+    Planned,
+    #[value(aliases = ["in-progress", "in progress"])]
+    Started,
+    Paused,
+    Completed,
+    Canceled,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectCreate {
     #[command(flatten)]
     pub fields: ProjectFields,
-    #[arg(long = "team", short = 't', help = "Team key, name, or ID (required, can be repeated for multiple teams)", value_name = "team", value_parser = super::nonempty_string)]
+    /// Team (key, name, or ID); repeat for several teams
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub team: Vec<String>,
-    #[arg(long = "label", help = "Project label associated with the project. May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
+    /// Project label; repeat for several labels
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
-    #[arg(long = "member", help = "Project member (username, email, display name, or @me). May be repeated.", value_name = "user", value_parser = super::nonempty_string)]
+    /// Project member: a username, email, display name, or @me; repeatable
+    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
     pub member: Vec<String>,
-    #[arg(long = "icon", help = "Project icon", value_name = "icon")]
+    /// Project icon
+    #[arg(long)]
     pub icon: Option<String>,
-    #[arg(
-        long = "color",
-        help = "Project color as a HEX string",
-        value_name = "color"
-    )]
+    /// Color, like #5E6AD2
+    #[arg(long)]
     pub color: Option<String>,
-    #[arg(long = "initiative", help = "Add to initiative immediately (ID, slug, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Add the project to this initiative (ID, slug, or name)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub initiative: Option<String>,
-    #[arg(long = "template", help = "Project template to apply, by name or ID (workspace templates plus those of the project's teams). The template fills in anything you do not pass; explicit flags override it. Applied on create only.", value_name = "template", value_parser = super::nonempty_string)]
+    /// Start from this project template (name or ID)
+    ///
+    /// Workspace templates and those of the project's teams are searched. The
+    /// template fills in anything you do not pass; flags override it.
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub template: Option<String>,
-    #[arg(
-        long = "interactive",
-        short = 'i',
-        help = "Interactive mode (default if no flags provided)"
-    )]
+    /// Also prompt for the optional fields
+    #[arg(long, short)]
     pub interactive: bool,
-    #[arg(long = "json", short = 'j', help = "Output created project as JSON")]
+    /// Print the created project as JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectUpdate {
-    #[arg(value_name = "projectId")]
+    /// Project ID, slug, or name
+    #[arg(value_name = "PROJECT")]
     pub project_id: String,
     #[command(flatten)]
     pub fields: ProjectFields,
-    #[arg(
-        long = "clear-lead",
-        help = "Remove the project's lead",
-        conflicts_with = "lead"
-    )]
+    /// Remove the project's lead
+    #[arg(long, conflicts_with = "lead")]
     pub clear_lead: bool,
-    #[arg(
-        long = "clear-start-date",
-        help = "Remove the project's start date",
-        conflicts_with = "start_date"
-    )]
+    /// Remove the project's start date
+    #[arg(long, conflicts_with = "start_date")]
     pub clear_start_date: bool,
-    #[arg(
-        long = "clear-target-date",
-        help = "Remove the project's target date",
-        conflicts_with = "target_date"
-    )]
+    /// Remove the project's target date
+    #[arg(long, conflicts_with = "target_date")]
     pub clear_target_date: bool,
-    #[arg(long = "team", short = 't', help = "Team key, name, or ID; replaces the project's entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.", value_name = "team", value_parser = super::nonempty_string, conflicts_with_all = ["add_team", "remove_team"])]
+    /// Set the project's teams (key, name, or ID), replacing the current ones; repeatable
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["add_team", "remove_team"])]
     pub team: Vec<String>,
-    #[arg(long = "add-team", help = "Add a team to the project, keeping its existing teams. May be repeated.", value_name = "team", value_parser = super::nonempty_string)]
+    /// Add a team to the project; repeatable
+    #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
     pub add_team: Vec<String>,
-    #[arg(long = "remove-team", help = "Remove a team from the project, keeping its other teams. May be repeated.", value_name = "team", value_parser = super::nonempty_string)]
+    /// Remove a team from the project; repeatable
+    #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
     pub remove_team: Vec<String>,
-    #[arg(long = "label", help = "Project label; replaces the project's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.", value_name = "label", value_parser = super::nonempty_string, conflicts_with_all = ["add_label", "remove_label"])]
+    /// Set the project's labels, replacing the current ones; repeatable
+    #[arg(long, value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["add_label", "remove_label"])]
     pub label: Vec<String>,
-    #[arg(long = "add-label", help = "Add a label to the project, keeping its existing labels. May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
+    /// Add a label to the project; repeatable
+    #[arg(long, value_name = "LABEL", value_parser = NonEmptyStringValueParser::new())]
     pub add_label: Vec<String>,
-    #[arg(long = "remove-label", help = "Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
+    /// Remove a label from the project (the label itself stays); repeatable
+    #[arg(long, value_name = "LABEL", value_parser = NonEmptyStringValueParser::new())]
     pub remove_label: Vec<String>,
-    #[arg(long = "initiative", help = "Initiative ID, slug, or name; replaces the project's entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.", value_name = "initiative", value_parser = super::nonempty_string, conflicts_with_all = ["add_initiative", "remove_initiative"])]
+    /// Set the project's initiatives (ID, slug, or name), replacing the current ones; repeatable
+    #[arg(long, value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["add_initiative", "remove_initiative"])]
     pub initiative: Vec<String>,
-    #[arg(long = "add-initiative", help = "Add the project to an initiative, keeping its existing initiatives. May be repeated.", value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Add the project to an initiative; repeatable
+    #[arg(long, value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
     pub add_initiative: Vec<String>,
-    #[arg(long = "remove-initiative", help = "Remove the project from an initiative, keeping its other initiatives (does not delete the initiative). May be repeated.", value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Remove the project from an initiative (the initiative itself stays); repeatable
+    #[arg(long, value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
     pub remove_initiative: Vec<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectDelete {
-    #[arg(value_name = "projectId")]
+    /// Project ID, slug, or name
+    #[arg(value_name = "PROJECT")]
     pub project_id: String,
-    #[arg(long = "force", short = 'f', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short)]
     pub force: bool,
 }
 
@@ -225,37 +221,36 @@ pub struct ProjectComment {
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectCommentCommand {
-    #[command(
-        name = "add",
-        about = "Add a comment or reply to a project's discussion (by ID, slug, or name)",
-        long_about = "Add a comment or reply to a project's discussion (by ID, slug, or name)\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Comment on a project, or reply to a comment
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Add(ProjectCommentAdd),
-    #[command(
-        name = "list",
-        about = "List comments on a project (by ID, slug, or name)"
-    )]
+    /// List a project's comments
     List(ProjectCommentList),
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectCommentAdd {
-    #[arg(value_name = "project")]
+    /// Project ID, slug, or name
     pub project: String,
-    #[arg(long = "body", short = 'b', help = "Comment body text", value_name = "text", value_parser = super::nonempty_string)]
+    /// Comment text, in Markdown
+    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read comment body from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the comment from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub body_file: Option<String>,
-    #[arg(long = "parent", short = 'p', visible_aliases = ["reply-to"], help = "Reply to a top-level comment by ID (the reply joins that thread)", value_name = "commentId", value_parser = super::nonempty_string)]
+    /// Reply to this top-level comment (by ID)
+    #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectCommentList {
-    #[arg(value_name = "project")]
+    /// Project ID, slug, or name
     pub project: String,
-    #[arg(long = "limit", help = "Maximum number of comments to fetch (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of comments to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }

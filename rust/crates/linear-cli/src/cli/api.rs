@@ -1,21 +1,24 @@
 use clap::Args;
+use clap::builder::NonEmptyStringValueParser;
 
 #[derive(Debug, Args)]
 pub struct Api {
-    #[arg(value_name = "graphqlDocument")]
+    /// GraphQL query or mutation; read from stdin when omitted
+    #[arg(value_name = "DOCUMENT")]
     pub graphql_document: Option<String>,
-    #[arg(long = "variable", help = "Variable in key=value format (coerces booleans, numbers, null; @file reads from path)", value_name = "variable", value_parser = super::variable_assignment)]
+    /// Set a variable; repeatable
+    ///
+    /// A value that looks like a boolean, number, or null is sent as one, and
+    /// `@path` reads the value from a file.
+    #[arg(long, value_name = "KEY=VALUE", value_parser = super::variable_assignment)]
     pub variable: Vec<super::VariableAssignment>,
-    #[arg(long = "variables-json", help = "JSON object of variables (merged with --variable, which takes precedence)", value_name = "json", value_parser = super::nonempty_string)]
+    /// Variables as a JSON object; --variable takes precedence
+    #[arg(long, value_name = "JSON", value_parser = NonEmptyStringValueParser::new())]
     pub variables_json: Option<String>,
-    #[arg(
-        long = "paginate",
-        help = "Auto-paginate a single connection field using cursor pagination"
-    )]
+    /// Follow the cursor of the one connection in the response and print every page
+    #[arg(long)]
     pub paginate: bool,
-    #[arg(
-        long = "silent",
-        help = "Suppress response output (exit code still reflects errors)"
-    )]
+    /// Print nothing; the exit status still reports errors
+    #[arg(long)]
     pub silent: bool,
 }

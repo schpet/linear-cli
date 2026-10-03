@@ -1,5 +1,8 @@
 use chrono::{DateTime, NaiveDate, Utc};
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum};
+
+use super::LINEAR_MARKDOWN;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -10,64 +13,59 @@ pub struct Issue {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
-    #[command(name = "id", about = "Print the issue based on the current git branch")]
-    Id(IssueId),
-    #[command(name = "mine", about = "List your issues", visible_aliases = ["list", "l"])]
+    /// List your issues
+    #[command(visible_aliases = ["list", "l"])]
     Mine(IssueMine),
-    #[command(name = "query", about = "Query issues with structured filters", visible_aliases = ["q"])]
+    /// Find issues by filters or full-text search
+    #[command(visible_alias = "q")]
     Query(IssueQuery),
-    #[command(name = "title", about = "Print the issue title")]
-    Title(IssueTitle),
-    #[command(name = "start", about = "Start working on an issue")]
-    Start(IssueStart),
-    #[command(name = "view", about = "View issue details (default) or open in browser/app", visible_aliases = ["v"])]
+    /// Show an issue
+    #[command(visible_alias = "v")]
     View(IssueView),
-    #[command(name = "url", about = "Print the issue URL")]
-    Url(IssueUrl),
-    #[command(
-        name = "describe",
-        about = "Print the issue title and Linear-issue trailer"
-    )]
-    Describe(IssueDescribe),
-    #[command(
-        name = "commits",
-        about = "Show all commits for a Linear issue (jj only)"
-    )]
-    Commits(IssueCommits),
-    #[command(name = "pull-request", about = "Create a GitHub pull request with issue details", visible_aliases = ["pr"])]
-    PullRequest(IssuePullRequest),
-    #[command(
-        name = "archive",
-        about = "Archive an issue",
-        long_about = "Archive an issue\n\nLinear archives closed issues on its own, and its docs say \"archiving happens automatically with no option to manually archive items\". Prefer closing (issue update --state) and letting auto-archive run, or issue delete to trash. This command calls the issueArchive mutation, which the Linear app and its official MCP server do not expose; archived issues drop out of list, query, and search results unless --include-archived is passed. See https://linear.app/docs/delete-archive-issues"
-    )]
-    Archive(IssueArchive),
-    #[command(name = "delete", about = "Delete an issue", visible_aliases = ["d"])]
-    Delete(IssueDelete),
-    #[command(
-        name = "create",
-        about = "Create a linear issue",
-        long_about = "Create a linear issue\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Create an issue
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Create(IssueCreate),
-    #[command(
-        name = "update",
-        about = "Update a linear issue",
-        long_about = "Update a linear issue\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Update an issue
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Update(IssueUpdate),
-    #[command(name = "comment", about = "Manage issue comments")]
+    /// Delete an issue (moves it to the trash)
+    #[command(visible_alias = "d")]
+    Delete(IssueDelete),
+    /// Archive an issue
+    ///
+    /// Linear archives closed issues on its own, so prefer closing an issue
+    /// (`issue update --state`) and letting auto-archive run, or `issue delete`
+    /// to trash it. Archived issues drop out of list, query, and search results
+    /// unless --include-archived is passed. See
+    /// https://linear.app/docs/delete-archive-issues
+    Archive(IssueArchive),
+    /// Start an issue: switch to its branch and mark it started
+    Start(IssueStart),
+    /// Print the issue ID of the current branch or jj change
+    Id(IssueId),
+    /// Print an issue's title
+    Title(IssueTitle),
+    /// Print an issue's URL
+    Url(IssueUrl),
+    /// Print an issue's title and a Linear-issue trailer, for commit messages
+    Describe(IssueDescribe),
+    /// List the commits that reference an issue (jj only)
+    Commits(IssueCommits),
+    /// Open a GitHub pull request for an issue
+    #[command(visible_alias = "pr")]
+    PullRequest(IssuePullRequest),
+    /// Comment on an issue
     Comment(IssueComment),
-    #[command(
-        name = "attach",
-        about = "Create a sidebar link attachment on an issue (images do not render inline)"
-    )]
+    /// Upload a file and attach it to an issue
+    ///
+    /// The file is listed in the issue's sidebar; images do not render inline.
+    /// To show an image in the conversation, use `issue comment add --attach`.
     Attach(IssueAttach),
-    #[command(name = "link", about = "Link a URL to an issue")]
+    /// Link a URL to an issue
     Link(IssueLink),
-    #[command(name = "relation", about = "Manage issue relations (dependencies)")]
+    /// Manage relations between issues, like blocks and duplicates
     Relation(IssueRelation),
-    #[command(name = "agent-session", about = "Manage agent sessions for an issue")]
+    /// Inspect agent sessions on an issue
     AgentSession(IssueAgentSession),
 }
 
@@ -76,530 +74,411 @@ pub struct IssueId {}
 
 #[derive(Debug, Args)]
 pub struct IssueMine {
-    #[arg(long = "state", short = 's', help = "Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)", value_name = "state", value_parser = super::nonempty_string, default_values = ["unstarted"])]
+    /// Show issues in this state: a type (triage, backlog, unstarted, started,
+    /// completed, canceled), name, or ID; repeatable
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new(), default_values = ["unstarted"])]
     pub state: Vec<String>,
-    #[arg(
-        conflicts_with = "state",
-        long = "all-states",
-        help = "Show issues from all states"
-    )]
+    /// Show issues in every state
+    #[arg(long, conflicts_with = "state")]
     pub all_states: bool,
-    #[arg(
-        long = "sort",
-        help = "Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)",
-        value_name = "sort"
-    )]
+    /// Sort order [default: the issue_sort setting, or priority]
+    #[arg(long)]
     pub sort: Option<crate::config::IssueSort>,
-    #[arg(long = "team", help = "Team key, name, or ID to list issues for (if not your default team)", value_name = "team", value_parser = super::nonempty_string)]
+    /// Show this team's issues (key, name, or ID); defaults to the configured team
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    /// Show only this project's issues (ID, slug, or name)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
-    #[arg(conflicts_with_all = ["project", "milestone"], long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]
+    /// Show only issues in projects with this project label
+    #[arg(long, value_name = "LABEL", conflicts_with_all = ["project", "milestone"], value_parser = NonEmptyStringValueParser::new())]
     pub project_label: Option<String>,
-    #[arg(long = "cycle", help = "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1", value_name = "cycle", value_parser = super::nonempty_string)]
+    /// Show only this cycle's issues: a name, number, `active`, `next`,
+    /// `previous`, or an offset like +1
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
-    #[arg(long = "milestone", help = "Filter by project milestone (UUID, or name when --project is set)", value_name = "milestone", value_parser = super::nonempty_string)]
+    /// Show only this milestone's issues (ID, or name with --project)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub milestone: Option<String>,
-    #[arg(long = "label", short = 'l', help = "Filter by label name (can be repeated for multiple labels)", value_name = "label", value_parser = super::nonempty_string)]
+    /// Show only issues with this label; repeat to require several
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
-    #[arg(long = "limit", help = "Maximum number of issues to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "50")]
+    /// Maximum number of issues to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "50")]
     pub limit: super::Limit,
-    #[arg(long = "created-after", help = "Filter issues created after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    /// Show only issues created after this date (YYYY-MM-DD or RFC 3339)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
     pub created_after: Option<DateTime<Utc>>,
-    #[arg(long = "updated-after", help = "Filter issues updated after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    /// Show only issues updated after this date (YYYY-MM-DD or RFC 3339)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
     pub updated_after: Option<DateTime<Utc>>,
-    #[arg(long = "assignee", help = "Removed: use `issue query --assignee` instead", hide = true, value_name = "assignee", value_parser = super::nonempty_string)]
+    #[arg(long, hide = true, value_parser = NonEmptyStringValueParser::new())]
     pub assignee: Option<String>,
-    #[arg(
-        long = "all-assignees",
-        short = 'A',
-        help = "Removed: use `issue query --all-assignees` instead",
-        hide = true
-    )]
+    #[arg(long, short = 'A', hide = true)]
     pub all_assignees: bool,
-    #[arg(
-        long = "unassigned",
-        short = 'U',
-        help = "Removed: use `issue query --unassigned` instead",
-        hide = true
-    )]
+    #[arg(long, short = 'U', hide = true)]
     pub unassigned: bool,
-    #[arg(long = "web", short = 'w', help = "Open in web browser")]
+    /// Open the list in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
+    /// Open the list in the Linear app
+    #[arg(long, short)]
     pub app: bool,
-    #[arg(long = "no-pager", help = "Disable automatic paging for long output")]
+    /// Do not page long output
+    #[arg(long)]
     pub no_pager: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueQuery {
-    #[arg(long = "search", help = "Full-text search term (cannot be combined with --milestone)", value_name = "term", value_parser = super::nonempty_string, conflicts_with = "milestone")]
+    /// Search issue titles and descriptions for this text
+    #[arg(long, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new(), conflicts_with = "milestone")]
     pub search: Option<String>,
-    #[arg(
-        requires = "search",
-        long = "search-comments",
-        help = "Also search inside issue comments (requires --search)"
-    )]
+    /// Also search comments (with --search)
+    #[arg(long, requires = "search")]
     pub search_comments: bool,
-    #[arg(long = "team", help = "Filter by team key, name, or ID (can be repeated for multiple teams)", value_name = "team", value_parser = super::nonempty_string)]
+    /// Show this team's issues (key, name, or ID); repeatable [default: the configured team]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Vec<String>,
-    #[arg(
-        conflicts_with = "team",
-        long = "all-teams",
-        help = "Query across all teams"
-    )]
+    /// Show every team's issues
+    #[arg(long, conflicts_with = "team")]
     pub all_teams: bool,
-    #[arg(long = "state", short = 's', help = "Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)", value_name = "state", value_parser = super::nonempty_string)]
+    /// Show issues in this state: a type (triage, backlog, unstarted, started,
+    /// completed, canceled), name, or ID; repeatable
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub state: Vec<String>,
-    #[arg(
-        conflicts_with = "state",
-        long = "all-states",
-        help = "Show issues from all states (this is the default)"
-    )]
+    #[arg(long, conflicts_with = "state", hide = true)]
     pub all_states: bool,
-    #[arg(long = "assignee", help = "Filter by assignee (username)", value_name = "assignee", value_parser = super::nonempty_string)]
+    /// Show only issues assigned to this user (username, email, name, or @me)
+    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
     pub assignee: Option<String>,
-    #[arg(
-        conflicts_with_all = ["assignee", "unassigned"],
-        long = "all-assignees",
-        short = 'A',
-        help = "Show issues for all assignees (this is the default)"
-    )]
+    #[arg(long, short = 'A', conflicts_with_all = ["assignee", "unassigned"], hide = true)]
     pub all_assignees: bool,
-    #[arg(
-        conflicts_with = "assignee",
-        long = "unassigned",
-        short = 'U',
-        help = "Show only unassigned issues"
-    )]
+    /// Show only unassigned issues
+    #[arg(long, short = 'U', conflicts_with = "assignee")]
     pub unassigned: bool,
-    #[arg(
-        conflicts_with = "search",
-        long = "sort",
-        help = "Sort order: manual or priority (default: priority, not available with --search)",
-        value_name = "sort"
-    )]
+    /// Sort order, except with --search [default: the issue_sort setting, or priority]
+    #[arg(long, conflicts_with = "search")]
     pub sort: Option<crate::config::IssueSort>,
-    #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    /// Show only this project's issues (ID, slug, or name)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
-    #[arg(conflicts_with_all = ["project", "milestone"], long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]
+    /// Show only issues in projects with this project label
+    #[arg(long, value_name = "LABEL", conflicts_with_all = ["project", "milestone"], value_parser = NonEmptyStringValueParser::new())]
     pub project_label: Option<String>,
-    #[arg(long = "cycle", help = "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1", value_name = "cycle", value_parser = super::nonempty_string)]
+    /// Show only this cycle's issues: a name, number, `active`, `next`,
+    /// `previous`, or an offset like +1
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
-    #[arg(long = "milestone", help = "Filter by project milestone (UUID, or name when --project is set)", value_name = "milestone", value_parser = super::nonempty_string)]
+    /// Show only this milestone's issues (ID, or name with --project)
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub milestone: Option<String>,
-    #[arg(long = "label", short = 'l', help = "Filter by label name (can be repeated for multiple labels)", value_name = "label", value_parser = super::nonempty_string)]
+    /// Show only issues with this label; repeat to require several
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
-    #[arg(long = "limit", help = "Maximum number of issues to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "50")]
+    /// Maximum number of issues to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "50")]
     pub limit: super::Limit,
-    #[arg(long = "created-after", help = "Filter issues created after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    /// Show only issues created after this date (YYYY-MM-DD or RFC 3339)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
     pub created_after: Option<DateTime<Utc>>,
-    #[arg(long = "updated-after", help = "Filter issues updated after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
+    /// Show only issues updated after this date (YYYY-MM-DD or RFC 3339)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date_or_datetime)]
     pub updated_after: Option<DateTime<Utc>>,
-    #[arg(long = "include-archived", help = "Include archived issues")]
+    /// Include archived issues
+    #[arg(long)]
     pub include_archived: bool,
-    #[arg(long = "json", short = 'j', help = "Output results as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(long = "no-pager", help = "Disable automatic paging for long output")]
+    /// Do not page long output
+    #[arg(long)]
     pub no_pager: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueTitle {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueStart {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; asked for when omitted
+    #[arg(value_name = "ISSUE", value_parser = NonEmptyStringValueParser::new())]
     pub issue_id: Option<String>,
-    #[arg(
-        long = "all-assignees",
-        short = 'A',
-        help = "Show issues for all assignees"
-    )]
+    /// Offer issues of every assignee in the picker
+    #[arg(long, short = 'A')]
     pub all_assignees: bool,
-    #[arg(long = "unassigned", short = 'U', help = "Show only unassigned issues")]
+    /// Offer only unassigned issues in the picker
+    #[arg(long, short = 'U')]
     pub unassigned: bool,
-    #[arg(
-        long = "from-ref",
-        short = 'f',
-        help = "Git ref to create new branch from",
-        value_name = "fromRef"
-    )]
+    /// Git ref to create the branch from
+    #[arg(long, short, value_name = "REF")]
     pub from_ref: Option<String>,
-    #[arg(
-        long = "branch",
-        short = 'b',
-        help = "Custom branch name to use instead of the issue identifier",
-        value_name = "branch"
-    )]
+    /// Branch name to use instead of the issue's
+    #[arg(long, short)]
     pub branch: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueView {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(long = "web", short = 'w', help = "Open in web browser")]
+    /// Open the issue in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
+    /// Open the issue in the Linear app
+    #[arg(long, short)]
     pub app: bool,
-    #[arg(long = "no-comments", help = "Exclude comments from the output")]
+    /// Leave out comments
+    #[arg(long)]
     pub no_comments: bool,
-    #[arg(
-        long = "show-resolved-threads",
-        help = "Include resolved comment threads in the output"
-    )]
+    /// Include resolved comment threads
+    #[arg(long)]
     pub show_resolved_threads: bool,
-    #[arg(long = "no-pager", help = "Disable automatic paging for long output")]
+    /// Do not page long output
+    #[arg(long)]
     pub no_pager: bool,
-    #[arg(long = "json", short = 'j', help = "Output issue data as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(
-        long = "no-download",
-        help = "Keep remote URLs instead of downloading files"
-    )]
+    /// Keep remote image and file URLs instead of downloading them
+    #[arg(long)]
     pub no_download: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueUrl {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueDescribe {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(long = "references", short = 'r', visible_aliases = ["ref"], help = "Use 'References' instead of 'Fixes' for the Linear issue link")]
+    /// Write "References" instead of "Fixes" in the trailer
+    #[arg(long, short, visible_alias = "ref")]
     pub references: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueCommits {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current change's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct IssuePullRequest {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(
-        long = "base",
-        help = "The branch into which you want your code merged",
-        value_name = "branch"
-    )]
+    /// Branch to merge into
+    #[arg(long, value_name = "BRANCH")]
     pub base: Option<String>,
-    #[arg(long = "draft", help = "Create the pull request as a draft")]
+    /// Open the pull request as a draft
+    #[arg(long)]
     pub draft: bool,
-    #[arg(
-        long = "title",
-        short = 't',
-        help = "Optional title for the pull request (Linear issue ID will be prefixed)",
-        value_name = "title"
-    )]
+    /// Pull request title, after the issue ID [default: the issue title]
+    #[arg(long, short)]
     pub title: Option<String>,
-    #[arg(
-        long = "web",
-        help = "Open the pull request in the browser after creating it"
-    )]
+    /// Open the pull request in the browser
+    #[arg(long)]
     pub web: bool,
-    #[arg(
-        long = "head",
-        help = "The branch that contains commits for your pull request",
-        value_name = "branch"
-    )]
+    /// Branch that holds the commits
+    #[arg(long, value_name = "BRANCH")]
     pub head: Option<String>,
-    #[arg(
-        long = "template",
-        short = 'T',
-        help = "Start the pull request body from this template file (the Linear issue URL is appended)",
-        value_name = "file"
-    )]
+    /// Start the body from this template file; the issue URL is appended
+    #[arg(long, short = 'T', value_name = "FILE")]
     pub template: Option<String>,
-    #[arg(
-        long = "no-template",
-        help = "Ignore the pr_template config option for this pull request"
-    )]
+    /// Ignore the pr_template setting
+    #[arg(long)]
     pub no_template: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueArchive {
-    #[arg(value_name = "issueId", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub issue_id: Option<String>,
-    #[arg(long = "confirm", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub confirm: bool,
-    #[arg(long = "bulk", help = "Archive multiple issues by identifier (e.g., TC-123 TC-124)", value_name = "ids", num_args = 0.., value_parser = super::nonempty_string)]
+    /// Archive several issues (like ENG-1 ENG-2)
+    #[arg(long, value_name = "ISSUES", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
     pub bulk: Option<Vec<String>>,
-    #[arg(long = "bulk-file", help = "Read issue identifiers from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
+    /// Read issue IDs from a file, one per line
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub bulk_file: Option<String>,
-    #[arg(long = "bulk-stdin", help = "Read issue identifiers from stdin")]
+    /// Read issue IDs from stdin, one per line
+    #[arg(long)]
     pub bulk_stdin: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueDelete {
-    #[arg(value_name = "issueId", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub issue_id: Option<String>,
-    #[arg(long = "confirm", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub confirm: bool,
-    #[arg(long = "bulk", help = "Delete multiple issues by identifier (e.g., TC-123 TC-124)", value_name = "ids", num_args = 0.., value_parser = super::nonempty_string)]
+    /// Delete several issues (like ENG-1 ENG-2)
+    #[arg(long, value_name = "ISSUES", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
     pub bulk: Option<Vec<String>>,
-    #[arg(long = "bulk-file", help = "Read issue identifiers from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
+    /// Read issue IDs from a file, one per line
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub bulk_file: Option<String>,
-    #[arg(long = "bulk-stdin", help = "Read issue identifiers from stdin")]
+    /// Read issue IDs from stdin, one per line
+    #[arg(long)]
     pub bulk_stdin: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueCreate {
-    #[arg(long = "start", help = "Start the issue after creation")]
-    pub start: bool,
-    #[arg(
-        long = "assignee",
-        short = 'a',
-        help = "Assign the issue to 'self' or someone (by username or name)",
-        value_name = "assignee"
-    )]
-    pub assignee: Option<String>,
-    #[arg(
-        long = "due-date",
-        help = "Due date of the issue (YYYY-MM-DD)",
-        value_name = "dueDate",
-        value_parser = super::values::date
-    )]
-    pub due_date: Option<NaiveDate>,
-    #[arg(
-        long = "parent",
-        help = "Parent issue (if any) as a team_number code",
-        value_name = "parent"
-    )]
-    pub parent: Option<String>,
-    #[arg(
-        long = "priority",
-        short = 'p',
-        help = "Priority of the issue (or its number: 0 none, 1 urgent to 4 low)",
-        value_name = "priority",
-        ignore_case = true
-    )]
-    pub priority: Option<super::values::Priority>,
-    #[arg(long = "estimate", help = "Points estimate of the issue", value_name = "estimate", value_parser = super::values::estimate, allow_negative_numbers = true)]
-    pub estimate: Option<i32>,
-    #[arg(
-        long = "description",
-        short = 'd',
-        help = "Description of the issue",
-        value_name = "description"
-    )]
-    pub description: Option<String>,
-    #[arg(
-        long = "description-file",
-        help = "Read description from a file (preferred for markdown content)",
-        value_name = "path"
-    )]
-    pub description_file: Option<String>,
-    #[arg(
-        long = "label",
-        short = 'l',
-        help = "Issue label associated with the issue. May be repeated.",
-        value_name = "label"
-    )]
-    pub label: Vec<String>,
-    #[arg(
-        long = "team",
-        help = "Team (key, name, or ID) for the issue, if not your default team",
-        value_name = "team"
-    )]
-    pub team: Option<String>,
-    #[arg(
-        long = "project",
-        help = "Project for the issue (UUID, slug ID, or name)",
-        value_name = "project"
-    )]
-    pub project: Option<String>,
-    #[arg(
-        long = "state",
-        short = 's',
-        help = "Workflow state for the issue (by name or type)",
-        value_name = "state"
-    )]
-    pub state: Option<String>,
-    #[arg(
-        long = "milestone",
-        help = "Project milestone (UUID, or name when --project is set)",
-        value_name = "milestone"
-    )]
-    pub milestone: Option<String>,
-    #[arg(
-        long = "cycle",
-        help = "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives)",
-        value_name = "cycle"
-    )]
-    pub cycle: Option<String>,
-    #[arg(
-        long = "no-use-default-template",
-        help = "Do not use default template for the issue"
-    )]
-    pub no_use_default_template: bool,
-    #[arg(
-        long = "template",
-        help = "Issue template to apply, by name or ID (the team's templates plus workspace ones). Takes the place of the team's default template. The template fills in anything you do not pass: explicit flags override it, --label merges with the template's labels, and --description replaces the template body (omit it to keep the body). Makes --title optional.",
-        value_name = "template"
-    )]
-    pub template: Option<String>,
-    #[arg(long = "no-interactive", help = "Disable interactive prompts")]
-    pub no_interactive: bool,
-    #[arg(
-        long = "title",
-        short = 't',
-        help = "Title of the issue",
-        value_name = "title"
-    )]
+    /// Issue title
+    #[arg(long, short)]
     pub title: Option<String>,
+    /// Issue description, in Markdown
+    #[arg(long, short)]
+    pub description: Option<String>,
+    /// Read the description from a Markdown file
+    #[arg(long, value_name = "FILE")]
+    pub description_file: Option<String>,
+    /// Team (key, name, or ID); defaults to the configured team
+    #[arg(long)]
+    pub team: Option<String>,
+    /// Assignee: a username, email, name, or self
+    #[arg(long, short, value_name = "USER")]
+    pub assignee: Option<String>,
+    /// Workflow state, by name or type
+    #[arg(long, short)]
+    pub state: Option<String>,
+    /// Priority, by name or number (0 none, 1 urgent to 4 low)
+    #[arg(long, short, ignore_case = true)]
+    pub priority: Option<super::values::Priority>,
+    /// Estimate, in points
+    #[arg(long, value_name = "POINTS", value_parser = super::values::estimate, allow_negative_numbers = true)]
+    pub estimate: Option<i32>,
+    /// Label; repeat for several labels
+    #[arg(long, short)]
+    pub label: Vec<String>,
+    /// Due date (YYYY-MM-DD)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date)]
+    pub due_date: Option<NaiveDate>,
+    /// Parent issue, like ENG-123
+    #[arg(long, value_name = "ISSUE")]
+    pub parent: Option<String>,
+    /// Project (ID, slug, or name)
+    #[arg(long)]
+    pub project: Option<String>,
+    /// Project milestone (ID, or name with --project)
+    #[arg(long)]
+    pub milestone: Option<String>,
+    /// Cycle: a name, number, `active`, `next`, `previous`, or an offset like
+    /// +1 (write --cycle=-1 for a negative offset)
+    #[arg(long)]
+    pub cycle: Option<String>,
+    /// Start from this issue template (name or ID) instead of the team's default
+    ///
+    /// The team's templates and workspace templates are searched. The template
+    /// fills in anything you do not pass: flags override it, --label adds to
+    /// its labels, and --description replaces its body. With a template,
+    /// --title is optional.
+    #[arg(long)]
+    pub template: Option<String>,
+    /// Do not apply the team's default template
+    #[arg(long)]
+    pub no_use_default_template: bool,
+    /// Start the issue after creating it
+    #[arg(long)]
+    pub start: bool,
+    /// Do not prompt for missing values
+    #[arg(long)]
+    pub no_interactive: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueUpdate {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(
-        long = "assignee",
-        short = 'a',
-        help = "Assign the issue to 'self' or someone (by username or name)",
-        value_name = "assignee"
-    )]
-    pub assignee: Option<String>,
-    #[arg(
-        long = "unassign",
-        help = "Clear the issue's assignee (cannot be combined with --assignee)"
-    )]
-    pub unassign: bool,
-    #[arg(
-        long = "due-date",
-        help = "Due date of the issue (YYYY-MM-DD). Use --clear-due-date to remove it",
-        value_name = "dueDate",
-        value_parser = super::values::date
-    )]
-    pub due_date: Option<NaiveDate>,
-    #[arg(
-        long = "clear-due-date",
-        help = "Remove the issue's due date (cannot be combined with --due-date)"
-    )]
-    pub clear_due_date: bool,
-    #[arg(
-        long = "parent",
-        help = "Parent issue (if any) as a team_number code. Use --clear-parent to remove it",
-        value_name = "parent"
-    )]
-    pub parent: Option<String>,
-    #[arg(
-        long = "clear-parent",
-        help = "Remove the issue's parent (cannot be combined with --parent)"
-    )]
-    pub clear_parent: bool,
-    #[arg(
-        long = "priority",
-        short = 'p',
-        help = "Priority of the issue (or its number: 0 none, 1 urgent to 4 low)",
-        value_name = "priority",
-        ignore_case = true
-    )]
-    pub priority: Option<super::values::Priority>,
-    #[arg(long = "estimate", help = "Points estimate of the issue. Use --clear-estimate to remove it", value_name = "estimate", value_parser = super::values::estimate, allow_negative_numbers = true)]
-    pub estimate: Option<i32>,
-    #[arg(
-        long = "clear-estimate",
-        help = "Remove the issue's estimate (cannot be combined with --estimate)"
-    )]
-    pub clear_estimate: bool,
-    #[arg(
-        long = "description",
-        short = 'd',
-        help = "Description of the issue",
-        value_name = "description"
-    )]
-    pub description: Option<String>,
-    #[arg(
-        long = "description-file",
-        help = "Read description from a file (preferred for markdown content)",
-        value_name = "path"
-    )]
-    pub description_file: Option<String>,
-    #[arg(
-        long = "label",
-        short = 'l',
-        help = "Issue label associated with the issue; replaces the issue's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.",
-        value_name = "label"
-    )]
-    pub label: Vec<String>,
-    #[arg(
-        long = "add-label",
-        help = "Add a label to the issue, keeping its existing labels. May be repeated.",
-        value_name = "label"
-    )]
-    pub add_label: Vec<String>,
-    #[arg(
-        long = "remove-label",
-        help = "Remove a label from the issue, keeping its other labels (does not delete the label from the team). May be repeated.",
-        value_name = "label"
-    )]
-    pub remove_label: Vec<String>,
-    #[arg(
-        long = "team",
-        help = "Team (key, name, or ID) to move the issue to",
-        value_name = "team"
-    )]
-    pub team: Option<String>,
-    #[arg(
-        long = "project",
-        help = "Project to assign the issue to (UUID, slug ID, or name). Use --clear-project to remove it",
-        value_name = "project"
-    )]
-    pub project: Option<String>,
-    #[arg(
-        long = "clear-project",
-        help = "Remove the issue from its project (cannot be combined with --project or --milestone)"
-    )]
-    pub clear_project: bool,
-    #[arg(
-        long = "state",
-        short = 's',
-        help = "Workflow state for the issue (by name or type)",
-        value_name = "state"
-    )]
-    pub state: Option<String>,
-    #[arg(
-        long = "milestone",
-        help = "Project milestone (UUID, or name when --project is set or the issue already has a project). Use --clear-milestone to remove it",
-        value_name = "milestone"
-    )]
-    pub milestone: Option<String>,
-    #[arg(
-        long = "clear-milestone",
-        help = "Remove the issue from its project milestone (cannot be combined with --milestone)"
-    )]
-    pub clear_milestone: bool,
-    #[arg(
-        long = "cycle",
-        help = "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue from its cycle",
-        value_name = "cycle"
-    )]
-    pub cycle: Option<String>,
-    #[arg(long = "clear-cycle", help = "Remove the issue from its cycle")]
-    pub clear_cycle: bool,
-    #[arg(
-        long = "title",
-        short = 't',
-        help = "Title of the issue",
-        value_name = "title"
-    )]
+    /// New title
+    #[arg(long, short)]
     pub title: Option<String>,
+    /// New description, in Markdown
+    #[arg(long, short)]
+    pub description: Option<String>,
+    /// Read the new description from a Markdown file
+    #[arg(long, value_name = "FILE")]
+    pub description_file: Option<String>,
+    /// Move the issue to this team (key, name, or ID)
+    #[arg(long)]
+    pub team: Option<String>,
+    /// Assignee: a username, email, name, or self
+    #[arg(long, short, value_name = "USER")]
+    pub assignee: Option<String>,
+    /// Remove the assignee
+    #[arg(long)]
+    pub unassign: bool,
+    /// Workflow state, by name or type
+    #[arg(long, short)]
+    pub state: Option<String>,
+    /// Priority, by name or number (0 none, 1 urgent to 4 low)
+    #[arg(long, short, ignore_case = true)]
+    pub priority: Option<super::values::Priority>,
+    /// Estimate, in points
+    #[arg(long, value_name = "POINTS", value_parser = super::values::estimate, allow_negative_numbers = true)]
+    pub estimate: Option<i32>,
+    /// Remove the estimate
+    #[arg(long)]
+    pub clear_estimate: bool,
+    /// Set the labels, replacing the current ones; repeatable
+    #[arg(long, short)]
+    pub label: Vec<String>,
+    /// Add a label, keeping the others; repeatable
+    #[arg(long, value_name = "LABEL")]
+    pub add_label: Vec<String>,
+    /// Remove a label, keeping the others; repeatable
+    #[arg(long, value_name = "LABEL")]
+    pub remove_label: Vec<String>,
+    /// Due date (YYYY-MM-DD)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date)]
+    pub due_date: Option<NaiveDate>,
+    /// Remove the due date
+    #[arg(long)]
+    pub clear_due_date: bool,
+    /// Parent issue, like ENG-123
+    #[arg(long, value_name = "ISSUE")]
+    pub parent: Option<String>,
+    /// Remove the parent
+    #[arg(long)]
+    pub clear_parent: bool,
+    /// Project (ID, slug, or name)
+    #[arg(long)]
+    pub project: Option<String>,
+    /// Remove the issue from its project
+    #[arg(long)]
+    pub clear_project: bool,
+    /// Project milestone (ID, or name within --project or the issue's project)
+    #[arg(long)]
+    pub milestone: Option<String>,
+    /// Remove the issue from its milestone
+    #[arg(long)]
+    pub clear_milestone: bool,
+    /// Cycle: a name, number, `active`, `next`, `previous`, or an offset like
+    /// +1 (write --cycle=-1 for a negative offset)
+    #[arg(long)]
+    pub cycle: Option<String>,
+    /// Remove the issue from its cycle
+    #[arg(long)]
+    pub clear_cycle: bool,
 }
 
 #[derive(Debug, Args)]
@@ -611,95 +490,106 @@ pub struct IssueComment {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueCommentCommand {
-    #[command(
-        name = "add",
-        about = "Add a comment or reply; images uploaded with --attach render inline",
-        long_about = "Add a comment or reply; images uploaded with --attach render inline\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Comment on an issue, or reply to a comment
+    ///
+    /// Images uploaded with --attach render inline.
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Add(IssueCommentAdd),
-    #[command(name = "delete", about = "Delete a comment")]
-    Delete(IssueCommentDelete),
-    #[command(
-        name = "update",
-        about = "Update an existing comment",
-        long_about = "Update an existing comment\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
-    Update(IssueCommentUpdate),
-    #[command(name = "list", about = "List comments for an issue")]
+    /// List an issue's comments
     List(IssueCommentList),
+    /// Edit a comment
+    #[command(after_long_help = LINEAR_MARKDOWN)]
+    Update(IssueCommentUpdate),
+    /// Delete a comment
+    Delete(IssueCommentDelete),
 }
 
 #[derive(Debug, Args)]
 pub struct IssueCommentAdd {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(long = "body", short = 'b', help = "Comment body text", value_name = "text", value_parser = super::nonempty_string)]
+    /// Comment text, in Markdown
+    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read comment body from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the comment from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub body_file: Option<String>,
-    #[arg(long = "parent", short = 'p', visible_aliases = ["reply-to"], help = "Reply to a top-level comment by ID (the reply joins that thread)", value_name = "commentId", value_parser = super::nonempty_string)]
+    /// Reply to this top-level comment (by ID)
+    #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
-    #[arg(long = "id", help = "Caller-supplied UUID for the new comment", hide = true, value_name = "uuid", value_parser = super::nonempty_string)]
+    /// ID for the new comment (a UUID you choose)
+    #[arg(long, hide = true, value_name = "UUID", value_parser = NonEmptyStringValueParser::new())]
     pub id: Option<String>,
-    #[arg(long = "attach", short = 'a', help = "Upload a file and add its Markdown link to the comment (images render inline; repeatable)", value_name = "filepath", value_parser = super::nonempty_string)]
+    /// Upload a file and link it in the comment (images render inline); repeatable
+    #[arg(long, short, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub attach: Vec<String>,
-    #[arg(
-        long = "public",
-        help = "Upload attached images to a public, unauthenticated URL (default: private, workspace-members only)"
-    )]
+    /// Make uploaded files public instead of visible to workspace members only
+    #[arg(long)]
     pub public: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueCommentDelete {
-    #[arg(value_name = "commentId")]
+    /// Comment ID
+    #[arg(value_name = "COMMENT")]
     pub comment_id: String,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueCommentUpdate {
-    #[arg(value_name = "commentId")]
+    /// Comment ID
+    #[arg(value_name = "COMMENT")]
     pub comment_id: String,
-    #[arg(long = "body", short = 'b', help = "New comment body text", value_name = "text", value_parser = super::nonempty_string)]
+    /// New text, in Markdown
+    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read comment body from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the new text from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub body_file: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueCommentList {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(long = "limit", help = "Maximum number of comments to fetch (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of comments to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueAttach {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE")]
     pub issue_id: String,
-    #[arg(value_name = "filepath")]
+    /// File to upload
+    #[arg(value_name = "FILE")]
     pub filepath: String,
-    #[arg(long = "title", short = 't', help = "Custom title for the attachment", value_name = "title", value_parser = super::nonempty_string)]
+    /// Attachment title [default: the file name]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,
-    #[arg(long = "comment", short = 'c', help = "Create a linked comment with this body; the file remains a sidebar attachment", value_name = "body", value_parser = super::nonempty_string)]
+    /// Also add a comment with this text, linked to the attachment
+    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub comment: Option<String>,
-    #[arg(
-        long = "public",
-        help = "Upload images to a public, unauthenticated URL (default: private, workspace-members only)"
-    )]
+    /// Make the upload public instead of visible to workspace members only
+    #[arg(long)]
     pub public: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueLink {
-    #[arg(value_name = "urlOrIssueId")]
+    /// Issue ID like ENG-123; or, alone, the URL to link to the current branch's issue
+    #[arg(value_name = "ISSUE|URL")]
     pub url_or_issue_id: String,
-    #[arg(value_name = "url")]
+    /// URL to link, when the issue is given first
     pub url: Option<String>,
-    #[arg(long = "title", short = 't', help = "Custom title for the link", value_name = "title", value_parser = super::nonempty_string)]
+    /// Link title
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,
 }
 
@@ -712,15 +602,15 @@ pub struct IssueRelation {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueRelationCommand {
-    #[command(name = "add", about = "Add a relation between two issues")]
+    /// Relate two issues
     Add(IssueRelationAdd),
-    #[command(name = "delete", about = "Delete a relation between two issues")]
+    /// Remove a relation between two issues
     Delete(IssueRelationDelete),
-    #[command(name = "list", about = "List relations for an issue")]
+    /// List an issue's relations
     List(IssueRelationList),
 }
 
-/// The CLI's four accepted spellings; the API direction is modeled separately.
+/// How one issue relates to another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum RelationType {
     Blocks,
@@ -742,27 +632,34 @@ impl RelationType {
 
 #[derive(Debug, Args)]
 pub struct IssueRelationAdd {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE")]
     pub issue_id: String,
-    #[arg(value_name = "relationType", value_enum, ignore_case = true)]
+    /// How ISSUE relates to RELATED
+    #[arg(value_name = "RELATION", ignore_case = true)]
     pub relation_type: RelationType,
-    #[arg(value_name = "relatedIssueId")]
+    /// The other issue
+    #[arg(value_name = "RELATED")]
     pub related_issue_id: String,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueRelationDelete {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE")]
     pub issue_id: String,
-    #[arg(value_name = "relationType", value_enum, ignore_case = true)]
+    /// How ISSUE relates to RELATED
+    #[arg(value_name = "RELATION", ignore_case = true)]
     pub relation_type: RelationType,
-    #[arg(value_name = "relatedIssueId")]
+    /// The other issue
+    #[arg(value_name = "RELATED")]
     pub related_issue_id: String,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueRelationList {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
 }
 
@@ -775,32 +672,35 @@ pub struct IssueAgentSession {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueAgentSessionCommand {
-    #[command(name = "list", about = "List agent sessions for an issue")]
+    /// List an issue's agent sessions
     List(IssueAgentSessionList),
-    #[command(name = "view", about = "View agent session details", visible_aliases = ["v"])]
+    /// Show an agent session and its activity
+    #[command(visible_alias = "v")]
     View(IssueAgentSessionView),
 }
 
 #[derive(Debug, Args)]
 pub struct IssueAgentSessionList {
-    #[arg(value_name = "issueId")]
+    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    #[arg(long = "limit", help = "Maximum number of sessions to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of sessions to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(
-        long = "status",
-        help = "Filter by session status",
-        value_name = "status"
-    )]
+    /// Show only sessions with this status
+    #[arg(long)]
     pub status: Option<super::AgentSessionStatus>,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueAgentSessionView {
-    #[arg(value_name = "sessionId")]
+    /// Agent session ID
+    #[arg(value_name = "SESSION")]
     pub session_id: String,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }

@@ -1,5 +1,8 @@
-//! Native clap grammar. Each command owns its typed arguments.
-use clap::{Command, CommandFactory, Parser, Subcommand, ValueEnum};
+//! The command-line grammar. Each command owns its typed arguments; values are
+//! parsed here, at the boundary, so commands receive checked types.
+use clap::builder::NonEmptyStringValueParser;
+use clap::{Args, Command, CommandFactory, Parser, Subcommand, ValueEnum};
+
 pub(crate) use limit::Limit;
 pub(crate) mod api;
 pub(crate) mod auth;
@@ -22,112 +25,150 @@ pub(crate) mod template;
 pub(crate) mod user;
 pub(crate) mod values;
 
+#[cfg(test)]
+mod tests;
+
+/// Shown under `--help` for commands that take Markdown text.
+const LINEAR_MARKDOWN: &str = "\
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.";
+
+const ENVIRONMENT: &str = "\
+Environment:
+  LINEAR_API_KEY            API key to use instead of a stored credential
+  LINEAR_TEAM_ID            Default team key
+  LINEAR_DEBUG=1            Show the details and causes of errors
+  LINEAR_IGNORE_ENV_FILE=1  Do not load .env files
+
+Every .linear.toml setting can also be set with a LINEAR_* variable; run
+`linear config` to write one for the current repository.";
+
+/// Work with Linear from the command line
 #[derive(Debug, Parser)]
 #[command(
     name = "linear",
     version,
     arg_required_else_help = true,
-    about = "Handy linear commands from the command line.",
-    long_about = "Handy linear commands from the command line.\n\nEnvironment Variables:\n  LINEAR_DEBUG=1              Show full error details including stack traces\n  LINEAR_IGNORE_ENV_FILE=1    Skip loading .env files"
+    max_term_width = 100,
+    after_long_help = ENVIRONMENT,
 )]
 pub struct Cli {
-    #[arg(long, global = true, value_name = "slug", value_parser = nonempty_string, help = "Target workspace (uses credentials)")]
-    pub workspace: Option<String>,
+    #[command(flatten)]
+    pub global: GlobalArgs,
     #[command(subcommand)]
     pub command: RootCommand,
 }
 
+/// Options every command accepts.
+#[derive(Debug, Args)]
+#[command(next_help_heading = "Global options")]
+pub struct GlobalArgs {
+    /// Workspace to use, by the name its credential is stored under
+    #[arg(
+        long,
+        global = true,
+        value_name = "SLUG",
+        value_parser = NonEmptyStringValueParser::new(),
+        display_order = 1000
+    )]
+    pub workspace: Option<String>,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
-    #[command(name = "auth", about = "Manage Linear authentication")]
-    Auth(auth::Auth),
-    #[command(name = "issue", about = "Manage Linear issues", visible_aliases = ["i"])]
+    /// Manage issues
+    #[command(visible_alias = "i")]
     Issue(issue::Issue),
-    #[command(name = "team", about = "Manage Linear teams", visible_aliases = ["t"])]
-    Team(team::Team),
-    #[command(name = "user", about = "Manage Linear users", visible_aliases = ["u"])]
-    User(user::User),
-    #[command(name = "project", about = "Manage Linear projects", visible_aliases = ["p"])]
+    /// Manage projects
+    #[command(visible_alias = "p")]
     Project(project::Project),
-    #[command(name = "project-update", about = "Manage project status updates", visible_aliases = ["pu"])]
+    /// Post and list project status updates
+    #[command(visible_alias = "pu")]
     ProjectUpdate(project_update::ProjectUpdate),
-    #[command(name = "cycle", about = "Manage Linear team cycles", visible_aliases = ["cy"])]
-    Cycle(cycle::Cycle),
-    #[command(name = "milestone", about = "Manage Linear project milestones", visible_aliases = ["m"])]
+    /// Manage project milestones
+    #[command(visible_alias = "m")]
     Milestone(milestone::Milestone),
-    #[command(name = "initiative", about = "Manage Linear initiatives", visible_aliases = ["init"])]
+    /// View team cycles
+    #[command(visible_alias = "cy")]
+    Cycle(cycle::Cycle),
+    /// Manage initiatives
+    #[command(visible_alias = "init")]
     Initiative(initiative::Initiative),
-    #[command(name = "initiative-update", about = "Manage initiative status updates (timeline posts)", visible_aliases = ["iu"])]
+    /// Post and list initiative status updates
+    #[command(visible_alias = "iu")]
     InitiativeUpdate(initiative_update::InitiativeUpdate),
-    #[command(name = "label", about = "Manage Linear issue labels", visible_aliases = ["l"])]
-    Label(label::Label),
-    #[command(
-        name = "template",
-        about = "Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`."
-    )]
-    Template(template::Template),
-    #[command(name = "document", about = "Manage Linear documents", visible_aliases = ["docs", "doc"])]
+    /// Manage documents
+    #[command(visible_aliases = ["docs", "doc"])]
     Document(document::Document),
-    #[command(
-        name = "completions",
-        about = "Generate shell completions.",
-        long_about = "Generate shell completions.\n\nLoad them from your shell's startup file:\n\n  bash (~/.bashrc):                   source <(linear completions bash)\n  zsh (~/.zshrc):                     source <(linear completions zsh)\n  fish (~/.config/fish/config.fish):  linear completions fish | source\n  elvish (rc.elv):                    eval (linear completions elvish | slurp)\n  powershell ($PROFILE):              linear completions powershell | Out-String | Invoke-Expression\n\nThe script asks linear for candidates as you type, so load it at shell startup rather than saving it to a file."
-    )]
-    Completions(completions::Completions),
-    #[command(name = "config", about = "Generate .linear.toml configuration, asking for what the flags leave out", visible_aliases = ["configure"])]
+    /// Manage issue labels
+    #[command(visible_alias = "l")]
+    Label(label::Label),
+    /// Browse issue, project and document templates
+    ///
+    /// Apply one with `linear issue create --template` or
+    /// `linear project create --template`.
+    Template(template::Template),
+    /// Manage teams
+    #[command(visible_alias = "t")]
+    Team(team::Team),
+    /// List workspace members
+    #[command(visible_alias = "u")]
+    User(user::User),
+    /// Log in to workspaces and manage their credentials
+    Auth(auth::Auth),
+    /// Write a .linear.toml for the current repository
+    ///
+    /// Asks for the settings the flags leave out.
+    #[command(visible_alias = "configure")]
     Config(config::Config),
-    #[command(name = "schema", about = "Print the GraphQL schema to stdout")]
-    Schema(schema::Schema),
-    #[command(
-        name = "api",
-        about = "Make a raw GraphQL API request",
-        long_about = "Make a raw GraphQL API request\n\nPass the GraphQL document as one quoted argument or on stdin. The api command has no subcommands: a leading query or mutation keyword belongs inside that document."
-    )]
+    /// Send a raw GraphQL request to the Linear API
+    ///
+    /// Pass the GraphQL document as one quoted argument or on stdin. A leading
+    /// `query` or `mutation` keyword belongs inside that document.
     Api(api::Api),
-    #[command(
-        name = "markdown",
-        about = "Linear-flavored Markdown: mentions and collapsible sections",
-        long_about = include_str!("markdown.txt").trim_end()
-    )]
+    /// Print the Linear GraphQL schema
+    Schema(schema::Schema),
+    /// Print shell completions
+    ///
+    /// Load them from your shell's startup file:
+    ///
+    ///   bash (~/.bashrc):                   source <(linear completions bash)
+    ///   zsh (~/.zshrc):                     source <(linear completions zsh)
+    ///   fish (~/.config/fish/config.fish):  linear completions fish | source
+    ///   elvish (rc.elv):                    eval (linear completions elvish | slurp)
+    ///   powershell ($PROFILE):              linear completions powershell | Out-String | Invoke-Expression
+    ///
+    /// The script asks linear for candidates as you type, so load it at shell
+    /// startup rather than saving it to a file.
+    #[command(verbatim_doc_comment)]
+    Completions(completions::Completions),
+    /// Explain Linear-flavored Markdown: mentions and collapsible sections
+    #[command(long_about = include_str!("markdown.txt").trim_end())]
     Markdown(markdown::Markdown),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum AgentSessionStatus {
-    #[value(name = "pending")]
     Pending,
-    #[value(name = "active")]
     Active,
-    #[value(name = "complete")]
     Complete,
-    #[value(name = "awaitingInput")]
+    #[value(alias = "awaitingInput")]
     AwaitingInput,
-    #[value(name = "error")]
     Error,
-    #[value(name = "stale")]
     Stale,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum TemplateType {
-    #[value(name = "issue")]
     Issue,
-    #[value(name = "project")]
     Project,
-    #[value(name = "document")]
     Document,
 }
 
 pub fn command() -> Command {
     Cli::command()
-}
-
-pub(crate) fn nonempty_string(value: &str) -> Result<String, String> {
-    if value.is_empty() {
-        Err("expected a nonempty value".to_owned())
-    } else {
-        Ok(value.to_owned())
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

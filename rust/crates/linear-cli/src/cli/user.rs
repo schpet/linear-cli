@@ -9,20 +9,23 @@ pub struct User {
 
 #[derive(Debug, Subcommand)]
 pub enum UserCommand {
-    #[command(name = "list", about = "List members of the workspace")]
+    /// List the workspace's members
     List(UserList),
 }
 
 #[derive(Debug, Args)]
 pub struct UserList {
-    #[arg(long = "all", short = 'a', help = "Include inactive members")]
+    /// Include deactivated members
+    #[arg(long, short)]
     pub all: bool,
-    #[arg(long = "limit", help = "Maximum number of members to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of members to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(
-        long = "json",
-        short = 'j',
-        help = "Output as JSON; a member's url mentions them when pasted into Markdown. This searches the whole workspace — prefer `linear team members <TEAM>`, and confirm before mentioning someone outside the team"
-    )]
+    /// Print JSON; a member's `url` mentions them when pasted into Markdown
+    ///
+    /// This lists the whole workspace. To find someone to mention, prefer
+    /// `linear team members <TEAM>`, and confirm before mentioning someone
+    /// outside the team.
+    #[arg(long, short)]
     pub json: bool,
 }

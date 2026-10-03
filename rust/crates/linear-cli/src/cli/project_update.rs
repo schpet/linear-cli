@@ -1,4 +1,7 @@
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum};
+
+use super::LINEAR_MARKDOWN;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -9,15 +12,18 @@ pub struct ProjectUpdate {
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectUpdateCommand {
-    #[command(name = "create", about = "Create a new status update for a project", long_about = "Create a new status update for a project\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference.", visible_aliases = ["c"])]
+    /// Post a status update on a project
+    #[command(visible_alias = "c", after_long_help = LINEAR_MARKDOWN)]
     Create(ProjectUpdateCreate),
-    #[command(name = "list", about = "List status updates for a project", visible_aliases = ["l"])]
+    /// List a project's status updates
+    #[command(visible_alias = "l")]
     List(ProjectUpdateList),
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectUpdateCreate {
-    #[arg(value_name = "projectId")]
+    /// Project ID, slug, or name
+    #[arg(value_name = "PROJECT")]
     pub project_id: String,
     #[command(flatten)]
     pub update: StatusUpdateArgs,
@@ -26,36 +32,39 @@ pub struct ProjectUpdateCreate {
 /// The content of a new project or initiative status update.
 #[derive(Debug, Args)]
 pub struct StatusUpdateArgs {
-    #[arg(long = "body", help = "Update content (markdown)", value_name = "body", value_parser = super::nonempty_string, conflicts_with = "body_file")]
+    /// Update text, in Markdown
+    #[arg(long, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new(), conflicts_with = "body_file")]
     pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read content from file", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the update from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub body_file: Option<String>,
-    #[arg(long = "health", help = "Health status", value_name = "health")]
+    /// How the work is going
+    #[arg(long)]
     pub health: Option<Health>,
-    #[arg(
-        long = "interactive",
-        short = 'i',
-        help = "Interactive mode with prompts"
-    )]
+    /// Also prompt for the optional fields
+    #[arg(long, short)]
     pub interactive: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Health {
-    #[value(name = "onTrack")]
+    #[value(alias = "onTrack")]
     OnTrack,
-    #[value(name = "atRisk")]
+    #[value(alias = "atRisk")]
     AtRisk,
-    #[value(name = "offTrack")]
+    #[value(alias = "offTrack")]
     OffTrack,
 }
 
 #[derive(Debug, Args)]
 pub struct ProjectUpdateList {
-    #[arg(value_name = "projectId")]
+    /// Project ID, slug, or name
+    #[arg(value_name = "PROJECT")]
     pub project_id: String,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(long = "limit", help = "Maximum number of updates to show, newest first (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "10")]
+    /// Maximum number of updates to show, newest first (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "10")]
     pub limit: super::Limit,
 }

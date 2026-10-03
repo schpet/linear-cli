@@ -1,18 +1,12 @@
 use clap::Args;
+use clap::builder::NonEmptyStringValueParser;
 
 #[derive(Debug, Args)]
 pub struct Config {
-    #[arg(
-        long = "team",
-        help = "Default team key, name, or ID (asked for when omitted)",
-        value_name = "team",
-        value_parser = super::nonempty_string
-    )]
+    /// Default team (key, name, or ID); asked for when omitted
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(
-        long = "sort",
-        help = "Default issue sort order (asked for when omitted)",
-        value_name = "sort"
-    )]
+    /// Default issue sort order; asked for when omitted
+    #[arg(long)]
     pub sort: Option<crate::config::IssueSort>,
 }

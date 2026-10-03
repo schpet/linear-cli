@@ -1,3 +1,4 @@
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -9,39 +10,39 @@ pub struct Template {
 
 #[derive(Debug, Subcommand)]
 pub enum TemplateCommand {
-    #[command(
-        name = "list",
-        about = "List templates. Without --team, every template in the workspace is shown."
-    )]
+    /// List templates
+    ///
+    /// Without --team, every template in the workspace is listed.
     List(TemplateList),
-    #[command(name = "view", about = "Show a template and what it pre-fills. Pass its name or ID.", visible_aliases = ["v"])]
+    /// Show a template and the fields it fills in
+    #[command(visible_alias = "v")]
     View(TemplateView),
 }
 
 #[derive(Debug, Args)]
 pub struct TemplateList {
-    #[arg(
-        long = "type",
-        help = "Only templates of this type (issue, project, or document)",
-        value_name = "type"
-    )]
+    /// Show only templates of this type
+    #[arg(long = "type")]
     pub r#type: Option<super::TemplateType>,
-    #[arg(long = "team", help = "Team key, name, or ID. Shows that team's templates plus workspace templates.", value_name = "team", value_parser = super::nonempty_string)]
+    /// Show this team's templates (key, name, or ID) plus workspace templates
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "limit", help = "Maximum number of templates to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of templates to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct TemplateView {
-    #[arg(value_name = "template")]
+    /// Template name or ID
     pub template: String,
-    #[arg(
-        long = "json",
-        short = 'j',
-        help = "Output the template as JSON (templateData stays a JSON-encoded string; use `jq '.templateData | fromjson'`)"
-    )]
+    /// Print JSON
+    ///
+    /// `templateData` stays a JSON-encoded string; decode it with
+    /// `jq '.templateData | fromjson'`.
+    #[arg(long, short)]
     pub json: bool,
 }

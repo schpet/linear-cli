@@ -1,3 +1,4 @@
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -9,28 +10,35 @@ pub struct Cycle {
 
 #[derive(Debug, Subcommand)]
 pub enum CycleCommand {
-    #[command(name = "list", about = "List cycles for a team")]
+    /// List a team's cycles
     List(CycleList),
-    #[command(name = "view", about = "View cycle details", visible_aliases = ["v"])]
+    /// Show a cycle and its issues
+    #[command(visible_alias = "v")]
     View(CycleView),
 }
 
 #[derive(Debug, Args)]
 pub struct CycleList {
-    #[arg(long = "team", help = "Team key, name, or ID (defaults to current team)", value_name = "team", value_parser = super::nonempty_string)]
+    /// Team key, name or ID; defaults to the configured team
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "limit", help = "Maximum number of cycles to show, newest first (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of cycles to show, newest first (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct CycleView {
-    #[arg(value_name = "cycleRef")]
+    /// Cycle name, number, `active`, `next`, `previous` or an offset like +1
+    #[arg(value_name = "CYCLE")]
     pub cycle_ref: String,
-    #[arg(long = "team", help = "Team key, name, or ID (defaults to current team)", value_name = "team", value_parser = super::nonempty_string)]
+    /// Team key, name or ID; defaults to the configured team
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }

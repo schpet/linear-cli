@@ -1,12 +1,12 @@
 use clap::Args;
+use clap::builder::NonEmptyStringValueParser;
 
 #[derive(Debug, Args)]
 pub struct Schema {
-    #[arg(
-        long = "json",
-        help = "Output as JSON introspection result instead of SDL"
-    )]
+    /// Print the introspection result as JSON instead of SDL
+    #[arg(long)]
     pub json: bool,
-    #[arg(long = "output", short = 'o', help = "Write schema to file instead of stdout", value_name = "file", value_parser = super::nonempty_string)]
+    /// Write the schema to this file instead of stdout
+    #[arg(long, short, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub output: Option<String>,
 }

@@ -1,6 +1,8 @@
 use chrono::NaiveDate;
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
+use super::LINEAR_MARKDOWN;
 use super::values::InitiativeStatus;
 use crate::graphql::scalars::Float;
 
@@ -13,192 +15,204 @@ pub struct Initiative {
 
 #[derive(Debug, Subcommand)]
 pub enum InitiativeCommand {
-    #[command(name = "list", about = "List initiatives", visible_aliases = ["ls"])]
+    /// List initiatives
+    #[command(visible_alias = "ls")]
     List(InitiativeList),
-    #[command(name = "view", about = "View initiative details", visible_aliases = ["v"])]
+    /// Show an initiative
+    #[command(visible_alias = "v")]
     View(InitiativeView),
-    #[command(name = "create", about = "Create a new Linear initiative")]
+    /// Create an initiative
     Create(InitiativeCreate),
-    #[command(name = "archive", about = "Archive a Linear initiative")]
-    Archive(InitiativeArchive),
-    #[command(name = "update", about = "Update a Linear initiative")]
+    /// Update an initiative
     Update(InitiativeUpdate),
-    #[command(name = "unarchive", about = "Unarchive a Linear initiative")]
+    /// Archive an initiative
+    Archive(InitiativeArchive),
+    /// Restore an archived initiative
     Unarchive(InitiativeUnarchive),
-    #[command(name = "delete", about = "Permanently delete a Linear initiative")]
+    /// Delete an initiative permanently
     Delete(InitiativeDelete),
-    #[command(name = "add-project", about = "Link a project to an initiative")]
+    /// Add a project to an initiative
     AddProject(InitiativeAddProject),
-    #[command(name = "remove-project", about = "Unlink a project from an initiative")]
+    /// Remove a project from an initiative
     RemoveProject(InitiativeRemoveProject),
-    #[command(name = "comment", about = "Manage initiative comments")]
+    /// Comment on an initiative
     Comment(InitiativeComment),
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeList {
-    #[arg(
-        long = "status",
-        short = 's',
-        help = "Filter by status (default: active)",
-        value_name = "status",
-        ignore_case = true,
-        conflicts_with = "all_statuses"
-    )]
+    /// Show only initiatives with this status [default: active]
+    #[arg(long, short, ignore_case = true, conflicts_with = "all_statuses")]
     pub status: Option<InitiativeStatus>,
-    #[arg(
-        long = "all-statuses",
-        help = "Show all statuses (default: active only)"
-    )]
+    /// Show initiatives of every status
+    #[arg(long)]
     pub all_statuses: bool,
-    #[arg(long = "owner", short = 'o', help = "Filter by owner (username or email)", value_name = "owner", value_parser = super::nonempty_string)]
+    /// Show only initiatives owned by this user (username or email)
+    #[arg(long, short, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
     pub owner: Option<String>,
-    #[arg(
-        long = "web",
-        short = 'w',
-        help = "Open initiatives page in web browser"
-    )]
+    /// Open the initiatives page in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(
-        long = "app",
-        short = 'a',
-        help = "Open initiatives page in Linear.app"
-    )]
+    /// Open the initiatives page in the Linear app
+    #[arg(long, short)]
     pub app: bool,
-    #[arg(long = "limit", help = "Maximum number of initiatives to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of initiatives to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
-    #[arg(long = "archived", help = "Include archived initiatives")]
+    /// Include archived initiatives
+    #[arg(long)]
     pub archived: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeView {
-    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
     pub initiative_id: String,
-    #[arg(long = "web", short = 'w', help = "Open in web browser")]
+    /// Open the initiative in the browser
+    #[arg(long, short)]
     pub web: bool,
-    #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
+    /// Open the initiative in the Linear app
+    #[arg(long, short)]
     pub app: bool,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeCreate {
-    #[arg(long = "name", short = 'n', help = "Initiative name (required)", value_name = "name", value_parser = super::nonempty_string)]
+    /// Initiative name
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub name: Option<String>,
-    #[arg(long = "description", short = 'd', help = "Initiative description", value_name = "description", value_parser = super::nonempty_string)]
+    /// Initiative description
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub description: Option<String>,
-    #[arg(
-        long = "status",
-        short = 's',
-        help = "Status (default: planned)",
-        value_name = "status",
-        ignore_case = true
-    )]
+    /// Initiative status [default: planned]
+    #[arg(long, short, ignore_case = true)]
     pub status: Option<InitiativeStatus>,
-    #[arg(long = "owner", short = 'o', help = "Owner (username, email, or @me for yourself)", value_name = "owner", value_parser = super::nonempty_string)]
+    /// Owner: a username, email, or @me
+    #[arg(long, short, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
     pub owner: Option<String>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::values::date)]
+    /// Target date (YYYY-MM-DD)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
-    #[arg(long = "color", short = 'c', help = "Color hex code (e.g., #5E6AD2)", value_name = "color", value_parser = super::values::hex_color)]
+    /// Color, like #5E6AD2
+    #[arg(long, short, value_parser = super::values::hex_color)]
     pub color: Option<String>,
-    #[arg(long = "icon", help = "Icon name", value_name = "icon", value_parser = super::nonempty_string)]
+    /// Icon name
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
-    #[arg(
-        long = "interactive",
-        short = 'i',
-        help = "Interactive mode (default if no flags provided)"
-    )]
+    /// Also prompt for the optional fields
+    #[arg(long, short)]
     pub interactive: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeArchive {
-    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
-    #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub force: bool,
-    #[arg(long = "bulk", help = "Archive multiple initiatives by ID, slug, or name", value_name = "ids", value_parser = super::nonempty_string, num_args = 0..)]
+    /// Archive several initiatives (ID, slug, or name)
+    #[arg(long, value_name = "INITIATIVES", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
     pub bulk: Option<Vec<String>>,
-    #[arg(long = "bulk-file", help = "Read initiative IDs from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
+    /// Read initiatives from a file, one per line
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub bulk_file: Option<String>,
-    #[arg(long = "bulk-stdin", help = "Read initiative IDs from stdin")]
+    /// Read initiatives from stdin, one per line
+    #[arg(long)]
     pub bulk_stdin: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeUpdate {
-    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
     pub initiative_id: String,
-    #[arg(long = "name", short = 'n', help = "New name for the initiative", value_name = "name", value_parser = super::nonempty_string)]
+    /// New name
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub name: Option<String>,
-    #[arg(long = "description", short = 'd', help = "New description", value_name = "description", value_parser = super::nonempty_string)]
+    /// New description
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub description: Option<String>,
-    #[arg(
-        long = "status",
-        help = "New status",
-        value_name = "status",
-        ignore_case = true
-    )]
+    /// New status
+    #[arg(long, ignore_case = true)]
     pub status: Option<InitiativeStatus>,
-    #[arg(long = "owner", help = "New owner (username, email, or @me)", value_name = "owner", value_parser = super::nonempty_string)]
+    /// New owner: a username, email, or @me
+    #[arg(long, value_name = "USER", value_parser = NonEmptyStringValueParser::new())]
     pub owner: Option<String>,
-    #[arg(long = "target-date", help = "Target completion date (YYYY-MM-DD)", value_name = "targetDate", value_parser = super::values::date)]
+    /// New target date (YYYY-MM-DD)
+    #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub target_date: Option<NaiveDate>,
-    #[arg(long = "color", help = "Initiative color (hex, e.g., #5E6AD2)", value_name = "color", value_parser = super::values::hex_color)]
+    /// New color, like #5E6AD2
+    #[arg(long, value_parser = super::values::hex_color)]
     pub color: Option<String>,
-    #[arg(long = "icon", help = "Initiative icon name", value_name = "icon", value_parser = super::nonempty_string)]
+    /// New icon name
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
-    #[arg(
-        long = "interactive",
-        short = 'i',
-        help = "Interactive mode for updates"
-    )]
+    /// Prompt for the fields to change
+    #[arg(long, short)]
     pub interactive: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeUnarchive {
-    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
     pub initiative_id: String,
-    #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub force: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeDelete {
-    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Initiative ID, slug, or name
+    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
-    #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub force: bool,
-    #[arg(long = "bulk", help = "Delete multiple initiatives by ID, slug, or name", value_name = "ids", value_parser = super::nonempty_string, num_args = 0..)]
+    /// Delete several initiatives (ID, slug, or name)
+    #[arg(long, value_name = "INITIATIVES", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
     pub bulk: Option<Vec<String>>,
-    #[arg(long = "bulk-file", help = "Read initiative IDs from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
+    /// Read initiatives from a file, one per line
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub bulk_file: Option<String>,
-    #[arg(long = "bulk-stdin", help = "Read initiative IDs from stdin")]
+    /// Read initiatives from stdin, one per line
+    #[arg(long)]
     pub bulk_stdin: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeAddProject {
-    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub initiative: String,
-    #[arg(value_name = "project", value_parser = super::nonempty_string)]
+    /// Project ID, slug, or name
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub project: String,
-    #[arg(long = "sort-order", help = "Sort order within initiative", value_name = "sortOrder", value_parser = super::values::sort_order, allow_negative_numbers = true)]
+    /// Position among the initiative's projects
+    #[arg(long, value_name = "NUMBER", value_parser = super::values::sort_order, allow_negative_numbers = true)]
     pub sort_order: Option<Float>,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeRemoveProject {
-    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub initiative: String,
-    #[arg(value_name = "project", value_parser = super::nonempty_string)]
+    /// Project ID, slug, or name
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub project: String,
-    #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub force: bool,
 }
 
@@ -211,37 +225,38 @@ pub struct InitiativeComment {
 
 #[derive(Debug, Subcommand)]
 pub enum InitiativeCommentCommand {
-    #[command(
-        name = "add",
-        about = "Add a comment or reply to an initiative's discussion (by ID, slug, or name)",
-        long_about = "Add a comment or reply to an initiative's discussion (by ID, slug, or name)\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference."
-    )]
+    /// Comment on an initiative, or reply to a comment
+    #[command(after_long_help = LINEAR_MARKDOWN)]
     Add(InitiativeCommentAdd),
-    #[command(
-        name = "list",
-        about = "List comments on an initiative (by ID, slug, or name)"
-    )]
+    /// List an initiative's comments
     List(InitiativeCommentList),
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeCommentAdd {
-    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub initiative: String,
-    #[arg(long = "body", short = 'b', help = "Comment body text", value_name = "text", value_parser = super::nonempty_string)]
+    /// Comment text, in Markdown
+    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read comment body from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    /// Read the comment from a Markdown file
+    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
     pub body_file: Option<String>,
-    #[arg(long = "parent", short = 'p', visible_aliases = ["reply-to"], help = "Reply to a top-level comment by ID (the reply joins that thread)", value_name = "commentId", value_parser = super::nonempty_string)]
+    /// Reply to this top-level comment (by ID)
+    #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct InitiativeCommentList {
-    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
+    /// Initiative ID, slug, or name
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub initiative: String,
-    #[arg(long = "limit", help = "Maximum number of comments to fetch (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of comments to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }

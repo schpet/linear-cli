@@ -298,14 +298,12 @@ fn start_with_a_bare_number_and_no_team_fails_before_any_request() {
 }
 
 #[test]
-fn start_rejects_an_unrecognized_issue_id_without_a_picker() {
+fn start_rejects_an_empty_issue_id_without_a_picker() {
     let api = MockLinear::start();
     let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
-    for input in ["not-an-issue", ""] {
-        cli.run(&["issue", "start", input])
-            .failure()
-            .stderr_has("Not an issue ID");
-    }
+    cli.run(&["issue", "start", ""])
+        .usage_error()
+        .stderr_has("a value is required");
     assert!(api.requests().is_empty());
     assert!(calls(&cli, "git").is_empty());
 }

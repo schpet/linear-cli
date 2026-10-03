@@ -1,3 +1,4 @@
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -9,44 +10,39 @@ pub struct Auth {
 
 #[derive(Debug, Subcommand)]
 pub enum AuthCommand {
-    #[command(name = "login", about = "Add a workspace credential")]
+    /// Log in to a workspace with an API key
     Login(AuthLogin),
-    #[command(name = "logout", about = "Remove a workspace credential")]
+    /// Remove a workspace's credential
     Logout(AuthLogout),
-    #[command(name = "list", about = "List configured workspaces")]
+    /// List the workspaces you are logged in to
     List(AuthList),
-    #[command(name = "default", about = "Set the default workspace")]
+    /// Set the workspace used when none is named
     Default(AuthDefault),
-    #[command(name = "token", about = "Print the configured API token")]
+    /// Print the API key in use
     Token(AuthToken),
-    #[command(
-        name = "whoami",
-        about = "Print information about the authenticated user"
-    )]
+    /// Show who you are logged in as
     Whoami(AuthWhoami),
-    #[command(
-        name = "migrate",
-        about = "Migrate plaintext credentials to system keyring"
-    )]
+    /// Move API keys from the credentials file to the system keyring
     Migrate(AuthMigrate),
 }
 
 #[derive(Debug, Args)]
 pub struct AuthLogin {
-    #[arg(long = "key", short = 'k', help = "API key (prompted for, or read from stdin when it is piped)", value_name = "key", value_parser = super::nonempty_string)]
+    /// API key; asked for, or read from stdin when it is piped
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub key: Option<String>,
-    #[arg(
-        long = "plaintext",
-        help = "Store API key in credentials file instead of system keyring"
-    )]
+    /// Store the API key in the credentials file instead of the system keyring
+    #[arg(long)]
     pub plaintext: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct AuthLogout {
-    #[arg(value_name = "workspace")]
+    /// Workspace to log out of; asked for when several are stored
+    #[arg(value_name = "WORKSPACE")]
     pub workspace_name: Option<String>,
-    #[arg(long = "force", short = 'f', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short)]
     pub force: bool,
 }
 
@@ -55,7 +51,8 @@ pub struct AuthList {}
 
 #[derive(Debug, Args)]
 pub struct AuthDefault {
-    #[arg(value_name = "workspace")]
+    /// Workspace to make the default; asked for when omitted
+    #[arg(value_name = "WORKSPACE")]
     pub workspace_name: Option<String>,
 }
 

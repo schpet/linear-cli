@@ -4,15 +4,10 @@ use clap_complete::Shell;
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct Completions {
-    #[arg(value_enum, help = "The shell to generate completions for")]
+    /// Shell to print completions for
     pub shell: Shell,
-    #[arg(
-        long = "name",
-        short = 'n',
-        help = "The name the completions are registered for, if not linear",
-        value_name = "command-name",
-        value_parser = command_name
-    )]
+    /// Command name to register the completions for, if not `linear`
+    #[arg(long, short, value_parser = command_name)]
     pub name: Option<String>,
 }
 

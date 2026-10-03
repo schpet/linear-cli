@@ -1,3 +1,4 @@
+use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
@@ -9,69 +10,70 @@ pub struct Team {
 
 #[derive(Debug, Subcommand)]
 pub enum TeamCommand {
-    #[command(name = "create", about = "Create a linear team")]
-    Create(TeamCreate),
-    #[command(name = "delete", about = "Delete a Linear team")]
-    Delete(TeamDelete),
-    #[command(name = "list", about = "List teams")]
+    /// List teams
     List(TeamList),
-    #[command(name = "id", about = "Print the configured team id")]
-    Id(TeamId),
-    #[command(
-        name = "autolinks",
-        about = "Configure GitHub repository autolinks for Linear issues with this team prefix"
-    )]
-    Autolinks(TeamAutolinks),
-    #[command(
-        name = "members",
-        about = "List team members (team by key, name, or ID)"
-    )]
+    /// Create a team
+    Create(TeamCreate),
+    /// Delete a team
+    Delete(TeamDelete),
+    /// List a team's members
     Members(TeamMembers),
-    #[command(
-        name = "states",
-        about = "List workflow states for a team (by key, name, or ID)"
-    )]
+    /// List a team's workflow states
     States(TeamStates),
+    /// Print the configured team key
+    Id(TeamId),
+    /// Link the configured team's issue IDs in the current GitHub repository
+    ///
+    /// Adds a GitHub autolink so that references like ENG-123 in commits,
+    /// issues and pull requests link to Linear. Needs the `gh` CLI.
+    Autolinks(TeamAutolinks),
 }
 
 #[derive(Debug, Args)]
 pub struct TeamCreate {
-    #[arg(long = "name", short = 'n', help = "Name of the team", value_name = "name", value_parser = super::nonempty_string)]
+    /// Team name
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub name: Option<String>,
-    #[arg(long = "description", short = 'd', help = "Description of the team", value_name = "description", value_parser = super::nonempty_string)]
+    /// Team description
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub description: Option<String>,
-    #[arg(long = "key", short = 'k', help = "Team key (if not provided, will be generated from name)", value_name = "key", value_parser = super::nonempty_string)]
+    /// Team key, like ENG; derived from the name when omitted
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub key: Option<String>,
-    #[arg(long = "private", help = "Make the team private")]
+    /// Make the team private
+    #[arg(long)]
     pub private: bool,
-    #[arg(long = "no-interactive", help = "Disable interactive prompts")]
+    /// Do not prompt for missing values
+    #[arg(long)]
     pub no_interactive: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct TeamDelete {
-    #[arg(value_name = "team", value_parser = super::nonempty_string)]
+    /// Team key, name or ID
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub team: String,
-    #[arg(long = "move-issues", help = "Move all issues to another team (key, name, or ID) before deletion", value_name = "targetTeam", value_parser = super::nonempty_string)]
+    /// Move the team's issues to this team (key, name or ID) first
+    #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
     pub move_issues: Option<String>,
-    #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y')]
     pub force: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct TeamList {
-    #[arg(long = "web", short = 'w', help = "Open in web browser", conflicts_with_all = ["app", "json"])]
+    /// Open the teams page in the browser
+    #[arg(long, short, conflicts_with_all = ["app", "json"])]
     pub web: bool,
-    #[arg(
-        long = "app",
-        short = 'a',
-        help = "Open in Linear.app",
-        conflicts_with = "json"
-    )]
+    /// Open the teams page in the Linear app
+    #[arg(long, short, conflicts_with = "json")]
     pub app: bool,
-    #[arg(long = "limit", help = "Maximum number of teams to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of teams to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
 
@@ -83,26 +85,29 @@ pub struct TeamAutolinks {}
 
 #[derive(Debug, Args)]
 pub struct TeamMembers {
-    #[arg(value_name = "team", value_parser = super::nonempty_string)]
+    /// Team key, name or ID; defaults to the configured team
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "all", short = 'a', help = "Include inactive members")]
+    /// Include deactivated members
+    #[arg(long, short)]
     pub all: bool,
-    #[arg(long = "limit", help = "Maximum number of members to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of members to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(
-        long = "json",
-        short = 'j',
-        help = "Output as JSON; a member's url mentions them when pasted into Markdown"
-    )]
+    /// Print JSON; a member's `url` mentions them when pasted into Markdown
+    #[arg(long, short)]
     pub json: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct TeamStates {
-    #[arg(value_name = "team", value_parser = super::nonempty_string)]
+    /// Team key, name or ID; defaults to the configured team
+    #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    #[arg(long = "limit", help = "Maximum number of states to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    /// Maximum number of states to show (a number or `all`)
+    #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
-    #[arg(long = "json", short = 'j', help = "Output as JSON")]
+    /// Print JSON
+    #[arg(long, short)]
     pub json: bool,
 }
