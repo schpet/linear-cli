@@ -63,8 +63,8 @@ fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         }
     };
     let client = ctx.client()?;
-    let details = ctx.spin(true, single_details(client, &identifier, mode))?;
-    if details.already_archived {
+    let details = ctx.spin(true, single_details(client, &identifier))?;
+    if mode == Mode::Archive && details.archived {
         return ctx.print(format!(
             "Issue \"{}\" is already archived.\n",
             details.name()
@@ -170,59 +170,41 @@ impl Target {
 pub struct Details {
     pub identifier: String,
     pub title: String,
-    pub already_archived: bool,
+    pub archived: bool,
 }
 impl Details {
     pub fn name(&self) -> String {
         format!("{}: {}", self.identifier, self.title)
     }
 }
-pub async fn single_details(client: &LinearClient, id: &str, mode: Mode) -> Result<Details, Error> {
-    let variables = IdVariables { id: id.to_owned() };
-    let not_found = |failure: RequestError| failure.or_not_found("Issue", id);
-    let details = match mode {
-        Mode::Archive => {
-            let data: GetIssueArchiveDetails = client.query(variables).await.map_err(not_found)?;
-            data.issue.map(|issue| Details {
-                identifier: issue.identifier,
-                title: issue.title,
-                already_archived: issue.archived_at.is_some(),
-            })
-        }
-        Mode::Delete => {
-            let data: GetIssueDeleteDetails = client.query(variables).await.map_err(not_found)?;
-            data.issue.map(|issue| Details {
-                identifier: issue.identifier,
-                title: issue.title,
-                already_archived: false,
-            })
-        }
+/// The issue's identifier, title and archive state; `None` when it does not exist.
+async fn summary(client: &LinearClient, id: &str) -> Result<Option<Details>, Error> {
+    let data: GetIssueSummary = match client.query(IdVariables { id: id.to_owned() }).await {
+        Ok(data) => data,
+        Err(failure) if failure.is_not_found() => return Ok(None),
+        Err(failure) => return Err(failure.into()),
     };
-    details.ok_or_else(|| Error::not_found("Issue", id))
+    Ok(data.issue.map(|issue| Details {
+        identifier: issue.identifier,
+        title: issue.title,
+        archived: issue.archived_at.is_some(),
+    }))
+}
+pub async fn single_details(client: &LinearClient, id: &str) -> Result<Details, Error> {
+    summary(client, id)
+        .await?
+        .ok_or_else(|| Error::not_found("Issue", id))
 }
 /// Archives or deletes issue `id`; `true` when Linear reports success.
-async fn mutate(
-    client: &LinearClient,
-    id: &str,
-    mode: Mode,
-    bulk: bool,
-) -> Result<bool, RequestError> {
+async fn mutate(client: &LinearClient, id: &str, mode: Mode) -> Result<bool, RequestError> {
     let variables = IdVariables { id: id.to_owned() };
-    Ok(match (mode, bulk) {
-        (Mode::Archive, false) => {
+    Ok(match mode {
+        Mode::Archive => {
             let data: ArchiveIssue = client.mutate(variables).await?;
             data.issue_archive.success
         }
-        (Mode::Archive, true) => {
-            let data: BulkArchiveIssue = client.mutate(variables).await?;
-            data.issue_archive.success
-        }
-        (Mode::Delete, false) => {
+        Mode::Delete => {
             let data: DeleteIssue = client.mutate(variables).await?;
-            data.issue_delete.success
-        }
-        (Mode::Delete, true) => {
-            let data: BulkDeleteIssue = client.mutate(variables).await?;
             data.issue_delete.success
         }
     })
@@ -233,7 +215,7 @@ pub async fn submit_single(
     details: &Details,
     mode: Mode,
 ) -> Result<Vec<u8>, Error> {
-    let success = mutate(client, id, mode, false)
+    let success = mutate(client, id, mode)
         .await
         .map_err(|failure| failure.or_not_found("Issue", id))?;
     if !success {
@@ -244,53 +226,21 @@ pub async fn submit_single(
     }
     Ok(format!("✓ Successfully {} issue: {}\n", mode.past(), details.name()).into_bytes())
 }
+/// Archives or deletes one listed issue after looking it up; an issue that
+/// cannot be looked up is reported and left alone.
 async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<BulkResult, Error> {
-    let variables = IdVariables { id: id.to_owned() };
-    let not_found = || BulkResult {
-        id: id.to_owned(),
-        name: None,
-        outcome: BulkOutcome::Failed("Issue not found".to_owned()),
+    let Some(details) = summary(client, id).await? else {
+        return Ok(BulkResult {
+            id: id.to_owned(),
+            name: None,
+            outcome: BulkOutcome::Failed("Issue not found".to_owned()),
+        });
     };
-    let (name, already_archived) = match mode {
-        Mode::Archive => {
-            let data: GetIssueDetailsForBulkArchive = match client.query(variables).await {
-                Ok(data) => data,
-                Err(failure) if failure.is_not_found() => return Ok(not_found()),
-                Err(failure) => return Err(failure.into()),
-            };
-            let Some(issue) = data.issue else {
-                return Ok(not_found());
-            };
-            (
-                format!("{}: {}", issue.identifier, issue.title),
-                issue.archived_at.is_some(),
-            )
-        }
-        Mode::Delete => {
-            // A failed details lookup only loses the title in the summary; the
-            // delete still runs.
-            let data: Result<GetIssueDetailsForBulkDelete, _> = client.query(variables).await;
-            let issue = match data {
-                Ok(data) => data.issue,
-                Err(_) => None,
-            };
-            let name = issue.map_or_else(
-                || id.to_owned(),
-                |issue| {
-                    if issue.title.is_empty() {
-                        issue.identifier
-                    } else {
-                        format!("{}: {}", issue.identifier, issue.title)
-                    }
-                },
-            );
-            (name, false)
-        }
-    };
-    let success = already_archived || mutate(client, id, mode, true).await?;
+    let done = mode == Mode::Archive && details.archived;
+    let success = done || mutate(client, id, mode).await?;
     Ok(BulkResult {
         id: id.to_owned(),
-        name: Some(name),
+        name: Some(details.name()),
         outcome: if success {
             BulkOutcome::Succeeded
         } else {

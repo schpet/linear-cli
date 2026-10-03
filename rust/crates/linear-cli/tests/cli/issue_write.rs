@@ -547,11 +547,10 @@ fn archive_details(archived_at: Value) -> Value {
 #[test]
 fn archive_by_url_with_confirm() {
     let api = MockLinear::start();
-    api.on("GetIssueArchiveDetails", archive_details(Value::Null))
-        .on(
-            "ArchiveIssue",
-            json!({ "issueArchive": { "success": true } }),
-        );
+    api.on("GetIssueSummary", archive_details(Value::Null)).on(
+        "ArchiveIssue",
+        json!({ "issueArchive": { "success": true } }),
+    );
     Cli::for_api(&api)
         .run(&[
             "issue",
@@ -562,10 +561,7 @@ fn archive_by_url_with_confirm() {
         .success()
         .stdout_has("ENG-1")
         .stdout_has("Old work");
-    assert_eq!(
-        api.variables("GetIssueArchiveDetails"),
-        json!({ "id": "ENG-1" })
-    );
+    assert_eq!(api.variables("GetIssueSummary"), json!({ "id": "ENG-1" }));
     assert_eq!(api.variables("ArchiveIssue"), json!({ "id": "ENG-1" }));
 }
 
@@ -573,7 +569,7 @@ fn archive_by_url_with_confirm() {
 fn archive_of_an_archived_issue_is_a_no_op() {
     let api = MockLinear::start();
     api.on(
-        "GetIssueArchiveDetails",
+        "GetIssueSummary",
         archive_details(json!("2026-01-01T00:00:00.000Z")),
     );
     Cli::for_api(&api)
@@ -597,11 +593,11 @@ fn archive_bulk_archives_each_issue() {
     let api = MockLinear::start();
     for id in ["ENG-1", "ENG-2"] {
         api.on(
-            "GetIssueDetailsForBulkArchive",
+            "GetIssueSummary",
             json!({ "issue": { "identifier": id, "title": "t", "archivedAt": null } }),
         )
         .on(
-            "BulkArchiveIssue",
+            "ArchiveIssue",
             json!({ "issueArchive": { "success": true } }),
         );
     }
@@ -611,7 +607,7 @@ fn archive_bulk_archives_each_issue() {
     let mut archived: Vec<Value> = api
         .requests()
         .into_iter()
-        .filter(|r| r.operation.as_deref() == Some("BulkArchiveIssue"))
+        .filter(|r| r.operation.as_deref() == Some("ArchiveIssue"))
         .map(|r| r.variables["id"].clone())
         .collect();
     archived.sort_by_key(|id| id.to_string());
@@ -622,8 +618,8 @@ fn archive_bulk_archives_each_issue() {
 fn delete_with_confirm() {
     let api = MockLinear::start();
     api.on(
-        "GetIssueDeleteDetails",
-        json!({ "issue": { "identifier": "ENG-3", "title": "Mistake" } }),
+        "GetIssueSummary",
+        json!({ "issue": { "identifier": "ENG-3", "title": "Mistake", "archivedAt": null } }),
     )
     .on(
         "DeleteIssue",
@@ -633,10 +629,7 @@ fn delete_with_confirm() {
         .run(&["issue", "delete", "eng-3", "--confirm"])
         .success()
         .stdout_has("ENG-3");
-    assert_eq!(
-        api.variables("GetIssueDeleteDetails"),
-        json!({ "id": "ENG-3" })
-    );
+    assert_eq!(api.variables("GetIssueSummary"), json!({ "id": "ENG-3" }));
     assert_eq!(api.variables("DeleteIssue"), json!({ "id": "ENG-3" }));
 }
 
@@ -662,7 +655,7 @@ fn delete_rejects_a_positional_issue_with_bulk() {
 fn delete_reports_a_missing_issue() {
     let api = MockLinear::start();
     api.on_raw(
-        "GetIssueDeleteDetails",
+        "GetIssueSummary",
         200,
         r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#,
     );
@@ -677,13 +670,10 @@ fn delete_bulk_reads_identifiers_from_a_file() {
     let api = MockLinear::start();
     for id in ["ENG-5", "ENG-6"] {
         api.on(
-            "GetIssueDetailsForBulkDelete",
-            json!({ "issue": { "identifier": id, "title": "t" } }),
+            "GetIssueSummary",
+            json!({ "issue": { "identifier": id, "title": "t", "archivedAt": null } }),
         )
-        .on(
-            "BulkDeleteIssue",
-            json!({ "issueDelete": { "success": true } }),
-        );
+        .on("DeleteIssue", json!({ "issueDelete": { "success": true } }));
     }
     Cli::for_api(&api)
         .file("cwd/ids.txt", "ENG-5\nENG-6\n")
@@ -693,7 +683,7 @@ fn delete_bulk_reads_identifiers_from_a_file() {
     let mut deleted: Vec<Value> = api
         .requests()
         .into_iter()
-        .filter(|r| r.operation.as_deref() == Some("BulkDeleteIssue"))
+        .filter(|r| r.operation.as_deref() == Some("DeleteIssue"))
         .map(|r| r.variables["id"].clone())
         .collect();
     deleted.sort_by_key(|id| id.to_string());
@@ -704,11 +694,11 @@ fn delete_bulk_reads_identifiers_from_a_file() {
 fn archive_bulk_reports_unusable_references_and_archives_the_rest() {
     let api = MockLinear::start();
     api.on(
-        "GetIssueDetailsForBulkArchive",
+        "GetIssueSummary",
         json!({ "issue": { "identifier": "ENG-1", "title": "t", "archivedAt": null } }),
     )
     .on(
-        "BulkArchiveIssue",
+        "ArchiveIssue",
         json!({ "issueArchive": { "success": true } }),
     );
     let run = Cli::for_api(&api).run(&[
@@ -774,4 +764,13 @@ fn create_fails_when_the_parent_metadata_request_fails() {
         .failure()
         .stderr_has("Rate limit exceeded");
     assert!(!api.operations().contains(&"CreateIssue".to_owned()));
+}
+
+#[test]
+fn delete_bulk_skips_issues_whose_lookup_fails() {
+    let api = MockLinear::start();
+    api.on_error("GetIssueSummary", "Rate limit exceeded");
+    let run = Cli::for_api(&api).run(&["issue", "delete", "--confirm", "--bulk", "ENG-5"]);
+    run.failure().stdout_has("Rate limit exceeded");
+    assert_eq!(api.operations(), ["GetIssueSummary"]);
 }
