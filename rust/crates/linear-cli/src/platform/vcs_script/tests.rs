@@ -46,7 +46,7 @@ impl CannedRunner {
             captures: VecDeque::from([Captured {
                 outcome: ChildOutcome::Code(code),
                 stdout: stdout.as_bytes().to_vec(),
-                stderr: b"not a symbolic ref".to_vec(),
+                stderr: Vec::new(),
             }]),
             requests: Vec::new(),
         }

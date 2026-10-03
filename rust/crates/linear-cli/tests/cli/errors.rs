@@ -24,6 +24,29 @@ fn graphql_errors_show_debug_detail_only_under_linear_debug() {
 }
 
 #[test]
+fn failures_show_the_first_nonempty_graphql_message_or_the_http_status() {
+    let api = MockLinear::start();
+    api.on_raw(
+        "GetIssuesForQuery",
+        200,
+        r#"{"errors":[{"message":""},{"message":"boom"}]}"#,
+    )
+    .on_text("GetIssuesForQuery", 500, "text/plain", "upstream exploded");
+    let cli = Cli::for_api(&api);
+    let args = ["issue", "query", "--all-teams", "--json"];
+    let run = cli.run(&args);
+    run.failure()
+        .stderr_has("✗ Failed to query issues: ")
+        .stderr_has("boom");
+    assert_eq!(run.stdout, "");
+    let run = cli.run(&args);
+    run.failure()
+        .stderr_has("✗ Failed to query issues: ")
+        .stderr_has("500");
+    assert_eq!(run.stdout, "");
+}
+
+#[test]
 fn network_failures_show_a_cause_chain_without_secrets() {
     // Nothing listens on port 1, so the connection is refused.
     let run = Cli::new()

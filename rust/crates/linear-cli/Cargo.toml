@@ -54,10 +54,6 @@ path = "src/main.rs"
 cynic-codegen = { version = "3.14.0", features = ["rkyv"] }
 
 [[test]]
-name = "contracts"
-path = "tests/contracts/main.rs"
-
-[[test]]
 name = "commands"
 path = "tests/commands/main.rs"
 

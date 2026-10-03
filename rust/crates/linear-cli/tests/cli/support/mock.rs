@@ -50,8 +50,16 @@ impl Route {
 struct Reply {
     route: Route,
     status: u16,
-    content_type: &'static str,
+    /// Response headers besides `Content-Length` and `Connection`.
+    headers: Vec<(String, String)>,
     body: Vec<u8>,
+}
+
+fn headers(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+    pairs
+        .iter()
+        .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+        .collect()
 }
 
 #[derive(Default)]
@@ -122,40 +130,56 @@ impl MockLinear {
 
     /// Reply to the next `operation` request with an arbitrary status and JSON body text.
     pub fn on_raw(&self, operation: &str, status: u16, body: &str) -> &Self {
+        self.on_text(operation, status, "application/json", body)
+    }
+
+    /// Reply to the next `operation` request with any status, content type and body text.
+    pub fn on_text(&self, operation: &str, status: u16, content_type: &str, body: &str) -> &Self {
         self.push(Reply {
             route: Route::Operation(operation.to_owned()),
             status,
-            content_type: "application/json",
+            headers: headers(&[("Content-Type", content_type)]),
             body: body.as_bytes().to_vec(),
         })
     }
 
-    /// Reply to the next `operation` request with a non-JSON body, as a proxy or load balancer
-    /// would.
-    pub fn on_text(
-        &self,
-        operation: &str,
-        status: u16,
-        content_type: &'static str,
-        body: &str,
-    ) -> &Self {
+    /// Answer the next `operation` request with a `302 Found` redirect to `location`.
+    pub fn redirect(&self, operation: &str, location: &str) -> &Self {
         self.push(Reply {
             route: Route::Operation(operation.to_owned()),
-            status,
-            content_type,
-            body: body.as_bytes().to_vec(),
+            status: 302,
+            headers: headers(&[("Location", location)]),
+            body: Vec::new(),
         })
     }
 
     /// Reply to the next plain HTTP request for `method path` (non-GraphQL traffic).
     pub fn on_http(&self, method: &str, path: &str, status: u16, body: &[u8]) -> &Self {
+        self.on_http_with(
+            method,
+            path,
+            status,
+            &[("Content-Type", "application/octet-stream")],
+            body,
+        )
+    }
+
+    /// Like `on_http`, with explicit response headers.
+    pub fn on_http_with(
+        &self,
+        method: &str,
+        path: &str,
+        status: u16,
+        response_headers: &[(&str, &str)],
+        body: &[u8],
+    ) -> &Self {
         self.push(Reply {
             route: Route::Http {
                 method: method.to_owned(),
                 path: path.to_owned(),
             },
             status,
-            content_type: "application/octet-stream",
+            headers: headers(response_headers),
             body: body.to_vec(),
         })
     }
@@ -257,18 +281,22 @@ fn serve(stream: TcpStream, state: &Mutex<State>) {
         state.requests.push(request);
         reply
     };
-    let (status, content_type, body) = match reply {
-        Some(reply) => (reply.status, reply.content_type, reply.body),
+    let (status, headers, body) = match reply {
+        Some(reply) => (reply.status, reply.headers, reply.body),
         None => (
             500,
-            "application/json",
+            headers(&[("Content-Type", "application/json")]),
             br#"{"errors":[{"message":"MockLinear: unexpected request"}]}"#.to_vec(),
         ),
     };
-    let head = format!(
-        "HTTP/1.1 {status} Mock\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+    let mut head = format!("HTTP/1.1 {status} Mock\r\n");
+    for (name, value) in headers {
+        head.push_str(&format!("{name}: {value}\r\n"));
+    }
+    head.push_str(&format!(
+        "Content-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
-    );
+    ));
     let mut stream = stream;
     // The client may have given up already (for example after a timeout); that is its problem.
     let _ = stream.write_all(head.as_bytes());

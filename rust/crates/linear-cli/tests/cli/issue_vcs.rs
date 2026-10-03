@@ -378,3 +378,39 @@ fn commits_requires_jj() {
     assert!(api.requests().is_empty());
     assert!(cli.calls("jj").is_empty());
 }
+
+#[test]
+fn commits_drains_large_probe_output_and_passes_the_log_exit_status_through() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-7" } }));
+    // Children get a null stdin, the probe's own status is ignored, and its output is larger
+    // than a pipe buffer on both streams.
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_VCS", "jj")
+        .stdin(b"not for children\n")
+        .stub_bin(
+            "jj",
+            "if IFS= read -r line; then exit 8; fi\n\
+             case \"$*\" in\n\
+             *'-T commit_id'*) head -c 131072 /dev/zero | tr '\\0' x; head -c 131072 /dev/zero >&2; exit 19 ;;\n\
+             *builtin_log_compact_full_description*) printf '+patched line\\n'; exit 7 ;;\n\
+             esac",
+        );
+    let run = cli.run(&["issue", "commits", "ENG-7"]);
+    assert_eq!(run.code, 7, "{run}");
+    assert_eq!(run.stdout, "+patched line\n");
+    assert_eq!(calls(&cli, "jj").len(), 2);
+}
+
+#[test]
+fn commits_fails_when_no_commit_names_the_issue() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-7" } }));
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_VCS", "jj")
+        .stub_bin("jj", "printf '\\357\\273\\277 \\n'");
+    cli.run(&["issue", "commits", "ENG-7"])
+        .failure()
+        .stderr_has("Commits not found: ENG-7");
+    assert_eq!(calls(&cli, "jj").len(), 1);
+}

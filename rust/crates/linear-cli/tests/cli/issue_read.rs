@@ -429,6 +429,23 @@ fn mine_resolves_team_cycle_and_state_names() {
 }
 
 #[test]
+fn mine_rejects_a_url_that_is_not_a_cycle() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved("team-eng", "ENG", "Engineering"));
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "mine",
+            "--team",
+            "eng",
+            "--cycle",
+            "https://linear.app/acme/issue/ENG-1/wrong",
+        ])
+        .failure()
+        .stderr_has("cycle URL, number, or name");
+}
+
+#[test]
 fn mine_validation_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);

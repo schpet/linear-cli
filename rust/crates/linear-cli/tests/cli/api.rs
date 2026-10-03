@@ -163,6 +163,70 @@ fn paginate_rejects_several_connections() {
         .stderr_has("--paginate");
 }
 
+#[test]
+fn responses_that_are_not_graphql_json_are_printed_raw_and_fail() {
+    let api = MockLinear::start();
+    api.on_raw("Probe", 200, " not json ")
+        .on_text("Probe", 500, "text/plain", "upstream exploded")
+        .on_text("Probe", 500, "text/plain", "upstream exploded");
+    let cli = Cli::for_api(&api);
+    let run = cli.run(&["api", QUERY]);
+    run.failure();
+    assert_eq!(run.stdout, " not json \n");
+    let run = cli.run(&["api", QUERY]);
+    run.failure().stderr_has("upstream exploded");
+    assert_eq!(run.stdout, "");
+    let run = cli.run(&["api", QUERY, "--silent"]);
+    run.failure();
+    assert_eq!((run.stdout.as_str(), run.stderr.as_str()), ("", ""));
+}
+
+#[test]
+fn paginate_stops_before_repeating_a_cursor() {
+    const ISSUES: &str = "query Issues($after: String) { issues(after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }";
+    let page = |cursor: &str| json!({ "issues": { "nodes": [], "pageInfo": { "hasNextPage": true, "endCursor": cursor } } });
+    let api = MockLinear::start();
+    api.on("Issues", page("c1"))
+        .on("Issues", page("c2"))
+        .on("Issues", page("c2"));
+    Cli::for_api(&api)
+        .run(&["api", ISSUES, "--paginate"])
+        .failure()
+        .stderr_has("Repeated pagination cursor");
+    let cursors: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .map(|request| request.variables["after"].clone())
+        .collect();
+    assert_eq!(cursors, [Value::Null, json!("c1"), json!("c2")]);
+}
+
+#[test]
+fn redirects_to_another_origin_drop_the_api_key() {
+    // `{"data":true}`, gzip-compressed.
+    const GZIP_BODY: [u8; 33] = [
+        31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 171, 86, 74, 73, 44, 73, 84, 178, 42, 41, 42, 77, 173,
+        5, 0, 116, 98, 198, 157, 13, 0, 0, 0,
+    ];
+    let target = MockLinear::start();
+    target.on_http_with(
+        "GET",
+        "/graphql",
+        200,
+        &[("Content-Encoding", "gzip")],
+        &GZIP_BODY,
+    );
+    let api = MockLinear::start();
+    api.redirect("Probe", &target.url());
+    let run = Cli::for_api(&api).run(&["api", QUERY]);
+    assert_eq!(run.success().json(), json!({ "data": true }));
+    assert_eq!(api.request("Probe").header("authorization"), Some(API_KEY));
+    let [followed] = &target.requests()[..] else {
+        panic!("expected one redirected request");
+    };
+    assert_eq!(followed.header("authorization"), None);
+}
+
 fn introspection() -> Value {
     let named = |kind: &str, name: &str| json!({ "kind": kind, "name": name, "ofType": null });
     let field = |name: &str, ty: Value| {
