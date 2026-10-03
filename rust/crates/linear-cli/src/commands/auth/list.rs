@@ -64,7 +64,7 @@ fn list(ctx: &Ctx) -> Result<()> {
 /// A client per stored workspace, or why its key cannot be used.
 fn clients(ctx: &Ctx, store: &CredentialStore) -> Result<Vec<Check>> {
     let endpoint = ctx.options().endpoint().value();
-    let transport = ctx.config().transport_env.production();
+    let config = ctx.config().network_env.client_config();
     store
         .workspaces()
         .iter()
@@ -75,7 +75,7 @@ fn clients(ctx: &Ctx, store: &CredentialStore) -> Result<Vec<Check>> {
             let Ok(key) = auth::header::to_api_key(secret) else {
                 return Ok(Check::Skip("invalid API key"));
             };
-            let client = LinearClient::new(endpoint.clone(), key, transport.clone())?;
+            let client = LinearClient::new(endpoint.clone(), key, config.clone())?;
             Ok(Check::Request(client))
         })
         .collect()

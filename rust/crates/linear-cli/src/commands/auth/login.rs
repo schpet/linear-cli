@@ -40,7 +40,7 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
         ApiKey::new(key.expose().to_owned()).map_err(|error| {
             Error::new("API key cannot be used as an HTTP header").with_source(error)
         })?,
-        ctx.config().transport_env.production(),
+        ctx.config().network_env.client_config(),
     )?;
     let viewer = ctx
         .spin(true, client.query::<GetViewerAccount, _>(()))

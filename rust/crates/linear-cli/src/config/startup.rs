@@ -8,11 +8,11 @@ use crate::platform::style;
 
 use super::discover::{ConfigCandidate, discover_config_paths};
 use super::dotenv::{ConfigDiagnostic, ConfigFailure, DiagnosticReason, SelectedEnv, load_env};
+use super::network::NetworkEnv;
 use super::options::{ConfigOptionError, ConfigOptions, OptionInputs};
 use super::parse::{ConfigParseError, ConfigTier, parse_config_tier};
 use super::runtime::ProcessEnvSnapshot;
 use super::source::{FileSource, OsFamily, ReadCandidate, read_config_candidate, repo_root};
-use super::transport::TransportEnvInputs;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DisplaySettings {
@@ -66,7 +66,7 @@ impl fmt::Debug for ChildEnvOverlay {
 pub struct StartupConfig {
     pub options: ConfigOptions,
     pub child_env: ChildEnvOverlay,
-    pub transport_env: TransportEnvInputs,
+    pub network_env: NetworkEnv,
     /// Process PAGER value; dotenv files cannot set it either.
     pub pager: Option<OsString>,
     /// Where downloaded Markdown images are cached.
@@ -259,7 +259,7 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
                 process.inputs.env("TMP"),
                 process.inputs.env("TEMP"),
             ),
-            transport_env: TransportEnvInputs::from_process(process),
+            network_env: NetworkEnv::from_process(process),
         }),
     }
 }

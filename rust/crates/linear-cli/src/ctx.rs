@@ -12,7 +12,7 @@ use crate::auth::{
     CredentialWarning, LookupFailureCategory,
 };
 use crate::client::LinearClient;
-use crate::config::{ConfigOptions, ConfigSecret, StartupConfig, TransportEnvInputs};
+use crate::config::{ConfigOptions, ConfigSecret, NetworkEnv, StartupConfig};
 use crate::error::{Error, Result};
 use crate::graphql::operations::user::GetViewer;
 use crate::platform::markdown_terminal::{self, RenderOptions};
@@ -159,7 +159,7 @@ impl Ctx {
         if let Some(client) = self.client.get() {
             return Ok(client);
         }
-        let client = connect(self.options(), self.api_key()?, &self.config.transport_env)?;
+        let client = connect(self.options(), self.api_key()?, &self.config.network_env)?;
         Ok(self.client.get_or_init(|| client))
     }
 
@@ -398,17 +398,16 @@ pub fn select_key<'a>(
 pub fn connect(
     options: &ConfigOptions,
     secret: &ConfigSecret,
-    transport_env: &TransportEnvInputs,
+    network_env: &NetworkEnv,
 ) -> Result<LinearClient> {
     let key = auth::header::to_api_key(secret).map_err(|error| {
         Error::new("API key cannot be used as an HTTP header").with_source(error)
     })?;
-    LinearClient::new(
+    Ok(LinearClient::new(
         options.endpoint().value().clone(),
         key,
-        transport_env.production(),
-    )
-    .map_err(Error::from)
+        network_env.client_config(),
+    )?)
 }
 
 fn credential_warning(warning: &CredentialWarning) -> String {

@@ -1,13 +1,14 @@
-//! Config files, `.env`, environment variables and transport settings.
+//! Config files, `.env`, environment variables and network settings.
 mod discover;
 mod dotenv;
+mod network;
 mod options;
 mod parse;
 mod runtime;
 mod source;
 mod startup;
-mod transport;
 
+pub use network::NetworkEnv;
 pub use options::{
     AssignSelf, ConfigOptions, ConfigSecret, IssueSort, OptionSource, PrTemplateCli, Vcs,
 };
@@ -19,7 +20,6 @@ pub use source::{MAX_CONFIG_BYTES, OsFamily, RawConfigFile, RealFileSource, repo
 pub use startup::{
     ChildEnvOverlay, DisplaySettings, StartupConfig, load_startup, render_diagnostic,
 };
-pub use transport::TransportEnvInputs;
 
 #[cfg(test)]
 mod test_support;

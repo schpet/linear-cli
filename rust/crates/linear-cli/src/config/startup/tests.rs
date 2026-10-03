@@ -118,7 +118,7 @@ fn source_precedence_and_redacted_overlay_are_typed() {
         ready.child_env.get("LINEAR_API_KEY"),
         Some("lin_api_fake_b3")
     );
-    assert_eq!(ready.transport_env.production().ca_bundle, None);
+    assert_eq!(ready.network_env.client_config().ca_bundle, None);
     assert!(!format!("{report:?}").contains("lin_api_fake_b3"));
 }
 

@@ -66,7 +66,7 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
     let inputs = ctx::selection_inputs(ctx.options(), workspace.as_deref());
     let key = ctx::select_key(&inputs, ctx.credentials()?);
     ctx.report_credential_warnings()?;
-    let client = ctx::connect(ctx.options(), key?, &ctx.config().transport_env)?;
+    let client = ctx::connect(ctx.options(), key?, &ctx.config().network_env)?;
     let (url_key, team) = ctx.spin(true, async {
         let url_key = client
             .query::<GetViewer, _>(())
