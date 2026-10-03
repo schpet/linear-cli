@@ -184,7 +184,7 @@ if tool=='git' and args==['rev-parse','--show-toplevel']: print(root);sys.exit(0
 assert sys.stdin.buffer.read()==b'', 'new leaf child stdin must be NULL'
 with (root/'events.jsonl').open('a') as f:f.write(json.dumps({'tool':tool,'args':args,'cwd':os.getcwd(),'stdinNull':True,'dummy':os.environ.get('LINEAR_DUMMY_CHILD_TEST')})+'\n')
 if tool=='git':
- assert args==['symbolic-ref','--short','HEAD'];sys.stdout.write(cfg.get('branch','feature/eng-7-work'));sys.stderr.write(cfg.get('branchErr',''));sys.exit(cfg.get('branchCode',0))
+ assert args==['symbolic-ref','--quiet','--short','HEAD'];sys.stdout.write(cfg.get('branch','feature/eng-7-work'));sys.stderr.write(cfg.get('branchErr',''));sys.exit(cfg.get('branchCode',0))
 assert tool=='jj' and args[0]=='log'
 if args[1:3]==['-r','::@']:sys.stdout.write(cfg.get('trailers','Fixes ENG-7\n'));sys.exit(cfg.get('trailerCode',0))
 if args[args.index('-T')+1]=='commit_id':sys.stdout.write(cfg.get('checkOut','opaque commit\n'));sys.stderr.write('DUMMY hidden probe stderr');sys.exit(cfg.get('checkCode',0))

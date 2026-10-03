@@ -231,8 +231,13 @@ pub fn graphql_message(errors: &[ResponseGraphQlError]) -> Option<String> {
 
 /// Whether GraphQL errors describe a missing entity.
 ///
-/// Linear's raw message is `Entity not found: <Type>` and its presentable
-/// message reads `Could not find referenced <Type>.`; both spellings match.
+/// Linear reports a missing entity with the same `INVALID_INPUT` code as any
+/// other bad argument, so the message is the only signal: the raw message is
+/// `Entity not found: <Type>` and the presentable one `Could not find
+/// referenced <Type>.`. This is the only place the program inspects error
+/// text; commands go through [`TransportFailure::is_not_found`].
+///
+/// [`TransportFailure::is_not_found`]: crate::graphql::transport::TransportFailure::is_not_found
 pub fn is_not_found(errors: &[ResponseGraphQlError]) -> bool {
     graphql_message(errors).is_some_and(|message| {
         let message = message.to_lowercase();

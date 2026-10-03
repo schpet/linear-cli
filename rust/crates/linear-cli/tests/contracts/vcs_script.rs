@@ -182,13 +182,7 @@ fn opt_in_inference_preserves_existing_parsers_and_distinct_nonzero_policy() {
             "",
             Some("ABC9-73"),
         ),
-        (
-            Vcs::Git,
-            ChildOutcome::Code(1),
-            "ENG-9",
-            "DUMMY not a symbolic ref",
-            None,
-        ),
+        (Vcs::Git, ChildOutcome::Code(1), "ENG-9", "", None),
     ] {
         let mut runner = Runner {
             captures: VecDeque::from([Captured {
@@ -212,7 +206,7 @@ fn opt_in_inference_preserves_existing_parsers_and_distinct_nonzero_policy() {
         "\u{fffd}"
     );
     assert_eq!(
-        linear_cli::platform::vcs::parse_git_branch(false, "", " DUMMY failure \n")
+        linear_cli::platform::vcs::parse_git_branch(Some(128), "", " DUMMY failure \n")
             .unwrap_err()
             .message(),
         "Failed to get current branch: DUMMY failure"

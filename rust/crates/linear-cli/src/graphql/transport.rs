@@ -32,7 +32,8 @@ use serde::de::DeserializeOwned;
 
 use crate::error::Error;
 use crate::graphql::envelope::{
-    GraphQlRequest, ResponseError, ResponseGraphQlError, graphql_message, parse_response,
+    GraphQlRequest, ResponseError, ResponseGraphQlError, graphql_message, is_not_found,
+    parse_response,
 };
 
 /// The `User-Agent` sent on every request.
@@ -707,6 +708,21 @@ impl TransportFailure {
             Self::Network { phase, .. } => !matches!(phase, NetworkPhase::Connect),
             Self::ResponseTooLarge { status, .. } => status.is_success(),
             Self::RequestBody(_) | Self::GraphQl { .. } | Self::Http { .. } => false,
+        }
+    }
+
+    /// Whether Linear answered that the requested entity does not exist.
+    pub fn is_not_found(&self) -> bool {
+        matches!(self, Self::GraphQl { errors, .. } if is_not_found(errors))
+    }
+
+    /// [`Error::not_found`] for `entity` `identifier` when Linear answered
+    /// that it does not exist, else this failure as an error.
+    pub fn or_not_found(self, entity: &str, identifier: &str) -> Error {
+        if self.is_not_found() {
+            Error::not_found(entity, identifier)
+        } else {
+            Error::from(self)
         }
     }
 

@@ -30,7 +30,7 @@ fn git(cli: Cli, branch: &str) -> Cli {
         "git",
         &format!(
             "case \"$1 $2\" in\n\
-             'symbolic-ref --short') echo '{branch}' ;;\n\
+             'symbolic-ref --quiet') echo '{branch}' ;;\n\
              'rev-parse --verify') exit 1 ;;\n\
              'checkout -b') echo \"Switched to a new branch '$3'\" >&2 ;;\n\
              *) exit 1 ;;\n\
@@ -65,7 +65,10 @@ fn calls(cli: &Cli, tool: &str) -> Vec<Vec<String>> {
 fn id_comes_from_the_git_branch() {
     let cli = git(Cli::new(), "feature/eng-7-repair");
     cli.run(&["issue", "id"]).success().stdout_has("ENG-7");
-    assert_eq!(calls(&cli, "git"), [["symbolic-ref", "--short", "HEAD"]]);
+    assert_eq!(
+        calls(&cli, "git"),
+        [["symbolic-ref", "--quiet", "--short", "HEAD"]]
+    );
 }
 
 #[test]

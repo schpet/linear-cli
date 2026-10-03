@@ -19,17 +19,20 @@ pub fn parse_jj_trailers(output: &str) -> Option<String> {
     last
 }
 
+/// The issue in the branch name printed by `git symbolic-ref --quiet --short
+/// HEAD`, which exits with `exit_code` 1 when HEAD is detached (no branch, so
+/// no issue) and with another nonzero status on a real failure.
 pub fn parse_git_branch(
-    success: bool,
+    exit_code: Option<i32>,
     stdout: &str,
     stderr: &str,
 ) -> Result<Option<String>, Error> {
-    if !success {
-        let error = stderr.trim();
-        if error.contains("not a symbolic ref") {
-            return Ok(None);
-        }
-        return Err(Error::new(format!("Failed to get current branch: {error}")));
+    match exit_code {
+        Some(0) => Ok(find_issue_identifier(stdout.trim())),
+        Some(1) => Ok(None),
+        Some(_) | None => Err(Error::new(format!(
+            "Failed to get current branch: {}",
+            stderr.trim()
+        ))),
     }
-    Ok(find_issue_identifier(stdout.trim()))
 }

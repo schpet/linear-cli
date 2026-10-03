@@ -6,12 +6,12 @@ use cynic::{MutationBuilder, QueryBuilder};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::{GraphQlRequest, is_not_found};
+use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::comment_create::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
 };
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Text;
 use crate::refs::{reject_comment_url, reject_linear_url};
 
@@ -142,14 +142,10 @@ pub async fn document_content_id(
             id: document.to_owned(),
         },
     ));
-    let data: GetDocumentCommentTarget = transport.execute(&request).await.map_err(|failure| {
-        if let TransportFailure::GraphQl { errors, .. } = &failure
-            && is_not_found(errors)
-        {
-            return Error::not_found("Document", document);
-        }
-        Error::from(failure)
-    })?;
+    let data: GetDocumentCommentTarget = transport
+        .execute(&request)
+        .await
+        .map_err(|failure| failure.or_not_found("Document", document))?;
     let target = data.document;
     target.document_content_id.ok_or_else(|| {
         Error::new(format!(

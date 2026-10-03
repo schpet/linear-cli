@@ -6,9 +6,7 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        envelope::{GraphQlRequest, is_not_found},
-        operations::issue_archive_delete::*,
-        transport::{GraphQlTransport, TransportFailure},
+        envelope::GraphQlRequest, operations::issue_archive_delete::*, transport::GraphQlTransport,
     },
     refs::{self, IssueReference, WorkspaceScope},
 };
@@ -206,24 +204,16 @@ pub fn mutation_request(id: &str, mode: Mode, bulk: bool) -> GraphQlRequest<IdVa
         (Mode::Delete, true) => GraphQlRequest::with_variables(BulkDeleteIssue::build(variables)),
     }
 }
-/// Whether Linear answered that the issue does not exist.
-fn is_missing(failure: &TransportFailure) -> bool {
-    matches!(failure, TransportFailure::GraphQl { errors, .. } if is_not_found(errors))
-}
-
 /// A request whose "not found" answer means issue `id` does not exist.
 async fn exchange<T: serde::de::DeserializeOwned>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<IdVariables>,
     id: &str,
 ) -> Result<T, Error> {
-    transport.execute(request).await.map_err(|failure| {
-        if is_missing(&failure) {
-            Error::not_found("Issue", id)
-        } else {
-            Error::from(failure)
-        }
-    })
+    transport
+        .execute(request)
+        .await
+        .map_err(|failure| failure.or_not_found("Issue", id))
 }
 pub async fn single_details(
     transport: &GraphQlTransport,
@@ -291,7 +281,7 @@ async fn bulk_resolved(
         Mode::Archive => {
             let data: GetIssueDetailsForBulkArchive = match transport.execute(&request).await {
                 Ok(data) => data,
-                Err(failure) if is_missing(&failure) => return Ok(not_found()),
+                Err(failure) if failure.is_not_found() => return Ok(not_found()),
                 Err(failure) => return Err(failure.into()),
             };
             let Some(issue) = data.issue else {

@@ -6,10 +6,10 @@ use cynic::QueryBuilder;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::{GraphQlRequest, is_not_found};
+use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::operations::initiatives::IDComparator;
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     self, InitiativeReference, LinearUrlKind, LinearUrlRef, PreparedTeamLookup, ProjectReference,
 };
@@ -165,15 +165,13 @@ pub async fn resolve(
                     .with_hint("Provide a valid issue identifier (e.g., TC-123) or UUID.")
             };
             let data: GetIssueForDocumentTarget =
-                transport
-                    .execute(&query)
-                    .await
-                    .map_err(|failure| match &failure {
-                        TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
-                            not_found()
-                        }
-                        _ => Error::from(failure),
-                    })?;
+                transport.execute(&query).await.map_err(|failure| {
+                    if failure.is_not_found() {
+                        not_found()
+                    } else {
+                        Error::from(failure)
+                    }
+                })?;
             Ok((
                 Kind::Issue,
                 data.issue.ok_or_else(not_found)?.id.into_inner(),

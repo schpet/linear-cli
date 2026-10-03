@@ -7,11 +7,11 @@ use crate::commands::confirm;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::{self, GraphQlRequest};
+use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
 };
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Choice;
 use crate::refs::{
     is_linear_uuid, prepare_team_lookup, reject_linear_url, resolve_team_with_transport,
@@ -82,10 +82,7 @@ async fn by_uuid(client: &GraphQlTransport, id: &str) -> Result<Label> {
         GraphQlRequest::with_variables(GetLabelById::build(IdVariables { id: id.to_owned() }));
     match client.execute::<GetLabelById, _>(&request).await {
         Ok(data) => Ok(data.issue_label),
-        Err(TransportFailure::GraphQl { errors, .. }) if envelope::is_not_found(&errors) => {
-            Err(Error::not_found("Label", id))
-        }
-        Err(failure) => Err(failure.into()),
+        Err(failure) => Err(failure.or_not_found("Label", id)),
     }
 }
 

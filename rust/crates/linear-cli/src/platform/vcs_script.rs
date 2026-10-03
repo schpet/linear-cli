@@ -338,7 +338,10 @@ pub fn decoded_trim(bytes: &[u8]) -> String {
 }
 pub fn inference_spec(vcs: Vcs) -> CommandSpec {
     match vcs {
-        Vcs::Git => CommandSpec::new(Program::Git, &["symbolic-ref", "--short", "HEAD"]),
+        Vcs::Git => CommandSpec::new(
+            Program::Git,
+            &["symbolic-ref", "--quiet", "--short", "HEAD"],
+        ),
         Vcs::Jj => CommandSpec::new(
             Program::Jj,
             &["log", "-r", "::@", "-T", vcs::JJ_TEMPLATE, "--no-graph"],
@@ -355,7 +358,10 @@ pub fn infer_issue(
     let stdout = decoded_trim(&captured.stdout);
     match vcs {
         Vcs::Git => vcs::parse_git_branch(
-            captured.outcome.success(),
+            match captured.outcome {
+                ChildOutcome::Code(code) => Some(code),
+                ChildOutcome::Signal(_) => None,
+            },
             &stdout,
             &decoded_trim(&captured.stderr),
         ),

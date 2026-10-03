@@ -124,7 +124,7 @@ async fn fetch_list(transport: &GraphQlTransport, identifier: &str) -> Result<Ve
     let data: ListIssueRelations = transport
         .execute(&list_request(identifier))
         .await
-        .map_err(|failure| id::lookup_error(failure, identifier))?;
+        .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     Ok(list_output(&data.issue))
 }
 

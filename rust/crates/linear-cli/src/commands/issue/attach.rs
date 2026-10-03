@@ -6,12 +6,12 @@ use crate::cli::issue::IssueAttach;
 use crate::commands::upload::{self, UploadedFile};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::{GraphQlRequest, is_not_found};
+use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::upload::{
     AttachmentCreate, AttachmentCreateInput, AttachmentCreateVariables, CreatedAttachment,
     GetIssueId, GetIssueIdVariables,
 };
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use cynic::{MutationBuilder, QueryBuilder};
 pub fn run(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
     attach_file(ctx, args).context("Failed to attach file")
@@ -91,15 +91,7 @@ async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<String
     let data: GetIssueId = transport
         .execute(&lookup_request(identifier))
         .await
-        .map_err(|failure| {
-            if let TransportFailure::GraphQl { errors, .. } = &failure
-                && is_not_found(errors)
-            {
-                Error::not_found("Issue", identifier)
-            } else {
-                Error::from(failure)
-            }
-        })?;
+        .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     data.issue
         .map(|x| x.id.into_inner())
         .filter(|x| !x.is_empty())

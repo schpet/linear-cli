@@ -4,10 +4,7 @@ use crate::{
     config::Vcs,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{
-        envelope::is_not_found,
-        transport::{GraphQlTransport, TransportFailure},
-    },
+    graphql::transport::GraphQlTransport,
     platform::vcs_script::{self, ChildOutcome, CommandSpec, ProcessRunner, Program},
 };
 use serde::Deserialize;
@@ -77,7 +74,7 @@ pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<()
     let result: Lookup = transport
         .execute(&request)
         .await
-        .map_err(|failure| lookup_failure(failure, identifier))?;
+        .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     if result
         .issue
         .and_then(|issue| issue.id)
@@ -86,14 +83,6 @@ pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<()
         Ok(())
     } else {
         Err(Error::not_found("Issue", identifier))
-    }
-}
-pub fn lookup_failure(failure: TransportFailure, identifier: &str) -> Error {
-    match &failure {
-        TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
-            Error::not_found("Issue", identifier)
-        }
-        _ => Error::from(failure),
     }
 }
 pub fn revset(identifier: &str) -> String {

@@ -12,13 +12,13 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::{GraphQlRequest, is_not_found};
+use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::comments::{
     CommentBotActor, CommentConnection, CommentExternalUser, CommentNode, CommentParent,
     CommentUser,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use crate::platform::style::bold;
 
 /// What comments are listed for: one query per kind of entity.
@@ -46,16 +46,10 @@ pub async fn fetch<S: CommentSource>(
     pagination::collect(limit.max(), |after, first| {
         let request = S::request(id, after, first);
         async move {
-            let response: S::Response =
-                client
-                    .execute(&request)
-                    .await
-                    .map_err(|failure| match &failure {
-                        TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
-                            not_found()
-                        }
-                        _ => Error::from(failure),
-                    })?;
+            let response: S::Response = client
+                .execute(&request)
+                .await
+                .map_err(|failure| failure.or_not_found(S::ENTITY, original))?;
             let connection = S::comments(response).ok_or_else(not_found)?;
             Ok(Page {
                 nodes: connection.nodes,
