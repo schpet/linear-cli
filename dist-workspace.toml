@@ -1,44 +1,24 @@
+# Native-only dist root: invoke cargo-dist0.31.0 from rust/, never repository root.
 [workspace]
-members = ["dist:."]
+members = ["cargo:."]
 
-
-[package]
-name = "linear"
-description = "CLI tool for linear.app that uses git branch names and directory names to open issues and team pages"
-version = "2.6.0"
-license = "MIT"
-repository = "https://github.com/schpet/linear-cli"
-homepage = "https://github.com/schpet/linear-cli"
-binaries = ["linear"]
-build-command = [
-    "sh",
-    "-c",
-    "deno compile --target=$CARGO_DIST_TARGET -o linear --allow-all --quiet src/main.ts",
-]
-
-# Config for 'dist'
 [dist]
-# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
 cargo-dist-version = "0.31.0"
-# CI backends to support
-ci = "github"
-# The installers to generate for each app
+ci = []
 installers = ["shell", "npm", "homebrew"]
-# A GitHub repo to push Homebrew formulas to
-tap = "schpet/homebrew-tap"
-# Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
-# Publish jobs to run in CI
-publish-jobs = ["homebrew", "npm"]
-# A namespace to use when publishing this package to the npm registry
+hosting = ["github"]
+publish-jobs = []
+pr-run-mode = "skip"
 npm-scope = "@schpet"
-# The npm package should have this name
 npm-package = "linear-cli"
-# Which actions to run on pull requests
-# pr-run-mode = "upload"
-# https://opensource.axo.dev/cargo-dist/book/ci/customizing.html#customizing-build-setup
-github-build-setup = "../build-setup.yml"
-# Path that installers should place binaries in
+tap = "schpet/homebrew-tap"
+formula = "linear"
 install-path = "CARGO_HOME"
-# Whether to install an updater program
 install-updater = true
+checksum = "sha256"
+# Source comes from the explicit jj snapshot manifest, not git HEAD.
+source-tarball = false
+# No github-build-setup: the root generic Deno/codegen workflow stays separate.
+# hosting computes installer URLs; never invoke host/upload/publish/tag here.
+# Updater must be provisioned/qualified by the writer or reported LIMIT.

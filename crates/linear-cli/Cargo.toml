@@ -62,6 +62,6 @@ keyring = { version = "3.6.3", default-features = false, features = ["windows-na
 
 [package.metadata.dist]
 dist = true
-# Includes are relative to this package Cargo.toml. The derived licenses tree
-# keeps dependency files in named subdirectories to avoid LICENSE collisions.
-include = ["../../../LICENSE", "../../licenses"]
+# Paths are relative to this manifest. Dependency notices live in per-crate
+# subdirectories of licenses/ so their LICENSE files do not collide.
+include = ["../../LICENSE", "../../licenses"]

@@ -1,9 +1,6 @@
 .aider.*
 .config/linear.toml
 .idea/
-src/__codegen__/
 npm
-rust/target/
-rust/tools/__pycache__/
-rust/parity/runner/__pycache__/
-rust/parity/runner/transport-cases/zz-tmp-*
+/target/
+__pycache__/

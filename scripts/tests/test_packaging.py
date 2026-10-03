@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class Packaging(unittest.TestCase):
@@ -81,7 +81,7 @@ class Packaging(unittest.TestCase):
         manifest = self.root / "inputs.txt"
         manifest.write_text("\n".join(names) + "\n")
         output = self.root / "out/source.tar.xz"
-        process = self.run_script("rust/scripts/make-source-archive.py", "--repository", repository,
+        process = self.run_script("rust/tools/make-source-archive.py", "--repository", repository,
                                   "--input-manifest", manifest, "--output", output)
         self.assertEqual(process.returncode, expected, process.stderr.decode())
         if expected:
@@ -107,10 +107,10 @@ class Packaging(unittest.TestCase):
 
     def licenses(self, change=None, expected=0):
         repository = self.root / "repository"
-        (repository / "rust/licenses/supplemental").mkdir(parents=True)
-        (repository / "rust/licenses/supplemental/sources.json").write_text('{"records": []}')
+        (repository / "licenses/supplemental").mkdir(parents=True)
+        (repository / "licenses/supplemental/sources.json").write_text('{"records": []}')
         source = "registry+https://github.com/rust-lang/crates.io-index"
-        (repository / "rust/Cargo.lock").write_text(f'version = 4\n[[package]]\nname="example"\nversion="1.0.0"\nsource="{source}"\nchecksum="' + "a" * 64 + '"\n')
+        (repository / "Cargo.lock").write_text(f'version = 4\n[[package]]\nname="example"\nversion="1.0.0"\nsource="{source}"\nchecksum="' + "a" * 64 + '"\n')
         package = self.root / "package"
         package.mkdir()
         (package / "Cargo.toml").write_text('[package]\nname="example"\nversion="1.0.0"\n')
@@ -122,7 +122,7 @@ class Packaging(unittest.TestCase):
         metadata = self.root / "metadata.json"
         metadata.write_text(json.dumps(data))
         output = self.root / "notices"
-        process = self.run_script("rust/scripts/generate-license-inventory.py", "--repository", repository,
+        process = self.run_script("scripts/generate-license-inventory.py", "--repository", repository,
                                   "--metadata", metadata, "--output", output)
         self.assertEqual(process.returncode, expected, process.stderr.decode())
         if expected:
@@ -146,7 +146,7 @@ class Packaging(unittest.TestCase):
 
     def test_license_inventory_bad_supplement_sha_has_no_output_effects(self):
         def change(repository, package, data):
-            directory = repository / "rust/licenses/supplemental"
+            directory = repository / "licenses/supplemental"
             (directory / "NOTICE").write_text("supplement")
             (directory / "sources.json").write_text(json.dumps({"records": [{"file": "supplemental/NOTICE", "sha256": "0" * 64,
                 "sourceUrl": "https://example.test/LICENSE", "packages": ["example@1.0.0"], "qualification": "fixture"}]}))

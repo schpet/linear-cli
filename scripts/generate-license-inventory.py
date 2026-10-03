@@ -26,14 +26,14 @@ def generate(repository: Path, metadata_file: Path, output: Path) -> dict:
     metadata = json.loads(metadata_file.read_text())
     if not isinstance(metadata, dict) or not isinstance(metadata.get("packages"), list):
         raise ValueError("Cargo metadata packages must be an array")
-    lock = tomllib.loads((repository / "rust/Cargo.lock").read_text())
+    lock = tomllib.loads((repository / "Cargo.lock").read_text())
     locked = {}
     for package in lock["package"]:
         key = (text(package.get("name"), "locked name"), text(package.get("version"), "locked version"))
         if key in locked:
             raise ValueError("duplicate locked package identity")
         locked[key] = package
-    supplemental_dir = repository / "rust/licenses/supplemental"
+    supplemental_dir = repository / "licenses/supplemental"
     supplemental = json.loads((supplemental_dir / "sources.json").read_text())
     if not isinstance(supplemental, dict) or not isinstance(supplemental.get("records"), list):
         raise ValueError("supplemental notice records must be an array")
@@ -44,7 +44,7 @@ def generate(repository: Path, metadata_file: Path, output: Path) -> dict:
         relative = Path(text(record["file"], "supplemental path"))
         if relative.is_absolute() or ".." in relative.parts or relative.parts[0] != "supplemental":
             raise ValueError("supplemental notice path escapes its directory")
-        source = repository / "rust/licenses" / relative
+        source = repository / "licenses" / relative
         data = source.read_bytes()
         if source.is_symlink() or digest(data) != record["sha256"]:
             raise ValueError("supplemental notice SHA mismatch")
