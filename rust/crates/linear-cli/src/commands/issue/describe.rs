@@ -25,8 +25,7 @@ fn describe(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
     ))
 }
 pub async fn fetch(transport: &GraphQlTransport, identifier: &str) -> Result<IssueDetails, Error> {
-    let mut request = details::request(identifier.to_owned());
-    request.query = request.query.trim_end_matches('\n').to_owned();
+    let request = details::request(identifier.to_owned());
     let response: GetIssueDetails = transport.execute(&request).await?;
     Ok(response.issue)
 }

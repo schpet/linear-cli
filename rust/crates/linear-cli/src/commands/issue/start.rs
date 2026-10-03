@@ -20,7 +20,7 @@ use crate::{
     },
     refs::{IssueReference, prepare_issue_reference},
 };
-use cynic::{MutationBuilder, QueryBuilder};
+use cynic::MutationBuilder;
 use std::{io::Write, path::Path};
 pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
     start(ctx, args).context("Failed to start issue")
@@ -171,19 +171,12 @@ pub fn filter(team: &str, all: bool, unassigned: bool) -> IssueFilter {
         ..Default::default()
     }
 }
-pub fn list_request(
-    variables: GetIssuesForStateVariables,
-) -> GraphQlRequest<GetIssuesForStateVariables> {
-    let mut request = GraphQlRequest::with_variables(GetIssuesForState::build(variables));
-    request.query = request.query.trim_end_matches('\n').to_owned();
-    request
-}
 pub async fn list(
     transport: &GraphQlTransport,
     filter: IssueFilter,
     priority: bool,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
-    issue_read::mine_with_requests(transport, filter, priority, None, list_request).await
+    issue_read::mine(transport, filter, priority, None).await
 }
 fn choices(issues: &[GetIssuesForStateIssuesNodes], team: &str) -> Result<Vec<Choice<String>>> {
     if issues.is_empty() {
@@ -363,12 +356,10 @@ pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
     selected.ok_or_else(|| Error::new("No 'started' state found in workflow"))
 }
 pub fn update_request(identifier: &str, state_id: &str) -> GraphQlRequest<Variables> {
-    let mut request = GraphQlRequest::with_variables(UpdateIssueState::build(Variables {
+    GraphQlRequest::with_variables(UpdateIssueState::build(Variables {
         issue_id: identifier.to_owned(),
         state_id: state_id.to_owned(),
-    }));
-    request.query = request.query.trim_end_matches('\n').to_owned();
-    request
+    }))
 }
 pub async fn update_state(
     transport: &GraphQlTransport,

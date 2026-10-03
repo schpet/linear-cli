@@ -14,28 +14,9 @@ use crate::platform::style;
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
 use cynic::QueryBuilder;
-use serde::{Serialize, de::DeserializeOwned};
 
 use std::num::NonZeroU32;
 
-pub async fn exchange<T: DeserializeOwned, V: Serialize>(
-    transport: &GraphQlTransport,
-    request: &GraphQlRequest<V>,
-) -> Result<T, Error> {
-    transport
-        .execute(request)
-        .await
-        .map_err(|error| match error {
-            crate::graphql::transport::TransportFailure::Response(
-                crate::graphql::envelope::ResponseError::UnexpectedShape(error),
-            ) => Error::new("Linear returned issue read data with an unexpected shape")
-                .with_source(error),
-            error => Error::from(error),
-        })
-}
-fn validation(message: impl Into<String>) -> Error {
-    Error::new(message)
-}
 /// Filters on issues created or updated at or after the given times.
 pub fn apply_dates(
     filter: &mut IssueFilter,
@@ -124,7 +105,7 @@ pub async fn state_filter(
     for value in values {
         reject_linear_url(value, "a workflow state name, type, or ID")?;
         if value.chars().all(char::is_whitespace) {
-            return Err(validation("--state value is empty").with_hint(format!(
+            return Err(Error::new("--state value is empty").with_hint(format!(
                 "Pass a state type ({}), name, or ID.",
                 STATE_TYPES.join(", ")
             )));
@@ -152,14 +133,14 @@ pub async fn state_filter(
                     after: after.clone(),
                 },
             ));
-            let page: GetWorkflowStatesInScope = exchange(transport, &request).await?;
+            let page: GetWorkflowStatesInScope = transport.execute(&request).await?;
             states.extend(page.workflow_states.nodes);
             if !page.workflow_states.page_info.has_next_page {
                 break;
             }
             let next = page.workflow_states.page_info.end_cursor;
             if next.is_none() || next == after {
-                return Err(validation(
+                return Err(Error::new(
                     "Linear reported more workflow states but returned no new pagination cursor",
                 )
                 .with_hint("Retry the command."));
@@ -251,7 +232,7 @@ pub async fn state_filter(
             ..Default::default()
         },
         (Some(a), None) | (None, Some(a)) => a,
-        (None, None) => return Err(validation("--state selection is empty")),
+        (None, None) => return Err(Error::new("--state selection is empty")),
     }))
 }
 pub fn entity_filters(
@@ -343,28 +324,11 @@ pub async fn assignee_filter(
         ..Default::default()
     }))
 }
-fn issue_write_query_ending<V>(
-    request: GraphQlRequest<V>,
-    _terminal_lf: bool,
-) -> GraphQlRequest<V> {
-    request
-}
+/// The ID of the project `reference` names: a UUID as given, else an exact
+/// name match (refusing ambiguous names), else a slug ID match.
 pub async fn project_id(
     transport: &GraphQlTransport,
     reference: &ProjectReference,
-) -> Result<Option<String>, Error> {
-    project_id_query_ending(transport, reference, true).await
-}
-pub async fn project_id_without_terminal_lf(
-    transport: &GraphQlTransport,
-    reference: &ProjectReference,
-) -> Result<Option<String>, Error> {
-    project_id_query_ending(transport, reference, false).await
-}
-async fn project_id_query_ending(
-    transport: &GraphQlTransport,
-    reference: &ProjectReference,
-    terminal_lf: bool,
 ) -> Result<Option<String>, Error> {
     use crate::graphql::operations::project_view::{
         GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
@@ -373,18 +337,13 @@ async fn project_id_query_ending(
         ProjectReference::Id(id) => return Ok(Some(id.clone())),
         ProjectReference::Slug(slug) => slug,
         ProjectReference::NameOrSlug(name) => {
-            let data: GetProjectIdByName = exchange(
-                transport,
-                &issue_write_query_ending(
-                    GraphQlRequest::with_variables(GetProjectIdByName::build(
-                        ProjectReferenceVariables { name: name.clone() },
-                    )),
-                    terminal_lf,
-                ),
-            )
-            .await?;
+            let data: GetProjectIdByName = transport
+                .execute(&GraphQlRequest::with_variables(GetProjectIdByName::build(
+                    ProjectReferenceVariables { name: name.clone() },
+                )))
+                .await?;
             if data.projects.nodes.len() > 1 {
-                return Err(validation(format!(
+                return Err(Error::new(format!(
                     "Project \"{name}\" is ambiguous; it matches {} projects:\n{}",
                     data.projects.nodes.len(),
                     data.projects
@@ -410,16 +369,13 @@ async fn project_id_query_ending(
             name
         }
     };
-    let data: GetProjectIdBySlugId = exchange(
-        transport,
-        &issue_write_query_ending(
-            GraphQlRequest::with_variables(GetProjectIdBySlugId::build(ProjectSlugVariables {
+    let data: GetProjectIdBySlugId = transport
+        .execute(&GraphQlRequest::with_variables(
+            GetProjectIdBySlugId::build(ProjectSlugVariables {
                 slug_id: slug.clone(),
-            })),
-            terminal_lf,
-        ),
-    )
-    .await?;
+            }),
+        ))
+        .await?;
     Ok(data
         .projects
         .nodes
@@ -437,7 +393,7 @@ pub async fn milestone_id(
         return Ok(value.to_owned());
     }
     reject_linear_url(value, "a milestone name or UUID")?;
-    let project = project.ok_or_else(|| validation(format!("Cannot resolve milestone \"{value}\" without --project")).with_hint("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
+    let project = project.ok_or_else(|| Error::new(format!("Cannot resolve milestone \"{value}\" without --project")).with_hint("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
     crate::commands::milestone::id_by_name(transport, project, value).await
 }
 pub async fn mine(
@@ -446,28 +402,16 @@ pub async fn mine(
     priority: bool,
     limit: Option<NonZeroU32>,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
-    mine_with_requests(transport, filter, priority, limit, |variables| {
-        GraphQlRequest::with_variables(GetIssuesForState::build(variables))
-    })
-    .await
-}
-/// `mine` with a caller-built request, used by `issue start`.
-pub(crate) async fn mine_with_requests(
-    transport: &GraphQlTransport,
-    filter: IssueFilter,
-    priority: bool,
-    limit: Option<NonZeroU32>,
-    mut request: impl FnMut(GetIssuesForStateVariables) -> GraphQlRequest<GetIssuesForStateVariables>,
-) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
     let mut rows = pagination::collect(limit, |after, first| {
-        let request = request(GetIssuesForStateVariables {
-            sort: Some(sort_payload(priority)),
-            filter: filter.clone(),
-            first: Some(first),
-            after,
-        });
+        let request =
+            GraphQlRequest::with_variables(GetIssuesForState::build(GetIssuesForStateVariables {
+                sort: Some(sort_payload(priority)),
+                filter: filter.clone(),
+                first: Some(first),
+                after,
+            }));
         async move {
-            let data: GetIssuesForState = exchange(transport, &request).await?;
+            let data: GetIssuesForState = transport.execute(&request).await?;
             Ok(Page {
                 nodes: data.issues.nodes,
                 page_info: data.issues.page_info,
@@ -495,7 +439,7 @@ pub async fn query(
                 include_archived: archived.then_some(true),
             }));
         async move {
-            let data: GetIssuesForQuery = exchange(transport, &request).await?;
+            let data: GetIssuesForQuery = transport.execute(&request).await?;
             Ok(Page {
                 nodes: data.issues.nodes,
                 page_info: data.issues.page_info,
@@ -525,7 +469,7 @@ pub async fn search(
             order_by: None,
         }));
         async move {
-            let data: SearchIssues = exchange(transport, &request).await?;
+            let data: SearchIssues = transport.execute(&request).await?;
             Ok(Page {
                 nodes: data.search_issues.nodes,
                 page_info: data.search_issues.page_info,
@@ -837,7 +781,6 @@ fn labels_cell(labels: &[GetIssuesForStateIssuesNodesLabelsNodes]) -> Cell {
     })
 }
 
-/// Refuse menu text the selector cannot display (control characters).
 /// The team `reference` (a key, name, ID or URL) names.
 pub(super) fn resolve_team(
     ctx: &crate::ctx::Ctx,
@@ -845,11 +788,7 @@ pub(super) fn resolve_team(
     reference: &str,
 ) -> Result<crate::refs::ResolvedTeam, Error> {
     let lookup = crate::refs::prepare_team_lookup(reference, &ctx.scope()?)?;
-    ctx.block_on(crate::refs::resolve_team(
-        &lookup,
-        |request| async move { exchange(client, &request).await },
-        |request| async move { exchange(client, &request).await },
-    ))
+    ctx.block_on(crate::refs::resolve_team_with_transport(&lookup, client))
 }
 
 /// The project `--project` names. When no project matches exactly, a terminal
@@ -865,14 +804,12 @@ pub(super) fn resolve_project(
     if let Some(id) = ctx.block_on(project_id(client, &reference))? {
         return Ok(Some(id));
     }
-    let data: GetProjectIdOptionsByName = ctx.block_on(exchange(
-        client,
-        &GraphQlRequest::with_variables(GetProjectIdOptionsByName::build(
-            GetProjectIdOptionsByNameVariables {
+    let data: GetProjectIdOptionsByName =
+        ctx.block_on(client.execute(&GraphQlRequest::with_variables(
+            GetProjectIdOptionsByName::build(GetProjectIdOptionsByNameVariables {
                 name: value.to_owned(),
-            },
-        )),
-    ))?;
+            }),
+        )))?;
     let mut rows: Vec<(String, String)> = vec![];
     for row in data.projects.nodes {
         match rows.iter_mut().find(|(id, _)| id == row.id.inner()) {
@@ -940,11 +877,11 @@ pub(super) fn resolve_cycle(
         "a cycle URL, number, or name",
         &ctx.scope()?,
     )?;
-    ctx.block_on(crate::commands::cycle::view::resolve_id_with(
+    ctx.block_on(crate::commands::cycle::view::resolve_id(
+        client,
         &team_id,
         value,
         url.as_ref(),
-        |request| async move { exchange(client, &request).await },
     ))
     .map(Some)
 }

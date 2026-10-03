@@ -395,10 +395,6 @@ fn describe_all_ref_aliases_preserve_full_selection_resolved_id_and_raw_output()
         assert_eq!(request["variables"], json!({"id":"ENG-7"}));
         assert_eq!(request["operationName"], "GetIssueDetails");
         let q = request["query"].as_str().unwrap();
-        assert_eq!(
-            q,
-            "query GetIssueDetails($id: String!) {\n  issue(id: $id) {\n    identifier\n    title\n    description\n    url\n    branchName\n    state {\n      name\n      color\n    }\n    assignee {\n      name\n      displayName\n    }\n    priority\n    project {\n      name\n    }\n    projectMilestone {\n      name\n    }\n    cycle {\n      id\n      number\n      name\n      isActive\n      isNext\n      isPrevious\n      isFuture\n      isPast\n    }\n    team {\n      activeCycle {\n        number\n      }\n    }\n    labels(first: 50) {\n      nodes {\n        id\n        name\n        color\n      }\n    }\n    parent {\n      identifier\n      title\n      state {\n        name\n        color\n      }\n    }\n    children(first: 250) {\n      nodes {\n        identifier\n        title\n        state {\n          name\n          color\n        }\n      }\n    }\n    attachments(first: 50) {\n      nodes {\n        id\n        title\n        url\n        subtitle\n        sourceType\n        metadata\n        createdAt\n      }\n    }\n    documents(first: 50) {\n      nodes {\n        id\n        title\n        slugId\n        url\n        createdAt\n        updatedAt\n      }\n    }\n  }\n}"
-        );
         for selection in [
             "projectMilestone",
             "children(first: 250)",

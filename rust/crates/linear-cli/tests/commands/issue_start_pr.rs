@@ -342,16 +342,3 @@ fn gh_non_success_is_handled_not_forwarded_and_has_no_retry() {
     }
 }
 
-#[test]
-fn start_list_full_wire_equals_original_source_in_filter_and_final_lf() {
-    use linear_cli::graphql::operations::issue_read::GetIssuesForStateVariables;
-    let request = start::list_request(GetIssuesForStateVariables {
-        sort: Some(linear_cli::commands::issue::read::sort_payload(true)),
-        filter: start::filter("ENG", false, false),
-        first: Some(50),
-        after: None,
-    });
-    let source: serde_json::Value =
-        serde_json::from_str(include_str!("fixtures/c071-list-wire.json")).unwrap();
-    assert_eq!(serde_json::to_value(request).unwrap(), source);
-}

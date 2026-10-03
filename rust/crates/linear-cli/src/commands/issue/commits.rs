@@ -73,8 +73,7 @@ impl<'de> Deserialize<'de> for LookupIssue {
 }
 /// Look up the issue; a missing or null issue is "not found".
 pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), Error> {
-    let mut request = super::id::request(identifier);
-    request.query = request.query.trim_end_matches('\n').to_owned();
+    let request = super::id::request(identifier);
     let result: Lookup = transport
         .execute(&request)
         .await

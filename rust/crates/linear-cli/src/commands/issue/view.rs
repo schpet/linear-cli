@@ -133,22 +133,20 @@ pub async fn fetch(
 ) -> Result<Fetched, Error> {
     let missing = || Error::not_found("Issue", &id);
     if comments {
-        let data: GetIssueDetailsWithComments = super::read::exchange(
-            transport,
-            &GraphQlRequest::with_variables(GetIssueDetailsWithComments::build(
-                GetIssueDetailsWithCommentsVariables { id: id.clone() },
-            )),
-        )
-        .await?;
+        let data: GetIssueDetailsWithComments = transport
+            .execute(&GraphQlRequest::with_variables(
+                GetIssueDetailsWithComments::build(GetIssueDetailsWithCommentsVariables {
+                    id: id.clone(),
+                }),
+            ))
+            .await?;
         Ok(Fetched::With(data.issue.ok_or_else(missing)?))
     } else {
-        let data: GetIssueDetails = super::read::exchange(
-            transport,
-            &GraphQlRequest::with_variables(GetIssueDetails::build(GetIssueDetailsVariables {
-                id: id.clone(),
-            })),
-        )
-        .await?;
+        let data: GetIssueDetails = transport
+            .execute(&GraphQlRequest::with_variables(GetIssueDetails::build(
+                GetIssueDetailsVariables { id: id.clone() },
+            )))
+            .await?;
         Ok(Fetched::Without(data.issue.ok_or_else(missing)?))
     }
 }

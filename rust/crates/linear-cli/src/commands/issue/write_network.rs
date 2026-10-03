@@ -274,9 +274,7 @@ impl Backend for NetworkBackend {
     async fn project(&self, reference: String) -> Result<Option<String>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
-        // The same project lookup as the issue read commands: exact-name ambiguity checks and slug fallback.
-        crate::commands::issue::read::project_id_without_terminal_lf(&self.transport, &prepared)
-            .await
+        crate::commands::issue::read::project_id(&self.transport, &prepared).await
     }
     async fn project_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         use crate::graphql::operations::issue_read::{
