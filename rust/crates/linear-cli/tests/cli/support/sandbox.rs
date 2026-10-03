@@ -109,9 +109,18 @@ impl Cli {
             log.display()
         );
         let path = self.path(&format!("bin/{name}"));
-        std::fs::write(&path, wrapper).expect("write stub");
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
+        let staged = self.path(&format!("bin/.{name}.new"));
+        // A child writer keeps sibling test children from inheriting a script's writable fd.
+        let status = Command::new("/bin/sh")
+            .args(["-c", "printf '%s' \"$2\" > \"$1\"", "write-stub"])
+            .arg(&staged)
+            .arg(wrapper)
+            .status()
+            .expect("run stub writer");
+        assert!(status.success(), "write {}: {status}", staged.display());
+        std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755))
             .expect("make stub executable");
+        std::fs::rename(&staged, &path).expect("publish stub");
         self
     }
 

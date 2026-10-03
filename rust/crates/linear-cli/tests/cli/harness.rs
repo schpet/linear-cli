@@ -243,3 +243,29 @@ fn failure_accepts_only_an_ordinary_runtime_error() {
         );
     }
 }
+
+#[test]
+fn restubbing_preserves_open_script_readers_and_call_history() {
+    let cli = Cli::new().stub_bin("tool", "echo first");
+    let first = std::process::Command::new(cli.path("bin/tool"))
+        .arg("first arg")
+        .output()
+        .expect("run first stub");
+    assert!(first.status.success());
+    assert_eq!(first.stdout, b"first\n");
+    let mut reader = std::fs::File::open(cli.path("bin/tool")).expect("open first script");
+    let cli = cli.stub_bin("tool", "echo second");
+    let mut old_script = String::new();
+    std::io::Read::read_to_string(&mut reader, &mut old_script).expect("read first script");
+    assert!(
+        old_script.ends_with("echo first\n"),
+        "an open reader must keep the original script"
+    );
+    let second = std::process::Command::new(cli.path("bin/tool"))
+        .arg("second arg")
+        .output()
+        .expect("run replaced stub");
+    assert!(second.status.success());
+    assert_eq!(second.stdout, b"second\n");
+    assert_eq!(cli.calls("tool"), [vec!["first arg"], vec!["second arg"]]);
+}

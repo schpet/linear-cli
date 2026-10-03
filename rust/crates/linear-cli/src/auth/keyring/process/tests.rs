@@ -20,16 +20,21 @@ impl FakeTool {
     fn new(script: &str) -> Self {
         let dir = tempfile::tempdir().expect("temp dir");
         let tool = Self { dir };
-        fs::write(
-            tool.executable(),
-            format!(
+        let staged = tool.dir.path().join(".tool.new");
+        // A child writer keeps sibling test children from inheriting a script's writable fd.
+        let status = Command::new("/bin/sh")
+            .args(["-c", "printf '%s' \"$2\" > \"$1\"", "write-fake-tool"])
+            .arg(&staged)
+            .arg(format!(
                 "#!/bin/sh\nTRACE='{}'\n{script}\n",
                 tool.trace_path().display()
-            ),
-        )
-        .expect("write fake tool");
-        fs::set_permissions(tool.executable(), fs::Permissions::from_mode(0o700))
+            ))
+            .status()
+            .expect("run fake tool writer");
+        assert!(status.success(), "write {}: {status}", staged.display());
+        fs::set_permissions(&staged, fs::Permissions::from_mode(0o700))
             .expect("make fake tool executable");
+        fs::rename(&staged, tool.executable()).expect("publish fake tool");
         tool
     }
 
