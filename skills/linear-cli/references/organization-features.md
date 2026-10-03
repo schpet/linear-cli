@@ -32,7 +32,7 @@ linear initiative remove-project <initiative> <project>
 # List labels (shows ID, name, color, team)
 linear label list
 linear label list --team DEV
-linear label list --workspace  # Workspace-level only
+linear label list --workspace-only  # Workspace-level only
 
 # Create label
 linear label create --name "Bug" --color "#EB5757"

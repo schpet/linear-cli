@@ -1,66 +1,35 @@
 # team
 
-> Manage Linear teams
+> Manage teams
+
+## Usage
 
 ```
-Manage Linear teams
+Manage teams
 
-Usage: linear team [OPTIONS] [COMMAND]
+Usage: linear team [OPTIONS] <COMMAND>
 
 Commands:
-  create     Create a linear team
-  delete     Delete a Linear team
   list       List teams
-  id         Print the configured team id
-  autolinks  Configure GitHub repository autolinks for Linear issues with this team prefix
-  members    List team members (team by key, name, or ID)
-  states     List workflow states for a team (by key, name, or ID)
+  create     Create a team
+  delete     Delete a team
+  members    List a team's members
+  states     List a team's workflow states
+  id         Print the configured team key
+  autolinks  Link the configured team's issue IDs in the current GitHub repository
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## create
+## Subcommands
 
-> Create a linear team
-
-```
-Create a linear team
-
-Usage: linear team create [OPTIONS]
-
-Options:
-  -n, --name <name>                Name of the team
-      --workspace <slug>           Target workspace (uses credentials)
-  -d, --description <description>  Description of the team
-  -k, --key <key>                  Team key (if not provided, will be generated from name)
-      --private                    Make the team private
-      --no-interactive             Disable interactive prompts
-  -h, --help                       Print help
-```
-
-## delete
-
-> Delete a Linear team
-
-```
-Delete a Linear team
-
-Usage: linear team delete [OPTIONS] <team>
-
-Arguments:
-  <team>  
-
-Options:
-      --move-issues <targetTeam>  Move all issues to another team (key, name, or ID) before deletion
-      --workspace <slug>          Target workspace (uses credentials)
-  -y, --force                     Skip confirmation prompt
-  -h, --help                      Print help
-```
-
-## list
+### list
 
 > List teams
 
@@ -70,74 +39,143 @@ List teams
 Usage: linear team list [OPTIONS]
 
 Options:
-  -w, --web               Open in web browser
-      --workspace <slug>  Target workspace (uses credentials)
-  -a, --app               Open in Linear.app
-  -j, --json              Output as JSON
-  -h, --help              Print help
+  -w, --web            Open the teams page in the browser
+  -a, --app            Open the teams page in the Linear app
+      --limit <LIMIT>  Maximum number of teams to show (a number or `all`) [default: all]
+  -j, --json           Print JSON
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## id
+### create
 
-> Print the configured team id
+> Create a team
 
 ```
-Print the configured team id
+Create a team
+
+Usage: linear team create [OPTIONS]
+
+Options:
+  -n, --name <NAME>                Team name
+  -d, --description <DESCRIPTION>  Team description
+  -k, --key <KEY>                  Team key, like ENG; derived from the name when omitted
+      --private                    Make the team private
+  -i, --interactive                Also prompt for the optional fields
+  -h, --help                       Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### delete
+
+> Delete a team
+
+```
+Delete a team
+
+Usage: linear team delete [OPTIONS] <TEAM>
+
+Arguments:
+  <TEAM>  Team key, name, or ID
+
+Options:
+      --move-issues <TEAM>  Move the team's issues to this team (key, name, or ID) first
+  -y, --yes                 Do not ask for confirmation
+  -h, --help                Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### members
+
+> List a team's members
+
+```
+List a team's members
+
+Usage: linear team members [OPTIONS] [TEAM]
+
+Arguments:
+  [TEAM]  Team key, name, or ID; defaults to the configured team
+
+Options:
+  -a, --all            Include deactivated members
+      --limit <LIMIT>  Maximum number of members to show (a number or `all`) [default: all]
+  -j, --json           Print JSON; a member's `url` mentions them when pasted into Markdown
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### states
+
+> List a team's workflow states
+
+```
+List a team's workflow states
+
+Usage: linear team states [OPTIONS] [TEAM]
+
+Arguments:
+  [TEAM]  Team key, name, or ID; defaults to the configured team
+
+Options:
+      --limit <LIMIT>  Maximum number of states to show (a number or `all`) [default: all]
+  -j, --json           Print JSON
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### id
+
+> Print the configured team key
+
+```
+Print the configured team key
 
 Usage: linear team id [OPTIONS]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## autolinks
+### autolinks
 
-> Configure GitHub repository autolinks for Linear issues with this team prefix
+> Link the configured team's issue IDs in the current GitHub repository
 
 ```
-Configure GitHub repository autolinks for Linear issues with this team prefix
+Link the configured team's issue IDs in the current GitHub repository
+
+Adds a GitHub autolink so that references like ENG-123 in commits, issues and pull requests link to
+Linear. Needs the `gh` CLI.
 
 Usage: linear team autolinks [OPTIONS]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
-```
+  -h, --help
+          Print help (see a summary with '-h')
 
-## members
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
 
-> List team members (team by key, name, or ID)
-
-```
-List team members (team by key, name, or ID)
-
-Usage: linear team members [OPTIONS] [team]
-
-Arguments:
-  [team]  
-
-Options:
-  -a, --all               Include inactive members
-      --workspace <slug>  Target workspace (uses credentials)
-  -j, --json              Output as JSON; a member's url mentions them when pasted into Markdown
-  -h, --help              Print help
-```
-
-## states
-
-> List workflow states for a team (by key, name, or ID)
-
-```
-List workflow states for a team (by key, name, or ID)
-
-Usage: linear team states [OPTIONS] [team]
-
-Arguments:
-  [team]  
-
-Options:
-  -j, --json              Output as JSON
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```

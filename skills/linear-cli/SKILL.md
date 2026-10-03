@@ -10,10 +10,20 @@ A CLI to manage Linear issues from the command line, with git and jj integration
 
 ## Prerequisites
 
-Use the reviewed native `linear` major-3 candidate from its verified local archive
-or an explicit build path. Check `linear --version` against the artifact metadata.
-The native executable requires neither Deno nor Node. Published Deno/JSR routes
-remain separate; these references describe the pinned native candidate.
+The `linear` command must be available on PATH. To check:
+
+```bash
+linear --version
+```
+
+If not installed globally, you can run it without installing via npx:
+
+```bash
+npx @schpet/linear-cli --version
+```
+
+All subsequent commands can be prefixed with `npx @schpet/linear-cli` in place of `linear`. Otherwise, follow the install instructions at:\
+https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
 ## Common Tasks
 
@@ -29,22 +39,22 @@ linear issue query --project "Mobile App" --state backlog --state triage --unass
 linear issue query --assignee sam --label bug --updated-after 2026-01-01
 ```
 
-Note: `linear issue list` is an alias of `issue mine` and only shows _your_ issues — use `issue query` for anything scoped to other people or a whole team/project.
+Note: `linear issue list` (alias `issue mine`) shows _your_ issues by default — use `issue query` for anything scoped to other people or a whole team/project.
 
 ### List my issues
 
 ```bash
-linear issue mine --state started --sort priority
+linear issue list --state started --sort priority
 ```
 
 ### Create an issue
 
 ```bash
 linear issue create --team ENG --title "Fix login redirect" \
-  --description-file ./description.md --no-interactive
+  --description-file ./description.md --no-input
 ```
 
-Write multi-line markdown to a file and pass `--description-file` (see the markdown section below); `--no-interactive` avoids prompts in scripted use.
+Write multi-line markdown to a file and pass `--description-file` (see the markdown section below); `--no-input` makes the command fail instead of prompting for anything missing in scripted use.
 
 ### Update an issue's state, assignee, or labels
 
@@ -95,7 +105,7 @@ linear issue url ENG-123           # print just the URL
 ```bash
 linear issue update ENG-123 --state Done       # or Canceled; Linear auto-archives closed issues later
 linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
-linear issue archive ENG-123 --confirm         # rarely appropriate, see below
+linear issue archive ENG-123 --yes             # rarely appropriate, see below
 ```
 
 Prefer closing or deleting over archiving. Linear's docs say "archiving happens automatically with no option to manually archive items" (https://linear.app/docs/delete-archive-issues): closed issues are auto-archived after the team's configured period, and Linear removed manual archiving from its app because people used it as a trash can. `issue archive` calls the `issueArchive` mutation directly, bypassing auto-archive's checks for open parents, sub-issues, cycles, and projects, and archived issues vanish from `issue list`, `issue query`, and search unless `--include-archived` is passed. Only archive when the user explicitly asks for it.
@@ -175,131 +185,147 @@ The square brackets around the title and the closing `+++` are required.
 Compact command list, generated from `linear --help`:
 
 ```bash
-- `linear api`
-- `linear auth`
-- `linear auth login`
-- `linear auth logout`
-- `linear auth list`
-- `linear auth default`
-- `linear auth token`
-- `linear auth whoami`
-- `linear auth migrate`
-- `linear config`
-- `linear cycle`
-- `linear cycle list`
-- `linear cycle view`
-- `linear document`
-- `linear document list`
-- `linear document view`
-- `linear document create`
-- `linear document update`
-- `linear document delete`
-- `linear document comment`
-- `linear document comment add`
-- `linear document comment list`
-- `linear initiative`
-- `linear initiative list`
-- `linear initiative view`
-- `linear initiative create`
-- `linear initiative archive`
-- `linear initiative update`
-- `linear initiative unarchive`
-- `linear initiative delete`
-- `linear initiative add-project`
-- `linear initiative remove-project`
-- `linear initiative comment`
-- `linear initiative comment add`
-- `linear initiative comment list`
-- `linear initiative-update`
-- `linear initiative-update create`
-- `linear initiative-update list`
-- `linear issue`
-- `linear issue id`
-- `linear issue mine`
-- `linear issue query`
-- `linear issue title`
-- `linear issue start`
-- `linear issue view`
-- `linear issue url`
-- `linear issue describe`
-- `linear issue commits`
-- `linear issue pull-request`
-- `linear issue archive`
-- `linear issue delete`
-- `linear issue create`
-- `linear issue update`
-- `linear issue comment`
-- `linear issue comment add`
-- `linear issue comment delete`
-- `linear issue comment update`
-- `linear issue comment list`
-- `linear issue attach`
-- `linear issue link`
-- `linear issue relation`
-- `linear issue relation add`
-- `linear issue relation delete`
-- `linear issue relation list`
-- `linear issue agent-session`
-- `linear issue agent-session list`
-- `linear issue agent-session view`
-- `linear label`
-- `linear label list`
-- `linear label create`
-- `linear label delete`
-- `linear markdown`
-- `linear milestone`
-- `linear milestone list`
-- `linear milestone view`
-- `linear milestone create`
-- `linear milestone update`
-- `linear milestone delete`
-- `linear project`
-- `linear project list`
-- `linear project view`
-- `linear project create`
-- `linear project update`
-- `linear project delete`
-- `linear project comment`
-- `linear project comment add`
-- `linear project comment list`
-- `linear project-update`
-- `linear project-update create`
-- `linear project-update list`
-- `linear schema`
-- `linear team`
-- `linear team create`
-- `linear team delete`
-- `linear team list`
-- `linear team id`
-- `linear team autolinks`
-- `linear team members`
-- `linear team states`
-- `linear template`
-- `linear template list`
-- `linear template view`
-- `linear user`
-- `linear user list`
+linear api
+
+linear auth
+linear auth login
+linear auth logout
+linear auth list
+linear auth default
+linear auth token
+linear auth whoami
+linear auth migrate
+
+linear config
+
+linear cycle
+linear cycle list
+linear cycle view
+
+linear document
+linear document list
+linear document view
+linear document create
+linear document update
+linear document delete
+linear document comment
+linear document comment add
+linear document comment list
+
+linear initiative
+linear initiative list
+linear initiative view
+linear initiative create
+linear initiative update
+linear initiative archive
+linear initiative unarchive
+linear initiative delete
+linear initiative add-project
+linear initiative remove-project
+linear initiative comment
+linear initiative comment add
+linear initiative comment list
+
+linear initiative-update
+linear initiative-update create
+linear initiative-update list
+
+linear issue
+linear issue list
+linear issue query
+linear issue view
+linear issue create
+linear issue update
+linear issue delete
+linear issue archive
+linear issue start
+linear issue id
+linear issue title
+linear issue url
+linear issue describe
+linear issue commits
+linear issue pull-request
+linear issue comment
+linear issue comment add
+linear issue comment list
+linear issue comment update
+linear issue comment delete
+linear issue attach
+linear issue link
+linear issue relation
+linear issue relation add
+linear issue relation delete
+linear issue relation list
+linear issue agent-session
+linear issue agent-session list
+linear issue agent-session view
+
+linear label
+linear label list
+linear label create
+linear label delete
+
+linear markdown
+
+linear milestone
+linear milestone list
+linear milestone view
+linear milestone create
+linear milestone update
+linear milestone delete
+
+linear project
+linear project list
+linear project view
+linear project create
+linear project update
+linear project delete
+linear project comment
+linear project comment add
+linear project comment list
+
+linear project-update
+linear project-update create
+linear project-update list
+
+linear schema
+
+linear team
+linear team list
+linear team create
+linear team delete
+linear team members
+linear team states
+linear team id
+linear team autolinks
+
+linear template
+linear template list
+linear template view
+
+linear user
+linear user list
 ```
 
 ## Reference Documentation
 
-- [api](references/api.md): Make a raw GraphQL API request
-- [auth](references/auth.md): Manage Linear authentication
-- [config](references/config.md): Interactively generate .linear.toml configuration
-- [cycle](references/cycle.md): Manage Linear team cycles
-- [document](references/document.md): Manage Linear documents
-- [initiative](references/initiative.md): Manage Linear initiatives
-- [initiative-update](references/initiative-update.md): Manage initiative status updates (timeline posts)
-- [issue](references/issue.md): Manage Linear issues
-- [label](references/label.md): Manage Linear issue labels
-- [markdown](references/markdown.md): Linear-flavored Markdown: mentions and collapsible sections
-- [milestone](references/milestone.md): Manage Linear project milestones
-- [project](references/project.md): Manage Linear projects
-- [project-update](references/project-update.md): Manage project status updates
-- [schema](references/schema.md): Print the GraphQL schema to stdout
-- [team](references/team.md): Manage Linear teams
-- [template](references/template.md): Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
-- [user](references/user.md): Manage Linear users
+- [api](references/api.md) - Send a raw GraphQL request to the Linear API
+- [auth](references/auth.md) - Log in to workspaces and manage their credentials
+- [config](references/config.md) - Write a .linear.toml for the current repository
+- [cycle](references/cycle.md) - View team cycles
+- [document](references/document.md) - Manage documents
+- [initiative](references/initiative.md) - Manage initiatives
+- [initiative-update](references/initiative-update.md) - Post and list initiative status updates
+- [issue](references/issue.md) - Manage issues
+- [label](references/label.md) - Manage issue labels
+- [markdown](references/markdown.md) - Explain Linear-flavored Markdown: mentions and collapsible sections
+- [milestone](references/milestone.md) - Manage project milestones
+- [project](references/project.md) - Manage projects
+- [project-update](references/project-update.md) - Post and list project status updates
+- [schema](references/schema.md) - Print the Linear GraphQL schema
+- [team](references/team.md) - Manage teams
+- [template](references/template.md) - Browse issue, project and document templates
+- [user](references/user.md) - List workspace members
 
 For curated examples of organization features (initiatives, labels, projects, bulk operations), see [organization-features](references/organization-features.md).
 
@@ -319,7 +345,7 @@ Each command has detailed help output describing all available flags and options
 Some commands have required flags that aren't obvious. Notable examples:
 
 - `issue list` sorts by priority by default — override via `--sort` (valid values: `manual`, `priority`), the `issue_sort` config option, or the `LINEAR_ISSUE_SORT` env var. Requires `--team <key>` unless the team can be inferred from the directory — if unknown, run `linear team list` first (`linear team list --json` maps team names to their `key` and `id`).
-- Consult each command’s `--help` for `--no-pager` support; `project list` does not accept it.
+- `--no-pager` is only supported on `issue list`, `issue query`, `issue view`, and `project view` — passing it to other commands like `project list` will error.
 
 ## Using the Linear GraphQL API Directly
 

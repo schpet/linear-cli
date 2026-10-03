@@ -1,2 +1,3 @@
 [tools]
-deno = "2.7.9"
+# `just dist-generate`; keep in step with cargo-dist-version in dist-workspace.toml
+"ubi:axodotdev/cargo-dist" = { version = "0.31.0", exe = "dist" }

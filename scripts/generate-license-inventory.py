@@ -77,37 +77,36 @@ def generate(repository: Path, metadata_file: Path, output: Path) -> dict:
         source = package.get("source")
         if source != locked[key].get("source"):
             raise ValueError("Cargo source differs from lock")
+        if source is None:
+            # Workspace crates ship under the project LICENSE at the archive root.
+            continue
         identity = f"{name}@{version}"
         files = []
-        local = source is None
-        if local and name in {"linear-cli", "linear-schema"}:
-            files.append((repository / "LICENSE", "LICENSE", "repository:LICENSE", "project MIT text"))
-        else:
-            for candidate in sorted(root.iterdir()):
-                lower = candidate.name.lower()
-                notice = lower.startswith(("license", "copying", "notice", "copyright"))
-                # This checksum-bound package stores its full MIT permission/copyright in AUTHORS.
-                notice = notice or (name == "r-efi" and candidate.name == "AUTHORS")
-                if not notice:
-                    continue
-                candidates = sorted(candidate.rglob("*")) if candidate.is_dir() else [candidate]
-                for file in candidates:
-                    if file.is_file():
-                        if file.is_symlink() or not file.resolve().is_relative_to(root):
-                            raise ValueError("notice input symlink/escape")
-                        relative = file.relative_to(root).as_posix()
-                        url = f"https://static.crates.io/crates/{name}/{name}-{version}.crate" if not local else f"repository:{root.relative_to(repository).as_posix()}/{relative}"
-                        files.append((file, relative, url, "checksum-bound package notice" if not local else "vendored package notice"))
-            explicit = package.get("license_file")
-            if explicit is not None:
-                file = Path(text(explicit, "license file"))
-                if not file.is_absolute():
-                    file = root / file
-                file = file.resolve()
-                if not file.is_file() or not file.is_relative_to(root):
-                    raise ValueError("explicit license file is outside package")
-                if not any(file == record[0] for record in files):
-                    files.append((file, file.relative_to(root).as_posix(), f"https://static.crates.io/crates/{name}/{name}-{version}.crate", "explicit package license_file"))
+        for candidate in sorted(root.iterdir()):
+            lower = candidate.name.lower()
+            notice = lower.startswith(("license", "copying", "notice", "copyright"))
+            # This checksum-bound package stores its full MIT permission/copyright in AUTHORS.
+            notice = notice or (name == "r-efi" and candidate.name == "AUTHORS")
+            if not notice:
+                continue
+            candidates = sorted(candidate.rglob("*")) if candidate.is_dir() else [candidate]
+            for file in candidates:
+                if file.is_file():
+                    if file.is_symlink() or not file.resolve().is_relative_to(root):
+                        raise ValueError("notice input symlink/escape")
+                    relative = file.relative_to(root).as_posix()
+                    url = f"https://static.crates.io/crates/{name}/{name}-{version}.crate"
+                    files.append((file, relative, url, "checksum-bound package notice"))
+        explicit = package.get("license_file")
+        if explicit is not None:
+            file = Path(text(explicit, "license file"))
+            if not file.is_absolute():
+                file = root / file
+            file = file.resolve()
+            if not file.is_file() or not file.is_relative_to(root):
+                raise ValueError("explicit license file is outside package")
+            if not any(file == record[0] for record in files):
+                files.append((file, file.relative_to(root).as_posix(), f"https://static.crates.io/crates/{name}/{name}-{version}.crate", "explicit package license_file"))
         notices = []
         directory = Path(f"{name}-{version}")
         for file, filename, url, qualification in files:
@@ -127,7 +126,7 @@ def generate(repository: Path, metadata_file: Path, output: Path) -> dict:
             notices.append({"file": relative.as_posix(), "sha256": digest(data), "sourceUrl": url, "qualification": qualification})
         if not notices:
             raise ValueError(f"notice text unavailable for {identity}; do not label declaration-only complete")
-        rows.append({"name": name, "version": version, "source": source or f"repository:{root.relative_to(repository).as_posix()}", "checksum": locked[key].get("checksum"), "license": license_text, "status": "NOTICE-TEXT-BUNDLED", "files": notices})
+        rows.append({"name": name, "version": version, "source": source, "checksum": locked[key].get("checksum"), "license": license_text, "status": "NOTICE-TEXT-BUNDLED", "files": notices})
     if seen != set(locked):
         raise ValueError("metadata does not cover every locked package")
     if set(additions) - {f"{name}@{version}" for name, version in seen}:

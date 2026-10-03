@@ -1,34 +1,44 @@
 # api
 
-> Make a raw GraphQL API request
+> Send a raw GraphQL request to the Linear API
+
+## Usage
 
 ```
-Make a raw GraphQL API request
+Send a raw GraphQL request to the Linear API
 
-Pass the GraphQL document as one quoted argument or on stdin. The api command has no subcommands: a leading query or mutation keyword belongs inside that document.
+Pass the GraphQL document as one quoted argument or on stdin. A leading `query` or `mutation`
+keyword belongs inside that document.
 
-Usage: linear api [OPTIONS] [graphqlDocument]
+Usage: linear api [OPTIONS] [DOCUMENT]
 
 Arguments:
-  [graphqlDocument]
-          
+  [DOCUMENT]
+          GraphQL query or mutation; read from stdin when omitted
 
 Options:
-      --variable <variable>
-          Variable in key=value format (coerces booleans, numbers, null; @file reads from path)
+      --variable <KEY=VALUE>
+          Set a variable; repeatable
+          
+          A value that looks like a boolean, number, or null is sent as one, and `@path` reads the
+          value from a file.
 
-      --workspace <slug>
-          Target workspace (uses credentials)
-
-      --variables-json <json>
-          JSON object of variables (merged with --variable, which takes precedence)
+      --variables-json <JSON>
+          Variables as a JSON object; --variable takes precedence
 
       --paginate
-          Auto-paginate a single connection field using cursor pagination
+          Follow the cursor of the one connection in the response and print every page
 
       --silent
-          Suppress response output (exit code still reflects errors)
+          Print nothing; the exit status still reports errors
 
   -h, --help
           Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```

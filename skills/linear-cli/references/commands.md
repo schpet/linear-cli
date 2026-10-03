@@ -1,19 +1,29 @@
 # Linear CLI Command Reference
 
-- [linear api](api.md): Make a raw GraphQL API request
-- [linear auth](auth.md): Manage Linear authentication
-- [linear config](config.md): Interactively generate .linear.toml configuration
-- [linear cycle](cycle.md): Manage Linear team cycles
-- [linear document](document.md): Manage Linear documents
-- [linear initiative](initiative.md): Manage Linear initiatives
-- [linear initiative-update](initiative-update.md): Manage initiative status updates (timeline posts)
-- [linear issue](issue.md): Manage Linear issues
-- [linear label](label.md): Manage Linear issue labels
-- [linear markdown](markdown.md): Linear-flavored Markdown: mentions and collapsible sections
-- [linear milestone](milestone.md): Manage Linear project milestones
-- [linear project](project.md): Manage Linear projects
-- [linear project-update](project-update.md): Manage project status updates
-- [linear schema](schema.md): Print the GraphQL schema to stdout
-- [linear team](team.md): Manage Linear teams
-- [linear template](template.md): Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
-- [linear user](user.md): Manage Linear users
+## Commands
+
+- [api](./api.md) - Send a raw GraphQL request to the Linear API
+- [auth](./auth.md) - Log in to workspaces and manage their credentials
+- [config](./config.md) - Write a .linear.toml for the current repository
+- [cycle](./cycle.md) - View team cycles
+- [document](./document.md) - Manage documents
+- [initiative](./initiative.md) - Manage initiatives
+- [initiative-update](./initiative-update.md) - Post and list initiative status updates
+- [issue](./issue.md) - Manage issues
+- [label](./label.md) - Manage issue labels
+- [markdown](./markdown.md) - Explain Linear-flavored Markdown: mentions and collapsible sections
+- [milestone](./milestone.md) - Manage project milestones
+- [project](./project.md) - Manage projects
+- [project-update](./project-update.md) - Post and list project status updates
+- [schema](./schema.md) - Print the Linear GraphQL schema
+- [team](./team.md) - Manage teams
+- [template](./template.md) - Browse issue, project and document templates
+- [user](./user.md) - List workspace members
+
+## Quick Reference
+
+```bash
+# Get help for any command
+linear <command> --help
+linear <command> <subcommand> --help
+```

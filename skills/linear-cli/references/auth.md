@@ -1,130 +1,158 @@
 # auth
 
-> Manage Linear authentication
+> Log in to workspaces and manage their credentials
+
+## Usage
 
 ```
-Manage Linear authentication
+Log in to workspaces and manage their credentials
 
-Usage: linear auth [OPTIONS] [COMMAND]
+Usage: linear auth [OPTIONS] <COMMAND>
 
 Commands:
-  login    Add a workspace credential
-  logout   Remove a workspace credential
-  list     List configured workspaces
-  default  Set the default workspace
-  token    Print the configured API token
-  whoami   Print information about the authenticated user
-  migrate  Migrate plaintext credentials to system keyring
+  login    Log in to a workspace with an API key
+  logout   Remove a workspace's credential
+  list     List the workspaces you are logged in to
+  default  Set the workspace used when none is named
+  token    Print the API key in use
+  whoami   Show who you are logged in as
+  migrate  Move API keys from the credentials file to the system keyring
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## login
+## Subcommands
 
-> Add a workspace credential
+### login
+
+> Log in to a workspace with an API key
 
 ```
-Add a workspace credential
+Log in to a workspace with an API key
 
 Usage: linear auth login [OPTIONS]
 
 Options:
-  -k, --key <key>         API key (prompted if not provided)
-      --workspace <slug>  Target workspace (uses credentials)
-      --plaintext         Store API key in credentials file instead of system keyring
-  -h, --help              Print help
+  -k, --key <KEY>  API key; asked for, or read from stdin when it is piped
+      --plaintext  Store the API key in the credentials file instead of the system keyring
+  -h, --help       Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## logout
+### logout
 
-> Remove a workspace credential
+> Remove a workspace's credential
 
 ```
-Remove a workspace credential
+Remove a workspace's credential
 
-Usage: linear auth logout [OPTIONS] [workspace]
+Usage: linear auth logout [OPTIONS] [WORKSPACE]
 
 Arguments:
-  [workspace]  
+  [WORKSPACE]  Workspace to log out of [default: --workspace, or asked for when several are stored]
 
 Options:
-  -f, --force             Skip confirmation prompt
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -y, --yes   Do not ask for confirmation
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## list
+### list
 
-> List configured workspaces
+> List the workspaces you are logged in to
 
 ```
-List configured workspaces
+List the workspaces you are logged in to
 
 Usage: linear auth list [OPTIONS]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## default
+### default
 
-> Set the default workspace
+> Set the workspace used when none is named
 
 ```
-Set the default workspace
+Set the workspace used when none is named
 
-Usage: linear auth default [OPTIONS] [workspace]
+Usage: linear auth default [OPTIONS] [WORKSPACE]
 
 Arguments:
-  [workspace]  
+  [WORKSPACE]  Workspace to make the default [default: --workspace, or asked for]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## token
+### token
 
-> Print the configured API token
+> Print the API key in use
 
 ```
-Print the configured API token
+Print the API key in use
 
 Usage: linear auth token [OPTIONS]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## whoami
+### whoami
 
-> Print information about the authenticated user
+> Show who you are logged in as
 
 ```
-Print information about the authenticated user
+Show who you are logged in as
 
 Usage: linear auth whoami [OPTIONS]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## migrate
+### migrate
 
-> Migrate plaintext credentials to system keyring
+> Move API keys from the credentials file to the system keyring
 
 ```
-Migrate plaintext credentials to system keyring
+Move API keys from the credentials file to the system keyring
 
 Usage: linear auth migrate [OPTIONS]
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

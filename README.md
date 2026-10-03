@@ -4,12 +4,6 @@ a cli to list, start and create issues in the [linear](https://linear.app/) issu
 
 **works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
 
-## Native Rust major-3 candidate
-
-The reviewed Rust rewrite is a local `3.0.0-alpha.1` candidate. It covers the 86 original command leaves; native clap syntax and typed compatibility boundaries are documented in [the native guide](docs/rust-port.md). Build from `rust/` with Rust 1.93; the native executable does not require Deno or Node. Original Deno source, development instructions and published installers remain below.
-
-Native distribution rehearsals use the isolated `rust/dist-workspace.toml`. They do not publish packages or replace an installed CLI. See the native guide for artifact checksums, source inputs, completions and platform acceptance limits.
-
 here's how it works:
 
 ```bash
@@ -51,12 +45,6 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 brew install schpet/tap/linear
 ```
 
-### deno via jsr
-
-```bash
-deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
-```
-
 ### npm / bun / pnpm
 
 install as a dev dependency to pin a version in your project:
@@ -80,17 +68,27 @@ bunx linear issue list
 
 package on npm: [@schpet/linear-cli](https://www.npmjs.com/package/@schpet/linear-cli)
 
+### shell installer
+
+for macOS and Linux:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/schpet/linear-cli/releases/latest/download/linear-installer.sh | sh
+```
+
 ### binaries
 
 https://github.com/schpet/linear-cli/releases/latest
 
-### local dev
+### from source
+
+with a [rust toolchain](https://rustup.rs) installed:
 
 ```bash
-git clone https://github.com/schpet/linear-cli
-cd linear-cli
-deno task install
+cargo install --locked --git https://github.com/schpet/linear-cli linear
 ```
+
+upgrading from 2.x? see [upgrading from 2.x](CHANGELOG.md#upgrading-from-2x) in the changelog.
 
 ## setup
 
@@ -309,7 +307,6 @@ linear document update <slug> --content-file ./updated.md --force     # bypass c
 
 # delete a document
 linear document delete <slug>                   # soft delete (move to trash)
-linear document delete <slug> --permanent       # permanent delete
 linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
 
@@ -398,30 +395,29 @@ view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/sch
 
 ## development
 
+linear-cli is written in rust; the toolchain is pinned in `rust-toolchain.toml`. common tasks are in the `justfile`:
+
+```bash
+just dev issue list   # run the cli from source (cargo run -- issue list)
+just install          # install this checkout as `linear`
+just check            # cargo fmt --check, clippy, and tests, as CI runs them
+```
+
 ### updating skill documentation
 
-The local native candidate uses the typed clap exporter and Python renderer:
+the skill's command list and `skills/linear-cli/references/` are generated from the cli's help. edit `skills/linear-cli/SKILL.template.md`, then regenerate:
 
 ```bash
-cd rust
-cargo +1.93.0 run --locked -p linear-cli --example native_docs -- --binary /absolute/path/to/linear --binary-sha256 "$BINARY_SHA256" > /absolute/path/to/native-docs.json
-cd ..
-python3 skills/linear-cli/scripts/generate-native-docs.py --manifest /absolute/path/to/native-docs.json --binary /absolute/path/to/linear --binary-sha256 "$BINARY_SHA256" --skill-dir skills/linear-cli
+just skill-docs
 ```
 
-Use an immutable native binary and its exact SHA256. Compare every exported help path against that binary’s actual `--help` before accepting generated documentation; the exporter itself reads the compiled clap definitions. P10C qualified105 canonical paths and4 aliases. Python and the exporter are development tools, not CLI runtime dependencies.
+### updating the graphql schema
 
-The original Deno generator remains available as `deno task generate-skill-docs` for the Deno CLI. It overwrites the native skill/reference files, so do not run it when updating native documentation. Original Deno source and template remain intact.
-
-### code formatting
-
-ensure code is formatted consistently:
+`graphql/schema.graphql` is linear's api schema, used to type-check every query at compile time. refresh it with a logged in cli:
 
 ```bash
-deno fmt
+just sync-schema
 ```
-
-the project uses deno's built-in formatter with configuration in `deno.json`. formatting is checked in CI.
 
 ## why
 

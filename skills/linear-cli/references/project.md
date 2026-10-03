@@ -1,27 +1,34 @@
 # project
 
-> Manage Linear projects
+> Manage projects
+
+## Usage
 
 ```
-Manage Linear projects
+Manage projects
 
-Usage: linear project [OPTIONS] [COMMAND]
+Usage: linear project [OPTIONS] <COMMAND>
 
 Commands:
   list     List projects
-  view     View project details [alias: v]
-  create   Create a new Linear project
-  update   Update a Linear project
-  delete   Delete (trash) a Linear project
-  comment  Manage project comments
+  view     Show a project [alias: v]
+  create   Create a project
+  update   Update a project
+  delete   Delete a project (moves it to the trash)
+  comment  Add and list comments on a project
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## list
+## Subcommands
+
+### list
 
 > List projects
 
@@ -31,293 +38,340 @@ List projects
 Usage: linear project list [OPTIONS]
 
 Options:
-      --team <team>       Filter by team key, name, or ID
-      --workspace <slug>  Target workspace (uses credentials)
-      --all-teams         Show projects from all teams
-      --status <status>   Filter by status name
-  -w, --web               Open in web browser
-  -a, --app               Open in Linear.app
-  -j, --json              Output as JSON
-  -h, --help              Print help
+      --team <TEAM>      Show this team's projects (key, name, or ID); defaults to the configured
+                         team
+      --all-teams        Show every team's projects
+      --status <STATUS>  Show only projects with this status [possible values: backlog, planned,
+                         started, paused, completed, canceled]
+  -w, --web              Open the projects page in the browser
+  -a, --app              Open the projects page in the Linear app
+      --limit <LIMIT>    Maximum number of projects to show (a number or `all`) [default: all]
+  -j, --json             Print JSON
+  -h, --help             Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## view
+### view
 
-> View project details
+> Show a project
 
 ```
-View project details
+Show a project
 
-Usage: linear project view [OPTIONS] [projectId]
+Usage: linear project view [OPTIONS] [PROJECT]
 
 Arguments:
-  [projectId]  
+  [PROJECT]  Project ID, slug, or name; asked for when omitted
 
 Options:
-  -w, --web               Open in web browser
-      --workspace <slug>  Target workspace (uses credentials)
-  -a, --app               Open in Linear.app
-  -j, --json              Output as JSON
-      --no-pager          Disable automatic paging for long output
-  -h, --help              Print help
+  -w, --web       Open the project in the browser
+  -a, --app       Open the project in the Linear app
+  -j, --json      Print JSON
+      --no-pager  Do not page long output
+  -h, --help      Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## create
+### create
 
-> Create a new Linear project
+> Create a project
 
 ```
-Create a new Linear project
-
-Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
-and `[Name](url)` do not. Get a person's URL from the `url` field of
-`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-Run `linear markdown` for collapsible sections and the full reference.
+Create a project
 
 Usage: linear project create [OPTIONS]
 
 Options:
-  -n, --name <name>
-          Project name (required)
+  -n, --name <NAME>
+          Project name
 
-      --workspace <slug>
-          Target workspace (uses credentials)
+  -d, --description <DESCRIPTION>
+          Short summary, up to 255 characters
 
-  -d, --description <description>
-          Project description (max 255 characters, enforced by Linear's API)
+  -f, --description-file <FILE>
+          Read the summary from a file
 
-  -f, --description-file <path>
-          Read project description from file (still subject to the 255-character API limit)
+      --content <MARKDOWN>
+          Project overview, in Markdown
 
-      --content <markdown>
-          Project overview markdown
+      --content-file <FILE>
+          Read the overview from a Markdown file
 
-      --content-file <path>
-          Read project overview markdown from a file
+  -s, --status <STATUS>
+          Project status
+          
+          [possible values: backlog, planned, started, paused, completed, canceled]
 
-  -t, --team <team>
-          Team key, name, or ID (required, can be repeated for multiple teams)
+  -l, --lead <USER>
+          Project lead: a username, email, name, or @me
 
-  -l, --lead <lead>
-          Project lead (username, email, or @me)
-
-  -s, --status <status>
-          Project status (planned, started, paused, completed, canceled, backlog)
-
-      --start-date <startDate>
+      --start-date <DATE>
           Start date (YYYY-MM-DD)
 
-      --target-date <targetDate>
-          Target completion date (YYYY-MM-DD)
+      --target-date <DATE>
+          Target date (YYYY-MM-DD)
 
-      --priority <priority>
-          Project priority (none, urgent, high, medium, low)
+      --priority <PRIORITY>
+          Project priority, by name or number (0 none, 1 urgent to 4 low)
+          
+          [possible values: none, urgent, high, medium, low]
 
-      --label <label>
-          Project label associated with the project. May be repeated.
+  -t, --team <TEAM>
+          Team (key, name, or ID); repeat for several teams
 
-      --member <user>
-          Project member (username, email, display name, or @me). May be repeated.
+      --label <LABEL>
+          Project label; repeat for several labels
 
-      --icon <icon>
+      --member <USER>
+          Project member: a username, email, name, or @me; repeatable
+
+      --icon <ICON>
           Project icon
 
-      --color <color>
-          Project color as a HEX string
+      --color <COLOR>
+          Color, like #5E6AD2
 
-      --initiative <initiative>
-          Add to initiative immediately (ID, slug, or name)
+      --initiative <INITIATIVE>
+          Add the project to this initiative (ID, slug, or name)
 
-      --template <template>
-          Project template to apply, by name or ID (workspace templates plus those of the project's teams). The template fills in anything you do not pass; explicit flags override it. Applied on create only.
+      --template <TEMPLATE>
+          Start from this project template (name or ID)
+          
+          Workspace templates and those of the project's teams are searched. The template fills in
+          anything you do not pass; flags override it.
 
   -i, --interactive
-          Interactive mode (default if no flags provided)
+          Also prompt for the optional fields
 
   -j, --json
-          Output created project as JSON
+          Print the created project as JSON
 
   -h, --help
           Print help (see a summary with '-h')
-```
 
-## update
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
 
-> Update a Linear project
-
-```
-Update a Linear project
+      --no-input
+          Never prompt; fail instead when a required value is missing
 
 Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
 and `[Name](url)` do not. Get a person's URL from the `url` field of
 `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
 Run `linear markdown` for collapsible sections and the full reference.
+```
 
-Usage: linear project update [OPTIONS] <projectId>
+### update
+
+> Update a project
+
+```
+Update a project
+
+Usage: linear project update [OPTIONS] <PROJECT>
 
 Arguments:
-  <projectId>
-          
+  <PROJECT>
+          Project ID, slug, or name
 
 Options:
-  -n, --name <name>
+  -n, --name <NAME>
           Project name
 
-      --workspace <slug>
-          Target workspace (uses credentials)
+  -d, --description <DESCRIPTION>
+          Short summary, up to 255 characters
 
-  -d, --description <description>
-          Project description (max 255 characters, enforced by Linear's API)
+  -f, --description-file <FILE>
+          Read the summary from a file
 
-  -f, --description-file <path>
-          Read project description from file (still subject to the 255-character API limit)
+      --content <MARKDOWN>
+          Project overview, in Markdown
 
-      --content <markdown>
-          Project overview markdown
+      --content-file <FILE>
+          Read the overview from a Markdown file
 
-      --content-file <path>
-          Read project overview markdown from a file
+  -s, --status <STATUS>
+          Project status
+          
+          [possible values: backlog, planned, started, paused, completed, canceled]
 
-  -s, --status <status>
-          Status (planned, started, paused, completed, canceled, backlog)
+  -l, --lead <USER>
+          Project lead: a username, email, name, or @me
 
-  -l, --lead <lead>
-          Project lead (username, email, or @me). Use --clear-lead to remove it
+      --start-date <DATE>
+          Start date (YYYY-MM-DD)
+
+      --target-date <DATE>
+          Target date (YYYY-MM-DD)
+
+      --priority <PRIORITY>
+          Project priority, by name or number (0 none, 1 urgent to 4 low)
+          
+          [possible values: none, urgent, high, medium, low]
 
       --clear-lead
-          Remove the project's lead (cannot be combined with --lead)
-
-      --start-date <startDate>
-          Start date (YYYY-MM-DD). Use --clear-start-date to remove it
+          Remove the project's lead
 
       --clear-start-date
-          Remove the project's start date (cannot be combined with --start-date)
-
-      --target-date <targetDate>
-          Target date (YYYY-MM-DD). Use --clear-target-date to remove it
+          Remove the project's start date
 
       --clear-target-date
-          Remove the project's target date (cannot be combined with --target-date)
+          Remove the project's target date
 
-  -t, --team <team>
-          Team key, name, or ID; replaces the project's entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.
+  -t, --team <TEAM>
+          Set the project's teams (key, name, or ID), replacing the current ones; repeatable
 
-      --add-team <team>
-          Add a team to the project, keeping its existing teams. May be repeated.
+      --add-team <TEAM>
+          Add a team to the project; repeatable
 
-      --remove-team <team>
-          Remove a team from the project, keeping its other teams. May be repeated.
+      --remove-team <TEAM>
+          Remove a team from the project; repeatable
 
-      --label <label>
-          Project label; replaces the project's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.
+      --label <LABEL>
+          Set the project's labels, replacing the current ones; repeatable
 
-      --add-label <label>
-          Add a label to the project, keeping its existing labels. May be repeated.
+      --add-label <LABEL>
+          Add a label to the project; repeatable
 
-      --remove-label <label>
-          Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.
+      --remove-label <LABEL>
+          Remove a label from the project (the label itself stays); repeatable
 
-      --initiative <initiative>
-          Initiative ID, slug, or name; replaces the project's entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.
+      --initiative <INITIATIVE>
+          Set the project's initiatives (ID, slug, or name), replacing the current ones; repeatable
 
-      --add-initiative <initiative>
-          Add the project to an initiative, keeping its existing initiatives. May be repeated.
+      --add-initiative <INITIATIVE>
+          Add the project to an initiative; repeatable
 
-      --remove-initiative <initiative>
-          Remove the project from an initiative, keeping its other initiatives (does not delete the initiative). May be repeated.
+      --remove-initiative <INITIATIVE>
+          Remove the project from an initiative (the initiative itself stays); repeatable
 
   -h, --help
           Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
 ```
 
-## delete
+### delete
 
-> Delete (trash) a Linear project
+> Delete a project (moves it to the trash)
 
 ```
-Delete (trash) a Linear project
+Delete a project (moves it to the trash)
 
-Usage: linear project delete [OPTIONS] <projectId>
+Usage: linear project delete [OPTIONS] <PROJECT>
 
 Arguments:
-  <projectId>  
+  <PROJECT>  Project ID, slug, or name
 
 Options:
-  -f, --force             Skip confirmation prompt
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -y, --yes   Do not ask for confirmation
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## comment
+### comment
 
-> Manage project comments
+> Add and list comments on a project
 
 ```
-Manage project comments
+Add and list comments on a project
 
-Usage: linear project comment [OPTIONS] [COMMAND]
+Usage: linear project comment [OPTIONS] <COMMAND>
 
 Commands:
-  add   Add a comment or reply to a project's discussion (by ID, slug, or name)
-  list  List comments on a project (by ID, slug, or name)
+  add   Comment on a project, or reply to a comment
+  list  List a project's comments
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-### add
+#### comment subcommands
 
-> Add a comment or reply to a project's discussion (by ID, slug, or name)
+##### add
+
+> Comment on a project, or reply to a comment
 
 ```
-Add a comment or reply to a project's discussion (by ID, slug, or name)
+Comment on a project, or reply to a comment
 
-Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
-and `[Name](url)` do not. Get a person's URL from the `url` field of
-`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-Run `linear markdown` for collapsible sections and the full reference.
-
-Usage: linear project comment add [OPTIONS] <project>
+Usage: linear project comment add [OPTIONS] <PROJECT>
 
 Arguments:
-  <project>
-          
+  <PROJECT>
+          Project ID, slug, or name
 
 Options:
-  -b, --body <text>
-          Comment body text
+  -b, --body <TEXT>
+          Comment text, in Markdown
 
-      --workspace <slug>
-          Target workspace (uses credentials)
+      --body-file <FILE>
+          Read the comment from a Markdown file
 
-      --body-file <path>
-          Read comment body from a file (preferred for markdown content)
-
-  -p, --parent <commentId>
-          Reply to a top-level comment by ID (the reply joins that thread)
+  -p, --parent <COMMENT>
+          Reply to this top-level comment (by ID)
           
           [alias: --reply-to]
 
   -h, --help
           Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
 ```
 
-### list
+##### list
 
-> List comments on a project (by ID, slug, or name)
+> List a project's comments
 
 ```
-List comments on a project (by ID, slug, or name)
+List a project's comments
 
-Usage: linear project comment list [OPTIONS] <project>
+Usage: linear project comment list [OPTIONS] <PROJECT>
 
 Arguments:
-  <project>  
+  <PROJECT>  Project ID, slug, or name
 
 Options:
-  -j, --json              Output as JSON
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+      --limit <LIMIT>  Maximum number of comments to show (a number or `all`) [default: all]
+  -j, --json           Print JSON
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

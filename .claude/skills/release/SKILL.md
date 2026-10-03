@@ -131,32 +131,27 @@ After the changelog is released, execute the complete tag process from the justf
 
 1. **Run quality checks:**
    ```bash
-   deno check src/main.ts
-   deno fmt --check
-   deno lint
-   deno task test
+   cargo fmt --all --check
+   cargo clippy --locked --workspace --all-targets -- -D warnings
+   cargo test --locked --workspace
    ```
 
 2. **Update version files:**
    ```bash
-   # Get the latest version from changelog
-   LATEST_VERSION=$(changelog version latest)
+   # Write the latest changelog version to the workspace Cargo.toml
+   svbump write "$(changelog version latest)" workspace.package.version Cargo.toml
 
-   # Write version to deno.json
-   svbump write "$LATEST_VERSION" version deno.json
-
-   # Read version from deno.json and write to dist-workspace.toml
-   DENO_VERSION=$(svbump read version deno.json)
-   svbump write "$DENO_VERSION" package.version dist-workspace.toml
+   # Refresh Cargo.lock for the new version
+   cargo update --workspace
    ```
 
 3. **Regenerate skill documentation:**
    ```bash
-   # Generate updated skill docs (includes version from deno.json)
-   deno task generate-skill-docs
+   # Regenerate the skill docs from the CLI's help
+   just skill-docs
 
    # Update Claude Code plugin versions
-   FINAL_VERSION=$(svbump read version deno.json)
+   FINAL_VERSION=$(svbump read workspace.package.version Cargo.toml)
    svbump write "$FINAL_VERSION" version .claude-plugin/plugin.json
    svbump write "$FINAL_VERSION" version .claude-plugin/marketplace.json
    # marketplace.json also has version inside plugins[0] — svbump can't do array paths,
@@ -166,7 +161,7 @@ After the changelog is released, execute the complete tag process from the justf
 4. **Create commit and tag:**
    ```bash
    # Get the final version
-   FINAL_VERSION=$(svbump read version deno.json)
+   FINAL_VERSION=$(svbump read workspace.package.version Cargo.toml)
 
    # Create commit
    jj commit -m "chore: Release linear-cli version $FINAL_VERSION"
@@ -204,7 +199,7 @@ Always stop and report errors clearly. Never continue the release process if a c
 
 ## Important Notes
 
-- The justfile `tag` recipe handles the complete process from line 5-21
+- The justfile `tag` recipe runs the quality checks, version bump, commit, tag, and push (but not the skill docs or plugin versions)
 - Use `jj` for all version control operations (per project CLAUDE.md)
 - Always use `--ignore-working-copy` for read-only jj operations
 - The workflow creates a commit on the parent (@-) and then creates a new working commit
@@ -215,9 +210,9 @@ Always stop and report errors clearly. Never continue the release process if a c
 After successful release:
 
 1. Verify the tag appears on GitHub
-2. Check that GitHub Actions release workflow triggers (if configured)
+2. Check that the GitHub Actions release workflow (`.github/workflows/release.yml`) builds the binaries and publishes the Homebrew formula and npm package
 3. Confirm the new version is published
 
 ## Reference
 
-See `justfile` lines 5-21 for the complete tag recipe implementation.
+See the `tag` recipe in the `justfile` for the tag process implementation.

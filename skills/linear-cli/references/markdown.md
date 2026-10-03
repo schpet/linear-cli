@@ -1,6 +1,8 @@
 # markdown
 
-> Linear-flavored Markdown: mentions and collapsible sections
+> Explain Linear-flavored Markdown: mentions and collapsible sections
+
+## Usage
 
 ```
 Linear-flavored Markdown: mentions and collapsible sections
@@ -47,9 +49,13 @@ The square brackets around the title and the closing `+++` are both required.
 Usage: linear markdown [OPTIONS]
 
 Options:
-      --workspace <slug>
-          Target workspace (uses credentials)
-
   -h, --help
           Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```

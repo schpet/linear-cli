@@ -1,4 +1,4 @@
-"""Public development-tool fixtures; no CLI services, network, or package builds."""
+"""Tests for scripts/generate-license-inventory.py against fixture packages."""
 import hashlib
 import json
 import os
@@ -11,9 +11,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 
 
-class Packaging(unittest.TestCase):
+class LicenseInventory(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="linear-package-fixture-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="linear-license-fixture-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 
@@ -21,49 +21,6 @@ class Packaging(unittest.TestCase):
         return subprocess.run([sys.executable, str(ROOT / path), *map(str, arguments)],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
                               env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
-
-    def docs(self, change=None, expected=0):
-        binary = self.root / "candidate"
-        binary.write_bytes(b"fixture; deliberately not executable")
-        sha = hashlib.sha256(binary.read_bytes()).hexdigest()
-        data = {"version": "3.0.0-alpha.1", "binarySha256": sha, "rootHelp": "root help",
-                "commands": [{"name": "issue", "description": "Issues", "help": "issue help",
-                              "subcommands": [{"name": "issue view", "description": "View", "help": "view help", "subcommands": []}]}]}
-        if change:
-            change(data)
-        manifest = self.root / "manifest.json"
-        manifest.write_text(json.dumps(data))
-        skill = self.root / "skill"
-        (skill / "references").mkdir(parents=True)
-        (skill / "references/organization-features.md").write_text("preserved organization")
-        (skill / "references/obsolete.md").write_text("stale")
-        (skill / "SKILL.native.template.md").write_text("Commands\n{{COMMANDS}}\nReferences\n{{REFERENCE_TOC}}")
-        output = self.run_script("skills/linear-cli/scripts/generate-native-docs.py", "--manifest", manifest,
-                                 "--binary", binary, "--binary-sha256", sha, "--skill-dir", skill)
-        self.assertEqual(output.returncode, expected, output.stderr.decode())
-        self.assertEqual((skill / "references/organization-features.md").read_text(), "preserved organization")
-        if expected:
-            self.assertFalse((skill / "SKILL.md").exists())
-            self.assertEqual((skill / "references/obsolete.md").read_text(), "stale")
-        return skill
-
-    def test_native_docs_render_nested_paths_and_preserve_organization(self):
-        skill = self.docs()
-        self.assertIn("linear issue view", (skill / "SKILL.md").read_text())
-        self.assertIn("view help", (skill / "references/issue.md").read_text())
-        self.assertFalse((skill / "references/obsolete.md").exists())
-
-    def test_native_docs_sha_failure_has_no_output_effects(self):
-        self.docs(lambda data: data.update(binarySha256="0" * 64), 1)
-
-    def test_native_docs_misplaced_path_has_no_output_effects(self):
-        self.docs(lambda data: data["commands"][0]["subcommands"][0].update(name="team view"), 1)
-
-    def test_native_docs_blank_root_help_has_no_output_effects(self):
-        self.docs(lambda data: data.update(rootHelp="  "), 1)
-
-    def test_native_docs_duplicate_path_has_no_output_effects(self):
-        self.docs(lambda data: data["commands"].append(data["commands"][0]), 1)
 
     def licenses(self, change=None, expected=0):
         repository = self.root / "repository"

@@ -1,8 +1,8 @@
 {
   "kind": "all-lock package notice provenance; not legal assessment or all-target artifact proof",
-  "lockedPackageCount": 291,
-  "metadataPackageCount": 291,
-  "noticeFileCount": 520,
+  "lockedPackageCount": 293,
+  "metadataPackageCount": 293,
+  "noticeFileCount": 522,
   "packages": [
     {
       "name": "addr2line",
@@ -1205,6 +1205,28 @@
       ]
     },
     {
+      "name": "fastrand",
+      "version": "2.5.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223",
+      "license": "Apache-2.0 OR MIT",
+      "status": "NOTICE-TEXT-BUNDLED",
+      "files": [
+        {
+          "file": "fastrand-2.5.0/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "sourceUrl": "https://static.crates.io/crates/fastrand/fastrand-2.5.0.crate",
+          "qualification": "checksum-bound package notice"
+        },
+        {
+          "file": "fastrand-2.5.0/LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+          "sourceUrl": "https://static.crates.io/crates/fastrand/fastrand-2.5.0.crate",
+          "qualification": "checksum-bound package notice"
+        }
+      ]
+    },
+    {
       "name": "find-msvc-tools",
       "version": "0.1.13",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -2243,38 +2265,6 @@
           "sha256": "123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e",
           "sourceUrl": "https://static.crates.io/crates/libc/libc-0.2.189.crate",
           "qualification": "checksum-bound package notice"
-        }
-      ]
-    },
-    {
-      "name": "linear-cli",
-      "version": "3.0.0-alpha.1",
-      "source": "repository:rust/crates/linear-cli",
-      "checksum": null,
-      "license": "MIT",
-      "status": "NOTICE-TEXT-BUNDLED",
-      "files": [
-        {
-          "file": "linear-cli-3.0.0-alpha.1/LICENSE",
-          "sha256": "d7d96b06ad19a98d9504ccd7fef04544d19f6ec8a1eb372df6f8a173d0687b0c",
-          "sourceUrl": "repository:LICENSE",
-          "qualification": "project MIT text"
-        }
-      ]
-    },
-    {
-      "name": "linear-schema",
-      "version": "3.0.0-alpha.1",
-      "source": "repository:rust/crates/linear-schema",
-      "checksum": null,
-      "license": "MIT",
-      "status": "NOTICE-TEXT-BUNDLED",
-      "files": [
-        {
-          "file": "linear-schema-3.0.0-alpha.1/LICENSE",
-          "sha256": "d7d96b06ad19a98d9504ccd7fef04544d19f6ec8a1eb372df6f8a173d0687b0c",
-          "sourceUrl": "repository:LICENSE",
-          "qualification": "project MIT text"
         }
       ]
     },
@@ -4190,6 +4180,28 @@
           "file": "synstructure-0.14.0/LICENSE",
           "sha256": "219920e865eee70b7dcfc948a86b099e7f4fe2de01bcca2ca9a20c0a033f2b59",
           "sourceUrl": "https://static.crates.io/crates/synstructure/synstructure-0.14.0.crate",
+          "qualification": "checksum-bound package notice"
+        }
+      ]
+    },
+    {
+      "name": "tempfile",
+      "version": "3.27.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd",
+      "license": "MIT OR Apache-2.0",
+      "status": "NOTICE-TEXT-BUNDLED",
+      "files": [
+        {
+          "file": "tempfile-3.27.0/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "sourceUrl": "https://static.crates.io/crates/tempfile/tempfile-3.27.0.crate",
+          "qualification": "checksum-bound package notice"
+        },
+        {
+          "file": "tempfile-3.27.0/LICENSE-MIT",
+          "sha256": "8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36",
+          "sourceUrl": "https://static.crates.io/crates/tempfile/tempfile-3.27.0.crate",
           "qualification": "checksum-bound package notice"
         }
       ]

@@ -1,31 +1,38 @@
 # initiative
 
-> Manage Linear initiatives
+> Manage initiatives
+
+## Usage
 
 ```
-Manage Linear initiatives
+Manage initiatives
 
-Usage: linear initiative [OPTIONS] [COMMAND]
+Usage: linear initiative [OPTIONS] <COMMAND>
 
 Commands:
   list            List initiatives [alias: ls]
-  view            View initiative details [alias: v]
-  create          Create a new Linear initiative
-  archive         Archive a Linear initiative
-  update          Update a Linear initiative
-  unarchive       Unarchive a Linear initiative
-  delete          Permanently delete a Linear initiative
-  add-project     Link a project to an initiative
-  remove-project  Unlink a project from an initiative
-  comment         Manage initiative comments
+  view            Show an initiative [alias: v]
+  create          Create an initiative
+  update          Update an initiative
+  archive         Archive an initiative
+  unarchive       Restore an archived initiative
+  delete          Delete an initiative permanently
+  add-project     Add a project to an initiative
+  remove-project  Remove a project from an initiative
+  comment         Add and list comments on an initiative
   help            Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## list
+## Subcommands
+
+### list
 
 > List initiatives
 
@@ -35,252 +42,295 @@ List initiatives
 Usage: linear initiative list [OPTIONS]
 
 Options:
-  -s, --status <status>   Filter by status (active, planned, completed)
-      --workspace <slug>  Target workspace (uses credentials)
-      --all-statuses      Show all statuses (default: active only)
-  -o, --owner <owner>     Filter by owner (username or email)
-  -w, --web               Open initiatives page in web browser
-  -a, --app               Open initiatives page in Linear.app
-  -j, --json              Output as JSON
-      --archived          Include archived initiatives
-  -h, --help              Print help
+  -s, --status <STATUS>  Show only initiatives with this status [default: active] [possible values:
+                         planned, active, completed]
+      --all-statuses     Show initiatives of every status
+  -o, --owner <USER>     Show only initiatives owned by this user: a username, email, name, or @me
+  -w, --web              Open the initiatives page in the browser
+  -a, --app              Open the initiatives page in the Linear app
+      --limit <LIMIT>    Maximum number of initiatives to show (a number or `all`) [default: all]
+  -j, --json             Print JSON
+      --archived         Include archived initiatives
+  -h, --help             Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## view
+### view
 
-> View initiative details
+> Show an initiative
 
 ```
-View initiative details
+Show an initiative
 
-Usage: linear initiative view [OPTIONS] <initiativeId>
+Usage: linear initiative view [OPTIONS] <INITIATIVE>
 
 Arguments:
-  <initiativeId>  
+  <INITIATIVE>  Initiative ID, slug, or name
 
 Options:
-  -w, --web               Open in web browser
-      --workspace <slug>  Target workspace (uses credentials)
-  -a, --app               Open in Linear.app
-  -j, --json              Output as JSON
-  -h, --help              Print help
+  -w, --web   Open the initiative in the browser
+  -a, --app   Open the initiative in the Linear app
+  -j, --json  Print JSON
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## create
+### create
 
-> Create a new Linear initiative
+> Create an initiative
 
 ```
-Create a new Linear initiative
+Create an initiative
 
 Usage: linear initiative create [OPTIONS]
 
 Options:
-  -n, --name <name>                Initiative name (required)
-      --workspace <slug>           Target workspace (uses credentials)
-  -d, --description <description>  Initiative description
-  -s, --status <status>            Status: planned, active, completed (default: planned)
-  -o, --owner <owner>              Owner (username, email, or @me for yourself)
-      --target-date <targetDate>   Target completion date (YYYY-MM-DD)
-  -c, --color <color>              Color hex code (e.g., #5E6AD2)
-      --icon <icon>                Icon name
-  -i, --interactive                Interactive mode (default if no flags provided)
+  -n, --name <NAME>                Initiative name
+  -d, --description <DESCRIPTION>  Initiative description
+  -s, --status <STATUS>            Initiative status [default: planned] [possible values: planned,
+                                   active, completed]
+  -o, --owner <USER>               Owner: a username, email, name, or @me
+      --target-date <DATE>         Target date (YYYY-MM-DD)
+  -c, --color <COLOR>              Color, like #5E6AD2
+      --icon <ICON>                Icon name
+  -i, --interactive                Also prompt for the optional fields
   -h, --help                       Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## archive
+### update
 
-> Archive a Linear initiative
+> Update an initiative
 
 ```
-Archive a Linear initiative
+Update an initiative
 
-Usage: linear initiative archive [OPTIONS] [initiativeId]
+Usage: linear initiative update [OPTIONS] <INITIATIVE>
 
 Arguments:
-  [initiativeId]  
+  <INITIATIVE>  Initiative ID, slug, or name
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -y, --force             Skip confirmation prompt
-      --bulk [<ids>...]   Archive multiple initiatives by ID, slug, or name
-      --bulk-file <file>  Read initiative IDs from a file (one per line)
-      --bulk-stdin        Read initiative IDs from stdin
-  -h, --help              Print help
-```
-
-## update
-
-> Update a Linear initiative
-
-```
-Update a Linear initiative
-
-Usage: linear initiative update [OPTIONS] <initiativeId>
-
-Arguments:
-  <initiativeId>  
-
-Options:
-  -n, --name <name>                New name for the initiative
-      --workspace <slug>           Target workspace (uses credentials)
-  -d, --description <description>  New description
-      --status <status>            New status (planned, active, completed, paused)
-      --owner <owner>              New owner (username, email, or @me)
-      --target-date <targetDate>   Target completion date (YYYY-MM-DD)
-      --color <color>              Initiative color (hex, e.g., #5E6AD2)
-      --icon <icon>                Initiative icon name
-  -i, --interactive                Interactive mode for updates
+  -n, --name <NAME>                New name
+  -d, --description <DESCRIPTION>  New description
+      --status <STATUS>            New status [possible values: planned, active, completed]
+      --owner <USER>               New owner: a username, email, name, or @me
+      --target-date <DATE>         New target date (YYYY-MM-DD)
+      --color <COLOR>              New color, like #5E6AD2
+      --icon <ICON>                New icon name
+  -i, --interactive                Prompt for the fields to change
   -h, --help                       Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## unarchive
+### archive
 
-> Unarchive a Linear initiative
+> Archive an initiative
 
 ```
-Unarchive a Linear initiative
+Archive an initiative
 
-Usage: linear initiative unarchive [OPTIONS] <initiativeId>
+Usage: linear initiative archive [OPTIONS] [INITIATIVE]
 
 Arguments:
-  <initiativeId>  
+  [INITIATIVE]  Initiative ID, slug, or name
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -y, --force             Skip confirmation prompt
+  -y, --yes               Do not ask for confirmation
+      --bulk [<IDS>...]   Act on several at once instead of one
+      --bulk-file <FILE>  Read the IDs from a file, one per line
+      --bulk-stdin        Read the IDs from stdin, one per line
   -h, --help              Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## delete
+### unarchive
 
-> Permanently delete a Linear initiative
+> Restore an archived initiative
 
 ```
-Permanently delete a Linear initiative
+Restore an archived initiative
 
-Usage: linear initiative delete [OPTIONS] [initiativeId]
+Usage: linear initiative unarchive [OPTIONS] <INITIATIVE>
 
 Arguments:
-  [initiativeId]  
+  <INITIATIVE>  Initiative ID, slug, or name
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -y, --force             Skip confirmation prompt
-      --bulk [<ids>...]   Delete multiple initiatives by ID, slug, or name
-      --bulk-file <file>  Read initiative IDs from a file (one per line)
-      --bulk-stdin        Read initiative IDs from stdin
+  -y, --yes   Do not ask for confirmation
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### delete
+
+> Delete an initiative permanently
+
+```
+Delete an initiative permanently
+
+Usage: linear initiative delete [OPTIONS] [INITIATIVE]
+
+Arguments:
+  [INITIATIVE]  Initiative ID, slug, or name
+
+Options:
+  -y, --yes               Do not ask for confirmation
+      --bulk [<IDS>...]   Act on several at once instead of one
+      --bulk-file <FILE>  Read the IDs from a file, one per line
+      --bulk-stdin        Read the IDs from stdin, one per line
   -h, --help              Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## add-project
+### add-project
 
-> Link a project to an initiative
+> Add a project to an initiative
 
 ```
-Link a project to an initiative
+Add a project to an initiative
 
-Usage: linear initiative add-project [OPTIONS] <initiative> <project>
+Usage: linear initiative add-project [OPTIONS] <INITIATIVE> <PROJECT>
 
 Arguments:
-  <initiative>  
-  <project>     
+  <INITIATIVE>  Initiative ID, slug, or name
+  <PROJECT>     Project ID, slug, or name
 
 Options:
-      --sort-order <sortOrder>  Sort order within initiative
-      --workspace <slug>        Target workspace (uses credentials)
-  -h, --help                    Print help
+      --sort-order <NUMBER>  Position among the initiative's projects
+  -h, --help                 Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## remove-project
+### remove-project
 
-> Unlink a project from an initiative
+> Remove a project from an initiative
 
 ```
-Unlink a project from an initiative
+Remove a project from an initiative
 
-Usage: linear initiative remove-project [OPTIONS] <initiative> <project>
+Usage: linear initiative remove-project [OPTIONS] <INITIATIVE> <PROJECT>
 
 Arguments:
-  <initiative>  
-  <project>     
+  <INITIATIVE>  Initiative ID, slug, or name
+  <PROJECT>     Project ID, slug, or name
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -y, --force             Skip confirmation prompt
-  -h, --help              Print help
+  -y, --yes   Do not ask for confirmation
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## comment
+### comment
 
-> Manage initiative comments
+> Add and list comments on an initiative
 
 ```
-Manage initiative comments
+Add and list comments on an initiative
 
-Usage: linear initiative comment [OPTIONS] [COMMAND]
+Usage: linear initiative comment [OPTIONS] <COMMAND>
 
 Commands:
-  add   Add a comment or reply to an initiative's discussion (by ID, slug, or name)
-  list  List comments on an initiative (by ID, slug, or name)
+  add   Comment on an initiative, or reply to a comment
+  list  List an initiative's comments
   help  Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-### add
+#### comment subcommands
 
-> Add a comment or reply to an initiative's discussion (by ID, slug, or name)
+##### add
+
+> Comment on an initiative, or reply to a comment
 
 ```
-Add a comment or reply to an initiative's discussion (by ID, slug, or name)
+Comment on an initiative, or reply to a comment
 
-Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
-and `[Name](url)` do not. Get a person's URL from the `url` field of
-`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-Run `linear markdown` for collapsible sections and the full reference.
-
-Usage: linear initiative comment add [OPTIONS] <initiative>
+Usage: linear initiative comment add [OPTIONS] <INITIATIVE>
 
 Arguments:
-  <initiative>
-          
+  <INITIATIVE>
+          Initiative ID, slug, or name
 
 Options:
-  -b, --body <text>
-          Comment body text
+  -b, --body <TEXT>
+          Comment text, in Markdown
 
-      --workspace <slug>
-          Target workspace (uses credentials)
+      --body-file <FILE>
+          Read the comment from a Markdown file
 
-      --body-file <path>
-          Read comment body from a file (preferred for markdown content)
-
-  -p, --parent <commentId>
-          Reply to a top-level comment by ID (the reply joins that thread)
+  -p, --parent <COMMENT>
+          Reply to this top-level comment (by ID)
           
           [alias: --reply-to]
 
   -h, --help
           Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
 ```
 
-### list
+##### list
 
-> List comments on an initiative (by ID, slug, or name)
+> List an initiative's comments
 
 ```
-List comments on an initiative (by ID, slug, or name)
+List an initiative's comments
 
-Usage: linear initiative comment list [OPTIONS] <initiative>
+Usage: linear initiative comment list [OPTIONS] <INITIATIVE>
 
 Arguments:
-  <initiative>  
+  <INITIATIVE>  Initiative ID, slug, or name
 
 Options:
-  -j, --json              Output as JSON
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+      --limit <LIMIT>  Maximum number of comments to show (a number or `all`) [default: all]
+  -j, --json           Print JSON
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

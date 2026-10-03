@@ -20,8 +20,8 @@ fn every_union_member_deserializes_to_its_variant_and_serializes_without_typenam
             r#"{"type":"thought","body":"hmm"}"#,
         ),
         (
-            json!({"__typename": "AgentActivityActionContent", "type": "action", "action": "read", "parameter": "src/a.ts", "result": null}),
-            r#"{"type":"action","action":"read","parameter":"src/a.ts","result":null}"#,
+            json!({"__typename": "AgentActivityActionContent", "type": "action", "action": "read", "parameter": "src/a.rs", "result": null}),
+            r#"{"type":"action","action":"read","parameter":"src/a.rs","result":null}"#,
         ),
         (
             json!({"__typename": "AgentActivityResponseContent", "type": "response", "body": "done"}),

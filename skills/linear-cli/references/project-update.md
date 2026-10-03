@@ -1,75 +1,92 @@
 # project-update
 
-> Manage project status updates
+> Post and list project status updates
+
+## Usage
 
 ```
-Manage project status updates
+Post and list project status updates
 
-Usage: linear project-update [OPTIONS] [COMMAND]
+Usage: linear project-update [OPTIONS] <COMMAND>
 
 Commands:
-  create  Create a new status update for a project [alias: c]
-  list    List status updates for a project [alias: l]
+  create  Post a status update on a project [alias: c]
+  list    List a project's status updates [alias: l]
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-      --workspace <slug>  Target workspace (uses credentials)
-  -h, --help              Print help
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
-## create
+## Subcommands
 
-> Create a new status update for a project
+### create
+
+> Post a status update on a project
 
 ```
-Create a new status update for a project
+Post a status update on a project
+
+Usage: linear project-update create [OPTIONS] <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Project ID, slug, or name
+
+Options:
+      --body <TEXT>
+          Update text, in Markdown
+
+      --body-file <FILE>
+          Read the update from a Markdown file
+
+      --health <HEALTH>
+          How the work is going
+          
+          [possible values: on-track, at-risk, off-track]
+
+  -i, --interactive
+          Also prompt for the optional fields
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 
 Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
 and `[Name](url)` do not. Get a person's URL from the `url` field of
 `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
 Run `linear markdown` for collapsible sections and the full reference.
-
-Usage: linear project-update create [OPTIONS] <projectId>
-
-Arguments:
-  <projectId>
-          
-
-Options:
-      --body <body>
-          Update content (inline)
-
-      --workspace <slug>
-          Target workspace (uses credentials)
-
-      --body-file <path>
-          Read content from file
-
-      --health <health>
-          Project health status (onTrack, atRisk, offTrack)
-
-  -i, --interactive
-          Interactive mode with prompts
-
-  -h, --help
-          Print help (see a summary with '-h')
 ```
 
-## list
+### list
 
-> List status updates for a project
+> List a project's status updates
 
 ```
-List status updates for a project
+List a project's status updates
 
-Usage: linear project-update list [OPTIONS] <projectId>
+Usage: linear project-update list [OPTIONS] <PROJECT>
 
 Arguments:
-  <projectId>  
+  <PROJECT>  Project ID, slug, or name
 
 Options:
-      --json              Output as JSON
-      --workspace <slug>  Target workspace (uses credentials)
-      --limit <limit>     Limit results [default: 10]
-  -h, --help              Print help
+  -j, --json           Print JSON
+      --limit <LIMIT>  Maximum number of updates to show, newest first (a number or `all`) [default:
+                       10]
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
