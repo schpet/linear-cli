@@ -309,15 +309,8 @@ pub struct IssueArchive {
     pub issue_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
-    /// Archive several issues (like ENG-1 ENG-2)
-    #[arg(long, value_name = "ISSUES", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
-    pub bulk: Option<Vec<String>>,
-    /// Read issue IDs from a file, one per line
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub bulk_file: Option<String>,
-    /// Read issue IDs from stdin, one per line
-    #[arg(long)]
-    pub bulk_stdin: bool,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
 }
 
 #[derive(Debug, Args)]
@@ -327,15 +320,8 @@ pub struct IssueDelete {
     pub issue_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
-    /// Delete several issues (like ENG-1 ENG-2)
-    #[arg(long, value_name = "ISSUES", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
-    pub bulk: Option<Vec<String>>,
-    /// Read issue IDs from a file, one per line
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub bulk_file: Option<String>,
-    /// Read issue IDs from stdin, one per line
-    #[arg(long)]
-    pub bulk_stdin: bool,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
 }
 
 #[derive(Debug, Args)]

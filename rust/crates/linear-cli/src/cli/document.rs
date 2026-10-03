@@ -165,15 +165,8 @@ pub struct DocumentDelete {
     pub document_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
-    /// Delete several documents (ID or slug)
-    #[arg(long, value_name = "DOCUMENTS", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
-    pub bulk: Option<Vec<String>>,
-    /// Read documents from a file, one per line
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub bulk_file: Option<String>,
-    /// Read documents from stdin, one per line
-    #[arg(long)]
-    pub bulk_stdin: bool,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
 }
 
 #[derive(Debug, Args)]

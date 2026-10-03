@@ -17,11 +17,7 @@ fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     if !args.confirm.yes {
         ctx.require_tty("--yes")?;
     }
-    let input = BulkInput {
-        argv: args.bulk.as_deref(),
-        file: args.bulk_file.as_deref().map(std::path::Path::new),
-        stdin: args.bulk_stdin,
-    };
+    let input = BulkInput::from(&args.bulk);
     if input.requested() {
         return delete_bulk(ctx, args, &input);
     }

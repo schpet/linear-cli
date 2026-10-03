@@ -4,6 +4,7 @@ use std::{collections::HashSet, io::Read, path::Path};
 
 use futures_util::{StreamExt, stream};
 
+use crate::cli::BulkArgs;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 
@@ -11,6 +12,15 @@ pub struct BulkInput<'a> {
     pub argv: Option<&'a [String]>,
     pub file: Option<&'a Path>,
     pub stdin: bool,
+}
+impl<'a> From<&'a BulkArgs> for BulkInput<'a> {
+    fn from(args: &'a BulkArgs) -> Self {
+        Self {
+            argv: args.bulk.as_deref(),
+            file: args.bulk_file.as_deref(),
+            stdin: args.bulk_stdin,
+        }
+    }
 }
 impl BulkInput<'_> {
     pub fn requested(&self) -> bool {

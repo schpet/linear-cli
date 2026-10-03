@@ -118,15 +118,8 @@ pub struct InitiativeArchive {
     pub initiative_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
-    /// Archive several initiatives (ID, slug, or name)
-    #[arg(long, value_name = "INITIATIVES", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
-    pub bulk: Option<Vec<String>>,
-    /// Read initiatives from a file, one per line
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub bulk_file: Option<String>,
-    /// Read initiatives from stdin, one per line
-    #[arg(long)]
-    pub bulk_stdin: bool,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
 }
 
 #[derive(Debug, Args)]
@@ -176,15 +169,8 @@ pub struct InitiativeDelete {
     pub initiative_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
-    /// Delete several initiatives (ID, slug, or name)
-    #[arg(long, value_name = "INITIATIVES", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
-    pub bulk: Option<Vec<String>>,
-    /// Read initiatives from a file, one per line
-    #[arg(long, value_name = "FILE", value_parser = NonEmptyStringValueParser::new())]
-    pub bulk_file: Option<String>,
-    /// Read initiatives from stdin, one per line
-    #[arg(long)]
-    pub bulk_stdin: bool,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
 }
 
 #[derive(Debug, Args)]

@@ -1,7 +1,9 @@
 //! The command-line grammar. Each command owns its typed arguments; values are
 //! parsed here, at the boundary, so commands receive checked types.
+use std::path::PathBuf;
+
 use clap::builder::NonEmptyStringValueParser;
-use clap::{Args, Command, CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{Args, Command, CommandFactory, Parser, Subcommand, ValueEnum, ValueHint};
 
 pub(crate) use limit::Limit;
 pub(crate) mod api;
@@ -155,6 +157,20 @@ pub struct ConfirmArgs {
     /// Do not ask for confirmation
     #[arg(long, short = 'y', aliases = ["force", "confirm"], short_alias = 'f')]
     pub yes: bool,
+}
+
+/// Several targets at once instead of the positional argument.
+#[derive(Debug, Args)]
+pub struct BulkArgs {
+    /// Act on several at once instead of one
+    #[arg(long, value_name = "IDS", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
+    pub bulk: Option<Vec<String>>,
+    /// Read the IDs from a file, one per line
+    #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub bulk_file: Option<PathBuf>,
+    /// Read the IDs from stdin, one per line
+    #[arg(long)]
+    pub bulk_stdin: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]

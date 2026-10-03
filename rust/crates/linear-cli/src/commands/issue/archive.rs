@@ -10,11 +10,7 @@ pub fn run(ctx: &Ctx, args: &IssueArchive) -> Result<()> {
     let request = Request {
         issue_id: args.issue_id.as_deref(),
         yes: args.confirm.yes,
-        bulk: BulkInput {
-            argv: args.bulk.as_deref(),
-            file: args.bulk_file.as_deref().map(std::path::Path::new),
-            stdin: args.bulk_stdin,
-        },
+        bulk: BulkInput::from(&args.bulk),
     };
     super::archive_or_delete::run(ctx, Mode::Archive, &request).context("Failed to archive issue")
 }
