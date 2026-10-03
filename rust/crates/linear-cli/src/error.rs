@@ -9,16 +9,12 @@ use std::num::NonZeroU8;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum ErrorKind {
     /// An ordinary failure: `✗ message`, exit status 1.
     Other,
-    /// Missing or rejected credentials; rendered with a login hint.
-    Auth,
-    /// The requested entity does not exist.
-    NotFound,
-    /// A command-line usage error reported by clap: exit status 2.
-    Usage,
+    /// A command-line usage error, rendered and given its exit status by clap.
+    Usage(clap::Error),
     /// The user cancelled a prompt (Ctrl-C or Esc): exit status 130, no message.
     Cancelled,
     /// The command already reported its failure: exit with this status, no message.
@@ -32,8 +28,8 @@ pub struct Error {
     message: String,
     /// Outermost context first.
     context: Vec<String>,
-    hint: Option<String>,
-    debug_detail: Option<String>,
+    hint: Option<Box<str>>,
+    debug_detail: Option<Box<str>>,
     source: Option<Box<dyn StdError + Send + Sync>>,
 }
 
@@ -55,15 +51,13 @@ impl Error {
         Self::with_kind(ErrorKind::Other, message.into())
     }
 
+    /// Missing or rejected credentials, with a hint to log in.
     pub fn auth(message: impl Into<String>) -> Self {
-        Self::with_kind(ErrorKind::Auth, message.into()).with_hint(LOGIN_HINT)
+        Self::new(message).with_hint(LOGIN_HINT)
     }
 
     pub fn not_found(entity: &str, identifier: &str) -> Self {
-        Self::with_kind(
-            ErrorKind::NotFound,
-            format!("{entity} not found: {identifier}"),
-        )
+        Self::new(format!("{entity} not found: {identifier}"))
     }
 
     pub fn cancelled() -> Self {
@@ -84,8 +78,8 @@ impl Error {
         Self::with_kind(ErrorKind::BrokenPipe, "stdout was closed".to_owned()).with_source(source)
     }
 
-    pub fn kind(&self) -> ErrorKind {
-        self.kind
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
     }
 
     /// The message without context.
@@ -113,7 +107,7 @@ impl Error {
     }
 
     pub fn with_hint(mut self, hint: impl Into<String>) -> Self {
-        self.hint = Some(hint.into());
+        self.hint = Some(hint.into().into_boxed_str());
         self
     }
 
@@ -123,21 +117,15 @@ impl Error {
     }
 
     pub fn with_debug_detail(mut self, detail: impl Into<String>) -> Self {
-        self.debug_detail = Some(detail.into());
+        self.debug_detail = Some(detail.into().into_boxed_str());
         self
-    }
-
-    pub fn usage_error(&self) -> Option<&clap::Error> {
-        self.source.as_deref()?.downcast_ref::<clap::Error>()
     }
 
     /// The process exit status this error ends with.
     pub fn exit_code(&self) -> u8 {
-        match self.kind {
-            ErrorKind::Other | ErrorKind::Auth | ErrorKind::NotFound => 1,
-            ErrorKind::Usage => self
-                .usage_error()
-                .map_or(2, |error| u8::try_from(error.exit_code()).unwrap_or(2)),
+        match &self.kind {
+            ErrorKind::Other => 1,
+            ErrorKind::Usage(error) => u8::try_from(error.exit_code()).unwrap_or(2),
             ErrorKind::Cancelled => 130,
             ErrorKind::Exit(status) => status.get(),
             ErrorKind::BrokenPipe => 0,
@@ -147,7 +135,8 @@ impl Error {
 
 impl From<clap::Error> for Error {
     fn from(error: clap::Error) -> Self {
-        Self::with_kind(ErrorKind::Usage, error.to_string()).with_source(error)
+        let message = error.to_string();
+        Self::with_kind(ErrorKind::Usage(error), message)
     }
 }
 

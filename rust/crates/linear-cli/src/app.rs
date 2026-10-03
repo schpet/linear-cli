@@ -74,11 +74,8 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
 fn report(error: &Error, settings: DisplaySettings) {
     let lines = match error.kind() {
         ErrorKind::Cancelled | ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
-        ErrorKind::Usage => match error.usage_error() {
-            Some(usage) => usage.render().to_string(),
-            None => format!("{error}\n"),
-        },
-        ErrorKind::Other | ErrorKind::Auth | ErrorKind::NotFound => {
+        ErrorKind::Usage(usage) => usage.render().to_string(),
+        ErrorKind::Other => {
             let color = Terminal::detect(settings.no_color).stderr_color();
             let mut lines = format!("{}\n", style::red(&format!("✗ {error}"), color));
             if let Some(hint) = error.hint() {
