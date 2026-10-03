@@ -451,6 +451,75 @@ impl fmt::Debug for RawHttpResponse {
     }
 }
 
+impl RawHttpResponse {
+    /// The body as display-safe text: invalid UTF-8 replaced, control
+    /// characters (including terminal escapes) dropped and whitespace runs
+    /// collapsed to one space.
+    fn body_text(&self) -> String {
+        String::from_utf8_lossy(&self.body)
+            .split_whitespace()
+            .map(|word| word.chars().filter(|c| !c.is_control()).collect::<String>())
+            .filter(|word| !word.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+/// Longest body excerpt shown in an HTTP failure message; `LINEAR_DEBUG`
+/// shows the whole body.
+const BODY_EXCERPT_CHARS: usize = 200;
+
+/// A short excerpt of a non-2xx body worth showing next to its status: plain
+/// text or unusable JSON (say, a proxy's or rate limiter's explanation).
+/// Omitted for HTML pages, well-formed data envelopes, empty bodies and
+/// bodies that only repeat the status reason.
+fn body_excerpt(response: &RawHttpResponse, body: &HttpBodyShape) -> Option<String> {
+    match body {
+        HttpBodyShape::Data => return None,
+        HttpBodyShape::Unusable(_) => {}
+    }
+    if content_type(&response.headers)
+        .is_some_and(|value| value.to_ascii_lowercase().contains("html"))
+    {
+        return None;
+    }
+    let text = response.body_text();
+    if text.is_empty()
+        || response
+            .status
+            .canonical_reason()
+            .is_some_and(|reason| reason.eq_ignore_ascii_case(&text))
+    {
+        return None;
+    }
+    let mut chars = text.chars();
+    let excerpt: String = chars.by_ref().take(BODY_EXCERPT_CHARS).collect();
+    Some(match chars.next() {
+        Some(_) => format!("{excerpt}…"),
+        None => excerpt,
+    })
+}
+
+/// Replaces every occurrence of `secret` in `body`, so a server or proxy
+/// that echoes the request cannot leak the key into an error message.
+fn redact(body: &[u8], secret: &[u8]) -> Vec<u8> {
+    let mut redacted = Vec::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(at) = rest
+        .windows(secret.len())
+        .position(|window| window == secret)
+    {
+        let (before, matched) = rest.split_at(at);
+        redacted.extend_from_slice(before);
+        redacted.extend_from_slice(b"<redacted>");
+        rest = matched
+            .get(secret.len()..)
+            .expect("the match starts a window of the secret's length");
+    }
+    redacted.extend_from_slice(rest);
+    redacted
+}
+
 /// What a non-2xx body without GraphQL errors contained.
 #[derive(Debug)]
 pub enum HttpBodyShape {
@@ -574,8 +643,12 @@ impl fmt::Display for TransportFailure {
                 Some(message) => f.write_str(&message),
                 None => write!(f, "GraphQL request failed without an error message"),
             },
-            Self::Http { response, .. } => {
-                write!(f, "unexpected HTTP status {}", response.status)
+            Self::Http { response, body } => {
+                write!(f, "unexpected HTTP status {}", response.status)?;
+                match body_excerpt(response, body) {
+                    Some(excerpt) => write!(f, ": {excerpt}"),
+                    None => Ok(()),
+                }
             }
             Self::Response(source) => fmt::Display::fmt(source, f),
             Self::ResponseTooLarge { status, limit } => write!(
@@ -668,16 +741,20 @@ impl From<TransportFailure> for Error {
                 ))
             }
             TransportFailure::Response(source) => Error::from(source),
-            TransportFailure::Http {
-                body: HttpBodyShape::Unusable(source),
-                ..
-            } => Error::new(message).with_source(source),
-            TransportFailure::Http {
-                body: HttpBodyShape::Data,
-                ..
+            TransportFailure::Http { response, body } => {
+                let error = Error::new(message).with_debug_detail(format!(
+                    "HTTP {} body: {}",
+                    response.status,
+                    response.body_text()
+                ));
+                match body {
+                    HttpBodyShape::Unusable(source) => error.with_source(source),
+                    HttpBodyShape::Data => error,
+                }
             }
-            | TransportFailure::ResponseTooLarge { .. }
-            | TransportFailure::Timeout { .. } => Error::new(message),
+            TransportFailure::ResponseTooLarge { .. } | TransportFailure::Timeout { .. } => {
+                Error::new(message)
+            }
             TransportFailure::Network { source, .. } => Error::new(message).with_source(source),
         }
     }
@@ -931,7 +1008,13 @@ impl GraphQlTransport {
         request: &GraphQlRequest<V>,
     ) -> Result<T, TransportFailure> {
         let response = self.send_request(request).await?;
-        classify_typed(response)
+        classify_typed(response).map_err(|failure| match failure {
+            TransportFailure::Http { mut response, body } => {
+                response.body = redact(&response.body, self.api_key.value.as_bytes());
+                TransportFailure::Http { response, body }
+            }
+            other => other,
+        })
     }
 
     fn failure(&self, failure: ExchangeFailure) -> TransportFailure {

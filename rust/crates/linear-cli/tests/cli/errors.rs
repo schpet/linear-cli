@@ -43,6 +43,42 @@ fn network_failures_show_a_cause_chain_without_secrets() {
 }
 
 #[test]
+fn http_failures_show_a_sanitized_body_excerpt() {
+    let api = MockLinear::start();
+    let long = format!(
+        "upstream \x1b[31mexploded\x1b[0m\n\tkey={} {}",
+        crate::support::API_KEY,
+        "x".repeat(300)
+    );
+    api.on_text("AuthStatus", 500, "text/plain", &long)
+        .on_text("AuthStatus", 500, "text/plain", &long)
+        .on_text("AuthStatus", 502, "text/html", "<html>bad gateway</html>");
+
+    let plain = Cli::for_api(&api).run(&["auth", "whoami"]);
+    plain
+        .failure()
+        .stderr_has("unexpected HTTP status 500 Internal Server Error: upstream [31mexploded[0m key=<redacted> xxx")
+        .stderr_has("x…");
+    assert!(!plain.stderr.contains('\x1b'), "{plain}");
+    assert!(!plain.stderr.contains(&"x".repeat(300)), "{plain}");
+    assert!(!plain.stderr.contains(crate::support::API_KEY), "{plain}");
+
+    let debug = Cli::for_api(&api)
+        .env("LINEAR_DEBUG", "1")
+        .run(&["auth", "whoami"]);
+    debug
+        .failure()
+        .stderr_has("  debug: HTTP 500 Internal Server Error body: upstream")
+        .stderr_has(&"x".repeat(300));
+    assert!(!debug.stderr.contains(crate::support::API_KEY), "{debug}");
+
+    let html = Cli::for_api(&api).run(&["auth", "whoami"]);
+    html.failure()
+        .stderr_has("unexpected HTTP status 502 Bad Gateway\n");
+    assert!(!html.stderr.contains("<html>"), "{html}");
+}
+
+#[test]
 fn missing_credentials_fail_with_a_login_hint() {
     let api = MockLinear::start();
     Cli::new()

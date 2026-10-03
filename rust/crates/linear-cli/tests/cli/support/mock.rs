@@ -130,6 +130,23 @@ impl MockLinear {
         })
     }
 
+    /// Reply to the next `operation` request with a non-JSON body, as a proxy or load balancer
+    /// would.
+    pub fn on_text(
+        &self,
+        operation: &str,
+        status: u16,
+        content_type: &'static str,
+        body: &str,
+    ) -> &Self {
+        self.push(Reply {
+            route: Route::Operation(operation.to_owned()),
+            status,
+            content_type,
+            body: body.as_bytes().to_vec(),
+        })
+    }
+
     /// Reply to the next plain HTTP request for `method path` (non-GraphQL traffic).
     pub fn on_http(&self, method: &str, path: &str, status: u16, body: &[u8]) -> &Self {
         self.push(Reply {
