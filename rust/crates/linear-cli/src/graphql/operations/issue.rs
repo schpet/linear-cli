@@ -743,10 +743,9 @@ pub struct LookupLabel {
 pub struct ProjectsVariables {
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub filter: Option<ProjectFilter>,
+    pub first: i32,
     #[cynic(skip_serializing_if = "Option::is_none")]
-    pub first: Option<i32>,
-    #[cynic(skip_serializing_if = "Edit::is_unchanged")]
-    pub after: Edit<String>,
+    pub after: Option<String>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
@@ -756,7 +755,7 @@ pub struct ProjectsVariables {
     variables = "ProjectsVariables"
 )]
 pub struct GetProjectsForTeam {
-    #[arguments(filter:$filter,first:$first,after:$after)]
+    #[arguments(filter: $filter, first: $first, after: $after)]
     pub projects: ProjectsPage,
 }
 

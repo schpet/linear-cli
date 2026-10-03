@@ -5,6 +5,7 @@ use super::{
 use crate::client::LinearClient;
 use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::issue::GetIssueId;
+use crate::graphql::pagination::{self, Page};
 use crate::{config::ConfigOptions, error::Error, graphql::operations::issue as ops, refs};
 
 #[derive(Clone)]
@@ -273,37 +274,29 @@ impl Backend for NetworkBackend {
             }),
             ..Default::default()
         };
-        let mut after = crate::graphql::edit::Edit::Unchanged;
-        let mut seen = std::collections::HashSet::new();
-        let mut rows = Vec::new();
-        loop {
-            let data: ops::GetProjectsForTeam = self
-                .client
-                .query(ops::ProjectsVariables {
-                    filter: Some(filter.clone()),
-                    first: Some(100),
-                    after,
+        let rows = pagination::collect(None, |after, first| {
+            let variables = ops::ProjectsVariables {
+                filter: Some(filter.clone()),
+                first,
+                after,
+            };
+            async move {
+                let data: ops::GetProjectsForTeam = self.client.query(variables).await?;
+                Ok(Page {
+                    nodes: data
+                        .projects
+                        .nodes
+                        .into_iter()
+                        .map(|p| Named {
+                            id: p.id.into_inner(),
+                            name: p.name,
+                        })
+                        .collect(),
+                    page_info: data.projects.page_info,
                 })
-                .await?;
-            rows.extend(data.projects.nodes.into_iter().map(|p| Named {
-                id: p.id.into_inner(),
-                name: p.name,
-            }));
-            if !data.projects.page_info.has_next_page {
-                break;
             }
-            let cursor = data.projects.page_info.end_cursor.ok_or_else(|| {
-                domain::validation(
-                    "Linear reported more projects but returned no pagination cursor",
-                )
-            })?;
-            if !seen.insert(cursor.clone()) {
-                return Err(domain::validation(
-                    "Linear repeated a project pagination cursor",
-                ));
-            }
-            after = crate::graphql::edit::Edit::Set(cursor);
-        }
+        })
+        .await?;
         Ok(sorted_names(rows))
     }
     async fn milestone(&self, project_id: String, reference: String) -> Result<String, Error> {
