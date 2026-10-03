@@ -101,6 +101,9 @@ pub struct IssueList {
     /// Do not page long output
     #[arg(long)]
     pub no_pager: bool,
+    /// Print JSON
+    #[arg(long, short, conflicts_with_all = ["web", "app"])]
+    pub json: bool,
 }
 
 /// Filters `issue list` and `issue query` share.

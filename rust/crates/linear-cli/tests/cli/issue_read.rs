@@ -287,6 +287,120 @@ fn list_lists_my_unstarted_issues_in_the_configured_team() {
 }
 
 #[test]
+fn list_json_matches_query_for_the_canonical_command_and_aliases() {
+    let mut row = list_issue(1, "ENG", "unstarted");
+    row["labels"]["nodes"] = json!([{ "id": "label-1", "name": "Bug", "color": "#123456" }]);
+    row["inverseRelations"]["nodes"] = json!([{
+        "id": "relation-1", "type": "blocks",
+        "issue": { "id": "issue-2", "identifier": "ENG-2", "state": { "type": "started" } }
+    }]);
+    for (command, flag) in [("list", "--json"), ("mine", "-j"), ("l", "--json")] {
+        let api = MockLinear::start();
+        api.on("GetIssuesForState", issues(vec![row.clone()], None))
+            .on("GetIssuesForQuery", issues(vec![row.clone()], None));
+        let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+        let list = cli.run(&["issue", command, flag]);
+        list.success();
+        assert_json(&list.json(), &json!([row.clone()]));
+        assert!(list.stderr.is_empty(), "{list}");
+        assert!(list.stdout.ends_with('\n'), "{list}");
+        let query = cli.run(&["issue", "query", "--json"]);
+        query.success();
+        assert_eq!(list.stdout, query.stdout);
+        assert_eq!(
+            api.variables("GetIssuesForState")["filter"],
+            json!({
+                "team": { "key": { "eq": "ENG" } },
+                "state": { "type": { "in": ["unstarted"] } },
+                "assignee": { "isMe": { "eq": true } }
+            })
+        );
+    }
+}
+
+#[test]
+fn list_json_prints_an_empty_array() {
+    let api = MockLinear::start();
+    api.on("GetIssuesForState", issues(vec![], None));
+    let run =
+        Cli::for_api(&api)
+            .env("LINEAR_TEAM_ID", "ENG")
+            .run(&["issue", "list", "-j", "--no-pager"]);
+    run.success();
+    assert_eq!(run.stdout, "[]\n");
+}
+
+#[test]
+fn list_json_collects_and_orders_all_pages() {
+    let api = MockLinear::start();
+    let first = list_issue(1, "ENG", "unstarted");
+    let second = list_issue(2, "ENG", "started");
+    api.on(
+        "GetIssuesForState",
+        issues(vec![first.clone()], Some("next")),
+    )
+    .on("GetIssuesForState", issues(vec![second.clone()], None));
+    let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&[
+        "issue",
+        "list",
+        "--json",
+        "--all-states",
+        "--limit",
+        "all",
+    ]);
+    run.success();
+    assert_json(&run.json(), &json!([second, first]));
+    let requests = api.requests();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(
+        requests.last().expect("second page").variables["after"],
+        json!("next")
+    );
+}
+
+#[test]
+fn list_json_stops_at_the_limit() {
+    let api = MockLinear::start();
+    let row = list_issue(1, "ENG", "unstarted");
+    api.on("GetIssuesForState", issues(vec![row.clone()], Some("next")));
+    let run = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["issue", "list", "--json", "--limit", "1"]);
+    run.success();
+    assert_json(&run.json(), &json!([row]));
+    assert_eq!(api.requests().len(), 1);
+    assert_eq!(api.variables("GetIssuesForState")["first"], json!(1));
+}
+
+#[test]
+fn list_json_reports_api_errors_without_partial_output() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssuesForState",
+        issues(vec![list_issue(1, "ENG", "unstarted")], Some("next")),
+    )
+    .on_error("GetIssuesForState", "Access denied");
+    let run = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["issue", "list", "--json", "--limit", "all"]);
+    run.failure();
+    run.stderr_has("Access denied");
+    assert!(run.stdout.is_empty(), "{run}");
+}
+
+#[test]
+fn list_json_conflicts_with_opening_the_list() {
+    for flag in ["--web", "--app"] {
+        let api = MockLinear::start();
+        Cli::for_api(&api)
+            .run(&["issue", "list", "--json", flag])
+            .usage_error()
+            .stderr_has("cannot be used with");
+        assert!(api.requests().is_empty());
+    }
+}
+
+#[test]
 fn list_sends_filters() {
     let api = MockLinear::start();
     api.on("GetIssuesForState", issues(vec![], None));

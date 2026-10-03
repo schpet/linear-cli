@@ -3,6 +3,7 @@
 use std::time::SystemTime;
 
 use crate::cli::issue::IssueList;
+use crate::commands::json;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -67,7 +68,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         .as_deref()
         .map(|milestone| ctx.block_on(filter::milestone_id(client, milestone, project.as_deref())))
         .transpose()?;
-    let rows = ctx.spin(true, async {
+    let rows = ctx.spin(!args.json, async {
         let teams = std::slice::from_ref(&team);
         let mut filter = IssueFilter {
             team: Some(filter::team_filter(teams, true)),
@@ -96,6 +97,9 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         filter::apply_dates(&mut filter, filters.created_after, filters.updated_after);
         read::mine(client, filter, priority, filters.limit.max()).await
     })?;
+    if args.json {
+        return ctx.print(json::render(&rows));
+    }
     let table = list_view::table(&rows, false, filters.all_assignees, SystemTime::now());
     list_view::print_table(ctx, &table, !args.no_pager)
 }
