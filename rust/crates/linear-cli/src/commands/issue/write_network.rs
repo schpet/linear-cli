@@ -312,18 +312,7 @@ impl Backend for NetworkBackend {
         Ok(id)
     }
     async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, Error> {
-        // Only request and GraphQL errors make the parent optional; a malformed
-        // response is still an error.
-        let data: ops::GetParentIssueData = match self.client.query(IdVariables { id }).await {
-            Ok(data) => data,
-            Err(crate::client::RequestError::Response(error)) => {
-                return Err(Error::new(
-                    "Linear returned parent issue metadata with an unexpected shape",
-                )
-                .with_source(error));
-            }
-            Err(_) => return Ok(None),
-        };
+        let data: ops::GetParentIssueData = self.client.query(IdVariables { id }).await?;
         let Some(data) = data.issue else {
             return Ok(None);
         };

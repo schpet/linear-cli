@@ -115,16 +115,9 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
     ))
 }
 
-/// Opens an empty editor. An editor failure is reported on stderr and
-/// leaves the document without content, so the rest of the flow continues.
+/// Opens an empty editor; `None` when nothing was written.
 fn optional_editor(ctx: &Ctx) -> Result<Option<String>> {
-    match ctx.edit_text("") {
-        Ok(text) => Ok(text_input::edited_body(&text)),
-        Err(error) => {
-            ctx.eprint(format!("{error}\n"))?;
-            Ok(None)
-        }
-    }
+    Ok(text_input::edited_body(&ctx.edit_text("")?))
 }
 
 /// A new document's fields, from flags or prompts.

@@ -173,13 +173,7 @@ impl Ui for Prompts<'_> {
         self.pause();
         let edited = self.ctx.edit_text("");
         self.resume();
-        match edited {
-            Ok(text) => Ok(crate::commands::text_input::edited_body(&text)),
-            Err(error) => {
-                self.error(&format!("{error}\n"))?;
-                Ok(None)
-            }
-        }
+        Ok(crate::commands::text_input::edited_body(&edited?))
     }
 }
 

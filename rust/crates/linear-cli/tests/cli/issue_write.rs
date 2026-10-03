@@ -751,3 +751,27 @@ fn update_refuses_to_add_and_remove_the_same_label() {
         .stderr_has("Cannot add and remove the same label in one update");
     assert!(!api.operations().contains(&"UpdateIssue".to_owned()));
 }
+
+#[test]
+fn create_fails_when_the_parent_metadata_request_fails() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("GetIssueId", json!({ "issue": { "id": PARENT_ID } }))
+        .on_error("GetParentIssueData", "Rate limit exceeded");
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "create",
+            "--no-interactive",
+            "--no-use-default-template",
+            "-t",
+            "Child",
+            "--team",
+            "eng",
+            "--parent",
+            "ENG-9",
+        ])
+        .failure()
+        .stderr_has("Rate limit exceeded");
+    assert!(!api.operations().contains(&"CreateIssue".to_owned()));
+}
