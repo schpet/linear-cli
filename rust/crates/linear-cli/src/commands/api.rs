@@ -1,5 +1,6 @@
 //! `linear api`: send a user-written GraphQL document and print the response.
 use crate::client::LinearClient;
+use crate::graphql::pagination::{Page, PageInfo, Pages};
 use crate::{
     cli::api::Api,
     commands::text_input,
@@ -7,7 +8,6 @@ use crate::{
     error::{Error, Result, ResultExt},
 };
 use serde_json::{Map, Number, Value};
-use std::collections::HashSet;
 
 pub fn run(ctx: &Ctx, args: &Api) -> Result<()> {
     request_and_print(ctx, args).context("API request failed")
@@ -190,37 +190,40 @@ fn count_connections(value: &Value) -> usize {
         _ => 0,
     }
 }
-struct Page {
-    nodes: Vec<Value>,
-    has_next: bool,
-    end_cursor: Option<String>,
-}
-fn find_page(value: &Value) -> Option<Page> {
+/// The first connection (an object with `nodes` and `pageInfo`) in `value`.
+fn find_connection(value: &Value) -> Option<&Map<String, Value>> {
     match value {
-        Value::Object(object) => {
-            if is_connection(object)
-                && let Some(info @ (Value::Object(_) | Value::Array(_))) = object.get("pageInfo")
-            {
-                return Some(Page {
-                    nodes: object
-                        .get("nodes")
-                        .and_then(Value::as_array)
-                        .cloned()
-                        .unwrap_or_default(),
-                    has_next: info.get("hasNextPage").and_then(Value::as_bool) == Some(true),
-                    end_cursor: info
-                        .get("endCursor")
-                        .and_then(Value::as_str)
-                        .filter(|cursor| !cursor.is_empty())
-                        .map(str::to_owned),
-                });
-            }
-            object.values().find_map(find_page)
-        }
-        Value::Array(values) => values.iter().find_map(find_page),
+        Value::Object(object) if is_connection(object) => Some(object),
+        Value::Object(object) => object.values().find_map(find_connection),
+        Value::Array(values) => values.iter().find_map(find_connection),
         _ => None,
     }
 }
+
+/// A connection's nodes and page info, which must have the shapes
+/// pagination relies on.
+fn parse_page(connection: &Map<String, Value>) -> Result<Page<Value>> {
+    let hint = "Select `nodes { ... }` and `pageInfo { hasNextPage endCursor }` on the connection.";
+    let nodes = match connection.get("nodes") {
+        Some(Value::Array(nodes)) => nodes.clone(),
+        _ => {
+            return Err(
+                Error::new("The paginated connection's nodes are not a list").with_hint(hint),
+            );
+        }
+    };
+    let page_info = connection
+        .get("pageInfo")
+        .cloned()
+        .map(serde_json::from_value::<PageInfo>)
+        .and_then(std::result::Result::ok)
+        .ok_or_else(|| {
+            Error::new("The paginated connection's pageInfo lacks hasNextPage or endCursor")
+                .with_hint(hint)
+        })?;
+    Ok(Page { nodes, page_info })
+}
+
 async fn execute(
     client: &LinearClient,
     query: &str,
@@ -229,19 +232,13 @@ async fn execute(
     tty: bool,
 ) -> Result<Response> {
     let mut nodes = Vec::new();
-    let mut cursor: Option<String> = None;
-    let mut sent = HashSet::new();
+    let mut pages = Pages::new(None);
     loop {
         let mut vars = variables.clone();
         if paginate {
-            if !sent.insert(cursor.clone()) {
-                return Err(Error::new(
-                    "Repeated pagination cursor; request not sent, prior requests may have had effects",
-                ));
-            }
             vars.insert(
                 "after".into(),
-                cursor.clone().map_or(Value::Null, Value::String),
+                pages.after().map_or(Value::Null, Value::String),
             );
         }
         let (status, text) = client.fetch_api(request(query, &vars)).await?;
@@ -263,22 +260,27 @@ async fn execute(
         if !paginate {
             return Ok(Response::Data(json_output(&parsed, &text, tty)));
         }
-        if nodes.is_empty()
+        let first_page = pages.after().is_none();
+        if first_page
             && parsed
                 .get("data")
                 .is_some_and(|data| count_connections(data) > 1)
         {
             return Err(Error::new("--paginate does not support queries with multiple paginated connections").with_hint("Use cursor-based pagination manually with $after and pageInfo { hasNextPage endCursor }."));
         }
-        match find_page(&parsed) {
-            None => return Ok(Response::Data(json_output(&parsed, &text, tty))),
-            Some(page) => {
-                nodes.extend(page.nodes);
-                match page.end_cursor {
-                    Some(end) if page.has_next => cursor = Some(end),
-                    _ => break,
-                }
+        let Some(connection) = find_connection(&parsed) else {
+            if first_page {
+                return Ok(Response::Data(json_output(&parsed, &text, tty)));
             }
+            return Err(Error::new(
+                "A later page of the response has no paginated connection",
+            ));
+        };
+        let page = parse_page(connection)?;
+        let more = pages.advance(page.nodes.len(), &page.page_info)?;
+        nodes.extend(page.nodes);
+        if !more {
+            break;
         }
     }
     let all = Value::Array(nodes);

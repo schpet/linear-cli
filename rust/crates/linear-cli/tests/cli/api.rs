@@ -192,7 +192,7 @@ fn paginate_stops_before_repeating_a_cursor() {
     Cli::for_api(&api)
         .run(&["api", ISSUES, "--paginate"])
         .failure()
-        .stderr_has("Repeated pagination cursor");
+        .stderr_has("Linear sent the same pagination cursor twice");
     let cursors: Vec<Value> = api
         .requests()
         .into_iter()
@@ -339,4 +339,33 @@ fn schema_reports_graphql_errors() {
         .run(&["schema"])
         .failure()
         .stderr_has("Introspection is disabled");
+}
+
+#[test]
+fn paginate_rejects_malformed_connections_and_unusable_cursors() {
+    const ISSUES: &str = "query Issues($after: String) { issues(after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }";
+    for (connection, message) in [
+        (
+            json!({ "nodes": { "id": "a" }, "pageInfo": { "hasNextPage": false, "endCursor": null } }),
+            "nodes are not a list",
+        ),
+        (
+            json!({ "nodes": [], "pageInfo": { "endCursor": "c1" } }),
+            "pageInfo lacks hasNextPage or endCursor",
+        ),
+        (
+            json!({ "nodes": [], "pageInfo": { "hasNextPage": true, "endCursor": null } }),
+            "sent no cursor",
+        ),
+        (
+            json!({ "nodes": [], "pageInfo": { "hasNextPage": true, "endCursor": "" } }),
+            "sent no cursor",
+        ),
+    ] {
+        let api = MockLinear::start();
+        api.on("Issues", json!({ "issues": connection }));
+        let run = Cli::for_api(&api).run(&["api", ISSUES, "--paginate"]);
+        run.failure().stderr_has(message);
+        assert_eq!(run.stdout, "");
+    }
 }
