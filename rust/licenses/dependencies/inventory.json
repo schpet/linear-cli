@@ -1,8 +1,8 @@
 {
   "kind": "all-lock package notice provenance; not legal assessment or all-target artifact proof",
-  "lockedPackageCount": 272,
-  "metadataPackageCount": 272,
-  "noticeFileCount": 485,
+  "lockedPackageCount": 273,
+  "metadataPackageCount": 273,
+  "noticeFileCount": 487,
   "packages": [
     {
       "name": "addr2line",
@@ -1908,6 +1908,28 @@
           "file": "ipnet-2.12.2/LICENSE-MIT",
           "sha256": "47dc9ff29128ddfb4d6a0435383c9f89120bc374dbcc1dd00b933a0b28aa7865",
           "sourceUrl": "https://static.crates.io/crates/ipnet/ipnet-2.12.2.crate",
+          "qualification": "checksum-bound package notice"
+        }
+      ]
+    },
+    {
+      "name": "is_executable",
+      "version": "1.0.6",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "82cb6a9f675da968c63b6208c641b9dca58fc0133ae53375736b1767b0cab8bd",
+      "license": "MIT OR Apache-2.0",
+      "status": "NOTICE-TEXT-BUNDLED",
+      "files": [
+        {
+          "file": "is_executable-1.0.6/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "sourceUrl": "https://static.crates.io/crates/is_executable/is_executable-1.0.6.crate",
+          "qualification": "checksum-bound package notice"
+        },
+        {
+          "file": "is_executable-1.0.6/LICENSE-MIT",
+          "sha256": "7b63ecd5f1902af1b63729947373683c32745c16a10e8e6292e2e2dcd7e90ae0",
+          "sourceUrl": "https://static.crates.io/crates/is_executable/is_executable-1.0.6.crate",
           "qualification": "checksum-bound package notice"
         }
       ]

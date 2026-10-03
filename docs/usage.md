@@ -457,14 +457,16 @@ generate shell completions for better command-line experience:
 # For bash
 source <(linear completions bash)
 
-# For zsh  
+# For zsh
 source <(linear completions zsh)
 
 # For fish
 linear completions fish | source
 ```
 
-add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`).
+add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`). elvish and powershell are supported too; see `linear completions --help`.
+
+the script asks `linear` for candidates as you type, so completions always match the installed version. load it at shell startup as above rather than saving it to a file.
 
 ### global options
 

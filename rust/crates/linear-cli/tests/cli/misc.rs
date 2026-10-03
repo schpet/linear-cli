@@ -10,32 +10,21 @@ fn markdown_prints_the_reference() {
 }
 
 #[test]
-fn completions_cover_every_supported_shell() {
+fn completions_print_a_registration_script_for_every_shell() {
     let cli = Cli::new();
     for shell in ["bash", "zsh", "fish", "elvish", "powershell"] {
         let run = cli.run(&["completions", shell]);
-        run.success();
-        for word in [
-            "issue",
-            "initiative",
-            "project-update",
-            "workspace",
-            "priority",
-        ] {
-            assert!(run.stdout.contains(word), "{shell} lacks {word}\n{run}");
-        }
-        assert!(
-            !run.stdout.contains("Removed: use"),
-            "{shell} offers hidden flags"
-        );
+        run.success()
+            .stdout_has("COMPLETE")
+            .stdout_has(shell)
+            .stdout_has(env!("CARGO_BIN_EXE_linear"));
     }
 }
 
 #[test]
 fn completions_register_under_a_custom_name() {
     let run = Cli::new().run(&["completions", "fish", "--name", "lin"]);
-    run.success().stdout_has("complete -c lin ");
-    assert!(!run.stdout.contains("complete -c linear "), "{run}");
+    run.success().stdout_has("--command lin ");
 }
 
 #[test]
@@ -45,6 +34,43 @@ fn completions_reject_unknown_shells_and_unsafe_names() {
         .run(&["completions", "bash", "--name", "x;rm"])
         .usage_error();
     Cli::new().run(&["completions"]).usage_error();
+}
+
+/// Candidates fish would get for the command line `words`, the last being
+/// the word under the cursor.
+fn fish_candidates(cli: &Cli, words: &[&str]) -> Vec<String> {
+    let mut args = vec!["--", "linear"];
+    args.extend(words);
+    let run = cli.run(&args);
+    run.success();
+    run.stdout
+        .lines()
+        .map(|line| line.split('\t').next().unwrap_or_default().to_owned())
+        .collect()
+}
+
+#[test]
+fn completion_requests_reach_every_command_depth() {
+    let cli = Cli::new().env("COMPLETE", "fish");
+    let flags = fish_candidates(&cli, &["issue", "comment", "add", "--b"]);
+    assert_eq!(flags, ["--body", "--body-file"]);
+    let statuses = fish_candidates(&cli, &["issue", "agent-session", "list", "--status", ""]);
+    assert!(
+        statuses.contains(&"awaitingInput".to_owned()),
+        "{statuses:?}"
+    );
+    let commands = fish_candidates(&cli, &["iss"]);
+    assert_eq!(commands, ["issue"]);
+}
+
+#[test]
+fn completion_requests_skip_hidden_flags_and_configuration() {
+    let cli = Cli::new()
+        .env("COMPLETE", "fish")
+        .file("cwd/.linear.toml", "issue_sort = \"sideways\"\n");
+    let flags = fish_candidates(&cli, &["issue", "mine", "--a"]);
+    assert!(flags.contains(&"--all-states".to_owned()), "{flags:?}");
+    assert!(!flags.contains(&"--assignee".to_owned()), "{flags:?}");
 }
 
 #[test]

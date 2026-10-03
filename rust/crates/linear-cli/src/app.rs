@@ -103,7 +103,7 @@ fn report(error: &Error, settings: DisplaySettings) {
 
 fn completions_command(args: &cli::completions::Completions) -> Result<()> {
     let stdout = Stdout::new();
-    stdout.write(&completions::script(args))?;
+    stdout.write(&completions::script(args)?)?;
     stdout.flush()
 }
 

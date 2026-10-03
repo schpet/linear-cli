@@ -1,44 +1,56 @@
-//! `linear completions <shell>`: a completion script generated from the
-//! command grammar.
-use crate::cli::{self, completions::Completions};
-use clap::Command;
+//! `linear completions <shell>`: the script that registers `linear` with a
+//! shell's completion system. The script asks the binary for candidates on
+//! each completion (`COMPLETE=<shell> linear -- <words>`, handled in `main`),
+//! so completions follow the installed version at every command depth.
+use crate::cli::completions::Completions;
+use crate::error::{Error, Result};
+use clap_complete::env::{EnvCompleter, Shells};
 
 pub const DEFAULT_COMMAND_NAME: &str = "linear";
 
-pub fn script(args: &Completions) -> Vec<u8> {
-    let name = args.name.as_deref().unwrap_or(DEFAULT_COMMAND_NAME);
-    let mut command = cli::command();
-    command.build();
+/// The environment variable that switches the binary into completion mode.
+const COMPLETE_VAR: &str = "COMPLETE";
+
+pub fn script(args: &Completions) -> Result<Vec<u8>> {
+    let shell_name = args.shell.to_string();
+    let shells = Shells::builtins();
+    let shell: &dyn EnvCompleter = shells
+        .completer(&shell_name)
+        .expect("every clap_complete shell has a dynamic completer");
+    let bin = args.name.as_deref().unwrap_or(DEFAULT_COMMAND_NAME);
+    let completer = completer()?;
     let mut output = Vec::new();
-    clap_complete::generate(args.shell, &mut visible(&command), name, &mut output);
-    output
+    shell
+        .write_registration(
+            COMPLETE_VAR,
+            DEFAULT_COMMAND_NAME,
+            bin,
+            &completer,
+            &mut output,
+        )
+        .expect("writing to a Vec cannot fail");
+    Ok(output)
 }
 
-/// A copy of a built command without its hidden arguments and subcommands,
-/// which clap_complete would otherwise offer.
-fn visible(command: &Command) -> Command {
-    let mut copy = Command::new(command.get_name().to_owned())
-        .disable_help_flag(true)
-        .disable_version_flag(true)
-        .disable_help_subcommand(true)
-        .visible_aliases(command.get_visible_aliases().map(str::to_owned))
-        .args(
-            command
-                .get_arguments()
-                .filter(|arg| !arg.is_hide_set())
-                .cloned(),
-        )
-        .subcommands(
-            command
-                .get_subcommands()
-                .filter(|child| !child.is_hide_set())
-                .map(visible),
-        );
-    if let Some(about) = command.get_about() {
-        copy = copy.about(about.clone());
-    }
-    if let Some(version) = command.get_version() {
-        copy = copy.version(version.to_owned());
-    }
-    copy
+/// How the shell should invoke this binary for candidates: the name it was
+/// run as when that is a bare command found on PATH, otherwise its absolute
+/// path.
+fn completer() -> Result<String> {
+    let argv0 = std::env::args_os()
+        .next()
+        .ok_or_else(|| Error::new("The program was started without a name"))?;
+    let path = std::path::PathBuf::from(&argv0);
+    let path = if path.components().count() > 1 && path.is_relative() {
+        std::env::current_dir()
+            .map_err(|error| {
+                Error::new(format!("Could not read the current directory: {error}"))
+                    .with_source(error)
+            })?
+            .join(path)
+    } else {
+        path
+    };
+    path.into_os_string()
+        .into_string()
+        .map_err(|_| Error::new("The program path is not valid UTF-8"))
 }

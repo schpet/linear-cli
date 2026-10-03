@@ -21,8 +21,8 @@ The repository's installed CLI, user configuration and credential stores need
 not change. Shell/npm/Homebrew/updater rehearsal evidence is recorded separately
 from host binary installation and from unbuilt foreign targets.
 
-Generate bash, zsh or fish scripts with `linear completions <shell>` and use the
-instructions in `linear completions --help`. Generate native skill references
+Register completions for bash, zsh, fish, elvish or powershell with
+`linear completions <shell>` as described in `linear completions --help`. Generate native skill references
 from the explicit SHA-pinned binary and the development typed-clap manifest;
 never depend on whichever `linear` happens to be on PATH. The original Deno
 documentation task remains available for the source reference.

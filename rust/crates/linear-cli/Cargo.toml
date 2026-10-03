@@ -11,7 +11,7 @@ description = "Native typed Linear CLI, major-3 local candidate"
 [dependencies]
 linear-schema = { path = "../linear-schema" }
 clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "string", "error-context", "derive", "suggestions"] }
-clap_complete = { version = "4.6.11", default-features = false }
+clap_complete = { version = "4.6.11", default-features = false, features = ["unstable-dynamic"] }
 unicode-width = "0.2.2"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
 icu_collator = { version = "2.3.1", default-features = false, features = ["compiled_data"] }

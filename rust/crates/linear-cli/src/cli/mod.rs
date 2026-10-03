@@ -70,7 +70,7 @@ pub enum RootCommand {
     #[command(
         name = "completions",
         about = "Generate shell completions.",
-        long_about = "Generate shell completions.\n\nLoad them from your shell's startup file:\n\n  bash (~/.bashrc):                   source <(linear completions bash)\n  zsh (~/.zshrc):                     source <(linear completions zsh)\n  fish (~/.config/fish/config.fish):  linear completions fish | source\n  elvish (rc.elv):                    eval (linear completions elvish | slurp)\n  powershell ($PROFILE):              linear completions powershell | Out-String | Invoke-Expression"
+        long_about = "Generate shell completions.\n\nLoad them from your shell's startup file:\n\n  bash (~/.bashrc):                   source <(linear completions bash)\n  zsh (~/.zshrc):                     source <(linear completions zsh)\n  fish (~/.config/fish/config.fish):  linear completions fish | source\n  elvish (rc.elv):                    eval (linear completions elvish | slurp)\n  powershell ($PROFILE):              linear completions powershell | Out-String | Invoke-Expression\n\nThe script asks linear for candidates as you type, so load it at shell startup rather than saving it to a file."
     )]
     Completions(completions::Completions),
     #[command(name = "config", about = "Generate .linear.toml configuration, asking for what the flags leave out", visible_aliases = ["configure"])]
