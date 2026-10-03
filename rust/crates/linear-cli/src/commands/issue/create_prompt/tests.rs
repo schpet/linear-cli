@@ -6,11 +6,13 @@ use serde_json::{Value, json};
 use super::prompt;
 use crate::commands::issue::create::{self, Fields};
 use crate::commands::issue::write::{
-    AssignSelf, Backend, CreateSettings, Created, Label, Named, Parent, State, Team, Ui, Updated,
+    Backend, CreateSettings, Created, Label, Named, Parent, State, Ui, Updated,
 };
+use crate::config::AssignSelf;
 use crate::error::Error;
 use crate::graphql::operations::issue::IssueUpdateInput;
 use crate::platform::prompt::Text;
+use crate::refs::team::ResolvedTeam;
 
 /// Answers the lookups an interactive create makes and records which ran.
 #[derive(Clone, Default)]
@@ -34,17 +36,17 @@ impl Linear {
 }
 
 impl Backend for Linear {
-    async fn team(&self, _: String) -> Result<Team, Error> {
+    async fn team(&self, _: String) -> Result<ResolvedTeam, Error> {
         unreachable!("team")
     }
-    async fn find_team(&self, key: String) -> Result<Option<Team>, Error> {
-        Ok(Some(Team {
+    async fn find_team(&self, key: String) -> Result<Option<ResolvedTeam>, Error> {
+        Ok(Some(ResolvedTeam {
             id: "team-id".into(),
             key,
             name: "Engineering".into(),
         }))
     }
-    async fn teams(&self) -> Result<Vec<Team>, Error> {
+    async fn teams(&self) -> Result<Vec<ResolvedTeam>, Error> {
         unreachable!("teams")
     }
     async fn team_options(&self, _: String) -> Result<Vec<Named>, Error> {

@@ -1,3 +1,5 @@
+use crate::config::AssignSelf;
+use crate::refs::team::ResolvedTeam;
 use crate::{
     error::Error,
     graphql::{edit::Edit, operations::issue::IssueUpdateInput},
@@ -5,12 +7,6 @@ use crate::{
 };
 use std::future::Future;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Team {
-    pub id: String,
-    pub key: String,
-    pub name: String,
-}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Named {
     pub id: String,
@@ -45,12 +41,6 @@ pub struct Updated {
     pub identifier: String,
     pub title: String,
     pub url: String,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AssignSelf {
-    Always,
-    Auto,
-    Never,
 }
 #[derive(Clone, Debug)]
 pub struct CreateSettings {
@@ -102,12 +92,12 @@ pub fn edit<T>(clear: bool, value: Option<T>) -> Edit<T> {
 }
 /// The Linear lookups and mutations issue create and update resolve names through.
 pub trait Backend: Clone + Send + 'static {
-    fn team(&self, reference: String) -> impl Future<Output = Result<Team, Error>> + Send;
+    fn team(&self, reference: String) -> impl Future<Output = Result<ResolvedTeam, Error>> + Send;
     fn find_team(
         &self,
         reference: String,
-    ) -> impl Future<Output = Result<Option<Team>, Error>> + Send;
-    fn teams(&self) -> impl Future<Output = Result<Vec<Team>, Error>> + Send;
+    ) -> impl Future<Output = Result<Option<ResolvedTeam>, Error>> + Send;
+    fn teams(&self) -> impl Future<Output = Result<Vec<ResolvedTeam>, Error>> + Send;
     fn team_options(
         &self,
         reference: String,

@@ -158,7 +158,7 @@ impl fmt::Debug for ConfigSecret {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase", expecting = "manual or priority")]
 pub enum IssueSort {
     Manual,

@@ -14,5 +14,5 @@ pub struct Config {
         help = "Default issue sort order (asked for when omitted)",
         value_name = "sort"
     )]
-    pub sort: Option<super::Sort>,
+    pub sort: Option<crate::config::IssueSort>,
 }

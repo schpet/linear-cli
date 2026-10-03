@@ -89,7 +89,7 @@ pub struct IssueMine {
         help = "Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)",
         value_name = "sort"
     )]
-    pub sort: Option<super::Sort>,
+    pub sort: Option<crate::config::IssueSort>,
     #[arg(long = "team", help = "Team key, name, or ID to list issues for (if not your default team)", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
     #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
@@ -180,7 +180,7 @@ pub struct IssueQuery {
         help = "Sort order: manual or priority (default: priority, not available with --search)",
         value_name = "sort"
     )]
-    pub sort: Option<super::Sort>,
+    pub sort: Option<crate::config::IssueSort>,
     #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
     #[arg(conflicts_with_all = ["project", "milestone"], long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]

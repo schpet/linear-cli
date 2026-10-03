@@ -1,12 +1,13 @@
 use super::{
     create::{Input, Templates},
-    write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
+    write::{self as domain, Backend, Created, Label, Named, Parent, State, Updated},
 };
 use crate::client::LinearClient;
 use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::issue::GetIssueId;
 use crate::graphql::pagination::{self, Page};
-use crate::{config::ConfigOptions, error::Error, graphql::operations::issue as ops, refs};
+use crate::refs::{self, team::ResolvedTeam};
+use crate::{config::ConfigOptions, error::Error, graphql::operations::issue as ops};
 
 #[derive(Clone)]
 pub struct NetworkBackend {
@@ -44,37 +45,18 @@ impl NetworkBackend {
     }
 }
 impl Backend for NetworkBackend {
-    async fn team(&self, reference: String) -> Result<Team, Error> {
+    async fn team(&self, reference: String) -> Result<ResolvedTeam, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::team::TeamReference::parse(&reference, &self.scope(&key))?;
-        let team = refs::team::resolve(&self.client, &prepared).await?;
-        Ok(Team {
-            id: team.id,
-            key: team.key,
-            name: team.name,
-        })
+        refs::team::resolve(&self.client, &prepared).await
     }
-    async fn find_team(&self, reference: String) -> Result<Option<Team>, Error> {
+    async fn find_team(&self, reference: String) -> Result<Option<ResolvedTeam>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::team::TeamReference::parse(&reference, &self.scope(&key))?;
-        Ok(refs::team::find(&self.client, &prepared)
-            .await?
-            .map(|team| Team {
-                id: team.id,
-                key: team.key,
-                name: team.name,
-            }))
+        refs::team::find(&self.client, &prepared).await
     }
-    async fn teams(&self) -> Result<Vec<Team>, Error> {
-        Ok(refs::team::fetch_all(&self.client)
-            .await?
-            .into_iter()
-            .map(|team| Team {
-                id: team.id,
-                key: team.key,
-                name: team.name,
-            })
-            .collect())
+    async fn teams(&self) -> Result<Vec<ResolvedTeam>, Error> {
+        refs::team::fetch_all(&self.client).await
     }
     async fn team_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         let data: ops::GetTeamIdOptionsByKey = self

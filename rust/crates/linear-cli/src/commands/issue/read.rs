@@ -4,6 +4,7 @@ use std::time::SystemTime;
 
 use crate::commands::relative_time;
 use crate::commands::table::{Cell, Column, Table};
+use crate::config::IssueSort;
 use crate::error::Error;
 use crate::graphql::operations::issue_read::*;
 use crate::graphql::pagination::{self, Page};
@@ -745,13 +746,8 @@ pub(super) fn resolve_cycle(
 }
 
 /// Whether issues sort by priority: `--sort`, else the configured sort.
-pub(super) fn priority_sort(ctx: &crate::ctx::Ctx, sort: Option<crate::cli::Sort>) -> bool {
-    use crate::config::IssueSort;
-    let value = sort.map(|value| match value {
-        crate::cli::Sort::Manual => IssueSort::Manual,
-        crate::cli::Sort::Priority => IssueSort::Priority,
-    });
-    ctx.options().issue_sort(value).0 == IssueSort::Priority
+pub(super) fn priority_sort(ctx: &crate::ctx::Ctx, sort: Option<IssueSort>) -> bool {
+    ctx.options().issue_sort(sort).0 == IssueSort::Priority
 }
 
 /// Prints issues as a table, through the pager on a terminal.

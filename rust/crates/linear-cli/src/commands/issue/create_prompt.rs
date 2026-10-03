@@ -1,8 +1,9 @@
 use super::{
     create::{self as issue_create, Fields, Input},
-    write::{self as shared, AssignSelf, Backend, CreateSettings, Label, Named, Parent, State, Ui},
+    write::{self as shared, Backend, CreateSettings, Label, Named, Parent, State, Ui},
 };
 use crate::cli::values::estimate;
+use crate::config::AssignSelf;
 use crate::graphql::scalars::WholeNumber;
 use crate::platform::prompt::Text;
 use crate::{error::Error, graphql::edit::Edit};
@@ -27,7 +28,7 @@ fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>,
 async fn additional<B: Backend, U: Ui>(
     backend: &B,
     ui: &mut U,
-    team: &shared::Team,
+    team: &crate::refs::team::ResolvedTeam,
     states: &[State],
     labels: &[Label],
     include_project: bool,

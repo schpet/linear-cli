@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::auth::ApiKeyInput;
-use crate::cli::Sort;
 use crate::cli::config::Config;
+use crate::config::IssueSort;
 use crate::config::{RealFileSource, repo_root};
 use crate::ctx::{self, Ctx};
 use crate::error::{Error, Result, ResultExt};
@@ -87,8 +87,8 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
         None => ctx.prompter()?.select(
             "Select sort order:",
             vec![
-                Choice::new("manual", Sort::Manual),
-                Choice::new("priority", Sort::Priority),
+                Choice::new("manual", IssueSort::Manual),
+                Choice::new("priority", IssueSort::Priority),
             ],
         )?,
     };
@@ -96,8 +96,8 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
         workspace: url_key,
         team_id: team.key,
         issue_sort: match sort {
-            Sort::Manual => "manual",
-            Sort::Priority => "priority",
+            IssueSort::Manual => "manual",
+            IssueSort::Priority => "priority",
         },
     };
     let path = destination(ctx.cwd());

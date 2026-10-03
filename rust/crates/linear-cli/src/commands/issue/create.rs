@@ -1,11 +1,11 @@
 use chrono::NaiveDate;
 
-use super::write::{self as shared, AssignSelf, Backend, CreateSettings, Named, Parent, Ui};
+use super::write::{self as shared, Backend, CreateSettings, Named, Parent, Ui};
 use super::write_network::NetworkBackend;
 use crate::{
     cli::{issue::IssueCreate, values::Priority},
     commands::team_key::configured_team_key,
-    config::AssignSelf as ConfigAssignSelf,
+    config::AssignSelf,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{edit::Edit, scalars::TimelessDate},
@@ -89,11 +89,7 @@ fn settings(ctx: &Ctx) -> CreateSettings {
     let options = ctx.options();
     CreateSettings {
         default_team: configured_team_key(options),
-        assign_self: match options.issue_create_assign_self() {
-            ConfigAssignSelf::Always => AssignSelf::Always,
-            ConfigAssignSelf::Auto => AssignSelf::Auto,
-            ConfigAssignSelf::Never => AssignSelf::Never,
-        },
+        assign_self: options.issue_create_assign_self(),
         ask_project: options.issue_create_ask_project(),
     }
 }

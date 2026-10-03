@@ -93,14 +93,6 @@ pub enum RootCommand {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
-pub enum Sort {
-    #[value(name = "manual")]
-    Manual,
-    #[value(name = "priority")]
-    Priority,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum AgentSessionStatus {
     #[value(name = "pending")]
     Pending,
