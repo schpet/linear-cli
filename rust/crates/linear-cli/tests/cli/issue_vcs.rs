@@ -320,6 +320,17 @@ fn start_without_an_issue_or_team_fails_before_any_request() {
     assert!(api.requests().is_empty());
 }
 
+#[test]
+fn start_rejects_a_reference_that_names_no_issue_instead_of_picking() {
+    let api = MockLinear::start();
+    let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
+    cli.run(&["issue", "start", "not-an-issue"])
+        .failure()
+        .stderr_has("Not an issue ID: not-an-issue");
+    assert!(api.requests().is_empty());
+    assert!(calls(&cli, "git").is_empty());
+}
+
 fn gh(cli: Cli) -> Cli {
     cli.stub_bin("gh", "echo https://github.com/acme/widgets/pull/1")
 }
