@@ -42,6 +42,15 @@
         "winapi-x86_64-pc-windows-gnu@0.4.0"
       ],
       "qualification": "same upstream repository copyright/license text from checksum-bound winapi0.3.9; support crates explicitly declare same MIT/Apache-2.0 and repository, no VCS stamp in support archives"
+    },
+    {
+      "file": "supplemental/inquire-LICENSE-MIT.txt",
+      "sha256": "f72340c0a3886a23409003bddfd1aeab6c64acd128582ef4436e1ad5ae2033c8",
+      "sourceUrl": "https://raw.githubusercontent.com/mikaelmello/inquire/3d5b65422a247acc773d767558e34fcb69ab04bf/LICENSE",
+      "packages": [
+        "inquire@0.9.4"
+      ],
+      "qualification": "exact crate .cargo_vcs_info commit upstream root LICENSE"
     }
   ]
 }
