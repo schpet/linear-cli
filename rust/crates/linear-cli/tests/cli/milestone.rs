@@ -454,14 +454,14 @@ fn update_rejects_a_non_numeric_sort_order_before_any_request() {
 }
 
 #[test]
-fn delete_with_force_deletes() {
+fn delete_with_yes_deletes() {
     let api = MockLinear::start();
     api.on(
         "DeleteProjectMilestone",
         json!({ "projectMilestoneDelete": { "success": true } }),
     );
     Cli::for_api(&api)
-        .run(&["milestone", "delete", MILESTONE_ID, "--force"])
+        .run(&["milestone", "delete", MILESTONE_ID, "--yes"])
         .success()
         .stdout_has(MILESTONE_ID);
     assert_eq!(
@@ -471,7 +471,7 @@ fn delete_with_force_deletes() {
 }
 
 #[test]
-fn delete_without_force_needs_a_confirmation() {
+fn delete_without_yes_needs_a_confirmation() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["milestone", "delete", MILESTONE_ID])

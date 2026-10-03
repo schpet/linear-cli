@@ -172,7 +172,7 @@ fn default_switches_the_default_workspace() {
 #[test]
 fn logout_removes_a_workspace() {
     let cli = Cli::new().credentials(INLINE);
-    cli.run(&["auth", "logout", "beta", "--force"])
+    cli.run(&["auth", "logout", "beta", "--yes"])
         .success()
         .stdout_has("beta");
     let file = credentials_toml(&cli);
@@ -181,11 +181,11 @@ fn logout_removes_a_workspace() {
 }
 
 #[test]
-fn logout_without_force_needs_a_terminal() {
+fn logout_without_yes_needs_a_terminal() {
     let cli = Cli::new().credentials(INLINE).stdin(b"y\n");
     cli.run(&["auth", "logout", "acme"])
         .failure()
-        .stderr_has("--force");
+        .stderr_has("--yes");
     assert_eq!(cli.read(CREDENTIALS), INLINE);
 }
 
@@ -322,7 +322,7 @@ fn credential_commands_refuse_an_invalid_credentials_file() {
     let cli = Cli::new().credentials("workspaces = 23\n");
     for command in [
         vec!["auth", "login", "--key", "lin_new"],
-        vec!["auth", "logout", "acme", "--force"],
+        vec!["auth", "logout", "acme", "--yes"],
         vec!["auth", "migrate"],
         vec!["auth", "default", "acme"],
     ] {
@@ -395,12 +395,12 @@ fn a_keyring_failure_is_not_reported_as_an_invalid_key() {
 fn logout_deletes_the_keyring_entry_first() {
     let keyring = "default = \"acme\"\nworkspaces = [\"acme\", \"beta\"]\n";
     let cli = secret_tool(Cli::new().credentials(keyring), "exit 4");
-    cli.run(&["auth", "logout", "beta", "--force"])
+    cli.run(&["auth", "logout", "beta", "--yes"])
         .failure()
         .stderr_has("secret-tool clear failed (exit 4)");
     assert_eq!(cli.read(CREDENTIALS), keyring);
     let cli = secret_tool(Cli::new().credentials(keyring), "exit 0");
-    cli.run(&["auth", "logout", "beta", "--force"]).success();
+    cli.run(&["auth", "logout", "beta", "--yes"]).success();
     assert_eq!(
         cli.read(CREDENTIALS),
         "default = \"acme\"\nworkspaces = [\"acme\"]\n"

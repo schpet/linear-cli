@@ -30,8 +30,8 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
     let team = team
         .map(|team| TeamReference::parse(&team, &ctx.scope()?))
         .transpose()?;
-    if !args.force {
-        ctx.require_tty("--force")?;
+    if !args.confirm.yes {
+        ctx.require_tty("--yes")?;
     }
     let client = ctx.client()?;
     let (labels, team_key) = ctx.spin(true, async {
@@ -60,7 +60,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
         "Are you sure you want to delete label \"{}\"?",
         display(&label)
     );
-    if !confirm::deletion(ctx, args.force, &question)? {
+    if !confirm::deletion(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
     let result: DeleteIssueLabel = ctx.spin(

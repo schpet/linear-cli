@@ -506,7 +506,7 @@ fn archive_detail(archived_at: Value) -> Value {
 }
 
 #[test]
-fn archive_with_force_archives_by_id() {
+fn archive_with_yes_archives_by_id() {
     let api = MockLinear::start();
     api.on("GetInitiativeForArchive", archive_detail(Value::Null))
         .on(
@@ -514,7 +514,7 @@ fn archive_with_force_archives_by_id() {
             json!({ "initiativeArchive": { "success": true } }),
         );
     Cli::for_api(&api)
-        .run(&["initiative", "archive", ID, "--force"])
+        .run(&["initiative", "archive", ID, "--yes"])
         .success()
         .stdout_has("Roadmap");
     assert_eq!(
@@ -532,14 +532,14 @@ fn archive_skips_already_archived_initiatives() {
         archive_detail(json!("2026-01-01T00:00:00.000Z")),
     );
     Cli::for_api(&api)
-        .run(&["initiative", "archive", ID, "--force"])
+        .run(&["initiative", "archive", ID, "--yes"])
         .success()
         .stdout_has("already archived");
     assert_eq!(api.operations(), ["GetInitiativeForArchive"]);
 }
 
 #[test]
-fn archive_and_delete_without_force_or_tty_fail_before_any_request() {
+fn archive_and_delete_without_yes_or_tty_fail_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     let commands: [&[&str]; 4] = [
@@ -549,11 +549,11 @@ fn archive_and_delete_without_force_or_tty_fail_before_any_request() {
         &["initiative", "remove-project", ID, PROJECT_ID],
     ];
     for command in commands {
-        cli.run(command).failure().stderr_has("--force");
+        cli.run(command).failure().stderr_has("--yes");
     }
     cli.run(&["initiative", "archive", "--bulk", ID])
         .failure()
-        .stderr_has("--force");
+        .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }
 
@@ -561,7 +561,7 @@ fn archive_and_delete_without_force_or_tty_fail_before_any_request() {
 fn archive_target_conflicts_with_bulk_flags() {
     let api = MockLinear::start();
     Cli::for_api(&api)
-        .run(&["initiative", "archive", ID, "--bulk", OTHER_ID, "--force"])
+        .run(&["initiative", "archive", ID, "--bulk", OTHER_ID, "--yes"])
         .usage_error();
     assert!(api.requests().is_empty());
 }
@@ -570,14 +570,14 @@ fn archive_target_conflicts_with_bulk_flags() {
 fn archive_requires_a_target() {
     let api = MockLinear::start();
     Cli::for_api(&api)
-        .run(&["initiative", "archive", "--force"])
+        .run(&["initiative", "archive", "--yes"])
         .failure()
         .stderr_has("--bulk");
     assert!(api.requests().is_empty());
 }
 
 #[test]
-fn delete_with_force_resolves_names_and_deletes() {
+fn delete_with_yes_resolves_names_and_deletes() {
     let api = MockLinear::start();
     api.on("ResolveInitiativeBySlug", none())
         .on("ResolveInitiativeByName", by_id(ID))
@@ -593,7 +593,7 @@ fn delete_with_force_resolves_names_and_deletes() {
             json!({ "initiativeDelete": { "success": true } }),
         );
     Cli::for_api(&api)
-        .run(&["initiative", "delete", "Roadmap", "--force"])
+        .run(&["initiative", "delete", "Roadmap", "--yes"])
         .success()
         .stdout_has("Roadmap");
     assert_eq!(
@@ -650,7 +650,7 @@ fn archive_bulk_archives_every_target() {
             json!({ "initiativeArchive": { "success": true } }),
         );
     Cli::for_api(&api)
-        .run(&["initiative", "archive", "--bulk", ID, OTHER_ID, "--force"])
+        .run(&["initiative", "archive", "--bulk", ID, OTHER_ID, "--yes"])
         .success()
         .stdout_has("2");
     assert_eq!(
@@ -673,11 +673,11 @@ fn delete_bulk_reads_ids_from_a_file_and_stdin() {
         .on("GetInitiativeForDelete", bulk_delete(THIRD_ID, "Third"));
     Cli::for_api(&api)
         .file("cwd/ids.txt", &format!("{ID}\n{OTHER_ID}\n"))
-        .run(&["initiative", "delete", "--bulk-file", "ids.txt", "--force"])
+        .run(&["initiative", "delete", "--bulk-file", "ids.txt", "--yes"])
         .success();
     Cli::for_api(&api)
         .stdin(format!("{THIRD_ID}\n").as_bytes())
-        .run(&["initiative", "delete", "--bulk-stdin", "--force"])
+        .run(&["initiative", "delete", "--bulk-stdin", "--yes"])
         .success();
     assert_eq!(
         sorted_variables(&api, "DeleteInitiative"),
@@ -695,7 +695,7 @@ fn bulk_failures_are_reported_and_fail_the_command() {
             json!({ "initiativeArchive": { "success": true } }),
         )
         .on_error("ArchiveInitiative", "Permission denied");
-    let run = Cli::for_api(&api).run(&["initiative", "archive", "--bulk", ID, OTHER_ID, "--force"]);
+    let run = Cli::for_api(&api).run(&["initiative", "archive", "--bulk", ID, OTHER_ID, "--yes"]);
     run.failure().stdout_has("Permission denied");
 }
 
@@ -707,7 +707,7 @@ fn unarchive_detail() -> Value {
 }
 
 #[test]
-fn unarchive_with_force_unarchives() {
+fn unarchive_with_yes_unarchives() {
     let api = MockLinear::start();
     api.on("GetInitiativeForUnarchive", unarchive_detail()).on(
         "UnarchiveInitiative",
@@ -717,7 +717,7 @@ fn unarchive_with_force_unarchives() {
         } }),
     );
     Cli::for_api(&api)
-        .run(&["initiative", "unarchive", ID, "--force"])
+        .run(&["initiative", "unarchive", ID, "--yes"])
         .success()
         .stdout_has("Roadmap");
     assert_eq!(
@@ -843,7 +843,7 @@ fn remove_project_deletes_the_link() {
         json!({ "initiativeToProjectDelete": { "success": true } }),
     );
     Cli::for_api(&api)
-        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
+        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--yes"])
         .success()
         .stdout_has("✓ Removed project Mobile from initiative Roadmap");
     assert_eq!(
@@ -865,7 +865,7 @@ fn remove_project_follows_link_pages() {
             json!({ "initiativeToProjectDelete": { "success": true } }),
         );
     Cli::for_api(&api)
-        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
+        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--yes"])
         .success();
     let cursors: Vec<Value> = api
         .requests()
@@ -888,7 +888,7 @@ fn remove_project_fails_for_an_unlinked_project() {
         links(&[("link-other", OTHER_ID)]),
     );
     Cli::for_api(&api)
-        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
+        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--yes"])
         .failure()
         .stderr_has("not linked");
     assert_eq!(api.operations(), ["GetInitiativeProjectLinks"]);

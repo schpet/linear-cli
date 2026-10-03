@@ -116,9 +116,8 @@ pub struct InitiativeArchive {
     /// Initiative ID, slug, or name
     #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
     /// Archive several initiatives (ID, slug, or name)
     #[arg(long, value_name = "INITIATIVES", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
     pub bulk: Option<Vec<String>>,
@@ -166,9 +165,8 @@ pub struct InitiativeUnarchive {
     /// Initiative ID, slug, or name
     #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
     pub initiative_id: String,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]
@@ -176,9 +174,8 @@ pub struct InitiativeDelete {
     /// Initiative ID, slug, or name
     #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
     /// Delete several initiatives (ID, slug, or name)
     #[arg(long, value_name = "INITIATIVES", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
     pub bulk: Option<Vec<String>>,
@@ -211,9 +208,8 @@ pub struct InitiativeRemoveProject {
     /// Project ID, slug, or name
     #[arg(value_parser = NonEmptyStringValueParser::new())]
     pub project: String,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]

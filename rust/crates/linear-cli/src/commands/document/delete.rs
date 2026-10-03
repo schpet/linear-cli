@@ -14,7 +14,7 @@ pub fn run(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
 }
 
 fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
-    if !args.yes {
+    if !args.confirm.yes {
         ctx.require_tty("--yes")?;
     }
     let input = BulkInput {
@@ -36,7 +36,7 @@ fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
             .ok_or_else(|| Error::not_found("Document", original))
     })?;
     let question = format!("Are you sure you want to delete \"{}\"?", document.title);
-    if !args.yes && !ctx.confirm(&question, "--yes")? {
+    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     ctx.spin(true, submit(client, document.id.inner()))?;
@@ -50,7 +50,7 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
     }
     ctx.print(format!("Found {} document(s) to delete.\n", ids.len()))?;
     let question = format!("Delete {} document(s)?", ids.len());
-    if !args.yes && !ctx.confirm(&question, "--yes")? {
+    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     let scope = ctx.scope()?;

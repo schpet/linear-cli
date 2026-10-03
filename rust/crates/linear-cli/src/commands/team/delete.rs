@@ -19,8 +19,8 @@ pub fn run(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
 }
 
 fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
-    if !args.force {
-        ctx.require_tty("--force")?;
+    if !args.confirm.yes {
+        ctx.require_tty("--yes")?;
     }
     let scope = ctx.scope()?;
     let source = TeamReference::parse(&args.team, &scope)?;
@@ -60,7 +60,7 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
             team.key, team.name
         ),
     };
-    if !confirm::deletion(ctx, args.force, &question)? {
+    if !confirm::deletion(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
     if let Some(target) = &target {

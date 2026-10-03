@@ -410,7 +410,7 @@ fn move_variables(api: &MockLinear) -> Vec<Value> {
 }
 
 #[test]
-fn delete_with_force_deletes_the_resolved_team() {
+fn delete_with_yes_deletes_the_resolved_team() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved("t-src", "SRC", "Source"))
         .on("GetTeamIssuesForMove", issue_page(&[], Value::Null, false))
@@ -449,7 +449,7 @@ fn delete_moves_every_issue_before_deleting() {
         .on("MoveIssueToTeam", moved(true))
         .on("DeleteTeam", json!({ "teamDelete": { "success": true } }));
     Cli::for_api(&api)
-        .run(&["team", "delete", "SRC", "--force", "--move-issues", "DEST"])
+        .run(&["team", "delete", "SRC", "--yes", "--move-issues", "DEST"])
         .success()
         .stdout_has("Successfully moved 2 issues")
         .stdout_has("Deleted team SRC: Source");
@@ -489,7 +489,7 @@ fn delete_keeps_the_team_when_some_issues_fail_to_move() {
         .on_error("MoveIssueToTeam", "Issue is locked")
         .on("MoveIssueToTeam", moved(false));
     Cli::for_api(&api)
-        .run(&["team", "delete", "SRC", "--force", "--move-issues", "DEST"])
+        .run(&["team", "delete", "SRC", "--yes", "--move-issues", "DEST"])
         .failure()
         // Moves run concurrently, so which issue gets which reply varies.
         .stdout_has("Completed: 1/3 issues moved")
@@ -510,7 +510,7 @@ fn delete_fails_before_moving_when_issue_pages_have_no_cursor() {
             issue_page(&["SRC-1"], Value::Null, true),
         );
     Cli::for_api(&api)
-        .run(&["team", "delete", "SRC", "--force", "--move-issues", "DEST"])
+        .run(&["team", "delete", "SRC", "--yes", "--move-issues", "DEST"])
         .failure()
         .stderr_has("no cursor");
     assert!(move_variables(&api).is_empty());
@@ -523,7 +523,7 @@ fn delete_refuses_to_move_issues_to_the_same_team() {
     api.on("ResolveTeam", resolved("t-src", "SRC", "Source"))
         .on("ResolveTeam", resolved("t-src", "SRC", "Source"));
     Cli::for_api(&api)
-        .run(&["team", "delete", "SRC", "--force", "--move-issues", "src"])
+        .run(&["team", "delete", "SRC", "--yes", "--move-issues", "src"])
         .failure()
         .stderr_has("Cannot move issues to the team being deleted");
     assert_eq!(api.operations(), ["ResolveTeam", "ResolveTeam"]);
@@ -538,7 +538,7 @@ fn delete_of_a_team_with_issues_needs_a_target_without_a_terminal() {
             issue_page(&["SRC-1"], Value::Null, false),
         );
     Cli::for_api(&api)
-        .run(&["team", "delete", "SRC", "--force"])
+        .run(&["team", "delete", "SRC", "--yes"])
         .failure()
         .stderr_has("Team SRC has 1 issue(s)")
         .stderr_has("--move-issues");
@@ -547,13 +547,13 @@ fn delete_of_a_team_with_issues_needs_a_target_without_a_terminal() {
 }
 
 #[test]
-fn delete_requires_force_without_a_terminal() {
+fn delete_requires_yes_without_a_terminal() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .stdin(b"y\n")
         .run(&["team", "delete", "SRC"])
         .failure()
-        .stderr_has("--force");
+        .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }
 

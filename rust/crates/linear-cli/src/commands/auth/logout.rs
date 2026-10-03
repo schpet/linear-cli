@@ -29,7 +29,7 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
         }
     };
     let question = format!("Remove credentials for workspace \"{workspace}\"?");
-    if !args.force && !ctx.confirm(&question, "--force")? {
+    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     {

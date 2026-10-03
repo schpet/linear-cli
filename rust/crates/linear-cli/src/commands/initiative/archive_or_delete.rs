@@ -17,8 +17,8 @@ use crate::refs::{
 
 pub struct Request<'a> {
     pub initiative: Option<&'a str>,
-    /// `--force`: no prompt.
-    pub force: bool,
+    /// `--yes`: no prompt.
+    pub yes: bool,
     pub bulk: BulkInput<'a>,
 }
 
@@ -55,8 +55,8 @@ impl Mode {
 const PERMANENT: &str = "\n⚠️  This action is PERMANENT and cannot be undone.\n\n";
 
 pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
-    if !request.force {
-        ctx.require_tty("--force")?;
+    if !request.yes {
+        ctx.require_tty("--yes")?;
     }
     if request.bulk.requested() {
         return run_bulk(ctx, mode, request);
@@ -84,7 +84,7 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
             details.name, details.linked_projects
         ))?;
     }
-    if !request.force && !confirm_single(ctx, mode, &details.name)? {
+    if !request.yes && !confirm_single(ctx, mode, &details.name)? {
         return outcome::canceled(ctx);
     }
     ctx.spin(true, submit(client, &details.id, mode))?;
@@ -104,7 +104,7 @@ fn confirm_single(ctx: &Ctx, mode: Mode, name: &str) -> Result<bool> {
             format!("Are you sure you want to permanently delete \"{name}\"?")
         }
     };
-    if !ctx.confirm(&question, "--force")? {
+    if !ctx.confirm(&question, "--yes")? {
         return Ok(false);
     }
     if mode == Mode::Archive {
@@ -141,7 +141,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         Mode::Archive => format!("Archive {} initiative(s)?", ids.len()),
         Mode::Delete => format!("Permanently delete {} initiative(s)?", ids.len()),
     };
-    if !request.force && !ctx.confirm(&question, "--force")? {
+    if !request.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     let scope = ctx.scope()?;

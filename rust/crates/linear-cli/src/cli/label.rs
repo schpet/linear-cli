@@ -64,7 +64,6 @@ pub struct LabelDelete {
     /// Team (key, name or ID) whose label to delete, when names repeat
     #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short)]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }

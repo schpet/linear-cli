@@ -163,9 +163,8 @@ pub struct DocumentDelete {
     /// Document ID or slug
     #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub document_id: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short)]
-    pub yes: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
     /// Delete several documents (ID or slug)
     #[arg(long, value_name = "DOCUMENTS", value_parser = NonEmptyStringValueParser::new(), num_args = 0..)]
     pub bulk: Option<Vec<String>>,

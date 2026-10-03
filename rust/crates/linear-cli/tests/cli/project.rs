@@ -472,21 +472,21 @@ fn update_rejects_conflicting_flags_before_any_request() {
 }
 
 #[test]
-fn delete_with_force_deletes_by_id_or_url() {
+fn delete_with_yes_deletes_by_id_or_url() {
     let deleted = json!({ "projectDelete": { "success": true, "entity": { "id": ID, "name": "Mobile App" } } });
     let api = MockLinear::start();
     api.on("DeleteProject", deleted.clone())
         .on("GetProjectIdBySlugId", ids(ID))
         .on("DeleteProject", deleted);
     let cli = Cli::for_api(&api);
-    cli.run(&["project", "delete", ID, "--force"])
+    cli.run(&["project", "delete", ID, "--yes"])
         .success()
         .stdout_has("Mobile App");
     cli.run(&[
         "project",
         "delete",
         "https://linear.app/acme/project/mobile-app-abc123def456",
-        "--force",
+        "--yes",
     ])
     .success();
     let deletes: Vec<Value> = api
@@ -508,7 +508,7 @@ fn delete_without_confirmation_does_not_delete() {
     Cli::for_api(&api)
         .run(&["project", "delete", ID])
         .failure()
-        .stderr_has("--force");
+        .stderr_has("--yes");
     assert!(!api.operations().contains(&"DeleteProject".to_owned()));
 }
 
@@ -858,7 +858,7 @@ fn delete_resolves_names() {
         json!({ "projectDelete": { "success": true, "entity": { "id": ID, "name": "Mobile App" } } }),
     );
     Cli::for_api(&api)
-        .run(&["project", "delete", "Mobile App", "--force"])
+        .run(&["project", "delete", "Mobile App", "--yes"])
         .success()
         .stdout_has("✓ Deleted project Mobile App");
     assert_eq!(api.variables("DeleteProject"), json!({ "id": ID }));

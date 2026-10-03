@@ -307,9 +307,8 @@ pub struct IssueArchive {
     /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
     #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub issue_id: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub confirm: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
     /// Archive several issues (like ENG-1 ENG-2)
     #[arg(long, value_name = "ISSUES", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
     pub bulk: Option<Vec<String>>,
@@ -326,9 +325,8 @@ pub struct IssueDelete {
     /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
     #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub issue_id: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub confirm: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
     /// Delete several issues (like ENG-1 ENG-2)
     #[arg(long, value_name = "ISSUES", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
     pub bulk: Option<Vec<String>>,

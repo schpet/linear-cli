@@ -101,7 +101,6 @@ pub struct MilestoneUpdate {
 pub struct MilestoneDelete {
     /// Milestone ID
     pub id: String,
-    /// Do not ask for confirmation
-    #[arg(long, short)]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }

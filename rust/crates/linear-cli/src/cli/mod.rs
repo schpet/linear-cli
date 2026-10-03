@@ -149,6 +149,14 @@ pub enum RootCommand {
     Markdown(markdown::Markdown),
 }
 
+/// Skips the confirmation prompt of a destructive command.
+#[derive(Debug, Args)]
+pub struct ConfirmArgs {
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y', aliases = ["force", "confirm"], short_alias = 'f')]
+    pub yes: bool,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum AgentSessionStatus {
     Pending,

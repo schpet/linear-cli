@@ -9,7 +9,7 @@ use super::archive_or_delete::{Mode, Request};
 pub fn run(ctx: &Ctx, args: &InitiativeDelete) -> Result<()> {
     let request = Request {
         initiative: args.initiative_id.as_deref(),
-        force: args.force,
+        yes: args.confirm.yes,
         bulk: BulkInput {
             argv: args.bulk.as_deref(),
             file: args.bulk_file.as_deref().map(std::path::Path::new),

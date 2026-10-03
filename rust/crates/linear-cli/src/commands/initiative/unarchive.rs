@@ -15,8 +15,8 @@ pub fn run(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
 }
 
 fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
-    if !args.force {
-        ctx.require_tty("--force")?;
+    if !args.confirm.yes {
+        ctx.require_tty("--yes")?;
     }
     let original = &args.initiative_id;
     let reference = super::common::reference(ctx, original)?;
@@ -29,7 +29,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
         return ctx.print(format!("Initiative \"{}\" is not archived.\n", detail.name));
     }
     let question = format!("Are you sure you want to unarchive \"{}\"?", detail.name);
-    if !args.force && !ctx.confirm(&question, "--force")? {
+    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     let result: UnarchiveInitiative = ctx.spin(

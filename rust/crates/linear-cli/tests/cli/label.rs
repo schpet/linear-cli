@@ -206,7 +206,7 @@ fn delete_by_name_deletes_the_matching_label() {
     )
     .on("DeleteIssueLabel", deleted());
     Cli::for_api(&api)
-        .run(&["label", "delete", "Bug", "--force"])
+        .run(&["label", "delete", "Bug", "--yes"])
         .success()
         .stdout_has("Bug");
     assert_eq!(api.variables("GetLabelByName"), json!({ "name": "Bug" }));
@@ -226,7 +226,7 @@ fn delete_by_name_with_team_picks_that_teams_label() {
         )
         .on("DeleteIssueLabel", deleted());
     Cli::for_api(&api)
-        .run(&["label", "delete", "Bug", "--team", "ENG", "--force"])
+        .run(&["label", "delete", "Bug", "--team", "ENG", "--yes"])
         .success();
     assert_eq!(api.variables("DeleteIssueLabel"), json!({ "id": "l-eng" }));
 }
@@ -240,7 +240,7 @@ fn delete_by_id_looks_the_label_up_directly() {
     )
     .on("DeleteIssueLabel", deleted());
     Cli::for_api(&api)
-        .run(&["label", "delete", LABEL_UUID, "--force"])
+        .run(&["label", "delete", LABEL_UUID, "--yes"])
         .success();
     assert_eq!(api.variables("GetLabelById"), json!({ "id": LABEL_UUID }));
     assert_eq!(
@@ -260,17 +260,17 @@ fn delete_ambiguous_name_fails_without_deleting() {
         ]),
     );
     Cli::for_api(&api)
-        .run(&["label", "delete", "Bug", "--force"])
+        .run(&["label", "delete", "Bug", "--yes"])
         .failure();
 }
 
 #[test]
-fn delete_without_force_refuses_before_any_request() {
+fn delete_without_yes_refuses_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["label", "delete", "Bug"])
         .failure()
-        .stderr_has("--force");
+        .stderr_has("--yes");
 }
 
 #[test]
@@ -287,7 +287,7 @@ fn delete_by_name_uses_the_configured_team() {
         .on("DeleteIssueLabel", deleted());
     Cli::for_api(&api)
         .env("LINEAR_TEAM_ID", "eng")
-        .run(&["label", "delete", "Bug", "--force"])
+        .run(&["label", "delete", "Bug", "--yes"])
         .success()
         .stdout_has("Bug (ENG)");
     assert_eq!(api.variables("DeleteIssueLabel"), json!({ "id": "l-eng" }));
@@ -306,7 +306,7 @@ fn delete_falls_back_to_the_workspace_label() {
         )
         .on("DeleteIssueLabel", deleted());
     Cli::for_api(&api)
-        .run(&["label", "delete", "Bug", "--team", "ENG", "--force"])
+        .run(&["label", "delete", "Bug", "--team", "ENG", "--yes"])
         .success();
     assert_eq!(
         api.variables("DeleteIssueLabel"),
@@ -319,7 +319,7 @@ fn delete_missing_label_is_not_found() {
     let api = MockLinear::start();
     api.on("GetLabelByName", by_name(vec![]));
     Cli::for_api(&api)
-        .run(&["label", "delete", "Nope", "--force"])
+        .run(&["label", "delete", "Nope", "--yes"])
         .failure()
         .stderr_has("Label not found: Nope");
 }

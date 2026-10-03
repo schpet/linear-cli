@@ -1,5 +1,5 @@
 //! What `issue archive` and `issue delete` share: one issue or a bulk list,
-//! confirmed unless `--confirm` is given.
+//! confirmed unless `--yes` is given.
 use crate::client::{LinearClient, RequestError};
 use crate::graphql::operations::common::IdVariables;
 use crate::{
@@ -14,14 +14,14 @@ use crate::{
 
 pub struct Request<'a> {
     pub issue_id: Option<&'a str>,
-    /// `--confirm`: no prompt.
-    pub confirmed: bool,
+    /// `--yes`: no prompt.
+    pub yes: bool,
     pub bulk: BulkInput<'a>,
 }
 
 pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
-    if !request.confirmed {
-        ctx.require_tty("--confirm")?;
+    if !request.yes {
+        ctx.require_tty("--yes")?;
     }
     if request.bulk.requested() {
         return run_bulk(ctx, mode, request);
@@ -50,7 +50,7 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         mode.verb(),
         details.name()
     );
-    if !request.confirmed && !ctx.confirm(&question, "--confirm")? {
+    if !request.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     ctx.spin(true, submit_single(client, &identifier, mode))?;
@@ -71,7 +71,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         mode.verb()
     ))?;
     let question = format!("{} {} issue(s)?", mode.title(), ids.len());
-    if !request.confirmed && !ctx.confirm(&question, "--confirm")? {
+    if !request.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     let scope = ctx.scope()?;

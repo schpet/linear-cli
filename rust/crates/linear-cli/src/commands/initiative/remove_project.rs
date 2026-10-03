@@ -13,8 +13,8 @@ pub fn run(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
 }
 
 fn remove(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
-    if !args.force {
-        ctx.require_tty("--force")?;
+    if !args.confirm.yes {
+        ctx.require_tty("--yes")?;
     }
     let pair = Pair::parse(ctx, &args.initiative, &args.project)?;
     let client = ctx.client()?;
@@ -29,7 +29,7 @@ fn remove(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
         "Remove \"{}\" from initiative \"{}\"?",
         link.project, link.initiative
     );
-    if !args.force && !ctx.confirm(&question, "--force")? {
+    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }
     let result: RemoveProjectFromInitiative =

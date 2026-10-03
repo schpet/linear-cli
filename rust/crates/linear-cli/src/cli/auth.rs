@@ -41,9 +41,8 @@ pub struct AuthLogout {
     /// Workspace to log out of; asked for when several are stored
     #[arg(value_name = "WORKSPACE")]
     pub workspace_name: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short)]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]

@@ -584,7 +584,7 @@ fn archive_of_an_archived_issue_is_a_no_op() {
         archive_details(json!("2026-01-01T00:00:00.000Z")),
     );
     Cli::for_api(&api)
-        .run(&["issue", "archive", "ENG-1", "--confirm"])
+        .run(&["issue", "archive", "ENG-1", "--yes"])
         .success()
         .stdout_has("already archived");
 }
@@ -595,7 +595,7 @@ fn archive_without_confirmation_or_terminal_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["issue", "archive", "ENG-1"])
         .failure()
-        .stderr_has("--confirm");
+        .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }
 
@@ -613,7 +613,7 @@ fn archive_bulk_archives_each_issue() {
         );
     }
     Cli::for_api(&api)
-        .run(&["issue", "archive", "--confirm", "--bulk", "ENG-1", "ENG-2"])
+        .run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-2"])
         .success();
     let mut archived: Vec<Value> = api
         .requests()
@@ -637,7 +637,7 @@ fn delete_with_confirm() {
         json!({ "issueDelete": { "success": true, "entity": null } }),
     );
     Cli::for_api(&api)
-        .run(&["issue", "delete", "eng-3", "--confirm"])
+        .run(&["issue", "delete", "eng-3", "--yes"])
         .success()
         .stdout_has("✓ Deleted issue ENG-3: Mistake\n");
     assert_eq!(api.variables("GetIssueSummary"), json!({ "id": "ENG-3" }));
@@ -650,14 +650,14 @@ fn delete_without_confirmation_or_terminal_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["issue", "delete", "ENG-3"])
         .failure()
-        .stderr_has("--confirm");
+        .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }
 
 #[test]
 fn delete_rejects_a_positional_issue_with_bulk() {
     Cli::new()
-        .run(&["issue", "delete", "ENG-9", "--confirm", "--bulk", "ENG-6"])
+        .run(&["issue", "delete", "ENG-9", "--yes", "--bulk", "ENG-6"])
         .usage_error()
         .stderr_has("--bulk");
 }
@@ -688,7 +688,7 @@ fn delete_bulk_reads_identifiers_from_a_file() {
     }
     Cli::for_api(&api)
         .file("cwd/ids.txt", "ENG-5\nENG-6\n")
-        .run(&["issue", "delete", "--confirm", "--bulk-file", "ids.txt"])
+        .run(&["issue", "delete", "--yes", "--bulk-file", "ids.txt"])
         .success()
         .stdout_has("2");
     let mut deleted: Vec<Value> = api
@@ -715,7 +715,7 @@ fn archive_bulk_reports_unusable_references_and_archives_the_rest() {
     let run = Cli::for_api(&api).run(&[
         "issue",
         "archive",
-        "--confirm",
+        "--yes",
         "--bulk",
         "3",
         "https://linear.app/acme/settings/x",

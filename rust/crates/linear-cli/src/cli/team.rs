@@ -56,9 +56,8 @@ pub struct TeamDelete {
     /// Move the team's issues to this team (key, name or ID) first
     #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
     pub move_issues: Option<String>,
-    /// Do not ask for confirmation
-    #[arg(long, short = 'y')]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]

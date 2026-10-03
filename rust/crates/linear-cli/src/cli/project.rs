@@ -207,9 +207,8 @@ pub struct ProjectDelete {
     /// Project ID, slug, or name
     #[arg(value_name = "PROJECT")]
     pub project_id: String,
-    /// Do not ask for confirmation
-    #[arg(long, short)]
-    pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]
