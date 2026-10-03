@@ -218,6 +218,28 @@ fn schema_prints_sdl() {
 }
 
 #[test]
+fn schema_sorts_types_and_fields_by_name() {
+    let api = MockLinear::start();
+    let mut reply = introspection();
+    let types = reply["__schema"]["types"].as_array_mut().expect("types");
+    types.reverse();
+    let user = types
+        .iter_mut()
+        .find(|ty| ty["name"] == "User")
+        .expect("User type");
+    user["fields"].as_array_mut().expect("fields").reverse();
+    api.on("IntrospectionQuery", reply);
+    let run = Cli::for_api(&api).run(&["schema"]);
+    run.success();
+    let query = run.stdout.find("type Query").expect("Query type");
+    let user = run.stdout.find("type User").expect("User type");
+    assert!(query < user, "{run}");
+    let id = run.stdout.find("id: ID!").expect("id field");
+    let name = run.stdout.find("name: String!").expect("name field");
+    assert!(id < name, "{run}");
+}
+
+#[test]
 fn schema_json_prints_the_introspection_result() {
     let api = MockLinear::start();
     api.on("IntrospectionQuery", introspection());

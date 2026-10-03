@@ -413,6 +413,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-introspection"
+version = "3.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4ef515dd3878d116f8a7f03e467a0aa1a36d44e64fe58cc5047993aa91c37f0"
+dependencies = [
+ "cynic",
+ "cynic-codegen",
+ "indenter",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "cynic-parser"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -976,6 +988,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indenter"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "964de6e86d545b246d84badc0fef527924ace5134f30641c203ef52ba83f58d5"
+
+[[package]]
 name = "indexmap"
 version = "2.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1075,6 +1093,7 @@ dependencies = [
  "console",
  "cynic",
  "cynic-codegen",
+ "cynic-introspection",
  "futures-util",
  "gethostname",
  "icu_collator",

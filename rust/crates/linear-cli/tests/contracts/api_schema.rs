@@ -1,5 +1,5 @@
 //! Actual CLI raw wire, response stages and runtime/file effects; all synthetic.
-use serde_json::{Value, json};
+use serde_json::json;
 use std::{
     io::{Read, Write},
     net::TcpListener,
@@ -313,73 +313,6 @@ fn pagination_finds_the_first_connection_and_falls_back_to_the_raw_page() {
         assert!(out.stderr.is_empty());
         server.finish();
     }
-}
-#[test]
-fn schema_json_root_runtime_sdl_and_file_output_are_independent() {
-    let home = Home::new();
-    std::fs::write(home.0.join("schema.json"), "old").unwrap();
-    let server = Server::new(vec![Reply {
-        status: 200,
-        headers: "Content-Type: application/json\r\n".into(),
-        bytes: br#"{"data":{"future":2}}"#.to_vec(),
-    }]);
-    let out = home.run(
-        &server.url,
-        &["schema", "--json", "--output", "./schema.json"],
-        "",
-    );
-    assert!(out.status.success());
-    assert_eq!(out.stdout, b"Schema written to ./schema.json\n");
-    assert_eq!(
-        std::fs::read(home.0.join("schema.json")).unwrap(),
-        b"{\n  \"future\": 2\n}\n"
-    );
-    let requests = server.finish();
-    let request: Value = serde_json::from_str(body(&requests[0])).unwrap();
-    assert_eq!(request["operationName"], "IntrospectionQuery");
-    assert!(request.get("variables").is_none());
-    assert_eq!(
-        request["query"],
-        linear_cli::graphql::schema_introspection::QUERY
-    );
-    let server = Server::new(vec![Reply {
-        status: 200,
-        headers: "Content-Type: application/json\r\n".into(),
-        bytes: format!(
-            "{{\"data\":{}}}",
-            include_str!("../commands/fixtures/api-schema/synthetic.json")
-        )
-        .into_bytes(),
-    }]);
-    let out = home.run(&server.url, &["schema"], "");
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert_eq!(
-        out.stdout,
-        include_bytes!("../commands/fixtures/api-schema/synthetic.graphql")
-    );
-    server.finish();
-    let server = Server::new(vec![Reply {
-        status: 200,
-        headers: "Content-Type: application/json\r\n".into(),
-        bytes: br#"{"data":{"number":1e400}}"#.to_vec(),
-    }]);
-    let out = home.run(
-        &server.url,
-        &["schema", "--json", "--output", "./schema.json"],
-        "",
-    );
-    assert_eq!(out.status.code(), Some(1));
-    assert!(out.stdout.is_empty());
-    assert!(!out.stderr.is_empty());
-    assert_eq!(
-        std::fs::read(home.0.join("schema.json")).unwrap(),
-        b"{\n  \"future\": 2\n}\n"
-    );
-    assert_eq!(server.finish().len(), 1);
 }
 #[test]
 fn stdin_query_consumes_stream_before_stdin_variable_and_input_failures_send_zero_requests() {

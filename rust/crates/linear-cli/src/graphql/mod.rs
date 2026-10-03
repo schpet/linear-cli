@@ -18,7 +18,4 @@ pub use linear_schema::schema;
 
 pub mod bulk_error;
 
-pub mod schema_defaults;
-pub mod schema_introspection;
-
 pub(crate) mod source_response;
