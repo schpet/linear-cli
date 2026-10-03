@@ -353,13 +353,14 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
 | PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
 
-the config file can be placed at (checked in order, first found is used):
+settings are read from two config files, a project file and a global file. each option takes the first value it finds in this order:
 
-- `./linear.toml` or `./.linear.toml` (current directory)
-- `<repo-root>/linear.toml` or `<repo-root>/.linear.toml` (repository root)
-- `<repo-root>/.config/linear.toml`
-- `$XDG_CONFIG_HOME/linear/linear.toml` or `~/.config/linear/linear.toml` (Unix)
-- `%APPDATA%\linear\linear.toml` (Windows)
+1. a command-line flag, where the command has one
+2. an environment variable, from the shell or a `.env` file (the shell wins)
+3. the project config file: the first that exists of `./linear.toml`, `./.linear.toml`, then `linear.toml`, `.linear.toml`, or `.config/linear.toml` at the repository root
+4. the global config file: `$XDG_CONFIG_HOME/linear/linear.toml` (or `~/.config/linear/linear.toml`) on macOS and Linux, `%APPDATA%\linear\linear.toml` on Windows
+
+so the global file can hold defaults such as `issue_sort`, and a repository's `.linear.toml` overrides them for that project. every value is validated, even one a higher tier overrides, and an invalid value is an error naming its file and key.
 
 ## skills
 

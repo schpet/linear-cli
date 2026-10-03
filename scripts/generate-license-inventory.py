@@ -1,8 +1,18 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """Bundle checksum-bound Cargo package notices, with explicit upstream supplements.
 
 Development packaging only. No downloads, service/credential calls, or legal assessment.
+Needs Python 3.11 or newer (for tomllib).
 """
+import sys
+
+if sys.version_info < (3, 11):
+    sys.exit("generate-license-inventory.py needs Python 3.11 or newer")
+
 import argparse
 import hashlib
 import json

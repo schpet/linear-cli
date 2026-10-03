@@ -6,13 +6,19 @@ linear cli provides commands to manage linear issues, teams, and projects from t
 
 ### repo configuration
 
-first, configure the cli with your linear api token:
+first, log in with a linear api key (see [authentication](authentication.md)):
+
+```bash
+linear auth login
+```
+
+then configure the repository:
 
 ```bash
 linear config
 ```
 
-this will interactively generate a `.linear.toml` configuration file in the repo.
+this writes a `.linear.toml` at the repository root, asking for the default team and issue sort unless you pass `--team` and `--sort`.
 
 ### issues
 
@@ -258,7 +264,7 @@ Archiving is normally something Linear does for you, not something you do by han
 #### issue comments
 
 ```bash
-# List comments (threads, newest first); --json keeps the GraphQL connection
+# List comments (threads, newest first); --json prints an array of comments
 linear issue comment list TEAM-123
 linear issue comment list TEAM-123 --json
 
@@ -283,7 +289,7 @@ linear team list --json   # machine-readable, e.g. to map a team name to its key
 
 #### get team id
 
-get team id derived from repository name:
+print the configured team key (from `team_id` in `.linear.toml` or `LINEAR_TEAM_ID`):
 
 ```bash
 linear team id
@@ -471,11 +477,13 @@ the script asks `linear` for candidates as you type, so completions always match
 
 ### global options
 
-most commands support these options:
+every command accepts:
 
-- `--no-pager` - disable automatic paging for long output
-- `--no-color` - disable colored output
+- `--workspace <slug>` - use the stored credentials of another workspace for this command
+- `--no-input` - never prompt; fail instead when a required value is missing
 - `--help` - show help for the command
+
+`issue list`, `issue query`, `issue view`, and `project view` page long output; pass `--no-pager` to disable it. color is used only on a terminal; set `NO_COLOR=1` to turn it off.
 
 ### examples
 

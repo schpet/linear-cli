@@ -31,7 +31,7 @@ body:
     attributes:
       label: Version
       description: Output of `linear --version`.
-      placeholder: linear 2.5.0
+      placeholder: linear 3.0.0
     validations:
       required: true
 
@@ -48,5 +48,5 @@ body:
     id: output
     attributes:
       label: Relevant output
-      description: Error messages or logs. Run with `LINEAR_DEBUG=1` for a stack trace. Remove API keys and other sensitive data.
+      description: Error messages or logs. Run with `LINEAR_DEBUG=1` to include the underlying causes of an error. Remove API keys and other sensitive data.
       render: shell

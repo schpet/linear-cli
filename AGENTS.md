@@ -1,15 +1,16 @@
 ## basics
 
-- this is a rust cli. the toolchain is pinned in `rust-toolchain.toml`
+- this is a rust cli. the toolchain is pinned in `rust-toolchain.toml`. `mise.toml` pins the `dist` release tool; run `mise trust` once in a fresh checkout (until then mise refuses to load this directory, including its cargo shims)
 - `crates/linear-cli` is the cli (the `linear` binary plus a library the tests and examples use); `crates/linear-schema` holds the cynic types generated from `graphql/schema.graphql`, linear's graphql schema
-- before finishing a change, run `just check` (or the commands it runs):
-  - `cargo fmt --all`
+- format with `cargo fmt --all`, then before finishing a change run `just check`, which runs:
+  - `cargo fmt --all --check`
   - `cargo clippy --locked --workspace --all-targets -- -D warnings`
   - `cargo test --locked --workspace`
 - run the cli from source with `just dev <args>` (`cargo run -- <args>`)
 - `just sync-schema` refreshes `graphql/schema.graphql` from linear's api
 - after changing commands, flags or help text, run `just skill-docs` to regenerate `skills/linear-cli/SKILL.md` and its references. edit `skills/linear-cli/SKILL.template.md`, not `SKILL.md`
-- after adding, removing or upgrading a dependency, run `just licenses` to refresh the notices in `licenses/dependencies`
+- after adding, removing or upgrading a dependency, run `just licenses` to refresh the notices in `licenses/dependencies` (needs [uv](https://docs.astral.sh/uv/), which provides Python 3.11+; CI fails if they are out of date)
+- add an entry under `## [Unreleased]` in `CHANGELOG.md` for user-facing changes
 - ask before adding a new dependency
 
 ## layout of `crates/linear-cli/src`
@@ -41,6 +42,6 @@
 
 ## tests
 
-- `crates/linear-cli/tests/cli/` runs the built `linear` binary against a mock linear api (`support::MockLinear`) with a cleared environment, `NO_COLOR=1` and a sandboxed home directory (`support::Cli`). prefer these tests for command behavior; there is one module per command group
+- `crates/linear-cli/tests/cli/` (unix only; windows CI runs the unit tests) runs the built `linear` binary against a mock linear api (`support::MockLinear`) with a cleared environment, `NO_COLOR=1` and a sandboxed home directory (`support::Cli`). prefer these tests for command behavior; there is one module per command group
 - unit tests live next to the code in `tests.rs` submodules
 - new features should get tests

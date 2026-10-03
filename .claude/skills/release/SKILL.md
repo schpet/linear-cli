@@ -20,6 +20,7 @@ Ensure the following tools are available:
 - `svbump` for version bumping (installed)
 - `jj` for version control operations
 - `just` for running the release tasks
+- `jq` for updating the Claude Code plugin versions
 
 ## Release Workflow
 
@@ -127,65 +128,22 @@ This updates CHANGELOG.md, converting the Unreleased section to a versioned rele
 
 ### Step 6: Execute Tag Process
 
-After the changelog is released, execute the complete tag process from the justfile. This includes:
+After the changelog is released, run the tag recipe:
 
-1. **Run quality checks:**
-   ```bash
-   cargo fmt --all --check
-   cargo clippy --locked --workspace --all-targets -- -D warnings
-   cargo test --locked --workspace
-   ```
+```bash
+just tag
+```
 
-2. **Update version files:**
-   ```bash
-   # Write the latest changelog version to the workspace Cargo.toml
-   svbump write "$(changelog version latest)" workspace.package.version Cargo.toml
+It does the whole release in order, stopping at the first failure:
 
-   # Refresh Cargo.lock for the new version
-   cargo update --workspace
-   ```
+1. **Quality checks** (`just check`): `cargo fmt --all --check`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, and `cargo test --locked --workspace`
+2. **Version bump:** writes the latest changelog version to `workspace.package.version` in `Cargo.toml` with `svbump`, then refreshes `Cargo.lock` with `cargo update --workspace`
+3. **Skill docs** (`just skill-docs`): regenerates `skills/linear-cli/SKILL.md` and its references from the CLI's help
+4. **Plugin versions** (`just plugin-version`): sets `version` in `.claude-plugin/plugin.json` and both `version` and `plugins[0].version` in `.claude-plugin/marketplace.json`
+5. **Commit and tag:** `jj commit -m "chore: Release linear-cli version <version>"`, then moves the `main` bookmark and sets the `v<version>` tag on that commit (`@-`)
+6. **Push:** `jj git push --bookmark main`, then `git push origin --tags`
 
-3. **Regenerate skill documentation:**
-   ```bash
-   # Regenerate the skill docs from the CLI's help
-   just skill-docs
-
-   # Update Claude Code plugin versions
-   FINAL_VERSION=$(svbump read workspace.package.version Cargo.toml)
-   svbump write "$FINAL_VERSION" version .claude-plugin/plugin.json
-   svbump write "$FINAL_VERSION" version .claude-plugin/marketplace.json
-   # marketplace.json also has version inside plugins[0] — svbump can't do array paths,
-   # so use jq or edit it manually to match
-   ```
-
-4. **Create commit and tag:**
-   ```bash
-   # Get the final version
-   FINAL_VERSION=$(svbump read workspace.package.version Cargo.toml)
-
-   # Create commit
-   jj commit -m "chore: Release linear-cli version $FINAL_VERSION"
-
-   # Set main bookmark to parent commit
-   jj bookmark set main -r @-
-
-   # Create tag on the parent commit
-   jj tag set "v$FINAL_VERSION" -r @-
-   ```
-
-5. **Push to remote:**
-   ```bash
-   # Push the bookmark
-   jj git push --bookmark main
-
-   # Push tags (using git)
-   git push origin --tags
-   ```
-
-6. **Report completion:**
-   ```
-   Released v$FINAL_VERSION successfully!
-   ```
+When it finishes it prints `released v<version>`.
 
 ## Error Handling
 
@@ -199,8 +157,8 @@ Always stop and report errors clearly. Never continue the release process if a c
 
 ## Important Notes
 
-- The justfile `tag` recipe runs the quality checks, version bump, commit, tag, and push (but not the skill docs or plugin versions)
-- Use `jj` for all version control operations (per project CLAUDE.md)
+- The justfile `tag` recipe runs every step above; there is no need to run them by hand
+- Use `jj` for all version control operations (per the project AGENTS.md)
 - Always use `--ignore-working-copy` for read-only jj operations
 - The workflow creates a commit on the parent (@-) and then creates a new working commit
 - Both `jj git push` and `git push origin --tags` are needed (jj for bookmark, git for tags)
@@ -215,4 +173,4 @@ After successful release:
 
 ## Reference
 
-See the `tag` recipe in the `justfile` for the tag process implementation.
+See the `tag` and `plugin-version` recipes in the `justfile` for the implementation.

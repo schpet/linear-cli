@@ -1,3 +1,4 @@
+# runs the cli from source, e.g. `just dev issue list`
 dev *args:
     cargo run --quiet -- {{ args }}
 
@@ -5,7 +6,7 @@ dev *args:
 install:
     cargo install --locked --path crates/linear-cli
 
-# runs the same checks as CI
+# checks formatting, runs clippy, and runs the test suite
 check:
     cargo fmt --all --check
     cargo clippy --locked --workspace --all-targets -- -D warnings
@@ -19,7 +20,7 @@ skill-docs:
 sync-schema:
     cargo run --quiet -- schema --output graphql/schema.graphql
 
-# regenerates the dependency license notices in release archives (after dependency changes)
+# regenerates the dependency license notices in release archives (needs uv)
 licenses:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -27,12 +28,24 @@ licenses:
     trap 'rm -f "$metadata"' EXIT
     cargo metadata --format-version 1 --locked > "$metadata"
     rm -rf licenses/dependencies
-    python3 scripts/generate-license-inventory.py --repository . --metadata "$metadata" --output licenses/dependencies
+    uv run --script scripts/generate-license-inventory.py --repository . --metadata "$metadata" --output licenses/dependencies
+
+# sets the claude code plugin versions to the version in Cargo.toml
+plugin-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(svbump read workspace.package.version Cargo.toml)"
+    for file in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+        jq --arg v "$version" '.version = $v | if .plugins then .plugins[0].version = $v else . end' "$file" > "$file.tmp"
+        mv "$file.tmp" "$file"
+    done
 
 # tags the newest release in the changelog
 tag: check
     svbump write "$(changelog version latest)" workspace.package.version Cargo.toml
     cargo update --workspace
+    just skill-docs
+    just plugin-version
 
     jj commit -m "chore: Release linear-cli version $(svbump read workspace.package.version Cargo.toml)"
     jj bookmark set main -r @-
@@ -45,16 +58,16 @@ tag: check
 
 # regenerates .github/workflows/release.yml with the dist version pinned in mise.toml
 dist-generate:
-  dist generate
+    dist generate
 
 claude-remove-local:
-  -claude plugin remove linear-cli@linear-cli
-  -claude plugin marketplace remove linear-cli
+    -claude plugin remove linear-cli@linear-cli
+    -claude plugin marketplace remove linear-cli
 
 claude-install-local:
-  claude plugin marketplace add ./
-  claude plugin install linear-cli@linear-cli
+    claude plugin marketplace add ./
+    claude plugin install linear-cli@linear-cli
 
 claude-install-github:
-  claude plugin marketplace add schpet/linear-cli
-  claude plugin install linear-cli@linear-cli
+    claude plugin marketplace add schpet/linear-cli
+    claude plugin install linear-cli@linear-cli
