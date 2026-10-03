@@ -16,6 +16,21 @@ fn applied<'a>(selected: &'a SelectedEnv, key: &str) -> Option<&'a str> {
     selected.applied.get(key).map(String::as_str)
 }
 
+fn reasons(selected: &SelectedEnv) -> Vec<&DiagnosticReason> {
+    selected.diagnostics.iter().map(|d| &d.reason).collect()
+}
+
+fn invalid(keys: &[&str]) -> DiagnosticReason {
+    DiagnosticReason::InvalidLines(keys.iter().map(|key| (*key).to_owned()).collect())
+}
+
+fn unexpanded(key: &str, reference: &str) -> DiagnosticReason {
+    DiagnosticReason::Unexpanded {
+        key: key.to_owned(),
+        reference: reference.to_owned(),
+    }
+}
+
 #[test]
 fn values_follow_dotenv_quoting() {
     let tree = TempTree::new();
@@ -32,12 +47,10 @@ LINEAR_H="a\"b"
 LINEAR_I="x\\n"
 LINEAR_L='literal\n'
 LINEAR_M="cost \$5"
-LINEAR_BASE=base
-LINEAR_N="${LINEAR_BASE}/x"
 LINEAR_O=a#b
 LINEAR_P=cost $5
 LINEAR_Q="quoted" # comment
-LINEAR_G='oops
+LINEAR_S=it\'s
 "#,
     );
     let selected = load(&tree, None);
@@ -50,30 +63,22 @@ LINEAR_G='oops
     assert_eq!(applied(&selected, "LINEAR_I"), Some("x\\n"));
     assert_eq!(applied(&selected, "LINEAR_L"), Some("literal\\n"));
     assert_eq!(applied(&selected, "LINEAR_M"), Some("cost $5"));
-    assert_eq!(applied(&selected, "LINEAR_N"), Some("base/x"));
     assert_eq!(applied(&selected, "LINEAR_O"), Some("a#b"));
     assert_eq!(applied(&selected, "LINEAR_P"), Some("cost $5"));
     assert_eq!(applied(&selected, "LINEAR_Q"), Some("quoted"));
-    assert_eq!(applied(&selected, "LINEAR_G"), None);
-    assert_eq!(
-        selected
-            .diagnostics
-            .iter()
-            .map(|d| &d.reason)
-            .collect::<Vec<_>>(),
-        [&DiagnosticReason::InvalidLines(vec!["LINEAR_G".to_owned()])]
-    );
+    assert_eq!(applied(&selected, "LINEAR_S"), Some("it's"));
+    assert!(selected.diagnostics.is_empty());
 }
 
 #[test]
-fn references_expand_only_when_braced_and_set() {
+fn variable_references_are_never_expanded() {
     let tree = TempTree::new();
     tree.write(
         ".env",
-        br#"LINEAR_API_KEY=${SECRET_KEY}
-LINEAR_TEAM_ID=$SECRET_KEY
-LINEAR_WORKSPACE="${UNSET_VARIABLE}"
-LINEAR_ISSUE_SORT=lin_api_ab$cd
+        br#"LINEAR_API_KEY=$SECRET_KEY
+LINEAR_TEAM_ID="${SECRET_KEY}/x"
+LINEAR_WORKSPACE=lin_api_ab$cd
+LINEAR_ISSUE_SORT='${SECRET_KEY}'
 "#,
     );
     let mut inputs = tree.inputs();
@@ -81,27 +86,84 @@ LINEAR_ISSUE_SORT=lin_api_ab$cd
         .process_env
         .insert("SECRET_KEY".to_owned(), "lin_api_real".to_owned());
     let selected = load_env(&inputs, &RealFileSource, None).unwrap();
-    assert_eq!(applied(&selected, "LINEAR_API_KEY"), Some("lin_api_real"));
+    assert_eq!(applied(&selected, "LINEAR_API_KEY"), None);
     assert_eq!(applied(&selected, "LINEAR_TEAM_ID"), None);
     assert_eq!(applied(&selected, "LINEAR_WORKSPACE"), None);
-    assert_eq!(applied(&selected, "LINEAR_ISSUE_SORT"), None);
-    let reference = |key: &str, name: &str, braced| DiagnosticReason::Reference {
-        key: key.to_owned(),
-        name: name.to_owned(),
-        braced,
-    };
     assert_eq!(
-        selected
-            .diagnostics
-            .into_iter()
-            .map(|d| d.reason)
-            .collect::<Vec<_>>(),
+        applied(&selected, "LINEAR_ISSUE_SORT"),
+        Some("${SECRET_KEY}")
+    );
+    assert_eq!(
+        reasons(&selected),
         [
-            reference("LINEAR_TEAM_ID", "SECRET_KEY", false),
-            reference("LINEAR_WORKSPACE", "UNSET_VARIABLE", true),
-            reference("LINEAR_ISSUE_SORT", "cd", false),
+            &unexpanded("LINEAR_API_KEY", "$SECRET_KEY"),
+            &unexpanded("LINEAR_TEAM_ID", "${SECRET_KEY}"),
+            &unexpanded("LINEAR_WORKSPACE", "$cd"),
         ]
     );
+}
+
+#[test]
+fn trailing_whitespace_is_trimmed_before_escapes_are_decoded() {
+    let tree = TempTree::new();
+    tree.write(
+        ".env",
+        b"LINEAR_A=abc\\ \nLINEAR_B=abc\\n\nLINEAR_C=abc  \t# comment\nLINEAR_D=a b\\ \\#c\n",
+    );
+    let selected = load(&tree, None);
+    assert_eq!(applied(&selected, "LINEAR_A"), Some("abc "));
+    assert_eq!(applied(&selected, "LINEAR_B"), Some("abc\n"));
+    assert_eq!(applied(&selected, "LINEAR_C"), Some("abc"));
+    assert_eq!(applied(&selected, "LINEAR_D"), Some("a b #c"));
+}
+
+#[test]
+fn the_last_entry_for_a_key_wins_even_when_it_is_invalid() {
+    let tree = TempTree::new();
+    tree.write(
+        ".env",
+        b"LINEAR_A=old\nLINEAR_A=$BAD\nLINEAR_B=$BAD\nLINEAR_B=good\nLINEAR_C=old\nLINEAR_C='open\n",
+    );
+    let selected = load(&tree, None);
+    assert_eq!(applied(&selected, "LINEAR_A"), None);
+    assert_eq!(applied(&selected, "LINEAR_B"), Some("good"));
+    assert_eq!(applied(&selected, "LINEAR_C"), None);
+    assert_eq!(
+        reasons(&selected),
+        [&invalid(&["LINEAR_C"]), &unexpanded("LINEAR_A", "$BAD")]
+    );
+}
+
+#[test]
+fn malformed_lines_for_read_keys_warn_and_export_takes_any_whitespace() {
+    let tree = TempTree::new();
+    tree.write(
+        ".env",
+        b"export\tLINEAR_A=tab\nLINEAR_B\nexport LINEAR_C\nLINEAR_D=bad\\q\nLINEAR_E=it's\nLINEAR_F=\"a\"b\nOTHER\nexportLINEAR_G=1\n",
+    );
+    let selected = load(&tree, None);
+    assert_eq!(applied(&selected, "LINEAR_A"), Some("tab"));
+    assert_eq!(selected.applied.len(), 1, "{:?}", selected.applied);
+    assert_eq!(
+        reasons(&selected),
+        [&invalid(&[
+            "LINEAR_B", "LINEAR_C", "LINEAR_D", "LINEAR_E", "LINEAR_F"
+        ])]
+    );
+}
+
+#[test]
+fn an_unclosed_quote_invalidates_only_its_own_line() {
+    let tree = TempTree::new();
+    tree.write(
+        ".env",
+        b"OTHER='unclosed\nLINEAR_A=one\nLINEAR_G=\"oops\nLINEAR_B=two\nOTHER2=\"x\nLINEAR_C=\"three\"\n",
+    );
+    let selected = load(&tree, None);
+    assert_eq!(applied(&selected, "LINEAR_A"), Some("one"));
+    assert_eq!(applied(&selected, "LINEAR_B"), Some("two"));
+    assert_eq!(applied(&selected, "LINEAR_C"), Some("three"));
+    assert_eq!(reasons(&selected), [&invalid(&["LINEAR_G"])]);
 }
 
 #[test]

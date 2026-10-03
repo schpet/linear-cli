@@ -275,27 +275,12 @@ pub fn render_diagnostic(diagnostic: &ConfigDiagnostic, color: bool) -> String {
             ),
             "  Check for an unclosed quote or a malformed KEY=value line.",
         ),
-        DiagnosticReason::Reference {
-            key,
-            name,
-            braced: false,
-        } => (
+        DiagnosticReason::Unexpanded { key, reference } => (
             format!(
-                "Warning: Ignoring {key} in {}: ${name} is not expanded.",
+                "Warning: Ignoring {key} in {}: .env values are not expanded, so {reference} would be used literally.",
                 diagnostic.path.display()
             ),
-            "  Write ${NAME} to use a variable, or single-quote the value to keep a literal $.",
-        ),
-        DiagnosticReason::Reference {
-            key,
-            name,
-            braced: true,
-        } => (
-            format!(
-                "Warning: Ignoring {key} in {}: ${{{name}}} is not set.",
-                diagnostic.path.display()
-            ),
-            "  Set the variable, or single-quote the value to keep a literal $.",
+            "  Put the value itself in .env or the environment, or single-quote it to keep a literal $.",
         ),
     };
     format!(

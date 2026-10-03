@@ -9,12 +9,12 @@ pub enum DiagnosticReason {
     Unusable(String),
     /// Lines for these keys could not be parsed.
     InvalidLines(Vec<String>),
-    /// The value for `key` refers to the variable `name` in a way that is not
-    /// expanded: a bare `$name`, or `${name}` when it is not set.
-    Reference {
+    /// The value for `key` contains `reference` (`$NAME` or `${NAME}`).
+    /// Values are never expanded, so the key is ignored rather than set to
+    /// the literal text.
+    Unexpanded {
         key: String,
-        name: String,
-        braced: bool,
+        reference: String,
     },
 }
 
@@ -108,75 +108,87 @@ fn admitted(key: &str) -> bool {
         .any(|prefix| key.starts_with(prefix))
 }
 
-/// Why a `.env` line was not used.
+/// Why a `.env` entry was not used.
 enum Problem {
     Malformed,
-    Reference { name: String, braced: bool },
+    /// The value contains `$NAME` or `${NAME}` (the text is kept).
+    Reference(String),
 }
 
-/// One `KEY=value` line, or why it was rejected. `key` is `None` when the
-/// line does not name one.
+/// One `KEY=value` entry. `key` is the name the line meant to set, when it
+/// names one.
 struct Entry {
     key: Option<String>,
     value: Result<String, Problem>,
 }
 
-/// Parses `.env` text: `[export] KEY=value` lines and `#` comments. Single
-/// quotes keep their content literally; double-quoted and unquoted values
-/// take `\` escapes and `${NAME}` references to the process environment or
-/// an earlier key in the file. A bare `$NAME` is rejected rather than
-/// guessed at, and an unset `${NAME}` is an error, never an empty string.
-/// Quoted values may span lines.
-fn entries(text: &str, process_env: &BTreeMap<String, String>) -> Vec<Entry> {
+/// Parses `.env` text into entries, in file order.
+///
+/// Lines are `[export] KEY=value`; blank lines and lines starting with `#`
+/// are skipped. Values are literal, never expanded:
+/// - `'single quoted'`: taken as is.
+/// - `"double quoted"`: backslash escapes (`\n`, `\\`, `\"`, `\'`, `\$`,
+///   `\ `, `\#`).
+/// - unquoted: the same escapes; ends at a `#` that follows whitespace, and
+///   unescaped trailing whitespace is dropped. A quote character must be
+///   escaped (quote the whole value instead).
+///
+/// After a closing quote only whitespace or a `#` comment may follow. Quoted
+/// values may span lines; a quote that is never properly closed invalidates
+/// only its own line, and the lines after it are parsed normally. A
+/// double-quoted or unquoted value containing `$NAME` or `${NAME}` is
+/// rejected, so a variable reference is never sent as a literal secret.
+fn entries(text: &str) -> Vec<Entry> {
     let text = text.replace("\r\n", "\n");
-    let mut chars = text.chars().peekable();
+    let lines: Vec<&str> = text.split('\n').collect();
     let mut entries = Vec::new();
-    let mut earlier = BTreeMap::new();
-    loop {
-        while chars.next_if(|c| c.is_whitespace()).is_some() {}
-        let Some(first) = chars.peek().copied() else {
-            break;
-        };
-        if first == '#' {
-            skip_line(&mut chars);
-            continue;
-        }
-        let head: String =
-            std::iter::from_fn(|| chars.next_if(|c| !matches!(c, '=' | '\n'))).collect();
-        if chars.next_if_eq(&'=').is_none() {
-            entries.push(Entry {
-                key: None,
-                value: Err(Problem::Malformed),
-            });
-            continue;
-        }
-        let head = head.trim();
-        let key = head
-            .strip_prefix("export ")
-            .unwrap_or(head)
-            .trim()
-            .to_owned();
-        let value = if valid_key(&key) {
-            value(&mut chars, process_env, &earlier)
-        } else {
-            skip_line(&mut chars);
-            Err(Problem::Malformed)
-        };
-        if let Ok(value) = &value {
-            earlier.insert(key.clone(), value.clone());
-        }
-        entries.push(Entry {
-            key: Some(key),
-            value,
-        });
+    let mut index = 0;
+    while let Some(rest) = lines.get(index..).filter(|rest| !rest.is_empty()) {
+        let (entry, used) = entry(rest);
+        entries.extend(entry);
+        index += used;
     }
     entries
 }
 
-type Chars<'a> = std::iter::Peekable<std::str::Chars<'a>>;
+/// The entry that starts at the first of `lines`, and how many lines it
+/// takes. Blank and comment lines yield no entry.
+fn entry(lines: &[&str]) -> (Option<Entry>, usize) {
+    let (first, following) = lines.split_first().expect("entry needs a line");
+    let line = first.trim_start();
+    if line.is_empty() || line.starts_with('#') {
+        return (None, 1);
+    }
+    let malformed = |key: &str| Entry {
+        key: Some(key.to_owned()).filter(|key| !key.is_empty()),
+        value: Err(Problem::Malformed),
+    };
+    let Some((head, rest)) = line.split_once('=') else {
+        let key = without_export(line).split_whitespace().next().unwrap_or("");
+        return (Some(malformed(key)), 1);
+    };
+    let key = without_export(head.trim());
+    if !valid_key(key) {
+        return (Some(malformed(key)), 1);
+    }
+    let rest = rest.trim_start_matches([' ', '\t']);
+    let (value, used) = match rest.chars().next() {
+        Some(quote @ ('\'' | '"')) => quoted(quote, &rest[1..], following),
+        _ => (unquoted(rest), 1),
+    };
+    let entry = Entry {
+        key: Some(key.to_owned()),
+        value,
+    };
+    (Some(entry), used)
+}
 
-fn skip_line(chars: &mut Chars<'_>) {
-    while chars.next_if(|c| *c != '\n').is_some() {}
+/// `head` without a leading `export` and the whitespace after it.
+fn without_export(head: &str) -> &str {
+    match head.strip_prefix("export") {
+        Some(rest) if rest.starts_with(char::is_whitespace) => rest.trim_start(),
+        Some(_) | None => head,
+    }
 }
 
 fn valid_key(key: &str) -> bool {
@@ -188,171 +200,180 @@ fn valid_key(key: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.'))
 }
 
-/// The value after `KEY=`, consuming the rest of its line.
-fn value(
-    chars: &mut Chars<'_>,
-    process_env: &BTreeMap<String, String>,
-    earlier: &BTreeMap<String, String>,
-) -> Result<String, Problem> {
-    while chars.next_if(|c| matches!(c, ' ' | '\t')).is_some() {}
+/// A quoted value whose text after the opening quote is `rest`, continuing
+/// onto `following` lines until the closing quote. A malformed value takes
+/// only its own line, so the lines after it are parsed again.
+fn quoted(quote: char, rest: &str, following: &[&str]) -> (Result<String, Problem>, usize) {
+    let mut raw = rest.to_owned();
+    let mut used = 1;
+    loop {
+        if let Some(end) = closing(quote, &raw) {
+            let tail = raw[end + 1..].trim_start_matches([' ', '\t']);
+            if !(tail.is_empty() || tail.starts_with('#')) {
+                return (Err(Problem::Malformed), 1);
+            }
+            let content = &raw[..end];
+            return match quote {
+                '\'' => (Ok(content.to_owned()), used),
+                _ => match double_quoted(content) {
+                    Ok(value) => (Ok(value), used),
+                    Err(Problem::Malformed) => (Err(Problem::Malformed), 1),
+                    Err(problem @ Problem::Reference(_)) => (Err(problem), used),
+                },
+            };
+        }
+        // A value never runs over a line that sets a key this program reads:
+        // that line is far more likely a real entry after an unclosed quote.
+        let Some(next) = following
+            .get(used - 1)
+            .filter(|next| !sets_admitted_key(next))
+        else {
+            return (Err(Problem::Malformed), 1);
+        };
+        raw.push('\n');
+        raw.push_str(next);
+        used += 1;
+    }
+}
+
+/// The byte index of the quote that closes `raw`. Inside double quotes a
+/// backslash escapes the next character.
+fn closing(quote: char, raw: &str) -> Option<usize> {
+    let mut chars = raw.char_indices();
+    while let Some((index, c)) = chars.next() {
+        if c == quote {
+            return Some(index);
+        }
+        if c == '\\' && quote == '"' {
+            chars.next();
+        }
+    }
+    None
+}
+
+fn sets_admitted_key(line: &str) -> bool {
+    line.split_once('=')
+        .is_some_and(|(head, _)| admitted(without_export(head.trim())))
+}
+
+fn double_quoted(content: &str) -> Result<String, Problem> {
     let mut out = String::new();
-    // The first problem is reported once the whole value is consumed.
-    let mut problem = None;
-    let mut note = |result: Result<(), Problem>| {
-        if let Err(error) = result {
-            problem.get_or_insert(error);
+    let mut chars = content.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => out.push(escape(chars.next())?),
+            '$' => {
+                reference(&mut chars)?;
+                out.push('$');
+            }
+            c => out.push(c),
         }
-    };
+    }
+    Ok(out)
+}
+
+fn unquoted(text: &str) -> Result<String, Problem> {
+    let mut out = String::new();
+    // `out` up to its last character that is not unescaped whitespace.
+    let mut kept = 0;
+    let mut after_space = true;
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '#' if after_space => break,
+            ' ' | '\t' => {
+                out.push(c);
+                after_space = true;
+                continue;
+            }
+            '\'' | '"' => return Err(Problem::Malformed),
+            '\\' => out.push(escape(chars.next())?),
+            '$' => {
+                reference(&mut chars)?;
+                out.push('$');
+            }
+            c => out.push(c),
+        }
+        after_space = false;
+        kept = out.len();
+    }
+    out.truncate(kept);
+    Ok(out)
+}
+
+/// The character a backslash before `next` stands for.
+fn escape(next: Option<char>) -> Result<char, Problem> {
+    match next {
+        Some('n') => Ok('\n'),
+        Some(c @ ('\\' | '\'' | '"' | '$' | ' ' | '#')) => Ok(c),
+        _ => Err(Problem::Malformed),
+    }
+}
+
+/// Rejects the `$NAME` or `${NAME}` that follows a `$`; any other `$` is
+/// literal.
+fn reference(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> Result<(), Problem> {
+    let name_char = |c: &char| c.is_ascii_alphanumeric() || *c == '_';
     match chars.peek() {
-        Some('\'') => {
-            chars.next();
-            loop {
-                match chars.next() {
-                    Some('\'') => break,
-                    Some(c) => out.push(c),
-                    None => return Err(Problem::Malformed),
-                }
-            }
-            note(end_of_line(chars));
-        }
-        Some('"') => {
-            chars.next();
-            loop {
-                match chars.next() {
-                    Some('"') => break,
-                    Some(c) => note(special(c, chars, &mut out, process_env, earlier)),
-                    None => return Err(Problem::Malformed),
-                }
-            }
-            note(end_of_line(chars));
-        }
-        _ => {
-            let mut after_space = true;
-            while let Some(c) = chars.next_if(|c| *c != '\n') {
-                if c == '#' && after_space {
-                    skip_line(chars);
+        Some('{') => {
+            let mut text = String::from("$");
+            for c in chars.by_ref() {
+                text.push(c);
+                if c == '}' {
                     break;
                 }
-                after_space = matches!(c, ' ' | '\t');
-                note(special(c, chars, &mut out, process_env, earlier));
             }
-            out.truncate(out.trim_end().len());
+            Err(Problem::Reference(text))
         }
-    }
-    match problem {
-        Some(problem) => Err(problem),
-        None => Ok(out),
-    }
-}
-
-/// Appends `c` to `out`, handling a `\` escape or a `$` reference it starts.
-fn special(
-    c: char,
-    chars: &mut Chars<'_>,
-    out: &mut String,
-    process_env: &BTreeMap<String, String>,
-    earlier: &BTreeMap<String, String>,
-) -> Result<(), Problem> {
-    let name_char = |c: &char| c.is_ascii_alphanumeric() || *c == '_';
-    match c {
-        '\\' => match chars.next_if(|c| *c != '\n') {
-            Some('n') => out.push('\n'),
-            Some(escaped @ ('\\' | '\'' | '"' | '$' | ' ')) => out.push(escaped),
-            _ => return Err(Problem::Malformed),
-        },
-        '$' if chars.next_if_eq(&'{').is_some() => {
+        Some(c) if c.is_ascii_alphabetic() || *c == '_' => {
             let name: String = std::iter::from_fn(|| chars.next_if(name_char)).collect();
-            if name.is_empty() || chars.next_if_eq(&'}').is_none() {
-                return Err(Problem::Malformed);
-            }
-            // The snapshot holds only the variables this program reads, so
-            // other names come from the live environment.
-            let value = process_env
-                .get(&name)
-                .cloned()
-                .or_else(|| std::env::var(&name).ok())
-                .or_else(|| earlier.get(&name).cloned());
-            match value {
-                Some(value) => out.push_str(&value),
-                None => return Err(Problem::Reference { name, braced: true }),
-            }
+            Err(Problem::Reference(format!("${name}")))
         }
-        '$' if chars
-            .peek()
-            .is_some_and(|c| c.is_ascii_alphabetic() || *c == '_') =>
-        {
-            let name = std::iter::from_fn(|| chars.next_if(name_char)).collect();
-            return Err(Problem::Reference {
-                name,
-                braced: false,
-            });
-        }
-        c => out.push(c),
-    }
-    Ok(())
-}
-
-/// After a closing quote only whitespace or a `#` comment may follow.
-fn end_of_line(chars: &mut Chars<'_>) -> Result<(), Problem> {
-    while chars.next_if(|c| matches!(c, ' ' | '\t')).is_some() {}
-    match chars.peek() {
-        None | Some('\n') => Ok(()),
-        Some('#') => {
-            skip_line(chars);
-            Ok(())
-        }
-        Some(_) => {
-            skip_line(chars);
-            Err(Problem::Malformed)
-        }
+        Some(_) | None => Ok(()),
     }
 }
 
 /// Parses a `.env` file and keeps the admitted keys the process environment
-/// does not already set.
+/// does not already set. The last entry for a key wins; when it is invalid
+/// the key is ignored with a warning.
 fn parse_selected(
     text: &str,
     process_env: &BTreeMap<String, String>,
     path: &Path,
 ) -> (BTreeMap<String, String>, Vec<ConfigDiagnostic>) {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    let mut applied = BTreeMap::new();
-    let mut rejected = Vec::new();
-    for entry in entries(text, process_env) {
+    let mut last = BTreeMap::new();
+    for entry in entries(text) {
         let Some(key) = entry.key.filter(|key| admitted(key)) else {
             continue;
         };
-        if process_env.contains_key(&key) {
-            continue;
+        if !process_env.contains_key(&key) {
+            last.insert(key, entry.value);
         }
-        match entry.value {
+    }
+    let mut applied = BTreeMap::new();
+    let mut invalid = Vec::new();
+    let mut unexpanded = Vec::new();
+    for (key, value) in last {
+        match value {
             Ok(value) => {
                 applied.insert(key, value);
             }
-            Err(problem) => rejected.push((key, problem)),
-        }
-    }
-    rejected.retain(|(key, _)| !applied.contains_key(key));
-    let mut invalid = Vec::new();
-    let mut diagnostics = Vec::new();
-    for (key, problem) in rejected {
-        match problem {
-            Problem::Malformed => invalid.push(key),
-            Problem::Reference { name, braced } => diagnostics.push(ConfigDiagnostic {
+            Err(Problem::Malformed) => invalid.push(key),
+            Err(Problem::Reference(reference)) => unexpanded.push(ConfigDiagnostic {
                 path: path.to_owned(),
-                reason: DiagnosticReason::Reference { key, name, braced },
+                reason: DiagnosticReason::Unexpanded { key, reference },
             }),
         }
     }
+    let mut diagnostics = Vec::new();
     if !invalid.is_empty() {
-        diagnostics.insert(
-            0,
-            ConfigDiagnostic {
-                path: path.to_owned(),
-                reason: DiagnosticReason::InvalidLines(invalid),
-            },
-        );
+        diagnostics.push(ConfigDiagnostic {
+            path: path.to_owned(),
+            reason: DiagnosticReason::InvalidLines(invalid),
+        });
     }
+    diagnostics.extend(unexpanded);
     (applied, diagnostics)
 }
 
