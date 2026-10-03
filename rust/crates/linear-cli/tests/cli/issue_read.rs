@@ -1280,3 +1280,22 @@ fn missing_state_hints_quote_names_in_single_and_multiple_team_scopes() {
         );
     }
 }
+
+#[test]
+fn title_preserves_exact_remote_text_when_piped() {
+    for title in [
+        "Plain café",
+        "ok café\u{1b}]0;owned\u{7}\u{1b}[2J\u{9b}31mred\u{8}\u{7f}\r\n\tend",
+    ] {
+        let api = MockLinear::start();
+        let mut details = issue(false);
+        details["team"]["key"] = json!("ENG");
+        details["title"] = json!(title);
+        api.on("GetIssueDetails", json!({"issue": details}));
+        let run = Cli::for_api(&api).run(&["issue", "title", "ENG-1"]);
+        run.success();
+        assert_eq!(run.stdout, format!("{title}\n"));
+        assert_eq!(api.operations(), ["GetIssueDetails"]);
+        assert_eq!(api.variables("GetIssueDetails"), json!({"id": "ENG-1"}));
+    }
+}
