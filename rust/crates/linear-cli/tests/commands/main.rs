@@ -5,7 +5,6 @@ mod project_write_server;
 
 mod issue_archive_delete;
 
-mod issue_read;
 
 mod issue_start_pr;
 

@@ -774,3 +774,50 @@ fn list_limit_must_be_a_whole_number() {
             .usage_error();
     }
 }
+
+#[test]
+fn mine_orders_by_state_type_then_position_within_one_team() {
+    let api = MockLinear::start();
+    let issue_at = |number: u32, state_type: &str, position: f64| {
+        let mut issue = list_issue(number, "ENG", state_type);
+        issue["state"]["position"] = json!(position);
+        issue
+    };
+    api.on(
+        "GetIssuesForState",
+        issues(
+            vec![
+                issue_at(1, "unstarted", 1.0),
+                issue_at(2, "unstarted", 9.0),
+                issue_at(3, "unstarted", 9.0),
+                issue_at(4, "started", 0.0),
+            ],
+            None,
+        ),
+    );
+    let run = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["issue", "mine", "--all-states", "--no-pager"]);
+    let stdout = &run.success().stdout;
+    let position = |id: &str| stdout.find(id).unwrap_or_else(|| panic!("{id} in {stdout}"));
+    let order = ["ENG-4", "ENG-2", "ENG-3", "ENG-1"].map(position);
+    assert!(order.is_sorted(), "{stdout}");
+}
+
+#[test]
+fn query_over_several_teams_matches_any_of_them() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved("team-eng", "ENG", "Engineering"))
+        .on("ResolveTeam", resolved("team-ops", "OPS", "Operations"))
+        .on("GetIssuesForQuery", issues(vec![], None));
+    Cli::for_api(&api)
+        .run(&["issue", "query", "--team", "eng", "--team", "ops", "--json"])
+        .success();
+    assert_eq!(
+        api.variables("GetIssuesForQuery")["filter"],
+        json!({ "team": { "or": [
+            { "key": { "eq": "ENG" } },
+            { "key": { "eq": "OPS" } }
+        ] } })
+    );
+}

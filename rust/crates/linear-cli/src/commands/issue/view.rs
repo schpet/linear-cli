@@ -545,3 +545,6 @@ pub fn terminal(
     }
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests;
