@@ -4,8 +4,8 @@ use futures_util::future::try_join_all;
 
 use crate::cli::project::{ProjectFields, Status};
 use crate::client::LinearClient;
-use crate::commands::issue::template_scope::{self, TemplateScope};
 use crate::commands::project::collections::ResolvedRef;
+use crate::commands::template::scope::{self, TemplateScope};
 use crate::commands::text_input;
 use crate::error::{Error, Result};
 use crate::graphql::operations::project::ProjectStatusType;
@@ -209,10 +209,10 @@ pub async fn template(
                 Error::not_found("Template", reference)
                     .with_hint("Run `linear template list` to see every template.")
             })?;
-        template_scope::assert_scope(&template, team_ids, TemplateScope::Project)?;
+        scope::assert_scope(&template, team_ids, TemplateScope::Project)?;
         template
     } else {
-        template_scope::select(reference, data.templates, team_ids, TemplateScope::Project)?
+        scope::select(reference, data.templates, team_ids, TemplateScope::Project)?
     };
     Ok(template.id.into_inner())
 }

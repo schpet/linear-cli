@@ -124,7 +124,7 @@ impl Backend for NetworkBackend {
             .query(GetWorkflowStatesVariables { team_key })
             .await?;
         let mut states = data.team.states.nodes;
-        crate::workflow_states::sort(&mut states);
+        crate::refs::workflow_states::sort(&mut states);
         Ok(states
             .into_iter()
             .map(|s| State {
@@ -413,18 +413,18 @@ impl Backend for NetworkBackend {
 }
 impl Templates for NetworkBackend {
     async fn issue_template(&self, reference: String, team_id: String) -> Result<String, Error> {
-        use super::template_scope::{self, TemplateScope};
+        use crate::commands::template::scope::{self, TemplateScope};
         use crate::graphql::operations::template::GetTemplates;
         refs::reject_linear_url(&reference, "a template name or UUID")?;
         let team_ids = [team_id];
         let template = if refs::is_linear_uuid(&reference) {
             let template =
                 crate::commands::template::template_by_id(&self.client, &reference).await?;
-            template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
+            scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
             template
         } else {
             let data: GetTemplates = self.client.query(()).await?;
-            template_scope::select(&reference, data.templates, &team_ids, TemplateScope::Issue)?
+            scope::select(&reference, data.templates, &team_ids, TemplateScope::Issue)?
         };
         Ok(template.id.into_inner())
     }

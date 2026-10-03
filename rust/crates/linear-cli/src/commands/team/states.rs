@@ -9,7 +9,7 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::team::WorkflowState;
 use crate::graphql::scalars::Float;
-use crate::workflow_states;
+use crate::refs::workflow_states;
 
 pub fn run(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     states(ctx, args).context("Failed to list workflow states")

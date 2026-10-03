@@ -338,7 +338,7 @@ pub fn describe_jj(
     Ok(format!("✓ Prepared jj change for issue {identifier}\n").into_bytes())
 }
 pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
-    crate::workflow_states::sort(&mut states);
+    crate::refs::workflow_states::sort(&mut states);
     let mut selected: Option<WorkflowState> = None;
     for state in states {
         if state.state_type == "started"
@@ -357,7 +357,7 @@ pub async fn update_state(
     team: &str,
     identifier: &str,
 ) -> Result<Vec<u8>, String> {
-    let states = crate::workflow_states::fetch(client, team.to_owned())
+    let states = crate::refs::workflow_states::fetch(client, team.to_owned())
         .await
         .map_err(|failure| Error::from(failure).to_string())?;
     let state = started(states).map_err(|error| error.to_string())?;

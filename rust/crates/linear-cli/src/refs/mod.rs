@@ -3,6 +3,7 @@ mod project;
 mod team;
 mod url;
 mod uuid;
+pub mod workflow_states;
 mod workspace;
 
 pub use project::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};

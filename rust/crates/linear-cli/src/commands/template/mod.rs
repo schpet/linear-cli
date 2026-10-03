@@ -3,6 +3,8 @@ mod json;
 mod list;
 mod view;
 
+pub mod scope;
+
 use crate::cli::template::TemplateCommand;
 use crate::ctx::Ctx;
 use crate::error::Result;

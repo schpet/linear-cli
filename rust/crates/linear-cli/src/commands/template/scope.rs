@@ -1,10 +1,13 @@
-//! Proposed extraction from project_write's template section, not whole-file copy.
+//! Choosing a template for `issue create` or `project create`: by ID or name,
+//! limited to templates of the right kind that the target teams can use.
 use crate::{error::Error, graphql::operations::template::Template};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TemplateScope {
     Issue,
     Project,
 }
+
 impl TemplateScope {
     pub fn word(self) -> &'static str {
         match self {
@@ -19,12 +22,14 @@ impl TemplateScope {
         }
     }
 }
+
 fn available(template: &Template, team_ids: &[String]) -> bool {
     template
         .team
         .as_ref()
         .is_none_or(|team| team_ids.iter().any(|id| id == team.id.inner()))
 }
+
 fn wrong_type(template: &Template, scope: TemplateScope) -> Error {
     let article = if template
         .template_type
@@ -49,14 +54,22 @@ fn wrong_type(template: &Template, scope: TemplateScope) -> Error {
         scope.word()
     ))
 }
+
+/// `keys` names the teams the template belongs to; it is never empty.
 fn wrong_team(name: &str, keys: &[String], scope: TemplateScope) -> Error {
-    let Some(first) = keys.first() else {
-        return Error::new("unavailable template has no team key");
-    };
-    Error::new(format!("Template \"{name}\" belongs to team{} {} and cannot be applied here",
-        if keys.len()==1{""}else{"s"},keys.join(", ")))
-        .with_hint(format!("Pass --team {first}, or pick a workspace template or one from the target team with `linear template list --type {} --team <team>`.",scope.word()))
+    let first = keys.first().expect("a team template has a team key");
+    let plural = if keys.len() == 1 { "" } else { "s" };
+    Error::new(format!(
+        "Template \"{name}\" belongs to team{plural} {} and cannot be applied here",
+        keys.join(", ")
+    ))
+    .with_hint(format!(
+        "Pass --team {first}, or pick a workspace template or one from the target team with \
+         `linear template list --type {} --team <team>`.",
+        scope.word()
+    ))
 }
+
 pub fn assert_scope(
     template: &Template,
     team_ids: &[String],
@@ -69,7 +82,7 @@ pub fn assert_scope(
         let team = template
             .team
             .as_ref()
-            .ok_or_else(|| Error::new("unavailable template has no team"))?;
+            .expect("only team templates can be unavailable");
         return Err(wrong_team(
             &template.name,
             std::slice::from_ref(&team.key),
@@ -78,6 +91,7 @@ pub fn assert_scope(
     }
     Ok(())
 }
+
 pub fn select(
     reference: &str,
     all: Vec<Template>,
@@ -165,5 +179,3 @@ pub fn select(
     };
     Err(Error::not_found("Template", reference).with_hint(suggestion))
 }
-// Project callers use scope=Project with the shared client; the issue path
-// uses NetworkBackend's exchange below.

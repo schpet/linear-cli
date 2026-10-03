@@ -16,7 +16,6 @@ mod query;
 pub mod read;
 pub mod relation;
 pub mod start;
-pub mod template_scope;
 pub mod update;
 pub mod view;
 pub mod write;
