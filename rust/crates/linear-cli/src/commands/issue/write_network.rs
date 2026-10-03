@@ -30,12 +30,13 @@ impl NetworkBackend {
     async fn parent_reference(&self, reference: &str) -> Result<String, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let team = crate::commands::team_key::configured_team_key(&self.options);
-        match refs::prepare_issue_reference(Some(reference), team.as_deref(), &self.scope(&key))? {
-            refs::IssueReference::Identifier(id) => Ok(id),
-            refs::IssueReference::Unresolved | refs::IssueReference::Inferred => Err(Error::new(
-                format!("Could not resolve parent issue identifier: {reference}"),
-            )),
-        }
+        refs::prepare_issue_reference(reference, team.as_deref(), &self.scope(&key))?.ok_or_else(
+            || {
+                Error::new(format!(
+                    "Could not resolve parent issue identifier: {reference}"
+                ))
+            },
+        )
     }
 }
 impl Backend for NetworkBackend {

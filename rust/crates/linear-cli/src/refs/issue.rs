@@ -3,21 +3,12 @@ use super::url::issue_identifier;
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind};
 use crate::error::Error;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum IssueReference {
-    Identifier(String),
-    Inferred,
-    Unresolved,
-}
-
+/// The normalized identifier, or `None` when the input names no issue.
 pub fn prepare_issue_reference(
-    input: Option<&str>,
+    input: &str,
     team_key: Option<&str>,
     scope: &WorkspaceScope<'_>,
-) -> Result<IssueReference, Error> {
-    let Some(input) = input else {
-        return Ok(IssueReference::Inferred);
-    };
+) -> Result<Option<String>, Error> {
     if !input.is_empty() {
         match expect_url_kind(
             input,
@@ -26,13 +17,13 @@ pub fn prepare_issue_reference(
             scope,
         )? {
             Some(LinearUrlRef::Issue { identifier, .. }) => {
-                return Ok(IssueReference::Identifier(identifier));
+                return Ok(Some(identifier));
             }
             Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
             None => {}
         }
         if let Some(id) = issue_identifier(input) {
-            return Ok(IssueReference::Identifier(id));
+            return Ok(Some(id));
         }
     }
     if input.starts_with(|c: char| ('1'..='9').contains(&c))
@@ -42,13 +33,12 @@ pub fn prepare_issue_reference(
             Error::new(format!("Issue number {input} needs a team"))
                 .with_hint("Pass a full identifier like ENG-123, or run `linear config` to set a default team.")
         })?;
-        return Ok(
-            issue_identifier(&format!("{}-{input}", team.to_uppercase()))
-                .map(IssueReference::Identifier)
-                .unwrap_or(IssueReference::Unresolved),
-        );
+        return Ok(issue_identifier(&format!(
+            "{}-{input}",
+            team.to_uppercase()
+        )));
     }
-    Ok(IssueReference::Unresolved)
+    Ok(None)
 }
 
 /// Finds the first `TEAM-123` identifier that starts and ends on a word

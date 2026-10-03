@@ -32,7 +32,7 @@ use crate::commands::team_key::configured_team_key;
 use crate::config::Vcs;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::refs::{IssueReference, prepare_issue_reference};
+use crate::refs::prepare_issue_reference;
 
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
@@ -66,11 +66,7 @@ pub(crate) fn resolve(ctx: &Ctx, input: Option<&str>) -> Result<Option<String>> 
         return infer(ctx);
     };
     let team = configured_team_key(ctx.options());
-    match prepare_issue_reference(Some(input), team.as_deref(), &ctx.scope()?)? {
-        IssueReference::Identifier(identifier) => Ok(Some(identifier)),
-        IssueReference::Unresolved => Ok(None),
-        IssueReference::Inferred => infer(ctx),
-    }
+    prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)
 }
 
 /// Like [`resolve`], failing when no issue is identified.

@@ -9,7 +9,7 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result},
     graphql::operations::issue::*,
-    refs::{self, IssueReference, WorkspaceScope},
+    refs::{self, WorkspaceScope},
 };
 
 pub struct Request<'a> {
@@ -135,12 +135,9 @@ struct Target {
 }
 impl Target {
     fn prepare(original: String, team: Option<&str>, scope: &WorkspaceScope<'_>) -> Self {
-        let reference = match refs::prepare_issue_reference(Some(&original), team, scope) {
-            Ok(IssueReference::Identifier(id)) => ReferenceOutcome::Resolved(id),
-            Ok(IssueReference::Unresolved) => ReferenceOutcome::Unresolved,
-            Ok(IssueReference::Inferred) => ReferenceOutcome::Failed(Error::new(
-                "explicit bulk issue reference requested inference",
-            )),
+        let reference = match refs::prepare_issue_reference(&original, team, scope) {
+            Ok(Some(id)) => ReferenceOutcome::Resolved(id),
+            Ok(None) => ReferenceOutcome::Unresolved,
             Err(error) => ReferenceOutcome::Failed(error),
         };
         Self {

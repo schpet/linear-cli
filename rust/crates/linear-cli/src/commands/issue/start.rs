@@ -15,7 +15,7 @@ use crate::{
         team::WorkflowState,
     },
     platform::{process, prompt::Choice},
-    refs::{IssueReference, prepare_issue_reference},
+    refs::prepare_issue_reference,
 };
 use std::process::Command;
 pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
@@ -31,17 +31,10 @@ fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
     let team = configured_team_key(ctx.options());
     // Start never infers the issue from the VCS: without one it offers a picker.
     let identifier = match args.issue_id.as_deref() {
-        Some(input) => {
-            match prepare_issue_reference(Some(input), team.as_deref(), &ctx.scope()?)? {
-                IssueReference::Identifier(identifier) => identifier,
-                IssueReference::Unresolved => {
-                    return Err(Error::new(format!("Not an issue ID: {input}")).with_hint(
-                    "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
-                ));
-                }
-                IssueReference::Inferred => unreachable!("a given reference is never inferred"),
-            }
-        }
+        Some(input) => prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)?
+            .ok_or_else(|| Error::new(format!("Not an issue ID: {input}")).with_hint(
+                "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
+            ))?,
         None => {
             let team = team.ok_or_else(|| {
                 Error::new("No team is configured to pick an issue from")
