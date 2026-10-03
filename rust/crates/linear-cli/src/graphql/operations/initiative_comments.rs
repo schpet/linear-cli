@@ -9,6 +9,7 @@ pub struct GetInitiativeCommentsVariables {
     pub id: String,
     pub filter_id: cynic::Id,
     pub after: Option<String>,
+    pub first: i32,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -20,7 +21,7 @@ pub struct GetInitiativeCommentsVariables {
 pub struct GetInitiativeComments {
     #[arguments(id: $id)]
     pub initiative: Option<CommentInitiative>,
-    #[arguments(first: 50, after: $after, orderBy: createdAt, filter: { initiative: { id: { eq: $filter_id } } })]
+    #[arguments(first: $first, after: $after, orderBy: createdAt, filter: { initiative: { id: { eq: $filter_id } } })]
     pub comments: CommentConnection,
 }
 

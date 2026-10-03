@@ -33,12 +33,13 @@ impl CommentSource for InitiativeComments {
     type Variables = GetInitiativeCommentsVariables;
     type Response = GetInitiativeComments;
 
-    fn request(id: &str, after: Option<String>) -> GraphQlRequest<Self::Variables> {
+    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables> {
         GraphQlRequest::with_variables(GetInitiativeComments::build(
             GetInitiativeCommentsVariables {
                 id: id.to_owned(),
                 filter_id: cynic::Id::new(id),
                 after,
+                first,
             },
         ))
     }

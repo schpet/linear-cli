@@ -5,6 +5,7 @@ use crate::graphql::schema;
 pub struct GetIssueCommentsVariables {
     pub id: String,
     pub after: Option<String>,
+    pub first: i32,
 }
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(
@@ -23,6 +24,6 @@ pub struct GetIssueComments {
     variables = "GetIssueCommentsVariables"
 )]
 pub struct CommentIssue {
-    #[arguments(first: 50, after: $after, orderBy: createdAt)]
+    #[arguments(first: $first, after: $after, orderBy: createdAt)]
     pub comments: CommentConnection,
 }

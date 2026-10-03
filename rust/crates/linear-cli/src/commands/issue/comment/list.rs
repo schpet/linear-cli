@@ -30,10 +30,11 @@ impl CommentSource for IssueComments {
     type Variables = GetIssueCommentsVariables;
     type Response = GetIssueComments;
 
-    fn request(id: &str, after: Option<String>) -> GraphQlRequest<Self::Variables> {
+    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables> {
         GraphQlRequest::with_variables(GetIssueComments::build(GetIssueCommentsVariables {
             id: id.to_owned(),
             after,
+            first,
         }))
     }
 

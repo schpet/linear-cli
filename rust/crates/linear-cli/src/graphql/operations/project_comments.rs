@@ -9,6 +9,7 @@ pub struct GetProjectCommentsVariables {
     pub id: String,
     pub filter_id: cynic::Id,
     pub after: Option<String>,
+    pub first: i32,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -20,7 +21,7 @@ pub struct GetProjectCommentsVariables {
 pub struct GetProjectComments {
     #[arguments(id: $id)]
     pub project: Option<CommentProject>,
-    #[arguments(first: 50, after: $after, orderBy: createdAt, filter: { project: { id: { eq: $filter_id } } })]
+    #[arguments(first: $first, after: $after, orderBy: createdAt, filter: { project: { id: { eq: $filter_id } } })]
     pub comments: CommentConnection,
 }
 

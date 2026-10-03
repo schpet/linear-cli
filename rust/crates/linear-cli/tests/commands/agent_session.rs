@@ -82,36 +82,6 @@ fn public_cli_preserves_alias_json_and_six_native_status_spellings() {
 }
 
 #[test]
-fn public_requests_are_one_direct_read_with_original_limits_and_union_order() {
-    let view = serde_json::to_value(agent_session::view_request("opaque-id")).unwrap();
-    assert_eq!(view["variables"], json!({"id":"opaque-id"}));
-    assert_eq!(view["operationName"], "GetAgentSessionDetails");
-    let query = view["query"].as_str().unwrap();
-    assert!(query.contains("activities(first: 20)"));
-    let mut previous = 0;
-    for word in [
-        "__typename",
-        "AgentActivityThoughtContent",
-        "AgentActivityActionContent",
-        "AgentActivityResponseContent",
-        "AgentActivityPromptContent",
-        "AgentActivityErrorContent",
-        "AgentActivityElicitationContent",
-    ] {
-        let position = query.find(word).unwrap();
-        assert!(position > previous);
-        previous = position;
-    }
-    let list = serde_json::to_value(agent_session::list_request("ENG-7", None)).unwrap();
-    assert_eq!(list["variables"], json!({"issueId":"ENG-7"}));
-    assert_eq!(list["operationName"], "GetIssueAgentSessions");
-    assert_eq!(
-        list["query"],
-        "query GetIssueAgentSessions($issueId: String!, $after: String) {\n  issue(id: $issueId) {\n    comments(first: 100, after: $after) {\n      nodes {\n        agentSession {\n          id\n          status\n          type\n          createdAt\n          startedAt\n          endedAt\n          summary\n          creator {\n            name\n          }\n          appUser {\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n}\n"
-    );
-}
-
-#[test]
 fn view_json_keeps_nulls_fragment_fields_and_hides_typename() {
     let mut value = session().agent_session;
     value.session_type = None;

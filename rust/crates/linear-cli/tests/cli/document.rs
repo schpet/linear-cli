@@ -623,7 +623,7 @@ fn comment_list_json_contains_comments() {
     assert_eq!(Value::Array(listed), nodes);
     assert_eq!(
         api.variables("GetDocumentComments"),
-        json!({ "id": SLUG, "after": null })
+        json!({ "id": SLUG, "after": null, "first": 100 })
     );
 }
 

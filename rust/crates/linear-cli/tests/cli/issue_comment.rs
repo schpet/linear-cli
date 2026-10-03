@@ -355,9 +355,30 @@ fn list_json_follows_pages() {
     assert_eq!(
         variables,
         [
-            json!({ "id": "ENG-7", "after": null }),
-            json!({ "id": "ENG-7", "after": "cursor-1" })
+            json!({ "id": "ENG-7", "after": null, "first": 100 }),
+            json!({ "id": "ENG-7", "after": "cursor-1", "first": 100 })
         ]
+    );
+}
+
+#[test]
+fn list_limit_asks_linear_for_only_that_many() {
+    let api = MockLinear::start();
+    let root = comment("c1", "Root comment", "alice", None);
+    api.on(
+        "GetIssueComments",
+        comments_page(vec![root.clone()], json!("cursor-1"), true),
+    );
+    let listed = Cli::for_api(&api)
+        .run(&[
+            "issue", "comment", "list", "eng-7", "--limit", "1", "--json",
+        ])
+        .success()
+        .json_nodes();
+    assert_eq!(listed, [root]);
+    assert_eq!(
+        api.variables("GetIssueComments"),
+        json!({ "id": "ENG-7", "after": null, "first": 1 })
     );
 }
 

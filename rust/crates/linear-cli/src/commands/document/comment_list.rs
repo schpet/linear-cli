@@ -32,10 +32,11 @@ impl CommentSource for DocumentComments {
     type Variables = GetDocumentCommentsVariables;
     type Response = GetDocumentComments;
 
-    fn request(id: &str, after: Option<String>) -> GraphQlRequest<Self::Variables> {
+    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables> {
         GraphQlRequest::with_variables(GetDocumentComments::build(GetDocumentCommentsVariables {
             id: id.to_owned(),
             after,
+            first,
         }))
     }
 

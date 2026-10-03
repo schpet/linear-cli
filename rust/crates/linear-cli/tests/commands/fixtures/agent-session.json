@@ -83,7 +83,11 @@
               "body": "line one\nline two"
             }
           }
-        ]
+        ],
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": null
+        }
       }
     }
   }

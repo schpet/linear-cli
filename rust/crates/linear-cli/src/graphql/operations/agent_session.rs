@@ -17,6 +17,8 @@ use crate::graphql::schema;
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetAgentSessionDetailsVariables {
     pub id: String,
+    pub first: i32,
+    pub after: Option<String>,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -32,7 +34,7 @@ pub struct GetAgentSessionDetails {
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear")]
+#[cynic(schema = "linear", variables = "GetAgentSessionDetailsVariables")]
 #[serde(rename_all = "camelCase")]
 pub struct AgentSession {
     pub id: cynic::Id,
@@ -51,7 +53,7 @@ pub struct AgentSession {
     pub app_user: UserName,
     pub dismissed_by: Option<UserName>,
     pub issue: Option<IssueReference>,
-    #[arguments(first: 20)]
+    #[arguments(first: $first, after: $after)]
     pub activities: AgentActivityConnection,
 }
 
@@ -74,6 +76,8 @@ pub struct IssueReference {
 #[serde(transparent)]
 pub struct AgentActivityConnection {
     pub nodes: Vec<AgentActivity>,
+    #[serde(skip)]
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -273,6 +277,7 @@ pub struct GetIssueAgentSessionsVariables {
     pub issue_id: String,
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
+    pub first: i32,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -293,7 +298,7 @@ pub struct GetIssueAgentSessions {
     variables = "GetIssueAgentSessionsVariables"
 )]
 pub struct SessionIssue {
-    #[arguments(first: 100, after: $after)]
+    #[arguments(first: $first, after: $after)]
     pub comments: SessionComments,
 }
 

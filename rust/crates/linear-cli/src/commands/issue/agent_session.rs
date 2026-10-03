@@ -52,37 +52,47 @@ fn print_sessions(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
     ctx.print(table(&sessions, Utc::now()).render_for(ctx))
 }
 
-pub fn view_request(id: &str) -> GraphQlRequest<GetAgentSessionDetailsVariables> {
-    GraphQlRequest::with_variables(GetAgentSessionDetails::build(
-        GetAgentSessionDetailsVariables { id: id.to_owned() },
-    ))
-}
-
-pub fn list_request(
-    issue_id: &str,
-    after: Option<String>,
-) -> GraphQlRequest<GetIssueAgentSessionsVariables> {
-    GraphQlRequest::with_variables(GetIssueAgentSessions::build(
-        GetIssueAgentSessionsVariables {
-            issue_id: issue_id.to_owned(),
-            after,
-        },
-    ))
-}
-
+/// The session with every one of its activities.
 async fn fetch_session(transport: &GraphQlTransport, id: &str) -> Result<AgentSession> {
-    let data: GetAgentSessionDetails = transport
-        .execute(&view_request(id))
-        .await
-        .map_err(Error::from)?;
-    ensure_supported(&data.agent_session)?;
-    Ok(data.agent_session)
+    let session = pagination::collect_within(
+        None,
+        |after, first| {
+            let request = GraphQlRequest::with_variables(GetAgentSessionDetails::build(
+                GetAgentSessionDetailsVariables {
+                    id: id.to_owned(),
+                    first,
+                    after,
+                },
+            ));
+            async move {
+                let data: GetAgentSessionDetails = transport.execute(&request).await?;
+                Ok(data.agent_session)
+            }
+        },
+        |session| Page {
+            nodes: std::mem::take(&mut session.activities.nodes),
+            page_info: session.activities.page_info.clone(),
+        },
+        |session, page| {
+            session.activities.nodes = page.nodes;
+            session.activities.page_info = page.page_info;
+        },
+    )
+    .await?;
+    ensure_supported(&session)?;
+    Ok(session)
 }
 
 /// Every comment on the issue, for the agent sessions they started.
 async fn fetch_comments(transport: &GraphQlTransport, id: &str) -> Result<Vec<SessionComment>> {
-    pagination::collect(None, |after, _first| {
-        let request = list_request(id, after);
+    pagination::collect(None, |after, first| {
+        let request = GraphQlRequest::with_variables(GetIssueAgentSessions::build(
+            GetIssueAgentSessionsVariables {
+                issue_id: id.to_owned(),
+                after,
+                first,
+            },
+        ));
         async move {
             let data: GetIssueAgentSessions = transport.execute(&request).await?;
             Ok(Page {

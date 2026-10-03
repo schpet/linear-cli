@@ -5,6 +5,7 @@ use crate::graphql::schema;
 pub struct GetDocumentCommentsVariables {
     pub id: String,
     pub after: Option<String>,
+    pub first: i32,
 }
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(
@@ -24,6 +25,6 @@ pub struct GetDocumentComments {
 )]
 pub struct CommentDocument {
     pub id: cynic::Id,
-    #[arguments(first: 50, after: $after, orderBy: createdAt)]
+    #[arguments(first: $first, after: $after, orderBy: createdAt)]
     pub comments: CommentConnection,
 }

@@ -591,7 +591,7 @@ fn comment_list_json_returns_comments() {
     assert_eq!(Value::Array(run.success().json_nodes()), comments);
     assert_eq!(
         api.variables("GetProjectComments"),
-        json!({ "id": ID, "filterId": ID, "after": null })
+        json!({ "id": ID, "filterId": ID, "after": null, "first": 100 })
     );
 }
 

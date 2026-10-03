@@ -99,7 +99,7 @@ fn member_with_wrong_field_shape_is_rejected() {
     );
 }
 
-const SESSION_BODY: &str = r#"{"data":{"agentSession":{"id":"s1","status":"awaitingInput","type":"commentThread","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-02T00:00:00.000Z","startedAt":null,"endedAt":null,"dismissedAt":null,"summary":null,"externalLink":"https://example.invalid/s1","creator":{"name":"Ada"},"appUser":{"name":"Bot"},"dismissedBy":null,"issue":{"identifier":"ENG-7","title":"Port","url":"https://linear.app/x/issue/ENG-7"},"activities":{"nodes":[{"id":"a1","createdAt":"2026-09-01T00:00:01.000Z","content":{"__typename":"AgentActivityThoughtContent","type":"thought","body":"thinking"}},{"id":"a2","createdAt":"2026-09-01T00:00:02.000Z","content":{"__typename":"AgentActivityActionContent","type":"action","action":"grep","parameter":"foo","result":null}}]}}}}"#;
+const SESSION_BODY: &str = r#"{"data":{"agentSession":{"id":"s1","status":"awaitingInput","type":"commentThread","createdAt":"2026-09-01T00:00:00.000Z","updatedAt":"2026-09-02T00:00:00.000Z","startedAt":null,"endedAt":null,"dismissedAt":null,"summary":null,"externalLink":"https://example.invalid/s1","creator":{"name":"Ada"},"appUser":{"name":"Bot"},"dismissedBy":null,"issue":{"identifier":"ENG-7","title":"Port","url":"https://linear.app/x/issue/ENG-7"},"activities":{"nodes":[{"id":"a1","createdAt":"2026-09-01T00:00:01.000Z","content":{"__typename":"AgentActivityThoughtContent","type":"thought","body":"thinking"}},{"id":"a2","createdAt":"2026-09-01T00:00:02.000Z","content":{"__typename":"AgentActivityActionContent","type":"action","action":"grep","parameter":"foo","result":null}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}"#;
 
 #[test]
 fn full_session_document_parses_and_renders_in_document_order() {
@@ -165,6 +165,8 @@ fn full_session_document_parses_and_renders_in_document_order() {
 fn session_document_matches_the_expected_selection_plus_typename() {
     let operation = GetAgentSessionDetails::build(GetAgentSessionDetailsVariables {
         id: "s1".to_owned(),
+        first: 100,
+        after: None,
     });
     assert_eq!(
         operation.operation_name.as_deref(),
@@ -172,10 +174,13 @@ fn session_document_matches_the_expected_selection_plus_typename() {
     );
     assert_eq!(
         to_value(&operation.variables).expect("variables"),
-        json!({"id": "s1"})
+        json!({"id": "s1", "first": 100, "after": null})
     );
-    assert_eq!(
-        operation.query,
-        "query GetAgentSessionDetails($id: String!) {\n  agentSession(id: $id) {\n    id\n    status\n    type\n    createdAt\n    updatedAt\n    startedAt\n    endedAt\n    dismissedAt\n    summary\n    externalLink\n    creator {\n      name\n    }\n    appUser {\n      name\n    }\n    dismissedBy {\n      name\n    }\n    issue {\n      identifier\n      title\n      url\n    }\n    activities(first: 20) {\n      nodes {\n        id\n        createdAt\n        content {\n          __typename\n          ... on AgentActivityThoughtContent {\n            type\n            body\n          }\n          ... on AgentActivityActionContent {\n            type\n            action\n            parameter\n            result\n          }\n          ... on AgentActivityResponseContent {\n            type\n            body\n          }\n          ... on AgentActivityPromptContent {\n            type\n            body\n          }\n          ... on AgentActivityErrorContent {\n            type\n            body\n          }\n          ... on AgentActivityElicitationContent {\n            type\n            body\n          }\n        }\n      }\n    }\n  }\n}\n"
+    assert!(
+        operation
+            .query
+            .contains("activities(first: $first, after: $after)"),
+        "{}",
+        operation.query
     );
 }

@@ -338,7 +338,7 @@ fn agent_session_list_json_lists_the_sessions() {
     assert_eq!(ids, ["s1", "s2"]);
     assert_eq!(
         api.variables("GetIssueAgentSessions"),
-        json!({ "issueId": "ENG-1" })
+        json!({ "issueId": "ENG-1", "first": 100 })
     );
 }
 
@@ -386,7 +386,7 @@ fn session_details() -> Value {
               "content": { "type": "thought", "body": "Thinking hard" } },
             { "id": "a2", "createdAt": "2026-01-02T03:04:05Z",
               "content": { "type": "action", "action": "run", "parameter": "tests", "result": "ok" } }
-        ] }
+        ], "pageInfo": { "hasNextPage": false, "endCursor": null } }
     })
 }
 
@@ -423,8 +423,35 @@ fn agent_session_view_json_prints_the_session() {
     assert_eq!(nodes(&json["activities"])[1]["content"]["action"], "run");
     assert_eq!(
         api.variables("GetAgentSessionDetails"),
-        json!({ "id": SESSION_ID })
+        json!({ "id": SESSION_ID, "first": 100, "after": null })
     );
+}
+
+#[test]
+fn agent_session_view_follows_activity_pages() {
+    let api = MockLinear::start();
+    let mut first = with_typenames(session_details());
+    let second_activity = first["activities"]["nodes"][1].take();
+    first["activities"]["nodes"] = json!([first["activities"]["nodes"][0].take()]);
+    first["activities"]["pageInfo"] = json!({ "hasNextPage": true, "endCursor": "c1" });
+    let mut second = first.clone();
+    second["activities"] = json!({
+        "nodes": [second_activity],
+        "pageInfo": { "hasNextPage": false, "endCursor": "c2" }
+    });
+    api.on("GetAgentSessionDetails", json!({ "agentSession": first }))
+        .on("GetAgentSessionDetails", json!({ "agentSession": second }));
+    let json = Cli::for_api(&api)
+        .run(&["issue", "agent-session", "view", SESSION_ID, "--json"])
+        .success()
+        .json();
+    assert_eq!(nodes(&json["activities"]).len(), 2);
+    let afters: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .map(|r| r.variables["after"].clone())
+        .collect();
+    assert_eq!(afters, [Value::Null, json!("c1")]);
 }
 
 #[test]

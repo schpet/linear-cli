@@ -34,11 +34,12 @@ impl CommentSource for ProjectComments {
     type Variables = GetProjectCommentsVariables;
     type Response = GetProjectComments;
 
-    fn request(id: &str, after: Option<String>) -> GraphQlRequest<Self::Variables> {
+    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables> {
         GraphQlRequest::with_variables(GetProjectComments::build(GetProjectCommentsVariables {
             id: id.to_owned(),
             filter_id: cynic::Id::new(id),
             after,
+            first,
         }))
     }
 

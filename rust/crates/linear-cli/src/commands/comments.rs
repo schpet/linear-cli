@@ -28,7 +28,8 @@ pub trait CommentSource {
     type Variables: Serialize;
     type Response: DeserializeOwned;
 
-    fn request(id: &str, after: Option<String>) -> GraphQlRequest<Self::Variables>;
+    /// One page of up to `first` comments after cursor `after`.
+    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables>;
 
     /// The page of comments, or `None` when the entity does not exist.
     fn comments(response: Self::Response) -> Option<CommentConnection>;
@@ -42,8 +43,8 @@ pub async fn fetch<S: CommentSource>(
     limit: Limit,
 ) -> Result<Vec<CommentNode>> {
     let not_found = || Error::not_found(S::ENTITY, original);
-    pagination::collect(limit.max(), |after, _first| {
-        let request = S::request(id, after);
+    pagination::collect(limit.max(), |after, first| {
+        let request = S::request(id, after, first);
         async move {
             let response: S::Response =
                 client
