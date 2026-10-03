@@ -463,7 +463,7 @@ fn update_rejects_conflicting_flags_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     let run = cli.run(&["project", "update", ID, "--lead", "@me", "--clear-lead"]);
-    assert_ne!(run.code, 0, "{run}");
+    run.usage_error();
     let run = cli.run(&[
         "project",
         "update",
@@ -473,7 +473,7 @@ fn update_rejects_conflicting_flags_before_any_request() {
         "--add-team",
         "OPS",
     ]);
-    assert_ne!(run.code, 0, "{run}");
+    run.usage_error();
     assert!(api.requests().is_empty());
 }
 

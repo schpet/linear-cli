@@ -450,7 +450,7 @@ fn update_and_create_reject_malformed_dates_before_any_request() {
 fn update_rejects_a_non_numeric_sort_order_before_any_request() {
     let api = MockLinear::start();
     let run = Cli::for_api(&api).run(&["milestone", "update", MILESTONE_ID, "--sort-order", "x"]);
-    assert_ne!(run.code, 0, "{run}");
+    run.usage_error();
 }
 
 #[test]

@@ -513,7 +513,7 @@ fn update_conflicting_flags_fail_before_any_request() {
         let mut argv = vec!["issue", "update", "ENG-1"];
         argv.extend(args);
         let run = cli.run(&argv);
-        assert_ne!(run.code, 0, "{run}");
+        run.failure();
     }
     assert!(api.requests().is_empty(), "{:?}", api.operations());
 }

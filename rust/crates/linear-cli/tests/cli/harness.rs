@@ -223,3 +223,23 @@ fn stalled_request_worker_panics_fail_mock_teardown() {
             .contains("read header line")
     );
 }
+
+#[test]
+fn failure_accepts_only_an_ordinary_runtime_error() {
+    let run = |code| Run {
+        args: vec!["synthetic".to_owned()],
+        code,
+        stdout: String::new(),
+        stderr: String::new(),
+    };
+    run(1).failure();
+    for code in [101, 0, 2, 7, 130] {
+        assert!(
+            catch_unwind(|| {
+                run(code).failure();
+            })
+            .is_err(),
+            "failure accepted exit status {code}"
+        );
+    }
+}

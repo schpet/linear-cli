@@ -226,12 +226,11 @@ impl Run {
         self
     }
 
+    /// An ordinary runtime failure: status 1. Assert forwarded or cancellation
+    /// statuses exactly on `code`.
     #[track_caller]
     pub fn failure(&self) -> &Self {
-        assert!(
-            self.code != 0 && self.code != 2,
-            "expected a runtime failure\n{self}"
-        );
+        assert_eq!(self.code, 1, "expected a runtime failure\n{self}");
         self
     }
 

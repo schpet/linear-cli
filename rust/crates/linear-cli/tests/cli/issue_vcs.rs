@@ -405,10 +405,10 @@ fn pull_request_with_a_missing_template_fails_before_any_request() {
 fn pull_request_fails_when_gh_fails() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details());
-    Cli::for_api(&api)
-        .stub_bin("gh", "exit 1")
-        .run(&["issue", "pr", "ENG-7"])
-        .failure();
+    let run = Cli::for_api(&api)
+        .stub_bin("gh", "exit 5")
+        .run(&["issue", "pr", "ENG-7"]);
+    assert_eq!(run.code, 5, "{run}");
 }
 
 #[test]
