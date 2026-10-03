@@ -57,8 +57,6 @@ pub struct StartupConfig {
     pub options: ConfigOptions,
     pub child_env: ChildEnvOverlay,
     pub transport_env: TransportEnvInputs,
-    /// The process `CI` value; `.env` files cannot set it.
-    pub ci: Option<String>,
     /// Process PAGER value; dotenv files cannot set it either.
     pub pager: Option<OsString>,
     /// Where downloaded Markdown images are cached.
@@ -238,7 +236,6 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         os: process.inputs.os,
         values: overlay,
     };
-    let ci = process.inputs.env("CI").map(str::to_owned);
     let pager = process.pager.clone();
     StartupReport {
         settings: display,
@@ -246,7 +243,6 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         result: Ok(StartupConfig {
             options,
             child_env,
-            ci,
             pager,
             image_cache_root: crate::platform::markdown_assets::cache_root(
                 process.inputs.env("TMPDIR"),

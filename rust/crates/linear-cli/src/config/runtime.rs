@@ -100,7 +100,6 @@ fn relevant(name: &str, os: OsFamily) -> bool {
         || matches!(
             key.as_str(),
             "NO_COLOR"
-                | "CI"
                 | "TMPDIR"
                 | "TMP"
                 | "TEMP"

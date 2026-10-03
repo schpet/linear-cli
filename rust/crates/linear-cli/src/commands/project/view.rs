@@ -71,13 +71,7 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
             "Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.",
         ));
     }
-    // CI is set to anything but `false` in continuous integration.
-    let ci = ctx
-        .config()
-        .ci
-        .as_deref()
-        .is_some_and(|value| !value.is_empty() && value != "false");
-    if !ctx.interactive() || ci {
+    if !ctx.interactive() {
         return Err(Error::new("No project specified").with_hint(
             "Pass a project UUID, slug ID, or exact name. Without one, `linear project view` picks from a list, but only on a terminal.",
         ));
