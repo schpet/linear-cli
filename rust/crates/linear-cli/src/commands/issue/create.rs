@@ -178,12 +178,7 @@ impl Ui for Prompts<'_> {
     }
 
     fn discover_editor(&mut self) -> Result<Option<String>> {
-        editor::configured(&self.ctx.config().child_env)
-            .map(|name| {
-                name.into_string()
-                    .map_err(|_| Error::new("The editor command is not valid UTF-8"))
-            })
-            .transpose()
+        Ok(editor::configured_name(&self.ctx.config().child_env))
     }
 
     fn optional_editor(&mut self) -> Result<Option<String>> {

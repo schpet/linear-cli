@@ -218,10 +218,7 @@ pub async fn prompt<B: Backend, U: Ui>(
         projects,
     )?;
     let editor = ui.discover_editor()?;
-    let editor_label = editor
-        .as_deref()
-        .and_then(|editor| editor.rsplit('/').next())
-        .filter(|label| !label.is_empty());
+    let editor_label = editor.as_deref();
     let message = editor_label
         .map(|label| format!("Description [(e) to launch {label}]"))
         .unwrap_or_else(|| "Description".to_owned());
