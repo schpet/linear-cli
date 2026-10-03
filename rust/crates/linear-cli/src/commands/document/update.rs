@@ -60,13 +60,12 @@ fn update(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
         let seed = document.content.unwrap_or_default();
         ctx.print(format!("Opening {} in editor...\n", document.title))?;
         let edited = ctx.edit_text(&seed)?;
-        if edited == seed {
+        if edited != seed {
+            input.content = text_input::edited_body(&edited);
+        }
+        if input.content.is_none() && !metadata {
             return ctx.print("No changes made; the document is unchanged.\n");
         }
-        let Some(content) = text_input::edited_body(&edited) else {
-            return ctx.print("No changes made; the document is unchanged.\n");
-        };
-        input.content = Some(content);
     }
     let updated = ctx.spin(true, async {
         if input.content.is_some() && !args.force {

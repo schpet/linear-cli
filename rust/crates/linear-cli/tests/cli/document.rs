@@ -732,24 +732,30 @@ fn update_edit_sends_the_edited_content() {
 
 #[test]
 fn update_edit_without_changes_does_not_update() {
-    let api = MockLinear::start();
-    api.on("GetDocumentForEdit", for_edit("# Old"));
-    with_editor(&api, "exit 0")
-        .run(&["document", "update", SLUG, "--edit", "--force"])
-        .success()
-        .stdout_has("No changes");
-    assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+    for script in ["exit 0", ": > \"$1\""] {
+        let api = MockLinear::start();
+        api.on("GetDocumentForEdit", for_edit("# Old"));
+        with_editor(&api, script)
+            .run(&["document", "update", SLUG, "--edit", "--force"])
+            .success()
+            .stdout_has("No changes");
+        assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+    }
 }
 
 #[test]
 fn update_edit_fails_when_the_editor_fails() {
-    let api = MockLinear::start();
-    api.on("GetDocumentForEdit", for_edit("# Old\n"));
-    with_editor(&api, "exit 1")
-        .run(&["document", "update", SLUG, "--edit", "--force"])
-        .failure()
-        .stderr_has("ditor");
-    assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+    for metadata in [Vec::new(), vec!["--title", "Renamed"]] {
+        let api = MockLinear::start();
+        api.on("GetDocumentForEdit", for_edit("# Old\n"));
+        let mut args = vec!["document", "update", SLUG, "--edit", "--force"];
+        args.extend(metadata);
+        with_editor(&api, "exit 1")
+            .run(&args)
+            .failure()
+            .stderr_has("ditor");
+        assert_eq!(api.operations(), ["GetDocumentForEdit"]);
+    }
 }
 
 #[test]
@@ -839,4 +845,90 @@ fn list_rejects_wrong_kind_issue_urls_after_workspace_checks() {
     run.failure().stderr_has("this is the \"acme\" workspace");
     assert!(!run.stderr.contains("not an issue URL"));
     assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_edit_unchanged_still_updates_metadata() {
+    for (flags, input) in [
+        (["--title", "Renamed"], json!({"title": "Renamed"})),
+        (["--icon", "📄"], json!({"icon": "📄"})),
+        (["--project", PROJECT_ID], json!({"projectId": PROJECT_ID})),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetDocumentForEdit", for_edit("# Old"))
+            .on("UpdateDocument", written("UpdateDocument"));
+        let mut args = vec!["document", "update", SLUG, "--edit"];
+        args.extend(flags);
+        let run = with_editor(&api, "exit 0").run(&args);
+        run.success();
+        assert_eq!(api.operations(), ["GetDocumentForEdit", "UpdateDocument"]);
+        assert_eq!(
+            api.variables("UpdateDocument"),
+            json!({"id": SLUG, "input": input})
+        );
+        run.stdout_has("Server title");
+    }
+}
+
+#[test]
+fn update_edit_blank_still_updates_metadata() {
+    for (flags, input) in [
+        (["--title", "Renamed"], json!({"title": "Renamed"})),
+        (["--icon", "📄"], json!({"icon": "📄"})),
+        (["--project", PROJECT_ID], json!({"projectId": PROJECT_ID})),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetDocumentForEdit", for_edit("# Old"))
+            .on("UpdateDocument", written("UpdateDocument"));
+        let mut args = vec!["document", "update", SLUG, "--edit"];
+        args.extend(flags);
+        let run = with_editor(&api, ": > \"$1\"").run(&args);
+        run.success();
+        assert_eq!(api.operations(), ["GetDocumentForEdit", "UpdateDocument"]);
+        assert_eq!(
+            api.variables("UpdateDocument"),
+            json!({"id": SLUG, "input": input})
+        );
+        run.stdout_has("Server title");
+    }
+}
+
+#[test]
+fn update_edit_with_metadata_preserves_the_inline_comment_guard() {
+    for active in [false, true] {
+        let api = MockLinear::start();
+        let comments = if active {
+            json!([{"id": "active", "quotedText": "anchored text", "resolvedAt": null, "archivedAt": null}])
+        } else {
+            json!([])
+        };
+        api.on("GetDocumentForEdit", for_edit("# Old\n"))
+            .on("DocumentInlineCommentGuard", guard(comments));
+        if !active {
+            api.on("UpdateDocument", written("UpdateDocument"));
+        }
+        let run = with_editor(&api, "printf 'Added\\n' >> \"$1\"")
+            .run(&["document", "update", SLUG, "--edit", "--title", "Renamed"]);
+        if active {
+            run.failure().stderr_has("--force");
+            assert_eq!(
+                api.operations(),
+                ["GetDocumentForEdit", "DocumentInlineCommentGuard"]
+            );
+        } else {
+            run.success();
+            assert_eq!(
+                api.operations(),
+                [
+                    "GetDocumentForEdit",
+                    "DocumentInlineCommentGuard",
+                    "UpdateDocument"
+                ]
+            );
+            assert_eq!(
+                api.variables("UpdateDocument"),
+                json!({"id": SLUG, "input": {"title": "Renamed", "content": "# Old\nAdded"}})
+            );
+        }
+    }
 }
