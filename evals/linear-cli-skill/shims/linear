@@ -2,10 +2,10 @@
 # Shim `linear` binary for the skill eval.
 #
 # Records every invocation (argv + stdin for `api`) as a JSON line in
-# $LINEAR_SHIM_LOG, answers --help/--version/schema through the real CLI in
-# $LINEAR_SHIM_REPO (help needs no auth or network), and returns short,
-# plausible canned successes for task commands. Never touches the network and
-# never mutates anything real.
+# $LINEAR_SHIM_LOG, answers --help/--version/schema through the real CLI built
+# at $LINEAR_SHIM_REPO/target/debug/linear (run `cargo build` first; help needs
+# no auth or network), and returns short, plausible canned successes for task
+# commands. Never touches the network and never mutates anything real.
 set -u
 
 LOG="${LINEAR_SHIM_LOG:?LINEAR_SHIM_LOG must be set}"
@@ -94,13 +94,13 @@ for arg in "$@"; do
   case "$arg" in
     --help | -h | --version)
       [ -n "$REPO" ] || { printf 'LINEAR_SHIM_REPO must be set outside offline mode\n' >&2; exit 1; }
-      NO_COLOR=1 exec deno run --quiet --allow-all "$REPO/src/main.ts" "$@"
+      NO_COLOR=1 exec "$REPO/target/debug/linear" "$@"
       ;;
   esac
 done
 if [ "${1:-}" = "schema" ]; then
   [ -n "$REPO" ] || { printf 'LINEAR_SHIM_REPO must be set outside offline mode\n' >&2; exit 1; }
-  NO_COLOR=1 exec deno run --quiet --allow-all "$REPO/src/main.ts" "$@"
+  NO_COLOR=1 exec "$REPO/target/debug/linear" "$@"
 fi
 
 has_flag() {

@@ -1,0 +1,16 @@
+{
+  "tasks": {
+    "skill-eval": "deno run --allow-all run.ts",
+    "skill-eval-claude-markdown": "deno run --allow-all run-claude-markdown.ts",
+    "grade": "deno run --allow-read --allow-write grade.ts"
+  },
+  "imports": {
+    "@std/cli": "jsr:@std/cli@^1.0.28",
+    "@std/fs": "jsr:@std/fs@^1.0.23",
+    "@std/path": "jsr:@std/path@^1.1.4"
+  },
+  "fmt": {
+    "proseWrap": "never",
+    "semiColons": false
+  }
+}

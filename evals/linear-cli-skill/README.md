@@ -52,20 +52,23 @@ The shim's canned task output is **version-matched infrastructure**, not part of
 
 ## Running
 
-Requires a logged-in `codex` CLI. Costs real model tokens (~36 low-effort runs per condition); never run in CI.
+Requires a logged-in `codex` CLI and [Deno](https://deno.com); the harness is a standalone Deno project configured by `deno.json` in this directory. Costs real model tokens (~36 low-effort runs per condition); never run in CI.
+
+The `linear` shim answers discovery commands (`--help`, `--version`, `schema`) with the CLI built from this repository, so build it first:
 
 ```bash
+cargo build
+cd evals/linear-cli-skill
+
 # baseline against the committed skill
-deno task skill-eval --condition baseline --skill-dir skills/linear-cli
+deno task skill-eval --condition baseline --skill-dir ../../skills/linear-cli
 
 # after changing the skill
-deno task skill-eval --condition post-change --skill-dir skills/linear-cli
+deno task skill-eval --condition post-change --skill-dir ../../skills/linear-cli
 
 # grade + compare
-deno run --allow-read --allow-write evals/linear-cli-skill/grade.ts \
-  --compare evals/linear-cli-skill/results/baseline.jsonl \
-  evals/linear-cli-skill/results/post-change.jsonl \
-  -o evals/linear-cli-skill/results/comparison.md
+deno task grade --compare results/baseline.jsonl results/post-change.jsonl \
+  -o results/comparison.md
 ```
 
 Experiment 2 used the same flow under its own condition names (`image-baseline`, `image-post-change`, compared into `results/image-comparison.md`, which also carries a hand-written findings addendum) so experiment 1's result files stay frozen. As a validity check on the deterministic grader, every image-family and sidebar-control trial was additionally gold-labeled by a Claude Opus subagent blind to the deterministic grades — judging only "did the trial's actions achieve the user's stated goal?" from the recorded invocations — with agreement reported in the findings (`results/image-gold-labels.jsonl`).
@@ -87,9 +90,10 @@ Results land in `results/<condition>.jsonl` (sanitized trial records — argv, e
 `run-claude-markdown.ts` is a small forward test for Linear-specific Markdown behavior. It drives Claude Code through the local `claude-agent` adapter in safe mode, explicitly points Claude at a copied skill under test, and puts recording shims first on the subject shell's `PATH`. The subject shell receives an isolated home/config without Linear credentials, and each trial records and verifies that isolation before continuing. CLI discovery is answered offline. The fake `linear` command captures the submitted `--body` or `--body-file` Markdown; no Linear API mutation is performed.
 
 ```bash
+cd evals/linear-cli-skill
 deno task skill-eval-claude-markdown \
   --condition mention-post-change \
-  --skill-dir skills/linear-cli
+  --skill-dir ../../skills/linear-cli
 ```
 
 The frozen cases cover two differently phrased user mentions, one collapsible section, and a verbatim-comment control. The deterministic grader requires the canonical plain profile URL returned by the stubbed team-member lookup, rejects literal `@name` substitutes and GraphQL mutations, checks the balanced `+++ [title]` / `+++` syntax, and ensures the new guidance does not rewrite content requested verbatim. Each result records a SHA-256 hash of the exact `SKILL.md` under test. Issue #112's single-trial-per-case baseline scored 1/4; after the skill update the same cases scored 4/4. See `results/mention-baseline.jsonl` and `results/mention-post-change.jsonl` for the captured commands and Markdown.
