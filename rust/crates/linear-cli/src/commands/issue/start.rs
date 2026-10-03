@@ -366,8 +366,7 @@ pub async fn update_state(
     team: &str,
     identifier: &str,
 ) -> Result<Vec<u8>, String> {
-    let mut request = crate::workflow_states::request(team.to_owned());
-    request.query = request.query.trim_end_matches('\n').to_owned();
+    let request = crate::workflow_states::request(team.to_owned());
     let response: GetWorkflowStates = transport
         .execute(&request)
         .await
