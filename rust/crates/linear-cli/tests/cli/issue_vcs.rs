@@ -21,7 +21,7 @@ fn states() -> Value {
         { "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 },
         { "id": "state-review", "name": "In Review", "type": "started", "position": 3 },
         { "id": "state-progress", "name": "In Progress", "type": "started", "position": 2 },
-    ] } } })
+    ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } })
 }
 
 /// A git whose current branch is `branch`, where no other branch exists yet.
@@ -173,7 +173,7 @@ fn start_creates_the_issue_branch_and_marks_it_started() {
     assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-7" }));
     assert_eq!(
         api.variables("GetWorkflowStates"),
-        json!({ "teamKey": "ENG" })
+        json!({ "teamKey": "ENG", "first": 100 })
     );
     assert_eq!(
         api.variables("UpdateIssueState"),

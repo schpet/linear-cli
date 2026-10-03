@@ -359,7 +359,7 @@ pub async fn update_state(
 ) -> Result<Vec<u8>, String> {
     let states = crate::refs::workflow_states::fetch(client, team.to_owned())
         .await
-        .map_err(|failure| Error::from(failure).to_string())?;
+        .map_err(|failure| failure.to_string())?;
     let state = started(states).map_err(|error| error.to_string())?;
     let response: UpdateIssueState = client
         .mutate(UpdateIssueStateVariables {
@@ -367,7 +367,7 @@ pub async fn update_state(
             state_id: state.id.inner().to_owned(),
         })
         .await
-        .map_err(|failure| Error::from(failure).to_string())?;
+        .map_err(|failure| failure.to_string())?;
     // The `success` flag is not reported; the whole payload is still decoded.
     let _reported_success = response.issue_update.success;
     Ok(format!("✓ Issue state updated to '{}'\n", state.name).into_bytes())

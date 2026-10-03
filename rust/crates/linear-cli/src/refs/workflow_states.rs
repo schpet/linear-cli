@@ -2,10 +2,12 @@
 
 use std::cmp::Ordering;
 
-use crate::client::{LinearClient, RequestError};
+use crate::client::LinearClient;
+use crate::error::Result;
 use crate::graphql::operations::team::{
     GetWorkflowStates, GetWorkflowStatesVariables, WorkflowState,
 };
+use crate::graphql::pagination::{self, Page};
 use crate::platform::collation;
 
 const KNOWN_TYPES: [&str; 7] = [
@@ -18,15 +20,23 @@ const KNOWN_TYPES: [&str; 7] = [
     "duplicate",
 ];
 
-/// The workflow states of the team with key `team_key`, in display order.
-pub async fn fetch(
-    client: &LinearClient,
-    team_key: String,
-) -> Result<Vec<WorkflowState>, RequestError> {
-    let data: GetWorkflowStates = client
-        .query(GetWorkflowStatesVariables { team_key })
-        .await?;
-    let mut states = data.team.states.nodes;
+/// Every workflow state of the team with key `team_key`, in display order.
+pub async fn fetch(client: &LinearClient, team_key: String) -> Result<Vec<WorkflowState>> {
+    let mut states = pagination::collect(None, |after, first| {
+        let variables = GetWorkflowStatesVariables {
+            team_key: team_key.clone(),
+            first,
+            after,
+        };
+        async move {
+            let data: GetWorkflowStates = client.query(variables).await?;
+            Ok(Page {
+                nodes: data.team.states.nodes,
+                page_info: data.team.states.page_info,
+            })
+        }
+    })
+    .await?;
     sort(&mut states);
     Ok(states)
 }

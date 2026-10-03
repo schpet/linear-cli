@@ -38,7 +38,7 @@ fn states() -> Value {
         { "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 },
         { "id": "state-progress", "name": "In Progress", "type": "started", "position": 2 },
         { "id": "state-done", "name": "Done", "type": "completed", "position": 3 }
-    ] } } })
+    ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } })
 }
 
 fn label(id: &str, name: &str) -> Value {

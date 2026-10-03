@@ -6,7 +6,7 @@ use crate::cli::team::TeamStates;
 use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
+use crate::error::{Result, ResultExt};
 use crate::graphql::operations::team::WorkflowState;
 use crate::graphql::scalars::Float;
 use crate::refs::workflow_states;
@@ -20,7 +20,7 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     let client = ctx.client()?;
     let mut states = ctx.spin(!args.json, async {
         let key = team.key(client).await?;
-        Ok::<_, Error>(workflow_states::fetch(client, key).await?)
+        workflow_states::fetch(client, key).await
     })?;
     args.limit.apply(&mut states);
     if args.json {

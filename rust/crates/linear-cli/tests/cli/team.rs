@@ -251,7 +251,7 @@ fn states() -> Value {
         { "id": "todo", "name": "Todo", "type": "unstarted", "position": 1 },
         { "id": "backlog", "name": "Backlog", "type": "backlog", "position": 0 },
         { "id": "progress", "name": "In Progress", "type": "started", "position": 2 }
-    ] } } })
+    ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } })
 }
 
 #[test]
@@ -272,7 +272,35 @@ fn states_json_lists_the_teams_states() {
     assert_eq!(api.variables("ResolveTeam"), resolve_vars("eng"));
     assert_eq!(
         api.variables("GetWorkflowStates"),
-        json!({ "teamKey": "ENG" })
+        json!({ "teamKey": "ENG", "first": 100 })
+    );
+}
+
+#[test]
+fn states_follow_every_page() {
+    let api = MockLinear::start();
+    let state = |id: &str, kind: &str| json!({ "id": id, "name": id, "type": kind, "position": 1 });
+    api.on(
+        "GetWorkflowStates",
+        json!({ "team": { "states": page(vec![state("Todo", "unstarted")], json!("c1"), true) } }),
+    )
+    .on(
+        "GetWorkflowStates",
+        json!({ "team": { "states": page(vec![state("Done", "completed")], Value::Null, false) } }),
+    );
+    let listed = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["team", "states", "--json"])
+        .success()
+        .json_nodes();
+    assert_eq!(listed.len(), 2);
+    let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
+    assert_eq!(
+        variables,
+        [
+            json!({ "teamKey": "ENG", "first": 100 }),
+            json!({ "teamKey": "ENG", "first": 100, "after": "c1" }),
+        ]
     );
 }
 
@@ -288,7 +316,7 @@ fn states_text_uses_the_configured_team() {
         .stdout_has("completed");
     assert_eq!(
         api.variables("GetWorkflowStates"),
-        json!({ "teamKey": "ENG" })
+        json!({ "teamKey": "ENG", "first": 100 })
     );
 }
 

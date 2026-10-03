@@ -110,13 +110,7 @@ impl Backend for NetworkBackend {
         refs::user::resolve(&self.client, &reference, "User").await
     }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
-        use crate::graphql::operations::team::{GetWorkflowStates, GetWorkflowStatesVariables};
-        let data: GetWorkflowStates = self
-            .client
-            .query(GetWorkflowStatesVariables { team_key })
-            .await?;
-        let mut states = data.team.states.nodes;
-        crate::refs::workflow_states::sort(&mut states);
+        let states = refs::workflow_states::fetch(&self.client, team_key).await?;
         Ok(states
             .into_iter()
             .map(|s| State {

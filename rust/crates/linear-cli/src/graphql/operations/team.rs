@@ -310,6 +310,9 @@ pub struct Organization {
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetWorkflowStatesVariables {
     pub team_key: String,
+    pub first: i32,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
@@ -324,8 +327,13 @@ pub struct GetWorkflowStates {
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Team")]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Team",
+    variables = "GetWorkflowStatesVariables"
+)]
 pub struct WorkflowTeam {
+    #[arguments(first: $first, after: $after)]
     pub states: WorkflowStateConnection,
 }
 
@@ -333,6 +341,7 @@ pub struct WorkflowTeam {
 #[cynic(schema = "linear")]
 pub struct WorkflowStateConnection {
     pub nodes: Vec<WorkflowState>,
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
