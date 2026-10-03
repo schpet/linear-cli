@@ -1,6 +1,7 @@
 use crate::{
     error::Error,
     graphql::{edit::Edit, operations::issue_update::IssueUpdateInput},
+    platform::prompt::Text,
 };
 use std::future::Future;
 
@@ -82,33 +83,6 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
                     .with_source(error)
             }),
     }
-}
-/// The leading integer of a prompted estimate. Blank or non-numeric input means
-/// no estimate; an integer outside the i32 range is an error.
-pub fn menu_estimate(value: &str) -> Result<Option<i32>, Error> {
-    let value = value.trim_start();
-    let (negative, value) = match value.strip_prefix('-') {
-        Some(value) => (true, value),
-        None => (false, value.strip_prefix('+').unwrap_or(value)),
-    };
-    let (radix, value) = match value
-        .strip_prefix("0x")
-        .or_else(|| value.strip_prefix("0X"))
-    {
-        Some(value) => (16, value),
-        None => (10, value),
-    };
-    let digits: String = value.chars().take_while(|c| c.is_digit(radix)).collect();
-    if digits.is_empty() {
-        return Ok(None);
-    }
-    let magnitude = i64::from_str_radix(&digits, radix).map_err(|error| {
-        validation("estimate is outside the GraphQL integer range").with_source(error)
-    })?;
-    let signed = if negative { -magnitude } else { magnitude };
-    i32::try_from(signed).map(Some).map_err(|error| {
-        validation("estimate is outside the GraphQL integer range").with_source(error)
-    })
 }
 pub fn default_state(states: &[State]) -> Result<Option<String>, Error> {
     let mut lowest: Option<&State> = None;
@@ -202,13 +176,8 @@ pub trait Backend: Clone + Send + 'static {
 }
 /// The questions issue creation asks, so tests can answer them.
 pub trait Ui {
-    /// A trimmed answer; see [`crate::platform::prompt::Text`].
-    fn text(
-        &mut self,
-        message: &str,
-        required: bool,
-        default: Option<&str>,
-    ) -> Result<String, Error>;
+    /// The checked, trimmed answer to `text`.
+    fn text(&mut self, text: Text<'_>) -> Result<String, Error>;
     /// The id of the picked option; the list starts on the one at `default`.
     fn choose(&mut self, message: &str, options: &[Named], default: usize)
     -> Result<String, Error>;

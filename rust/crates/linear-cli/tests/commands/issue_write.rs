@@ -156,21 +156,9 @@ struct Prompt {
     selected_fields: Vec<String>,
 }
 impl Ui for Prompt {
-    fn text(
-        &mut self,
-        message: &str,
-        required: bool,
-        default: Option<&str>,
-    ) -> Result<String, Error> {
-        self.messages.push(message.into());
+    fn text(&mut self, text: Text<'_>) -> Result<String, Error> {
+        self.messages.push(text.message().into());
         let raw = self.answers.pop_front().expect("missing answer");
-        let mut text = Text::new(message);
-        if required {
-            text = text.required();
-        }
-        if let Some(default) = default {
-            text = text.with_default(default);
-        }
         text.answer(&raw).map_err(shared::validation)
     }
     fn choose(
@@ -367,17 +355,7 @@ async fn update_clear_wire_order_and_lossy_file_success_are_independent_of_parse
     );
 }
 #[test]
-fn integer_menu_source_prefix_and_default_state_stable_lowest() {
-    for (input, expected) in [
-        ("", None),
-        ("NaN", None),
-        ("3.8points", Some(3)),
-        ("0x10rest", Some(16)),
-        ("-2tail", Some(-2)),
-    ] {
-        assert_eq!(shared::menu_estimate(input).expect("parse"), expected)
-    }
-    assert!(shared::menu_estimate("2147483648").is_err());
+fn default_state_is_the_lowest_positioned_unstarted_state() {
     let state = |id: &str, kind: &str, position| State {
         id: id.into(),
         name: id.into(),

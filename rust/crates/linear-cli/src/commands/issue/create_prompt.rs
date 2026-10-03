@@ -2,7 +2,9 @@ use super::{
     create::{self as issue_create, Fields, Input},
     write::{self as shared, AssignSelf, Backend, CreateSettings, Label, Named, Parent, State, Ui},
 };
+use crate::cli::values::estimate;
 use crate::graphql::operations::number::WholeNumber;
+use crate::platform::prompt::Text;
 use crate::{error::Error, graphql::edit::Edit};
 fn option(id: &str, name: &str) -> Named {
     Named {
@@ -120,11 +122,13 @@ async fn additional<B: Backend, U: Ui>(
             }
             "labels" => (),
             "estimate" => {
-                more.estimate = shared::menu_estimate(&ui.text(
-                    "Estimate (leave blank for none)",
-                    false,
-                    None,
-                )?)?
+                let check = |raw: &str| estimate(raw).map(drop);
+                let answer =
+                    ui.text(Text::new("Estimate (leave blank for none)").with_check(&check))?;
+                more.estimate = (!answer.is_empty())
+                    .then(|| estimate(&answer))
+                    .transpose()
+                    .map_err(shared::validation)?;
             }
             "project" => {
                 let projects = backend.projects(team.key.clone()).await?;
@@ -186,7 +190,7 @@ pub async fn prompt<B: Backend, U: Ui>(
             parent.identifier, parent.title
         ))?
     }
-    let title = ui.text("What's the title of your issue?", true, None)?;
+    let title = ui.text(Text::new("What's the title of your issue?").required())?;
     let team = match team {
         Some(team) => team,
         None => {
@@ -222,7 +226,7 @@ pub async fn prompt<B: Backend, U: Ui>(
     let message = editor_label
         .map(|label| format!("Description [(e) to launch {label}]"))
         .unwrap_or_else(|| "Description".to_owned());
-    let raw = ui.text(&message, false, None)?;
+    let raw = ui.text(Text::new(&message))?;
     let description = if raw == "e" {
         if let Some(editor) = editor_label {
             ui.output(&format!("Opening {editor}...\n"))?;

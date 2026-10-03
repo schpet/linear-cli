@@ -141,14 +141,7 @@ impl<'a> Prompts<'a> {
 }
 
 impl Ui for Prompts<'_> {
-    fn text(&mut self, message: &str, required: bool, default: Option<&str>) -> Result<String> {
-        let mut text = Text::new(message);
-        if required {
-            text = text.required();
-        }
-        if let Some(default) = default {
-            text = text.with_default(default);
-        }
+    fn text(&mut self, text: Text<'_>) -> Result<String> {
         self.ask(|prompter| prompter.text(text))
     }
 

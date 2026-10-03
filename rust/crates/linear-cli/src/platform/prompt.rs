@@ -149,6 +149,10 @@ impl<'a> Text<'a> {
         }
     }
 
+    pub fn message(&self) -> &'a str {
+        self.message
+    }
+
     /// Blank answers are refused (unless there is a default).
     pub fn required(self) -> Self {
         Self {
