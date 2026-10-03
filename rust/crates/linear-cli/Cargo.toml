@@ -6,7 +6,7 @@ publish = false
 license = "MIT"
 repository = "https://github.com/schpet/linear-cli"
 homepage = "https://github.com/schpet/linear-cli"
-description = "Native typed Linear CLI, major-3 local candidate"
+description = "Work with Linear issues, projects and teams from the command line"
 
 [dependencies]
 linear-schema = { path = "../linear-schema" }
@@ -64,4 +64,4 @@ keyring = { version = "3.6.3", default-features = false, features = ["windows-na
 dist = true
 # Includes are relative to this package Cargo.toml. The derived licenses tree
 # keeps dependency files in named subdirectories to avoid LICENSE collisions.
-include = ["../../../LICENSE", "../../licenses", "../../../docs/rust-port.md"]
+include = ["../../../LICENSE", "../../licenses"]
