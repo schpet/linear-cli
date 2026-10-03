@@ -2,28 +2,45 @@ use super::{
     create::{self as issue_create, Fields, Input},
     write::{self as shared, Backend, CreateSettings, Label, Named, Parent, State, Ui},
 };
-use crate::cli::values::estimate;
+use crate::cli::values::{Priority, estimate};
 use crate::config::AssignSelf;
 use crate::graphql::scalars::WholeNumber;
-use crate::platform::prompt::Text;
+use crate::platform::prompt::{Choice, Text};
 use crate::{error::Error, graphql::edit::Edit};
-fn option(id: &str, name: &str) -> Named {
-    Named {
-        id: id.to_owned(),
-        name: name.to_owned(),
-    }
+#[derive(Clone, Copy)]
+enum Field {
+    WorkflowState,
+    Assignee,
+    Priority,
+    Labels,
+    Estimate,
+    Project,
 }
+
+enum Next {
+    Submit,
+    MoreFields,
+}
+
 fn yes_no<U: Ui>(ui: &mut U, message: &str) -> Result<bool, Error> {
-    Ok(ui.choose(message, &[option("no", "No"), option("yes", "Yes")], 0)? == "yes")
+    ui.choose(
+        message,
+        vec![Choice::new("No", false), Choice::new("Yes", true)],
+        0,
+    )
 }
 fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>, Error> {
     if projects.is_empty() {
         return Ok(None);
     }
-    let mut rows = vec![option("__none__", "No project")];
-    rows.extend_from_slice(projects);
-    let answer = ui.choose("Which project should this issue belong to?", &rows, 0)?;
-    Ok((answer != "__none__").then_some(answer))
+    let rows = std::iter::once(Choice::new("No project", None))
+        .chain(
+            projects
+                .iter()
+                .map(|project| Choice::new(&project.name, Some(project.id.clone()))),
+        )
+        .collect();
+    ui.choose("Which project should this issue belong to?", rows, 0)
 }
 async fn additional<B: Backend, U: Ui>(
     backend: &B,
@@ -40,52 +57,51 @@ async fn additional<B: Backend, U: Ui>(
         .and_then(|id| states.iter().find(|s| &s.id == id))
         .map(|s| s.name.as_str());
     let mut fields = vec![
-        option(
-            "workflow_state",
-            &name
-                .map(|name| format!("Workflow state ({name})"))
+        Choice::new(
+            name.map(|name| format!("Workflow state ({name})"))
                 .unwrap_or_else(|| "Workflow state".to_owned()),
+            Field::WorkflowState,
         ),
-        option(
-            "assignee",
+        Choice::new(
             if auto {
                 "Assignee (self)"
             } else {
                 "Assignee (unassigned)"
             },
+            Field::Assignee,
         ),
-        option("priority", "Priority"),
-        option("labels", "Labels"),
-        option("estimate", "Estimate"),
+        Choice::new("Priority", Field::Priority),
+        Choice::new("Labels", Field::Labels),
+        Choice::new("Estimate", Field::Estimate),
     ];
     if include_project {
-        fields.push(option("project", "Project"))
+        fields.push(Choice::new("Project", Field::Project))
     }
-    let selected = ui.checkbox("Select additional fields to configure", &fields)?;
+    let selected = ui.checkbox("Select additional fields to configure", fields)?;
     let mut more = More::default();
     // Choosing more fields starts them over, including the default state.
     if auto {
         more.assignee = Some(backend.viewer().await?)
     }
     for field in selected {
-        match field.as_str() {
-            "workflow_state" if !states.is_empty() => {
+        match field {
+            Field::WorkflowState if !states.is_empty() => {
                 let options: Vec<_> = states
                     .iter()
-                    .map(|s| option(&s.id, &format!("{} ({})", s.name, s.kind)))
+                    .map(|s| Choice::new(format!("{} ({})", s.name, s.kind), s.id.clone()))
                     .collect();
                 let index = default
                     .as_ref()
-                    .and_then(|id| options.iter().position(|o| &o.id == id))
+                    .and_then(|id| states.iter().position(|state| &state.id == id))
                     .unwrap_or(0);
                 more.state = Some(ui.choose(
                     "Which workflow state should this issue be in?",
-                    &options,
+                    options,
                     index,
                 )?);
             }
-            "workflow_state" => (),
-            "assignee" => {
+            Field::WorkflowState => (),
+            Field::Assignee => {
                 let answer = yes_no(ui, "Assign this issue to yourself?")?;
                 more.assignee = if answer {
                     Some(backend.viewer().await?)
@@ -93,47 +109,43 @@ async fn additional<B: Backend, U: Ui>(
                     None
                 };
             }
-            "priority" => {
+            Field::Priority => {
                 let values = [
-                    (0_u32, "No priority"),
-                    (1, "Urgent"),
-                    (2, "High"),
-                    (3, "Medium"),
-                    (4, "Low"),
+                    (Priority::None, "No priority"),
+                    (Priority::Urgent, "Urgent"),
+                    (Priority::High, "High"),
+                    (Priority::Medium, "Medium"),
+                    (Priority::Low, "Low"),
                 ];
                 let options = values
                     .into_iter()
                     .map(|(value, label)| {
-                        let glyph = super::list_view::priority(WholeNumber(value));
-                        option(&value.to_string(), &format!("{glyph} {label}"))
+                        let glyph =
+                            super::list_view::priority(WholeNumber(value.number().unsigned_abs()));
+                        Choice::new(format!("{glyph} {label}"), value)
                     })
                     .collect::<Vec<_>>();
-                let value = ui.choose("What priority should this issue have?", &options, 0)?;
-                let priority = value.parse::<i32>().map_err(|error| {
-                    Error::new("selected priority is not an integer").with_source(error)
-                })?;
-                more.priority = (priority != 0).then_some(priority);
+                let value = ui.choose("What priority should this issue have?", options, 0)?;
+                more.priority = (value != Priority::None).then(|| value.number());
             }
-            "labels" if !labels.is_empty() => {
-                let options: Vec<_> = labels.iter().map(|l| option(&l.id, &l.name)).collect();
+            Field::Labels if !labels.is_empty() => {
+                let options: Vec<_> = labels
+                    .iter()
+                    .map(|l| Choice::new(&l.name, l.id.clone()))
+                    .collect();
                 more.labels = ui.checkbox(
                     "Select labels (use space to select, enter to confirm)",
-                    &options,
+                    options,
                 )?;
             }
-            "labels" => (),
-            "estimate" => {
+            Field::Labels => (),
+            Field::Estimate => {
                 more.estimate =
                     ui.parsed(Text::new("Estimate (leave blank for none)"), &estimate)?;
             }
-            "project" => {
+            Field::Project => {
                 let projects = backend.projects(team.key.clone()).await?;
                 more.project = project_menu(ui, &projects)?;
-            }
-            _ => {
-                return Err(Error::new(
-                    "selected additional field is not a declared menu member",
-                ));
             }
         }
     }
@@ -190,15 +202,11 @@ pub async fn prompt<B: Backend, U: Ui>(
         Some(team) => team,
         None => {
             let teams = backend.teams().await?;
-            let options: Vec<_> = teams
-                .iter()
-                .map(|t| option(&t.id, &format!("{} ({})", t.name, t.key)))
-                .collect();
-            let selected = ui.choose("Which team should this issue belong to?", &options, 0)?;
-            teams
+            let options = teams
                 .into_iter()
-                .find(|t| t.id == selected)
-                .expect("the picked team is one of the options")
+                .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))
+                .collect();
+            ui.choose("Which team should this issue belong to?", options, 0)?
         }
     };
     let ask_project = settings.ask_project
@@ -249,9 +257,9 @@ pub async fn prompt<B: Backend, U: Ui>(
     }
     let next = ui.choose(
         "What's next?",
-        &[
-            option("submit", "Submit issue"),
-            option("more_fields", "Add more fields"),
+        vec![
+            Choice::new("Submit issue", Next::Submit),
+            Choice::new("Add more fields", Next::MoreFields),
         ],
         0,
     )?;
@@ -262,22 +270,23 @@ pub async fn prompt<B: Backend, U: Ui>(
     if auto {
         more.assignee = Some(backend.viewer().await?)
     }
-    if next == "more_fields" {
-        more = additional(
-            backend,
-            ui,
-            &team,
-            &states,
-            &labels,
-            !settings.ask_project
-                && parent_data.is_none()
-                && initial_project.as_deref().is_none_or(str::is_empty),
-            auto,
-        )
-        .await?;
-        project = more.project.clone().or(project);
-    } else if next != "submit" {
-        return Err(Error::new("next action is not a declared menu member"));
+    match next {
+        Next::Submit => (),
+        Next::MoreFields => {
+            more = additional(
+                backend,
+                ui,
+                &team,
+                &states,
+                &labels,
+                !settings.ask_project
+                    && parent_data.is_none()
+                    && initial_project.as_deref().is_none_or(str::is_empty),
+                auto,
+            )
+            .await?;
+            project = more.project.clone().or(project);
+        }
     }
     let start = yes_no(
         ui,

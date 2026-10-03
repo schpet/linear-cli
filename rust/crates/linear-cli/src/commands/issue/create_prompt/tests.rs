@@ -12,7 +12,7 @@ use crate::commands::issue::write::{
 use crate::config::AssignSelf;
 use crate::error::Error;
 use crate::graphql::operations::issue::IssueUpdateInput;
-use crate::platform::prompt::Text;
+use crate::platform::prompt::{Choice, Text};
 use crate::refs::team::ResolvedTeam;
 
 /// Answers the lookups an interactive create makes and records which ran.
@@ -20,6 +20,10 @@ use crate::refs::team::ResolvedTeam;
 struct Linear {
     calls: Arc<Mutex<Vec<String>>>,
     parent: Option<Parent>,
+    teams: Vec<ResolvedTeam>,
+    labels: Vec<Label>,
+    projects: Vec<Named>,
+    empty_states: bool,
 }
 
 impl Linear {
@@ -48,7 +52,7 @@ impl Backend for Linear {
         }))
     }
     async fn teams(&self) -> Result<Vec<ResolvedTeam>, Error> {
-        unreachable!("teams")
+        Ok(self.teams.clone())
     }
     async fn team_options(&self, _: String) -> Result<Vec<Named>, Error> {
         unreachable!("team options")
@@ -64,6 +68,9 @@ impl Backend for Linear {
         unreachable!("user")
     }
     async fn states(&self, _: String) -> Result<Vec<State>, Error> {
+        if self.empty_states {
+            return Ok(Vec::new());
+        }
         let state = |id: &str, kind: &str, position| State {
             id: id.into(),
             name: id.into(),
@@ -87,7 +94,7 @@ impl Backend for Linear {
         unreachable!("label options")
     }
     async fn labels(&self, _: String) -> Result<Vec<Label>, Error> {
-        Ok(Vec::new())
+        Ok(self.labels.clone())
     }
     async fn project(&self, _: String) -> Result<Option<String>, Error> {
         unreachable!("project")
@@ -97,7 +104,7 @@ impl Backend for Linear {
     }
     async fn projects(&self, _: String) -> Result<Vec<Named>, Error> {
         self.note("projects");
-        Ok(Vec::new())
+        Ok(self.projects.clone())
     }
     async fn milestone(&self, _: String, _: String) -> Result<String, Error> {
         unreachable!("milestone")
@@ -127,7 +134,9 @@ impl Backend for Linear {
 struct Script {
     answers: VecDeque<&'static str>,
     shown: Vec<String>,
-    menus: Vec<Vec<Named>>,
+    menus: Vec<Vec<String>>,
+    defaults: Vec<usize>,
+    checked: VecDeque<Vec<&'static str>>,
 }
 
 impl Script {
@@ -135,6 +144,35 @@ impl Script {
         Self {
             answers: answers.iter().copied().collect(),
             ..Self::default()
+        }
+    }
+    fn done(&self) {
+        assert!(
+            self.answers.is_empty(),
+            "unused answers: {:?}",
+            self.answers
+        );
+        assert!(
+            self.checked.is_empty(),
+            "unused checkbox answers: {:?}",
+            self.checked
+        );
+    }
+    fn selected(labels: &[String], answer: &str) -> usize {
+        if let Some(index) = answer.strip_prefix('#') {
+            let index = index.parse::<usize>().expect("scripted choice index");
+            assert!(index < labels.len(), "scripted index in menu");
+            return index;
+        }
+        let matches: Vec<_> = labels
+            .iter()
+            .enumerate()
+            .filter(|(_, label)| *label == answer)
+            .map(|(index, _)| index)
+            .collect();
+        match matches.as_slice() {
+            [index] => *index,
+            _ => panic!("scripted answer {answer:?} must select exactly one of {labels:?}"),
         }
     }
 }
@@ -156,21 +194,41 @@ impl Ui for Script {
         }
         parse(&answer).map(Some).map_err(Error::new)
     }
-    fn choose(
+    fn choose<T>(
         &mut self,
         message: &str,
-        options: &[Named],
+        choices: Vec<Choice<T>>,
         default: usize,
-    ) -> Result<String, Error> {
+    ) -> Result<T, Error> {
         self.shown.push(message.into());
-        self.menus.push(options.to_vec());
-        Ok(self
+        let labels: Vec<_> = choices.iter().map(ToString::to_string).collect();
+        let index = self
             .answers
             .pop_front()
-            .map_or_else(|| options[default].id.clone(), str::to_owned))
+            .map_or(default, |answer| Self::selected(&labels, answer));
+        self.menus.push(labels);
+        self.defaults.push(default);
+        Ok(choices
+            .into_iter()
+            .nth(index)
+            .expect("selected choice exists")
+            .value)
     }
-    fn checkbox(&mut self, _: &str, _: &[Named]) -> Result<Vec<String>, Error> {
-        Ok(Vec::new())
+    fn checkbox<T>(&mut self, message: &str, choices: Vec<Choice<T>>) -> Result<Vec<T>, Error> {
+        self.shown.push(message.into());
+        let labels: Vec<_> = choices.iter().map(ToString::to_string).collect();
+        let answers = self.checked.pop_front().expect("checkbox answer");
+        let selected: Vec<_> = answers
+            .iter()
+            .map(|answer| Self::selected(&labels, answer))
+            .collect();
+        self.menus.push(labels);
+        Ok(choices
+            .into_iter()
+            .enumerate()
+            .filter(|(index, _)| selected.contains(index))
+            .map(|(_, choice)| choice.value)
+            .collect())
     }
     fn output(&mut self, text: &str) -> Result<(), Error> {
         self.shown.push(text.into());
@@ -203,7 +261,7 @@ fn input(created: super::Interactive) -> Value {
 #[tokio::test]
 async fn a_submitted_issue_gets_trimmed_text_the_first_unstarted_state_and_its_creator() {
     let linear = Linear::default();
-    let mut ui = Script::answering(&["  Title 界  ", "  body  ", "submit", "no"]);
+    let mut ui = Script::answering(&["  Title 界  ", "  body  ", "Submit issue", "No"]);
     let fields = Fields {
         use_default_template: true,
         ..Fields::default()
@@ -216,6 +274,7 @@ async fn a_submitted_issue_gets_trimmed_text_the_first_unstarted_state_and_its_c
     )
     .await
     .expect("issue input");
+    ui.done();
     assert!(!created.start);
     let input = input(created);
     assert_eq!(input["title"], "Title 界");
@@ -237,7 +296,7 @@ async fn a_sub_issue_takes_the_parent_project_without_asking() {
         }),
         ..Linear::default()
     };
-    let mut ui = Script::answering(&["X", "", "submit", "no"]);
+    let mut ui = Script::answering(&["X", "", "Submit issue", "No"]);
     let fields = Fields {
         parent: Some("ENG-9".into()),
         ..Fields::default()
@@ -286,13 +345,250 @@ fn a_near_miss_offers_the_closest_names() {
     );
 
     let several = [named("10", "ten"), named("2", "two"), named("10", "TEN")];
-    for (answer, chosen) in [("1", Some("2")), ("2", None)] {
+    for (answer, chosen) in [("two", Some("2")), ("none of the above", None)] {
         let mut ui = Script::answering(&[answer]);
         assert_eq!(
             create::select_option(&mut ui, "Project", "missing", &several).expect("choice"),
             chosen.map(str::to_owned)
         );
-        let labels: Vec<_> = ui.menus[0].iter().map(|o| o.name.as_str()).collect();
+        let labels: Vec<_> = ui.menus[0].iter().map(String::as_str).collect();
         assert_eq!(labels, ["ten", "two", "none of the above"]);
+        ui.done();
     }
+}
+
+#[tokio::test]
+async fn additional_fields_keep_menu_order_defaults_and_typed_values() {
+    let linear = Linear {
+        labels: vec![
+            Label {
+                id: "label-a".into(),
+                name: "First label".into(),
+                color: "#abcdef".into(),
+            },
+            Label {
+                id: "label-b".into(),
+                name: "Second label".into(),
+                color: "#abcdef".into(),
+            },
+        ],
+        projects: vec![Named {
+            id: "release".into(),
+            name: "Release".into(),
+        }],
+        ..Linear::default()
+    };
+    let mut ui = Script::answering(&[
+        "Title",
+        "",
+        "Add more fields",
+        "later (unstarted)",
+        "Yes",
+        "⚠⚠⚠ Urgent",
+        "0",
+        "Release",
+        "No",
+    ]);
+    ui.checked = [
+        vec![
+            "Project",
+            "Estimate",
+            "Labels",
+            "Priority",
+            "Assignee (unassigned)",
+            "Workflow state (first)",
+        ],
+        vec!["Second label", "First label"],
+    ]
+    .into();
+    let created = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Never, false),
+        &Fields::default(),
+    )
+    .await
+    .expect("issue input");
+    ui.done();
+    assert_eq!(
+        ui.menus[1],
+        [
+            "Workflow state (first)",
+            "Assignee (unassigned)",
+            "Priority",
+            "Labels",
+            "Estimate",
+            "Project"
+        ]
+    );
+    assert_eq!(
+        ui.menus[2],
+        [
+            "started (started)",
+            "later (unstarted)",
+            "first (unstarted)",
+            "tied (unstarted)"
+        ]
+    );
+    assert_eq!(ui.defaults[1], 2, "lowest unstarted state; first tie");
+    let input = input(created);
+    assert_eq!(input["stateId"], "later");
+    assert_eq!(input["assigneeId"], "self-id");
+    assert_eq!(input["priority"], 1);
+    assert_eq!(input["estimate"], 0);
+    assert_eq!(input["labelIds"], json!(["label-a", "label-b"]));
+    assert_eq!(input["projectId"], "release");
+}
+
+#[tokio::test]
+async fn more_fields_resets_default_state_and_omits_zero_priority() {
+    let linear = Linear::default();
+    let mut ui = Script::answering(&["Title", "", "Add more fields", "--- No priority", "No"]);
+    ui.checked.push_back(vec!["Priority"]);
+    let created = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Always, false),
+        &Fields::default(),
+    )
+    .await
+    .expect("issue input");
+    ui.done();
+    let input = input(created);
+    assert!(input.get("stateId").is_none());
+    assert!(input.get("priority").is_none());
+    assert_eq!(input["assigneeId"], "self-id");
+    assert_eq!(input["labelIds"], json!([]));
+}
+
+#[tokio::test]
+async fn declining_self_assignment_overrides_the_auto_assignment() {
+    let linear = Linear::default();
+    let mut ui = Script::answering(&["Title", "", "Add more fields", "No", "No"]);
+    ui.checked.push_back(vec!["Assignee (self)"]);
+    let created = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Always, false),
+        &Fields::default(),
+    )
+    .await
+    .expect("issue input");
+    ui.done();
+    assert!(input(created).get("assigneeId").is_none());
+}
+
+#[tokio::test]
+async fn empty_state_and_label_lists_skip_their_selection_prompts() {
+    let linear = Linear {
+        empty_states: true,
+        ..Linear::default()
+    };
+    let mut ui = Script::answering(&["Title", "", "Add more fields", "No"]);
+    ui.checked.push_back(vec!["Workflow state", "Labels"]);
+    let created = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Never, false),
+        &Fields::default(),
+    )
+    .await
+    .expect("issue input");
+    ui.done();
+    assert_eq!(ui.menus.len(), 3, "next action, fields and start only");
+    let input = input(created);
+    assert!(input.get("stateId").is_none());
+    assert_eq!(input["labelIds"], json!([]));
+}
+
+#[tokio::test]
+async fn project_selection_or_decline_survives_unrelated_additional_fields() {
+    for (answer, project) in [("Release", json!("release")), ("No project", Value::Null)] {
+        let linear = Linear {
+            projects: vec![Named {
+                id: "release".into(),
+                name: "Release".into(),
+            }],
+            ..Linear::default()
+        };
+        let mut ui = Script::answering(&["Title", "", answer, "Add more fields", "No"]);
+        ui.checked.push_back(vec![]);
+        let created = prompt(
+            &linear,
+            &mut ui,
+            &settings(AssignSelf::Never, true),
+            &Fields::default(),
+        )
+        .await
+        .expect("issue input");
+        ui.done();
+        assert_eq!(ui.menus[0], ["No project", "Release"]);
+        assert!(!ui.menus[2].contains(&"Project".to_owned()));
+        assert_eq!(input(created)["projectId"], project);
+    }
+}
+
+#[tokio::test]
+async fn a_team_picker_returns_the_selected_team_and_start_answer() {
+    let linear = Linear {
+        teams: vec![
+            ResolvedTeam {
+                id: "eng".into(),
+                key: "ENG".into(),
+                name: "Shared".into(),
+            },
+            ResolvedTeam {
+                id: "ops".into(),
+                key: "OPS".into(),
+                name: "Shared".into(),
+            },
+        ],
+        ..Linear::default()
+    };
+    let mut config = settings(AssignSelf::Never, false);
+    config.default_team = None;
+    let mut ui = Script::answering(&["Title", "Shared (OPS)", "", "Submit issue", "Yes"]);
+    let created = prompt(&linear, &mut ui, &config, &Fields::default())
+        .await
+        .expect("issue input");
+    ui.done();
+    assert_eq!(ui.menus[0], ["Shared (ENG)", "Shared (OPS)"]);
+    assert!(created.start);
+    assert_eq!(input(created)["teamId"], "ops");
+}
+
+#[test]
+fn near_miss_choices_distinguish_duplicate_labels_and_the_decline_label() {
+    for (names, answer, expected) in [
+        (["same", "same"], "#1", Some("second")),
+        (["other", "none of the above"], "#1", Some("second")),
+        (["other", "none of the above"], "#2", None),
+    ] {
+        let options = names
+            .into_iter()
+            .zip(["first", "second"])
+            .map(|(name, id)| Named {
+                id: id.into(),
+                name: name.into(),
+            })
+            .collect::<Vec<_>>();
+        let mut ui = Script::answering(&[answer]);
+        assert_eq!(
+            create::select_option(&mut ui, "Project", "missing", &options)
+                .expect("choice")
+                .as_deref(),
+            expected
+        );
+        ui.done();
+    }
+    let mut ui = Script::answering(&["no"]);
+    let options = [Named {
+        id: "first".into(),
+        name: "Only".into(),
+    }];
+    assert_eq!(
+        create::select_option(&mut ui, "Project", "missing", &options).expect("decline"),
+        None
+    );
+    ui.done();
 }

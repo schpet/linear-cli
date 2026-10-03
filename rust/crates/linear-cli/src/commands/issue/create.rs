@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 
-use super::write::{self as shared, Backend, CreateSettings, Named, Parent, Ui};
+use super::write::{self as shared, Backend, CreateSettings, Parent, Ui};
 use super::write_network::NetworkBackend;
 use crate::{
     cli::{
@@ -150,19 +150,11 @@ impl Ui for Prompts<'_> {
         self.ask(|prompter| prompter.parsed(text, parse))
     }
 
-    fn choose(&mut self, message: &str, options: &[Named], default: usize) -> Result<String> {
-        let choices = options
-            .iter()
-            .map(|option| Choice::new(&option.name, option.id.clone()))
-            .collect();
+    fn choose<T>(&mut self, message: &str, choices: Vec<Choice<T>>, default: usize) -> Result<T> {
         self.ask(|prompter| prompter.select_from(message, choices, default))
     }
 
-    fn checkbox(&mut self, message: &str, options: &[Named]) -> Result<Vec<String>> {
-        let choices = options
-            .iter()
-            .map(|option| Choice::new(&option.name, option.id.clone()))
-            .collect();
+    fn checkbox<T>(&mut self, message: &str, choices: Vec<Choice<T>>) -> Result<Vec<T>> {
         self.ask(|prompter| prompter.multi_select(message, choices))
     }
 
@@ -427,39 +419,29 @@ pub fn select_option<U: Ui>(
         .iter()
         .filter(|option| seen.insert(option.id.as_str()))
         .collect();
-    let (message, labels): (String, Vec<&str>) = match candidates.as_slice() {
+    let (message, choices) = match candidates.as_slice() {
         [] => return Ok(None),
         [only] => (
             format!(
                 "{kind} named {original} does not exist, but {} exists. Is this what you meant?",
                 only.name
             ),
-            vec!["yes", "no"],
+            vec![
+                Choice::new("yes", Some(only.id.clone())),
+                Choice::new("no", None),
+            ],
         ),
         many => (
             format!(
                 "{kind} with {original} does not exist, but the following exist. Is any of these what you meant?"
             ),
             many.iter()
-                .map(|option| option.name.as_str())
-                .chain(["none of the above"])
+                .map(|option| Choice::new(&option.name, Some(option.id.clone())))
+                .chain([Choice::new("none of the above", None)])
                 .collect(),
         ),
     };
-    // Menu ids are positions, so no candidate id can be mistaken for the decline entry.
-    let menu: Vec<shared::Named> = labels
-        .iter()
-        .enumerate()
-        .map(|(index, label)| shared::Named {
-            id: index.to_string(),
-            name: (*label).to_owned(),
-        })
-        .collect();
-    let selected = ui.choose(&message, &menu, 0)?;
-    let index = selected
-        .parse::<usize>()
-        .map_err(|error| Error::new("menu returned an unknown choice").with_source(error))?;
-    Ok(candidates.get(index).map(|option| option.id.clone()))
+    ui.choose(&message, choices, 0)
 }
 
 impl From<&crate::cli::issue::IssueCreate> for Fields {

@@ -4,7 +4,7 @@ use crate::{
     cli::values::UserRef,
     error::Error,
     graphql::{edit::Edit, operations::issue::IssueUpdateInput},
-    platform::prompt::Text,
+    platform::prompt::{Choice, Text},
 };
 use std::future::Future;
 
@@ -174,11 +174,15 @@ pub trait Ui {
         text: Text<'_>,
         parse: &dyn Fn(&str) -> Result<T, String>,
     ) -> Result<Option<T>, Error>;
-    /// The id of the picked option; the list starts on the one at `default`.
-    fn choose(&mut self, message: &str, options: &[Named], default: usize)
-    -> Result<String, Error>;
-    /// The ids of the picked options, in list order.
-    fn checkbox(&mut self, message: &str, options: &[Named]) -> Result<Vec<String>, Error>;
+    /// The picked value; the list starts on the choice at `default`.
+    fn choose<T>(
+        &mut self,
+        message: &str,
+        choices: Vec<Choice<T>>,
+        default: usize,
+    ) -> Result<T, Error>;
+    /// The picked values, in list order.
+    fn checkbox<T>(&mut self, message: &str, choices: Vec<Choice<T>>) -> Result<Vec<T>, Error>;
     fn output(&mut self, text: &str) -> Result<(), Error>;
     fn error(&mut self, text: &str) -> Result<(), Error>;
     fn discover_editor(&mut self) -> Result<Option<String>, Error>;
