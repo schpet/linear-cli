@@ -12,6 +12,7 @@ pub fn run(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
 fn add(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
     let original = &args.project;
     let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
+    comment_add::check_parent(args.parent.as_deref())?;
     let reference = prepare_project_lookup(original, &ctx.scope()?)?;
     let body = match body {
         Some(body) => body,
@@ -25,7 +26,7 @@ fn add(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
             body,
             args.parent.as_deref(),
             None,
-        )?;
+        );
         comment_add::create(client, input).await
     })?;
     ctx.print(comment_add::output("project", original, &comment))

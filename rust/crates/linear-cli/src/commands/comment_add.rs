@@ -69,18 +69,23 @@ pub fn prompt(ctx: &Ctx) -> Result<String> {
     ctx.prompter()?.text(Text::new("Comment body").required())
 }
 
-/// Build the mutation input. A pasted comment link gets the specific
-/// explanation; any other Linear URL gets the general one.
+/// Checks `--parent` before anything is looked up: a pasted comment link
+/// gets the specific explanation, any other Linear URL the general one.
+pub fn check_parent(parent_id: Option<&str>) -> Result<()> {
+    if let Some(parent) = parent_id {
+        reject_comment_url(parent)?;
+        reject_linear_url(parent, "the UUID of the comment to reply to")?;
+    }
+    Ok(())
+}
+
+/// Build the mutation input, with `parent_id` already checked by [`check_parent`].
 pub fn build_input(
     target: CommentTarget,
     body: String,
     parent_id: Option<&str>,
     id: Option<&str>,
-) -> Result<CommentCreateInput, Error> {
-    if let Some(parent) = parent_id {
-        reject_comment_url(parent)?;
-        reject_linear_url(parent, "the UUID of the comment to reply to")?;
-    }
+) -> CommentCreateInput {
     let mut input = CommentCreateInput {
         body,
         parent_id: parent_id.map(str::to_owned),
@@ -98,7 +103,7 @@ pub fn build_input(
         CommentTarget::Project { project_id } => input.project_id = Some(project_id),
         CommentTarget::Initiative { initiative_id } => input.initiative_id = Some(initiative_id),
     }
-    Ok(input)
+    input
 }
 
 pub fn request(input: CommentCreateInput) -> GraphQlRequest<AddCommentVariables> {

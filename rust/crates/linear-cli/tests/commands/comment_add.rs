@@ -120,7 +120,7 @@ fn body_files_strip_a_bom_and_reject_invalid_or_unreadable_files() {
 #[test]
 fn input_sets_exactly_one_target_and_omits_absent_optionals() {
     let variables = |target, parent: Option<&str>, id: Option<&str>| {
-        let input = comment_add::build_input(target, "Body".into(), parent, id).unwrap();
+        let input = comment_add::build_input(target, "Body".into(), parent, id);
         serde_json::to_value(comment_add::request(input)).unwrap()["variables"]["input"].clone()
     };
     assert_eq!(
@@ -163,17 +163,14 @@ fn input_sets_exactly_one_target_and_omits_absent_optionals() {
         ),
         json!({"body":"Body","initiativeId":I})
     );
-    let wire = serde_json::to_value(comment_add::request(
-        comment_add::build_input(
-            CommentTarget::Project {
-                project_id: P.into(),
-            },
-            "x".into(),
-            None,
-            None,
-        )
-        .unwrap(),
-    ))
+    let wire = serde_json::to_value(comment_add::request(comment_add::build_input(
+        CommentTarget::Project {
+            project_id: P.into(),
+        },
+        "x".into(),
+        None,
+        None,
+    )))
     .unwrap();
     assert_eq!(
         compact(wire["query"].as_str().unwrap()),
@@ -186,11 +183,8 @@ fn input_sets_exactly_one_target_and_omits_absent_optionals() {
 
 #[test]
 fn parent_comment_links_get_specific_guidance_before_other_linear_urls() {
-    let target = || CommentTarget::Project {
-        project_id: P.into(),
-    };
     let link = "https://linear.app/acme/issue/ENG-1/title#comment-abcdef12";
-    let error = comment_add::build_input(target(), "x".into(), Some(link), None).unwrap_err();
+    let error = comment_add::check_parent(Some(link)).unwrap_err();
     assert_eq!(
         error.message(),
         format!(
@@ -198,7 +192,7 @@ fn parent_comment_links_get_specific_guidance_before_other_linear_urls() {
         )
     );
     let url = "https://linear.app/acme/issue/ENG-1";
-    let error = comment_add::build_input(target(), "x".into(), Some(url), None).unwrap_err();
+    let error = comment_add::check_parent(Some(url)).unwrap_err();
     assert_eq!(
         error.message(),
         format!("\"{url}\" is a Linear URL, and this command does not take one.")

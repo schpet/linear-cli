@@ -13,6 +13,7 @@ pub fn run(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
 fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
     attach::validate_comment_id(args.id.as_deref())?;
     let text = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
+    comment_add::check_parent(args.parent.as_deref())?;
     let identifier = crate::commands::issue::require(ctx, args.issue_id.as_deref())?;
     if args.public && args.attach.is_empty() {
         return Err(Error::new("--public requires at least one --attach")
@@ -36,7 +37,7 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
         body,
         args.parent.as_deref(),
         args.id.as_deref(),
-    )?;
+    );
     let client = ctx.client()?;
     let comment = ctx.spin(true, comment_add::create(client, input))?;
     ctx.print(attach::comment_output(&identifier, &comment.url))

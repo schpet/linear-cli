@@ -51,6 +51,40 @@ fn add_posts_the_body_to_the_issue() {
 }
 
 #[test]
+fn add_refuses_a_parent_url_before_uploading_or_looking_up() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .file("cwd/shot.png", "png")
+        .run(&[
+            "issue",
+            "comment",
+            "add",
+            "eng-1",
+            "--attach",
+            "shot.png",
+            "--parent",
+            "https://linear.app/acme/issue/ENG-1/title#comment-abcdef12",
+        ])
+        .failure()
+        .stderr_has("links to a comment");
+    assert!(api.requests().is_empty());
+    Cli::for_api(&api)
+        .run(&[
+            "project",
+            "comment",
+            "add",
+            "Roadmap",
+            "--body",
+            "Hi",
+            "--parent",
+            "https://linear.app/acme/issue/ENG-1",
+        ])
+        .failure()
+        .stderr_has("is a Linear URL");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn add_reads_the_body_file_and_replies_to_a_parent() {
     let api = MockLinear::start();
     api.on("AddComment", created());

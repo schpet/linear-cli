@@ -3,7 +3,6 @@ use crate::cli::initiative::InitiativeCommentAdd;
 use crate::commands::comment_add::{self, CommentTarget};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::refs;
 
 pub fn run(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     add(ctx, args).context("Failed to add comment")
@@ -13,10 +12,7 @@ fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     let original = &args.initiative;
     let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
     let reference = super::reference(ctx, original)?;
-    if let Some(parent) = &args.parent {
-        refs::reject_comment_url(parent)?;
-        refs::reject_linear_url(parent, "the UUID of the comment to reply to")?;
-    }
+    comment_add::check_parent(args.parent.as_deref())?;
     let body = match body {
         Some(body) => body,
         None => comment_add::prompt(ctx)?,
@@ -26,7 +22,7 @@ fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
         let initiative_id =
             super::resolve(client, &reference, original, super::Archived::Exclude).await?;
         let target = CommentTarget::Initiative { initiative_id };
-        let input = comment_add::build_input(target, body, args.parent.as_deref(), None)?;
+        let input = comment_add::build_input(target, body, args.parent.as_deref(), None);
         comment_add::create(client, input).await
     })?;
     ctx.print(comment_add::output("initiative", original, &comment))
