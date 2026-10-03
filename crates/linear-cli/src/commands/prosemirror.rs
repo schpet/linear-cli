@@ -91,8 +91,8 @@ struct Node {
     /// `attrs.label`: the display text of mentions and similar inline atoms,
     /// read for every node type.
     label: String,
-    /// `attrs.done === true || attrs.checked === true`, read by a todo list
-    /// for each of its children whatever their type.
+    /// Whether `attrs.done` or `attrs.checked` is `true`. A todo list reads it
+    /// from each of its children, whatever their type.
     done: bool,
 }
 

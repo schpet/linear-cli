@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
   push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -28,7 +29,7 @@ jobs:
     env:
       CARGO_BUILD_JOBS: "2"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # rust-toolchain.toml pins the version and components.
       - name: Install Rust
         run: rustup toolchain install
@@ -48,12 +49,19 @@ jobs:
           echo "test-password" | gnome-keyring-daemon --unlock --components=secrets
       - name: System keyring round trip
         run: cargo test --locked --workspace --lib -- --ignored system_keyring_round_trip
-      - name: Generate skill docs
+      - name: Check skill docs are current
         if: runner.os == 'Linux'
-        run: cargo run --locked --example skill_docs
+        run: |
+          cargo run --locked --example skill_docs
+          if [ -n "$(git status --porcelain skills)" ]; then
+            git status --short skills
+            echo "skills/linear-cli is out of date; run 'just skill-docs'" >&2
+            exit 1
+          fi
       - name: Check dependency license notices are current
         if: runner.os == 'Linux'
         run: |
+          # The runner's python3 is 3.12; the script needs 3.11+.
           python3 -m unittest discover -s scripts/tests
           cargo metadata --format-version 1 --locked > "$RUNNER_TEMP/metadata.json"
           rm -rf licenses/dependencies

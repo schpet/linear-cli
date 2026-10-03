@@ -1,4 +1,4 @@
-//! Characterization tests that drive the `linear` binary against a loopback mock API.
+//! Integration tests that drive the `linear` binary against a loopback mock API.
 //! Each command group lives in its own module.
 #![cfg(unix)]
 

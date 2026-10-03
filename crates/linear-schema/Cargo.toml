@@ -2,6 +2,7 @@
 name = "linear-schema"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 publish = false
 license.workspace = true
 repository.workspace = true
