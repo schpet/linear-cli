@@ -66,11 +66,12 @@ pub fn needs_prompt(body: Option<&str>) -> bool {
 pub async fn existing_body(client: &LinearClient, id: &str) -> Result<String, Error> {
     let result: GetComment = client
         .query(GetCommentVariables { id: id.to_owned() })
-        .await?;
-    Ok(result
+        .await
+        .map_err(|failure| failure.or_not_found("Comment", id))?;
+    let comment = result
         .comment
-        .and_then(|comment| comment.body)
-        .unwrap_or_default())
+        .ok_or_else(|| Error::not_found("Comment", id))?;
+    Ok(comment.body.unwrap_or_default())
 }
 pub async fn submit(client: &LinearClient, id: &str, body: String) -> Result<Vec<u8>, Error> {
     let result: UpdateComment = client
@@ -98,3 +99,6 @@ pub async fn submit(client: &LinearClient, id: &str, body: String) -> Result<Vec
         .ok_or_else(|| Error::new("Comment update failed - no comment returned"))?;
     Ok(outcome::done("Updated", "comment", id, Some(&comment.url)).into_bytes())
 }
+
+#[cfg(test)]
+mod tests;

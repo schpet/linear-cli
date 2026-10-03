@@ -8,7 +8,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 /// What the server does with one connection.
-pub(super) enum Reply {
+pub(crate) enum Reply {
     /// A complete response with `Content-Length`, then close.
     Http {
         status: u16,
@@ -34,7 +34,7 @@ impl Reply {
         }
     }
 
-    pub(super) fn json(body: &serde_json::Value) -> Self {
+    pub(crate) fn json(body: &serde_json::Value) -> Self {
         Self::status(200, "application/json", body.to_string())
     }
 
@@ -55,7 +55,7 @@ impl Reply {
 
 /// One request as the server received it.
 #[derive(Debug)]
-pub(super) struct Request {
+pub(crate) struct Request {
     pub method: String,
     pub path: String,
     /// Header names are lowercased.
@@ -78,7 +78,7 @@ impl Request {
     }
 }
 
-pub(super) struct Server {
+pub(crate) struct Server {
     port: u16,
     stop: mpsc::Sender<()>,
     handle: JoinHandle<Vec<Request>>,
@@ -86,7 +86,7 @@ pub(super) struct Server {
 
 impl Server {
     /// Serves one connection per reply, in order, then stops listening.
-    pub(super) fn start(replies: Vec<Reply>) -> Self {
+    pub(crate) fn start(replies: Vec<Reply>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
         listener
             .set_nonblocking(true)
@@ -120,7 +120,7 @@ impl Server {
     }
 
     /// Stops the server and returns the requests it received.
-    pub(super) fn finish(self) -> Vec<Request> {
+    pub(crate) fn finish(self) -> Vec<Request> {
         let _ = self.stop.send(());
         self.handle.join().expect("server thread")
     }

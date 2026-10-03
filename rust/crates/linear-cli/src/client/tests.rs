@@ -2,7 +2,7 @@
 //! classification, size caps, deadlines, cancellation and redaction.
 
 mod download;
-mod server;
+pub(crate) mod server;
 
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -49,7 +49,7 @@ fn client_for(endpoint: &str, config: ClientConfig) -> LinearClient {
 }
 
 /// A client for `server` with a generous deadline and cap.
-fn client_to(server: &Server) -> LinearClient {
+pub(crate) fn client_to(server: &Server) -> LinearClient {
     client_for(
         &server.url("/graphql"),
         config(Duration::from_secs(10), 1024 * 1024),

@@ -210,3 +210,6 @@ impl LinearClient {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+pub(crate) use tests::{client_to, server};
