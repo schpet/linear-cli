@@ -66,7 +66,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     };
     let updated = ctx.spin(true, async {
         let owner_id = match &changes.owner {
-            Some(owner) => Some(super::owner_id(client, owner).await?),
+            Some(owner) => Some(crate::commands::user::resolve(client, owner, "Owner").await?),
             None => None,
         };
         submit(client, &id, changes.into_input(owner_id)).await

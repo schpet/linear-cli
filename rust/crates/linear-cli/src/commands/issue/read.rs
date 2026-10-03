@@ -340,27 +340,7 @@ pub async fn assignee_filter(
         return Ok(None);
     };
     reject_linear_url(input, "an email, username, display name, or @me")?;
-    use crate::graphql::operations::initiatives::{
-        GetViewerId, GetViewerIdVariables, LookupUser, LookupUserVariables,
-    };
-    let id = if input == "self" || input == "@me" {
-        let data: GetViewerId = exchange(
-            transport,
-            &GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {})),
-        )
-        .await?;
-        data.viewer.id
-    } else {
-        let data: LookupUser = exchange(
-            transport,
-            &GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
-                input: input.to_owned(),
-            })),
-        )
-        .await?;
-        crate::commands::initiative::list::select_owner(&data.users.nodes, input)
-            .ok_or_else(|| Error::not_found("User", input))?
-    };
+    let id = cynic::Id::new(crate::commands::user::resolve(transport, input, "User").await?);
     Ok(Some(NullableUserFilter {
         id: Some(IDComparator {
             eq: Some(id),

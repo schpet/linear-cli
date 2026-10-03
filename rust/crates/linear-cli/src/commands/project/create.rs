@@ -113,7 +113,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             None => None,
         };
         let lead_id = match &draft.lead {
-            Some(lead) => Some(write::user(client, lead, "Lead").await?),
+            Some(lead) => Some(crate::commands::user::resolve(client, lead, "Lead").await?),
             None => None,
         };
         let status_id = match draft.status {
@@ -128,7 +128,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             .collect();
         let mut member_ids = Vec::new();
         for member in &args.member {
-            member_ids.push(write::user(client, member, "User").await?);
+            member_ids.push(crate::commands::user::resolve(client, member, "User").await?);
         }
         let input = ProjectCreateInput {
             name,

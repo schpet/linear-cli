@@ -4,15 +4,15 @@ use serde::Serialize;
 
 use crate::cli::initiative::InitiativeList;
 use crate::cli::values;
-use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
+use crate::commands::{json, user};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
     GetInitiatives, GetInitiativesVariables, IDComparator, Initiative, InitiativeFilter,
     InitiativeOwner, InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType,
-    LookupUserNode, NullableUserFilter,
+    NullableUserFilter,
 };
 use crate::graphql::operations::teams::StringComparator;
 use crate::graphql::pagination::{self, Page, PageInfo};
@@ -34,7 +34,7 @@ fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
     let client = ctx.client()?;
     let mut initiatives = ctx.spin(!args.json, async {
         let owner = match &args.owner {
-            Some(owner) => Some(super::owner_id(client, owner).await?),
+            Some(owner) => Some(user::resolve(client, owner, "Owner").await?),
             None => None,
         };
         fetch(client, filter(status, owner), args.archived).await
@@ -222,20 +222,4 @@ fn render_text(initiatives: &[Initiative]) -> Table {
         ]);
     }
     table
-}
-
-/// An exact email match, then an exact display name, then the first user
-/// whose name contains the input.
-pub fn select_owner(users: &[LookupUserNode], input: &str) -> Option<cynic::Id> {
-    let target = input.to_lowercase();
-    users
-        .iter()
-        .find(|user| user.email.to_lowercase() == target)
-        .or_else(|| {
-            users
-                .iter()
-                .find(|user| user.display_name.to_lowercase() == target)
-        })
-        .or_else(|| users.first())
-        .map(|user| user.id.clone())
 }

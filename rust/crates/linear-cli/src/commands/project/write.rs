@@ -8,9 +8,6 @@ use crate::commands::project::collections::ResolvedRef;
 use crate::commands::text_input;
 use crate::error::{Error, Result};
 use crate::graphql::envelope::GraphQlRequest;
-use crate::graphql::operations::initiatives::{
-    GetViewerId, GetViewerIdVariables, LookupUser, LookupUserVariables,
-};
 use crate::graphql::operations::project_write::{
     GetInitiativeByIdForUpdate, GetProjectLabelIdByName, GetProjectStatuses, InitiativeIdVariables,
     NameVariables, ProjectStatus,
@@ -93,32 +90,6 @@ pub async fn status_id(client: &GraphQlTransport, status: Status) -> Result<Stri
         .find(|candidate| candidate.status_type == kind)
         .map(|found| found.id.into_inner())
         .ok_or_else(|| Error::not_found("Project status", kind.as_str()))
-}
-
-/// The ID of a user named by email, display name, name, or `@me`.
-pub async fn user(client: &GraphQlTransport, value: &str, noun: &str) -> Result<String> {
-    if value == "@me" || value == "self" {
-        let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
-        let data: GetViewerId = client.execute(&request).await?;
-        return Ok(data.viewer.id.into_inner());
-    }
-    let request = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
-        input: value.to_owned(),
-    }));
-    let data: LookupUser = client.execute(&request).await?;
-    let wanted = value.to_lowercase();
-    let users = data.users.nodes;
-    users
-        .iter()
-        .find(|user| user.email.to_lowercase() == wanted)
-        .or_else(|| {
-            users
-                .iter()
-                .find(|user| user.display_name.to_lowercase() == wanted)
-        })
-        .or_else(|| users.first())
-        .map(|user| user.id.inner().to_owned())
-        .ok_or_else(|| Error::not_found(noun, value))
 }
 
 /// The project labels named by `values`, without duplicates.

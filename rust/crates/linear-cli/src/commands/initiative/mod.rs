@@ -18,9 +18,6 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_reference::{NameVariables, UrlSlugVariables};
 use crate::graphql::operations::initiative_unarchive::ResolveInitiativeByNameIncludingArchived;
 use crate::graphql::operations::initiative_view::ResolveInitiativeBySlug;
-use crate::graphql::operations::initiatives::{
-    GetViewerId, GetViewerIdVariables, LookupUser, LookupUserVariables,
-};
 use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{self, InitiativeReference};
 
@@ -111,20 +108,4 @@ fn check_owner(owner: Option<&str>) -> Result<()> {
         Some(owner) => refs::reject_linear_url(owner, "an email, username, display name, or @me"),
         None => Ok(()),
     }
-}
-
-/// The user ID for an owner given as `@me`, an email, a display name or a name.
-async fn owner_id(client: &GraphQlTransport, input: &str) -> Result<String> {
-    if input == "@me" || input == "self" {
-        let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
-        let data: GetViewerId = client.execute(&request).await?;
-        return Ok(data.viewer.id.into_inner());
-    }
-    let request = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
-        input: input.to_owned(),
-    }));
-    let data: LookupUser = client.execute(&request).await?;
-    list::select_owner(&data.users.nodes, input)
-        .map(cynic::Id::into_inner)
-        .ok_or_else(|| Error::not_found("Owner", input))
 }

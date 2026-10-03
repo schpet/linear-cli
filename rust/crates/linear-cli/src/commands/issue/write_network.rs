@@ -149,17 +149,7 @@ impl Backend for NetworkBackend {
         if reference == "self" || reference == "@me" {
             return self.viewer().await;
         }
-        use crate::graphql::operations::initiatives::{LookupUser, LookupUserVariables};
-        let data: LookupUser = fetch(
-            &self.transport,
-            &request(LookupUser::build(LookupUserVariables {
-                input: reference.clone(),
-            })),
-        )
-        .await?;
-        crate::commands::initiative::list::select_owner(&data.users.nodes, &reference)
-            .map(cynic::Id::into_inner)
-            .ok_or_else(|| Error::not_found("User", &reference))
+        crate::commands::user::resolve(&self.transport, &reference, "User").await
     }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
         use crate::graphql::operations::workflow_states::{

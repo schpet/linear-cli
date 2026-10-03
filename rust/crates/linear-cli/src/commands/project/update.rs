@@ -130,7 +130,7 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
             input.status_id = Edit::Set(write::status_id(client, status).await?);
         }
         input.lead_id = match &fields.lead {
-            Some(lead) => Edit::Set(write::user(client, lead, "Lead").await?),
+            Some(lead) => Edit::Set(crate::commands::user::resolve(client, lead, "Lead").await?),
             None if args.clear_lead => Edit::Clear,
             None => Edit::Unchanged,
         };
