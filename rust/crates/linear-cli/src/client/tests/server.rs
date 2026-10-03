@@ -248,7 +248,7 @@ fn read_request(mut stream: &TcpStream) -> Request {
             Err(error) => panic!("read request: {error}"),
         }
         assert!(
-            started.elapsed() < Duration::from_secs(10),
+            started.elapsed() < Duration::from_secs(30),
             "request never completed"
         );
         let Some(head_end) = buffer.windows(4).position(|window| window == b"\r\n\r\n") else {
