@@ -1058,6 +1058,49 @@ fn list_limit_must_be_a_whole_number() {
 }
 
 #[test]
+fn query_orders_types_but_preserves_same_type_server_order_across_teams() {
+    let api = MockLinear::start();
+    let issue_at = |number, team, kind, position: i32| {
+        let mut row = list_issue(number, team, kind);
+        row["state"]["position"] = json!(position);
+        row
+    };
+    api.on(
+        "GetIssuesForQuery",
+        issues(
+            vec![
+                issue_at(1, "ENG", "unstarted", 1),
+                issue_at(2, "ENG", "unstarted", 9),
+                issue_at(3, "OPS", "unstarted", 5),
+                issue_at(4, "ENG", "zulu", 9),
+                issue_at(5, "OPS", "Écart", 1),
+                issue_at(6, "ENG", "echo", 1),
+                issue_at(7, "ENG", "echo", 9),
+                issue_at(8, "ENG", "duplicate", 1),
+                issue_at(9, "OPS", "triage", 1),
+                issue_at(10, "ENG", "started", 0),
+            ],
+            None,
+        ),
+    );
+    let rows = Cli::for_api(&api)
+        .run(&["issue", "query", "--all-teams", "--json"])
+        .success()
+        .json_nodes();
+    let order: Vec<_> = rows
+        .iter()
+        .map(|row| row["identifier"].as_str().expect("identifier"))
+        .collect();
+    assert_eq!(
+        order,
+        [
+            "OPS-9", "ENG-10", "ENG-1", "ENG-2", "OPS-3", "ENG-8", "OPS-5", "ENG-6", "ENG-7",
+            "ENG-4"
+        ]
+    );
+}
+
+#[test]
 fn list_orders_by_state_type_then_position_within_one_team() {
     let api = MockLinear::start();
     let issue_at = |number: u32, state_type: &str, position: f64| {

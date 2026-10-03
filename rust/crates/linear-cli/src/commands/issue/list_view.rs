@@ -7,30 +7,8 @@ use crate::error::Error;
 use crate::graphql::operations::issue_read::*;
 use crate::graphql::scalars::WholeNumber;
 use crate::platform::style;
+use crate::refs::workflow_states;
 
-fn state_rank(value: &str) -> usize {
-    [
-        "triage",
-        "started",
-        "unstarted",
-        "backlog",
-        "completed",
-        "canceled",
-        "duplicate",
-    ]
-    .iter()
-    .position(|v| *v == value)
-    .unwrap_or(7)
-}
-fn type_order(a: &str, b: &str) -> std::cmp::Ordering {
-    state_rank(a).cmp(&state_rank(b)).then_with(|| {
-        if state_rank(a) == 7 {
-            crate::platform::collation::compare(a, b)
-        } else {
-            std::cmp::Ordering::Equal
-        }
-    })
-}
 /// Orders issues by workflow state type, then (within one team) by the
 /// state's position, highest first.
 pub fn sort(rows: &mut [ListedIssue]) {
@@ -38,7 +16,7 @@ pub fn sort(rows: &mut [ListedIssue]) {
         .first()
         .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
     rows.sort_by(|a, b| {
-        type_order(&a.state.r#type, &b.state.r#type).then_with(|| {
+        workflow_states::compare_types(&a.state.r#type, &b.state.r#type).then_with(|| {
             if multi {
                 std::cmp::Ordering::Equal
             } else {

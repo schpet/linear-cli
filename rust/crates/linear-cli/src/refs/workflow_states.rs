@@ -41,20 +41,21 @@ pub async fn fetch(client: &LinearClient, team_key: String) -> Result<Vec<Workfl
     Ok(states)
 }
 
-pub fn sort(states: &mut [WorkflowState]) {
+/// Known workflow types first, followed by unknown types in display order.
+pub fn compare_types(left: &str, right: &str) -> Ordering {
+    let left_rank = KNOWN_TYPES.iter().position(|kind| *kind == left);
+    let right_rank = KNOWN_TYPES.iter().position(|kind| *kind == right);
+    match (left_rank, right_rank) {
+        (Some(left), Some(right)) => left.cmp(&right),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => collation::compare(left, right),
+    }
+}
+
+fn sort(states: &mut [WorkflowState]) {
     states.sort_by(|left, right| {
-        let left_rank = KNOWN_TYPES
-            .iter()
-            .position(|kind| *kind == left.state_type.as_str());
-        let right_rank = KNOWN_TYPES
-            .iter()
-            .position(|kind| *kind == right.state_type.as_str());
-        let by_type = match (left_rank, right_rank) {
-            (Some(left), Some(right)) => left.cmp(&right),
-            (Some(_), None) => Ordering::Less,
-            (None, Some(_)) => Ordering::Greater,
-            (None, None) => collation::compare(&left.state_type, &right.state_type),
-        };
-        by_type.then_with(|| right.position.get().total_cmp(&left.position.get()))
+        compare_types(&left.state_type, &right.state_type)
+            .then_with(|| right.position.get().total_cmp(&left.position.get()))
     });
 }

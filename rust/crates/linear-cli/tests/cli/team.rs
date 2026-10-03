@@ -1,7 +1,7 @@
 //! The `team` command group (`team id` is covered in config.rs).
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, assert_json};
 use crate::web::{open_stubs, opened};
 
 const ENG_ID: &str = "team-eng-id";
@@ -274,6 +274,72 @@ fn states_json_lists_the_teams_states() {
         api.variables("GetWorkflowStates"),
         json!({ "teamKey": "ENG", "first": 100 })
     );
+}
+
+#[test]
+fn states_json_orders_known_and_unknown_types_then_position_with_stable_ties() {
+    let api = MockLinear::start();
+    let state = |id: &str, kind: &str, position: i32| {
+        json!({
+            "id": id, "name": id, "type": kind, "position": position
+        })
+    };
+    let rows = vec![
+        state("done", "completed", 3),
+        state("zulu", "zulu", 0),
+        state("started-low", "started", 1),
+        state("accent-low", "Écart", 1),
+        state("todo-first", "unstarted", 4),
+        state("started-high", "started", 9),
+        state("backlog", "backlog", 2),
+        state("todo-tied", "unstarted", 4),
+        state("triage", "triage", 0),
+        state("canceled", "canceled", 0),
+        state("duplicate", "duplicate", 0),
+        state("accent-high", "Écart", 9),
+        state("echo", "echo", 0),
+    ];
+    api.on(
+        "GetWorkflowStates",
+        json!({ "team": { "states": {
+        "nodes": rows,
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+    } } }),
+    );
+    let listed = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["team", "states", "--json"])
+        .success()
+        .json_nodes();
+    let ids: Vec<_> = listed
+        .iter()
+        .map(|row| row["id"].as_str().expect("id"))
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "triage",
+            "started-high",
+            "started-low",
+            "todo-first",
+            "todo-tied",
+            "backlog",
+            "done",
+            "canceled",
+            "duplicate",
+            "accent-high",
+            "accent-low",
+            "echo",
+            "zulu"
+        ]
+    );
+    for row in &listed {
+        let original = rows
+            .iter()
+            .find(|original| original["id"] == row["id"])
+            .expect("listed state");
+        assert_json(row, original);
+    }
 }
 
 #[test]
