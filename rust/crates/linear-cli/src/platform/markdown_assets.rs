@@ -327,20 +327,20 @@ pub fn sanitized_filename(name: &str, fallback: &str) -> String {
         .filter(|ch| !matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
         .filter(|ch| !ch.is_control())
         .collect();
-    let stem = value.split('.').next().unwrap_or("").to_ascii_lowercase();
-    let reserved = matches!(stem.as_str(), "con" | "prn" | "aux" | "nul")
-        || (stem.len() == 4
-            && (stem.starts_with("com") || stem.starts_with("lpt"))
-            && stem.as_bytes().get(3).is_some_and(u8::is_ascii_digit));
-    if reserved {
-        value.clear();
-    }
-    let trimmed = value.trim_end_matches(['.', ' ']);
-    let mut value = trimmed.to_owned();
     while value.len() > 255 {
         value.pop();
     }
-    if value.is_empty() {
+    value.truncate(value.trim_end_matches(['.', ' ']).len());
+    let stem = value.split('.').next().unwrap_or("").to_ascii_lowercase();
+    let port_number = stem
+        .strip_prefix("com")
+        .or_else(|| stem.strip_prefix("lpt"));
+    let reserved = matches!(stem.as_str(), "con" | "prn" | "aux" | "nul")
+        || matches!(
+            port_number,
+            Some("0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³")
+        );
+    if reserved || value.is_empty() {
         fallback.to_owned()
     } else {
         value
@@ -469,6 +469,12 @@ mod tests {
         for (name, expected) in [
             ("", "image"),
             ("CON.txt", "image"),
+            ("con.", "image"),
+            ("com0.txt", "image"),
+            ("LPT9", "image"),
+            ("com10", "com10"),
+            ("com⁴", "com⁴"),
+            ("com", "com"),
             ("..", "image"),
             ("a<>:/\\|?*\u{1}\u{80}b. ", "ab"),
             ("cache space (a)", "cache space (a)"),
@@ -476,6 +482,35 @@ mod tests {
             assert_eq!(sanitized_filename(name, "image"), expected, "{name:?}");
         }
         assert_eq!(sanitized_filename(&"界".repeat(100), "x"), "界".repeat(85));
+    }
+
+    #[test]
+    fn file_names_reject_reserved_names_created_by_cleanup() {
+        for name in ["nul ", "con .", "AUX  ..", "lpt9 ", "COM0 "] {
+            assert_eq!(sanitized_filename(name, "image"), "image", "{name:?}");
+        }
+        assert_eq!(
+            sanitized_filename(&format!("aux{}x", " ".repeat(300)), "attachment"),
+            "attachment"
+        );
+    }
+
+    #[test]
+    fn file_names_trim_dots_and_spaces_created_by_truncation() {
+        for (name, expected) in [
+            (format!("{}. b", "a".repeat(254)), "a".repeat(254)),
+            (format!("{} b", "a".repeat(254)), "a".repeat(254)),
+            (format!("{}.界", "a".repeat(253)), "a".repeat(253)),
+        ] {
+            assert_eq!(sanitized_filename(&name, "image"), expected);
+        }
+    }
+
+    #[test]
+    fn file_names_reject_reserved_superscript_device_names() {
+        for name in ["COM¹", "com².txt", "CoM³", "LPT¹.txt", "lpt²", "LpT³.foo"] {
+            assert_eq!(sanitized_filename(name, "image"), "image", "{name:?}");
+        }
     }
 
     #[test]
