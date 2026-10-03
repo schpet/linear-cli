@@ -15,7 +15,7 @@ here's how it works:
 ```bash
 linear config               # setup your repo, it writes a config file
 
-linear issue mine           # list unstarted issues assigned to you
+linear issue list           # list unstarted issues assigned to you
 linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
 linear issue start          # choose an issue to start, creates a branch
@@ -144,17 +144,18 @@ linear issue list -a   # open issue list in Linear.app
 linear issue query --search "login bug"  # search issues by text in your configured team
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
-linear issue query --all-teams --json --limit 0  # export all issues as JSON
+linear issue query --all-teams --json --limit all  # export all issues as JSON
 linear issue start     # create/switch to issue branch and mark as started
-linear issue create    # create a new issue (interactive prompts)
+linear issue create    # create a new issue, asking for the title
+linear issue create -i # create a new issue, asking for every field
 linear issue create -t "title" -d "description"  # create with flags
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
 linear issue create --template "Bug report" -t "Login fails"  # create from a template (see template commands)
-linear issue update    # update an issue (interactive prompts)
+linear issue update ENG-123 -s started  # change only the fields you pass
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
 linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
-linear issue archive ENG-123 --confirm  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
-linear issue archive --confirm --bulk ENG-123 ENG-124  # archive several issues
+linear issue archive ENG-123 --yes  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
+linear issue archive --yes --bulk ENG-123 ENG-124  # archive several issues
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
@@ -258,7 +259,7 @@ linear m create --project <projectId>           # create a milestone (interactiv
 linear milestone update <milestoneId> --name "New Name"  # update milestone name
 linear m update <milestoneId> --target-date "2026-04-15"  # update target date
 linear milestone delete <milestoneId>           # delete a milestone
-linear m delete <milestoneId> --force           # delete without confirmation
+linear m delete <milestoneId> --yes             # delete without confirmation
 ```
 
 ### document commands

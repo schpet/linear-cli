@@ -45,7 +45,7 @@ filter by assignee:
 
 ```bash
 # List issues assigned to you
-linear issue list --assignee self
+linear issue list --assignee @me
 
 # List issues assigned to specific user
 linear issue list --assignee username
@@ -119,10 +119,11 @@ this will move the issue to "in progress" and create a git branch.
 
 #### create an issue
 
-create an issue interactively:
+create an issue interactively; bare `issue create` asks only for the title, and `-i` asks for every field:
 
 ```bash
 linear issue create
+linear issue create -i
 ```
 
 create with specific options:
@@ -132,7 +133,7 @@ create with specific options:
 linear issue create --title "Fix bug" --description "Description here"
 
 # Create and assign to yourself
-linear issue create --assignee self
+linear issue create --assignee @me
 
 # Create with priority (1-4, where 1 is highest)
 linear issue create --priority 1
@@ -246,8 +247,8 @@ linear issue delete TEAM-123
 archive an issue:
 
 ```bash
-linear issue archive TEAM-123 --confirm
-linear issue archive --confirm --bulk TEAM-123 TEAM-124   # several at once; --bulk-file and --bulk-stdin also work
+linear issue archive TEAM-123 --yes
+linear issue archive --yes --bulk TEAM-123 TEAM-124   # several at once; --bulk-file and --bulk-stdin also work
 ```
 
 Archiving is normally something Linear does for you, not something you do by hand. Linear's [delete and archive issues](https://linear.app/docs/delete-archive-issues) docs state that "archiving happens automatically with no option to manually archive items": closed issues are auto-archived after the period set in Team settings, and the manual action Linear offers is delete, which keeps the issue in the trash for 30 days. Linear removed manual archiving from its app in 2021 because "most users used the archive as a trash can", reasoning that "the archive is something that Linear should manage for you while deleting issues is your own choice" ([changelog](https://linear.app/changelog/2021-04-15-auto-archive-cycles-and-projects-and-deleting-issues)). Its official MCP server has no archive tool either.
