@@ -8,7 +8,7 @@ use crate::commands::json;
 use crate::commands::status_update::{self, Row, UpdateHealth};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_updates::{
     ListProjectUpdates, ListProjectUpdatesVariables, UpdateNode,
 };
@@ -28,7 +28,7 @@ fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
         pagination::collect_within(
             args.limit.max(),
             |after, first| {
-                let request = GraphQlRequest::with_variables(ListProjectUpdates::build(
+                let request = LegacyRequest::with_variables(ListProjectUpdates::build(
                     ListProjectUpdatesVariables {
                         id: id.clone(),
                         first: Some(first),
@@ -36,7 +36,7 @@ fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
                     },
                 ));
                 async move {
-                    let data: ListProjectUpdates = client.execute(&request).await?;
+                    let data: ListProjectUpdates = client.execute_legacy(&request).await?;
                     data.project
                         .ok_or_else(|| Error::not_found("Project", original))
                 }

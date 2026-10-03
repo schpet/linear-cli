@@ -5,7 +5,7 @@ use crate::cli::milestone::MilestoneCreate;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_create::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, CreatedMilestone,
     ProjectMilestoneCreateInput,
@@ -34,7 +34,7 @@ async fn submit(
     project_id: String,
     args: &MilestoneCreate,
 ) -> Result<CreatedMilestone> {
-    let request = GraphQlRequest::with_variables(CreateProjectMilestone::build(
+    let request = LegacyRequest::with_variables(CreateProjectMilestone::build(
         CreateProjectMilestoneVariables {
             input: ProjectMilestoneCreateInput {
                 project_id,
@@ -45,7 +45,7 @@ async fn submit(
         },
     ));
     let result: CreateProjectMilestone = client
-        .execute(&request)
+        .execute_legacy(&request)
         .await
         .map_err(|failure| failure.into_create_error("milestone"))?;
     let payload = result.project_milestone_create;

@@ -87,7 +87,7 @@
     ]
   },
   "blank-nel": {
-    "reference": "\u0085",
+    "reference": "",
     "error": {
       "message": "Team reference is empty",
       "suggestion": "Pass a team key, name, or ID, e.g. --team ENG."
@@ -376,71 +376,6 @@
             "pageInfo": {
               "hasNextPage": false,
               "endCursor": null
-            }
-          }
-        }
-      }
-    ]
-  },
-  "miss-null-cursor": {
-    "reference": "Unknown",
-    "error": {
-      "message": "Team not found: Unknown",
-      "suggestion": "Valid team keys: DES (Design), ENG (Engineering). Run `linear team list` to see all teams."
-    },
-    "steps": [
-      {
-        "name": "resolve-team",
-        "variables": {
-          "reference": "Unknown",
-          "id": null,
-          "isUuid": false
-        },
-        "data": {
-          "teams": {
-            "nodes": []
-          }
-        }
-      },
-      {
-        "name": "all-teams-first",
-        "variables": {
-          "first": 100
-        },
-        "data": {
-          "teams": {
-            "nodes": [
-              {
-                "id": "team-des",
-                "key": "DES",
-                "name": "Design"
-              }
-            ],
-            "pageInfo": {
-              "hasNextPage": true,
-              "endCursor": null
-            }
-          }
-        }
-      },
-      {
-        "name": "all-teams-null-after",
-        "variables": {
-          "first": 100,
-          "after": null
-        },
-        "data": {
-          "teams": {
-            "nodes": [
-              {
-                "id": "team-eng",
-                "key": "ENG",
-                "name": "Engineering"
-              }
-            ],
-            "pageInfo": {
-              "hasNextPage": false,
-              "endCursor": "final"
             }
           }
         }

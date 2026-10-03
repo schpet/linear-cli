@@ -15,7 +15,7 @@ use crate::cli::initiative::{InitiativeCommand, InitiativeCommentCommand};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_reference::{NameVariables, UrlSlugVariables};
 use crate::graphql::operations::initiative_unarchive::ResolveInitiativeByNameIncludingArchived;
 use crate::graphql::operations::initiative_view::ResolveInitiativeBySlug;
@@ -65,22 +65,21 @@ async fn resolve(
         }
         (InitiativeReference::UrlSlug(slug) | InitiativeReference::NameOrSlug(slug), _) => slug,
     };
-    let request =
-        GraphQlRequest::with_variables(ResolveInitiativeBySlug::build(UrlSlugVariables {
-            slug_id: slug.clone(),
-            include_archived: Some(true),
-        }));
-    let data: ResolveInitiativeBySlug = client.execute(&request).await?;
+    let request = LegacyRequest::with_variables(ResolveInitiativeBySlug::build(UrlSlugVariables {
+        slug_id: slug.clone(),
+        include_archived: Some(true),
+    }));
+    let data: ResolveInitiativeBySlug = client.execute_legacy(&request).await?;
     if let Some(node) = data.initiatives.nodes.into_iter().next() {
         return Ok(node.id.into_inner());
     }
     if let InitiativeReference::UrlSlug(_) = reference {
         return Err(Error::not_found("Initiative", original));
     }
-    let request = GraphQlRequest::with_variables(ResolveInitiativeByNameIncludingArchived::build(
+    let request = LegacyRequest::with_variables(ResolveInitiativeByNameIncludingArchived::build(
         NameVariables { name: slug.clone() },
     ));
-    let data: ResolveInitiativeByNameIncludingArchived = client.execute(&request).await?;
+    let data: ResolveInitiativeByNameIncludingArchived = client.execute_legacy(&request).await?;
     let mut matches = data.initiatives.nodes;
     if matches.len() > 1 {
         let listing = matches

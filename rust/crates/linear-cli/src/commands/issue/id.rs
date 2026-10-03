@@ -2,7 +2,7 @@
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::issue_id::{GetIssueId, Variables};
 use cynic::QueryBuilder;
 
@@ -14,15 +14,15 @@ pub fn run(ctx: &Ctx) -> Result<()> {
     ctx.print(format!("{identifier}\n"))
 }
 
-pub fn request(identifier: &str) -> GraphQlRequest<Variables> {
-    GraphQlRequest::with_variables(GetIssueId::build(Variables {
+pub fn request(identifier: &str) -> LegacyRequest<Variables> {
+    LegacyRequest::with_variables(GetIssueId::build(Variables {
         id: identifier.to_owned(),
     }))
 }
 
 pub async fn fetch(client: &LinearClient, identifier: &str) -> Result<String, Error> {
     let result: GetIssueId = client
-        .execute(&request(identifier))
+        .execute_legacy(&request(identifier))
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     let id = result.issue.id.into_inner();

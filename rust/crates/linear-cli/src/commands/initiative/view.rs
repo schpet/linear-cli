@@ -9,7 +9,7 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_view::{
     DetailVariables, GetInitiativeDetails, InitiativeDetails,
 };
@@ -46,8 +46,8 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
 
 async fn fetch(client: &LinearClient, id: String, original: &str) -> Result<InitiativeDetails> {
     let request =
-        GraphQlRequest::with_variables(GetInitiativeDetails::build(DetailVariables { id }));
-    let result: GetInitiativeDetails = client.execute(&request).await?;
+        LegacyRequest::with_variables(GetInitiativeDetails::build(DetailVariables { id }));
+    let result: GetInitiativeDetails = client.execute_legacy(&request).await?;
     let detail = result
         .initiative
         .ok_or_else(|| Error::not_found("Initiative", original))?;

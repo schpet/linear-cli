@@ -1,27 +1,27 @@
 //! Complete release name/version lookup, insertion-ordered UUID deduplication.
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::{envelope::GraphQlRequest, operations::releases::*};
+use crate::graphql::{envelope::LegacyRequest, operations::releases::*};
 use cynic::QueryBuilder;
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
 };
-pub fn request(input: &str, after: Option<String>) -> GraphQlRequest<ResolveReleasesVariables> {
-    GraphQlRequest::with_variables(ResolveReleases::build(ResolveReleasesVariables {
+pub fn request(input: &str, after: Option<String>) -> LegacyRequest<ResolveReleasesVariables> {
+    LegacyRequest::with_variables(ResolveReleases::build(ResolveReleasesVariables {
         input: input.to_owned(),
         after,
     }))
 }
 pub async fn resolve(client: &LinearClient, input: &str) -> Result<String, Error> {
     resolve_with(input, |query| async move {
-        client.execute(&query).await.map_err(Error::from)
+        client.execute_legacy(&query).await.map_err(Error::from)
     })
     .await
 }
 pub async fn resolve_with<F, Fut>(input: &str, mut fetch: F) -> Result<String, Error>
 where
-    F: FnMut(GraphQlRequest<ResolveReleasesVariables>) -> Fut,
+    F: FnMut(LegacyRequest<ResolveReleasesVariables>) -> Fut,
     Fut: Future<Output = Result<ResolveReleases, Error>>,
 {
     crate::refs::reject_linear_url(input, "a release name, version, or UUID")?;

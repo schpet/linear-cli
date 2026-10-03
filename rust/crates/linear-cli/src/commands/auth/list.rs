@@ -9,7 +9,7 @@ use crate::client::{LinearClient, RequestError};
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::{GraphQlRequest, graphql_message};
+use crate::graphql::envelope::{LegacyRequest, graphql_message};
 use crate::graphql::operations::auth_list::AuthListViewer;
 use crate::platform::style;
 
@@ -87,8 +87,8 @@ async fn check(check: &Check) -> Outcome {
         Check::Request(client) => client,
         Check::Skip(reason) => return Outcome::Failed((*reason).to_owned()),
     };
-    let request = GraphQlRequest::without_variables(AuthListViewer::build(()));
-    match client.execute::<AuthListViewer, _>(&request).await {
+    let request = LegacyRequest::without_variables(AuthListViewer::build(()));
+    match client.execute_legacy::<AuthListViewer, _>(&request).await {
         Ok(data) => Outcome::Viewer {
             organization: data.viewer.organization.name,
             name: data.viewer.name,

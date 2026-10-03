@@ -20,7 +20,7 @@ use super::{
     ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, ClientBuildError, ClientConfig, Deadline, EndpointUrl,
     HttpBodyShape, LinearClient, RawHttpResponse, RequestError, ResponseCap, classify_typed,
 };
-use crate::graphql::envelope::{GraphQlRequest, ResponseError};
+use crate::graphql::envelope::{LegacyRequest, ResponseError};
 use crate::graphql::operations::teams::{GetTeams, GetTeamsVariables};
 
 const FAKE_KEY: &str = "lin_api_fake";
@@ -56,19 +56,16 @@ fn client_to(server: &Server) -> LinearClient {
     )
 }
 
-fn raw(
-    document: &str,
-    variables: Option<Map<String, Value>>,
-) -> GraphQlRequest<Map<String, Value>> {
-    GraphQlRequest {
+fn raw(document: &str, variables: Option<Map<String, Value>>) -> LegacyRequest<Map<String, Value>> {
+    LegacyRequest {
         query: document.to_owned(),
         variables,
         operation_name: None,
     }
 }
 
-fn teams_request() -> GraphQlRequest<GetTeamsVariables> {
-    GraphQlRequest::with_variables(GetTeams::build(GetTeamsVariables {
+fn teams_request() -> LegacyRequest<GetTeamsVariables> {
+    LegacyRequest::with_variables(GetTeams::build(GetTeamsVariables {
         filter: None,
         first: Some(100),
         after: None,
@@ -209,7 +206,7 @@ async fn network_failures_never_expose_the_path_query_or_api_key() {
         LinearClient::new(endpoint, key, config(Duration::from_secs(5), 1024)).expect("client");
     assert!(!format!("{client:?}").contains("SECRET"));
     let failure = client
-        .send_request(&raw("{ viewer { id } }", None))
+        .send_legacy(&raw("{ viewer { id } }", None))
         .await
         .expect_err("connection refused");
     let RequestError::Network { origin, phase, .. } = &failure else {
@@ -255,12 +252,12 @@ async fn request_carries_exact_headers_and_envelope_bytes() {
     let server = Server::start(vec![Reply::status(200, "application/json", "")]);
     let mut variables = Map::new();
     variables.insert("after".to_owned(), Value::Null);
-    let request = GraphQlRequest {
+    let request = LegacyRequest {
         operation_name: Some("Q".to_owned()),
         ..raw("query($after: String) { x }", Some(variables))
     };
     client_to(&server)
-        .send_request(&request)
+        .send_legacy(&request)
         .await
         .expect("empty 200");
     let requests = server.finish();
@@ -293,7 +290,7 @@ async fn declared_oversized_body_is_rejected_before_reading() {
         &server.url("/graphql"),
         config(Duration::from_secs(5), 1024),
     )
-    .send_request(&raw("{ x }", None))
+    .send_legacy(&raw("{ x }", None))
     .await
     .expect_err("too large");
     assert!(
@@ -319,7 +316,7 @@ async fn body_exactly_at_the_cap_is_kept_intact() {
         &server.url("/graphql"),
         config(Duration::from_secs(5), 1024),
     )
-    .send_request(&raw("{ x }", None))
+    .send_legacy(&raw("{ x }", None))
     .await
     .expect("at cap");
     assert_eq!(response.status.as_u16(), 502);
@@ -340,7 +337,7 @@ async fn endless_chunked_body_stops_at_the_cap() {
     );
     let started = Instant::now();
     let failure = client
-        .send_request(&raw("{ x }", None))
+        .send_legacy(&raw("{ x }", None))
         .await
         .expect_err("too large");
     assert!(
@@ -363,7 +360,7 @@ async fn silent_server_hits_the_total_deadline() {
         &server.url("/graphql"),
         config(Duration::from_millis(300), 1024),
     )
-    .send_request(&raw("{ x }", None))
+    .send_legacy(&raw("{ x }", None))
     .await
     .expect_err("timeout");
     let elapsed = started.elapsed();
@@ -393,7 +390,7 @@ async fn stalled_body_hits_the_total_deadline_without_partial_data() {
         &server.url("/graphql"),
         config(Duration::from_millis(300), 4096),
     )
-    .send_request(&raw("{ x }", None))
+    .send_legacy(&raw("{ x }", None))
     .await
     .expect_err("timeout");
     assert!(
@@ -419,7 +416,7 @@ fn cancelled_request_completes_promptly_and_releases_the_connection() {
     runtime.block_on(async {
         let cancelled = tokio::time::timeout(
             Duration::from_millis(150),
-            client.send_request(&raw("{ x }", None)),
+            client.send_legacy(&raw("{ x }", None)),
         )
         .await;
         assert!(
@@ -542,7 +539,7 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     let request = teams_request();
 
     let failure = client
-        .execute::<GetTeams, _>(&request)
+        .execute_legacy::<GetTeams, _>(&request)
         .await
         .expect_err("errors only");
     let RequestError::GraphQl {
@@ -563,7 +560,7 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     );
 
     let failure = client
-        .execute::<GetTeams, _>(&request)
+        .execute_legacy::<GetTeams, _>(&request)
         .await
         .expect_err("partial data");
     assert!(
@@ -575,7 +572,7 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     );
 
     let failure = client
-        .execute::<GetTeams, _>(&request)
+        .execute_legacy::<GetTeams, _>(&request)
         .await
         .expect_err("400 errors");
     let RequestError::GraphQl {
@@ -597,7 +594,7 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     assert_eq!(failure.to_string(), "The request was invalid.");
 
     let raw = client
-        .send_request(&request)
+        .send_legacy(&request)
         .await
         .expect("401 bytes captured");
     assert_eq!(raw.status.as_u16(), 401);
@@ -628,7 +625,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
     ]);
     let client = client_to(&server);
     let request = teams_request();
-    let next = || client.execute::<GetTeams, _>(&request);
+    let next = || client.execute_legacy::<GetTeams, _>(&request);
 
     let failure = next().await.expect_err("429");
     let RequestError::Http { response, body } = &failure else {
@@ -724,7 +721,7 @@ async fn temporary_redirect_replays_the_request_at_the_new_location() {
         Reply::json(&json!({"data": teams_data()})),
     ]);
     let teams: GetTeams = client_to(&server)
-        .execute(&teams_request())
+        .execute_legacy(&teams_request())
         .await
         .expect("redirect followed");
     assert_eq!(teams.teams.nodes.len(), 1);
@@ -746,7 +743,7 @@ async fn raw_document_without_variables_returns_exact_bytes() {
         &json!({"data": {"viewer": {"id": "user-1"}}}),
     )]);
     let response = client_to(&server)
-        .send_request(&raw("{ viewer { id } }", None))
+        .send_legacy(&raw("{ viewer { id } }", None))
         .await
         .expect("200");
     assert_eq!(response.status.as_u16(), 200);

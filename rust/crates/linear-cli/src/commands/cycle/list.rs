@@ -9,7 +9,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::team_or_configured;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::cycles::{self, GetTeamCycles, GetTeamCyclesVariables};
 use crate::graphql::pagination::{self, Page};
 use crate::platform::{collation, style};
@@ -40,14 +40,13 @@ fn list(ctx: &Ctx, args: &CycleList) -> Result<()> {
 /// Every cycle of the team, newest first.
 async fn fetch(client: &LinearClient, team_id: &str) -> Result<Vec<cycles::Cycle>> {
     let mut nodes = pagination::collect(None, |after, first| {
-        let request =
-            GraphQlRequest::with_variables(GetTeamCycles::build(GetTeamCyclesVariables {
-                team_id: team_id.to_owned(),
-                first: Some(first),
-                after,
-            }));
+        let request = LegacyRequest::with_variables(GetTeamCycles::build(GetTeamCyclesVariables {
+            team_id: team_id.to_owned(),
+            first: Some(first),
+            after,
+        }));
         async move {
-            let data: GetTeamCycles = client.execute(&request).await?;
+            let data: GetTeamCycles = client.execute_legacy(&request).await?;
             Ok(Page {
                 nodes: data.team.cycles.nodes,
                 page_info: data.team.cycles.page_info,

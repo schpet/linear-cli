@@ -1,7 +1,7 @@
 //! File uploads: validation, MIME types, the signed upload and the resulting links.
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::upload::{FileUpload, FileUploadVariables, UploadFileHeader};
 use cynic::MutationBuilder;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -142,8 +142,8 @@ pub fn prepare(path: &Path, public: bool) -> Result<PreparedFile, Error> {
         public,
     })
 }
-pub fn request(file: &PreparedFile) -> GraphQlRequest<FileUploadVariables> {
-    GraphQlRequest::with_variables(FileUpload::build(FileUploadVariables {
+pub fn request(file: &PreparedFile) -> LegacyRequest<FileUploadVariables> {
+    LegacyRequest::with_variables(FileUpload::build(FileUploadVariables {
         content_type: file.content_type.to_owned(),
         filename: file.filename.clone(),
         size: file.size,
@@ -185,7 +185,10 @@ pub async fn upload(
     path: &Path,
     file: PreparedFile,
 ) -> Result<UploadedFile, Error> {
-    let response: FileUpload = client.execute(&request(&file)).await.map_err(Error::from)?;
+    let response: FileUpload = client
+        .execute_legacy(&request(&file))
+        .await
+        .map_err(Error::from)?;
     if !response.file_upload.success {
         return Err(Error::new("Failed to get upload URL from Linear"));
     }

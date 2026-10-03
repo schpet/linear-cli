@@ -10,7 +10,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiatives::InitiativeUpdateHealthType;
 use crate::graphql::operations::projects::ProjectUpdateHealthType;
 use crate::graphql::operations::update_create::{
@@ -116,7 +116,7 @@ async fn submit(
     let (success, created) = match target {
         Target::Project(_) => {
             let request =
-                GraphQlRequest::with_variables(CreateProjectUpdate::build(ProjectVariables {
+                LegacyRequest::with_variables(CreateProjectUpdate::build(ProjectVariables {
                     input: ProjectInput {
                         project_id: id.to_owned(),
                         body,
@@ -127,7 +127,7 @@ async fn submit(
                         }),
                     },
                 }));
-            let data: CreateProjectUpdate = client.execute(&request).await?;
+            let data: CreateProjectUpdate = client.execute_legacy(&request).await?;
             let payload = data.project_update_create;
             let update = payload.project_update;
             (
@@ -140,8 +140,8 @@ async fn submit(
             )
         }
         Target::Initiative(_) => {
-            let request = GraphQlRequest::with_variables(CreateInitiativeUpdate::build(
-                InitiativeVariables {
+            let request =
+                LegacyRequest::with_variables(CreateInitiativeUpdate::build(InitiativeVariables {
                     input: InitiativeInput {
                         initiative_id: id.to_owned(),
                         body,
@@ -151,9 +151,8 @@ async fn submit(
                             Health::OffTrack => InitiativeHealthInput::OffTrack,
                         }),
                     },
-                },
-            ));
-            let data: CreateInitiativeUpdate = client.execute(&request).await?;
+                }));
+            let data: CreateInitiativeUpdate = client.execute_legacy(&request).await?;
             let payload = data.initiative_update_create;
             let update = payload.initiative_update;
             (

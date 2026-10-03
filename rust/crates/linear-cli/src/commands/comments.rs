@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
+use cynic::QueryBuilder;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -13,7 +14,6 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::comments::{
     CommentBotActor, CommentConnection, CommentExternalUser, CommentNode, CommentParent,
     CommentUser,
@@ -21,18 +21,17 @@ use crate::graphql::operations::comments::{
 use crate::graphql::pagination::{self, Page};
 use crate::platform::style::bold;
 
-/// What comments are listed for: one query per kind of entity.
-pub trait CommentSource {
+/// A comments query for one kind of entity.
+pub trait CommentSource: QueryBuilder<Self::Variables> + DeserializeOwned {
     /// The entity, capitalized, as in "Issue not found".
     const ENTITY: &'static str;
     type Variables: Serialize;
-    type Response: DeserializeOwned;
 
-    /// One page of up to `first` comments after cursor `after`.
-    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables>;
+    /// Variables for one page of up to `first` comments after cursor `after`.
+    fn variables(id: &str, after: Option<String>, first: i32) -> Self::Variables;
 
     /// The page of comments, or `None` when the entity does not exist.
-    fn comments(response: Self::Response) -> Option<CommentConnection>;
+    fn comments(self) -> Option<CommentConnection>;
 }
 
 /// The comments on entity `id` (which the user called `original`), up to `limit`.
@@ -44,13 +43,13 @@ pub async fn fetch<S: CommentSource>(
 ) -> Result<Vec<CommentNode>> {
     let not_found = || Error::not_found(S::ENTITY, original);
     pagination::collect(limit.max(), |after, first| {
-        let request = S::request(id, after, first);
+        let variables = S::variables(id, after, first);
         async move {
-            let response: S::Response = client
-                .execute(&request)
+            let response: S = client
+                .query(variables)
                 .await
                 .map_err(|failure| failure.or_not_found(S::ENTITY, original))?;
-            let connection = S::comments(response).ok_or_else(not_found)?;
+            let connection = response.comments().ok_or_else(not_found)?;
             Ok(Page {
                 nodes: connection.nodes,
                 page_info: connection.page_info,

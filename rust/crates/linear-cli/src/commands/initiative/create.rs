@@ -8,7 +8,7 @@ use crate::client::LinearClient;
 use crate::commands::color;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_create::{
     CreateInitiative, CreateInitiativeVariables, CreatedInitiative, InitiativeCreateInput,
 };
@@ -169,11 +169,9 @@ fn validate(fields: Fields) -> Result<Valid> {
 /// Linear says the initiative may already exist; nothing is retried.
 async fn submit(client: &LinearClient, input: InitiativeCreateInput) -> Result<CreatedInitiative> {
     let request =
-        GraphQlRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables {
-            input,
-        }));
+        LegacyRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables { input }));
     let result: CreateInitiative = client
-        .execute(&request)
+        .execute_legacy(&request)
         .await
         .map_err(|failure| failure.into_create_error("initiative"))?;
     if !result.initiative_create.success {

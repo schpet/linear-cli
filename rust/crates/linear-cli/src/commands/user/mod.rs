@@ -1,13 +1,10 @@
 //! `linear user`: workspace members.
 pub mod list;
 
-use cynic::QueryBuilder;
-
 use crate::cli::user::UserCommand;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
     GetViewerId, GetViewerIdVariables, LookupUser, LookupUserNode, LookupUserVariables,
 };
@@ -23,14 +20,14 @@ pub fn run(ctx: &Ctx, command: &UserCommand) -> Result<()> {
 /// like "Owner".
 pub async fn resolve(client: &LinearClient, input: &str, noun: &str) -> Result<String> {
     if input == "@me" || input == "self" {
-        let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
-        let data: GetViewerId = client.execute(&request).await?;
+        let data: GetViewerId = client.query(GetViewerIdVariables {}).await?;
         return Ok(data.viewer.id.into_inner());
     }
-    let request = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
-        input: input.to_owned(),
-    }));
-    let data: LookupUser = client.execute(&request).await?;
+    let data: LookupUser = client
+        .query(LookupUserVariables {
+            input: input.to_owned(),
+        })
+        .await?;
     select(&data.users.nodes, input)
         .map(|user| user.id.inner().to_owned())
         .ok_or_else(|| Error::not_found(noun, input))

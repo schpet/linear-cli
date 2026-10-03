@@ -8,7 +8,7 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::document_write::*;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::editor;
@@ -94,7 +94,7 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
     let created = ctx.spin(true, async {
         attach(client, &mut input, target.as_ref()).await?;
         let request =
-            GraphQlRequest::with_variables(CreateDocument::build(CreateDocumentVariables {
+            LegacyRequest::with_variables(CreateDocument::build(CreateDocumentVariables {
                 input: DocumentCreateInput {
                     title,
                     content: input.content,
@@ -107,7 +107,7 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
                     release_id: input.release_id,
                 },
             }));
-        let data: CreateDocument = client.execute(&request).await?;
+        let data: CreateDocument = client.execute_legacy(&request).await?;
         if !data.document_create.success {
             return Err(Error::new("Linear did not create the document"));
         }
@@ -176,11 +176,11 @@ fn update_document(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
             refuse_inline_comments(client, &id).await?;
         }
         let request =
-            GraphQlRequest::with_variables(UpdateDocument::build(UpdateDocumentVariables {
+            LegacyRequest::with_variables(UpdateDocument::build(UpdateDocumentVariables {
                 id: id.clone(),
                 input,
             }));
-        let data: UpdateDocument = client.execute(&request).await?;
+        let data: UpdateDocument = client.execute_legacy(&request).await?;
         if !data.document_update.success {
             return Err(Error::new("Linear did not update the document"));
         }
@@ -215,12 +215,11 @@ async fn attach(
 }
 
 async fn for_edit(client: &LinearClient, id: &str) -> Result<DocumentForEdit> {
-    let request =
-        GraphQlRequest::with_variables(GetDocumentForEdit::build(DocumentEditVariables {
-            id: id.to_owned(),
-        }));
+    let request = LegacyRequest::with_variables(GetDocumentForEdit::build(DocumentEditVariables {
+        id: id.to_owned(),
+    }));
     let data: GetDocumentForEdit = client
-        .execute(&request)
+        .execute_legacy(&request)
         .await
         .map_err(|failure| super::not_found(failure, id))?;
     data.document
@@ -231,7 +230,7 @@ async fn for_edit(client: &LinearClient, id: &str) -> Result<DocumentForEdit> {
 /// updates stop while any open comment quotes the document.
 async fn refuse_inline_comments(client: &LinearClient, id: &str) -> Result<()> {
     let comments = pagination::collect(None, |after, _first| {
-        let request = GraphQlRequest::with_variables(DocumentInlineCommentGuard::build(
+        let request = LegacyRequest::with_variables(DocumentInlineCommentGuard::build(
             DocumentGuardVariables {
                 id: id.to_owned(),
                 after,
@@ -239,7 +238,7 @@ async fn refuse_inline_comments(client: &LinearClient, id: &str) -> Result<()> {
         ));
         async move {
             let data: DocumentInlineCommentGuard = client
-                .execute(&request)
+                .execute_legacy(&request)
                 .await
                 .map_err(|failure| super::not_found(failure, id))?;
             let document = data

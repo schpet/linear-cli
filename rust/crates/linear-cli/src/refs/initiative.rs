@@ -2,7 +2,7 @@
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_reference::{
     NameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
 };
@@ -39,8 +39,8 @@ pub async fn resolve_initiative_with_transport(
     resolve_initiative_with(
         reference,
         original,
-        |query| async move { client.execute(&query).await.map_err(Error::from) },
-        |query| async move { client.execute(&query).await.map_err(Error::from) },
+        |query| async move { client.execute_legacy(&query).await.map_err(Error::from) },
+        |query| async move { client.execute_legacy(&query).await.map_err(Error::from) },
     )
     .await
 }
@@ -51,16 +51,16 @@ pub async fn resolve_initiative_with<S, SF, N, NF>(
     mut name_fetch: N,
 ) -> Result<String, Error>
 where
-    S: FnMut(GraphQlRequest<UrlSlugVariables>) -> SF,
+    S: FnMut(LegacyRequest<UrlSlugVariables>) -> SF,
     SF: std::future::Future<Output = Result<ResolveInitiativeBySlug, Error>>,
-    N: FnMut(GraphQlRequest<NameVariables>) -> NF,
+    N: FnMut(LegacyRequest<NameVariables>) -> NF,
     NF: std::future::Future<Output = Result<ResolveInitiativeByName, Error>>,
 {
     let slug = match reference {
         InitiativeReference::Id(id) => return Ok(id.clone()),
         InitiativeReference::UrlSlug(slug) | InitiativeReference::NameOrSlug(slug) => slug,
     };
-    let data = slug_fetch(GraphQlRequest::with_variables(
+    let data = slug_fetch(LegacyRequest::with_variables(
         ResolveInitiativeBySlug::build(UrlSlugVariables {
             slug_id: slug.clone(),
             include_archived: Some(false),
@@ -80,7 +80,7 @@ where
     if matches!(reference, InitiativeReference::UrlSlug(_)) {
         return Err(Error::not_found("Initiative", original).with_hint("The initiative in that URL may have been deleted, or be in a workspace this key cannot see."));
     }
-    let data = name_fetch(GraphQlRequest::with_variables(
+    let data = name_fetch(LegacyRequest::with_variables(
         ResolveInitiativeByName::build(NameVariables { name: slug.clone() }),
     ))
     .await?;

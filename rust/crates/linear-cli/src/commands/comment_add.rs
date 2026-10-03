@@ -7,7 +7,7 @@ use crate::client::LinearClient;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::comment_create::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
@@ -106,8 +106,8 @@ pub fn build_input(
     input
 }
 
-pub fn request(input: CommentCreateInput) -> GraphQlRequest<AddCommentVariables> {
-    GraphQlRequest::with_variables(AddComment::build(AddCommentVariables { input }))
+pub fn request(input: CommentCreateInput) -> LegacyRequest<AddCommentVariables> {
+    LegacyRequest::with_variables(AddComment::build(AddCommentVariables { input }))
 }
 
 /// Send the mutation once. A failure after the request may have reached
@@ -117,7 +117,7 @@ pub async fn create(
     input: CommentCreateInput,
 ) -> Result<CreatedComment, Error> {
     let result: AddComment = client
-        .execute(&request(input))
+        .execute_legacy(&request(input))
         .await
         .map_err(|failure| failure.into_create_error("comment"))?;
     if !result.comment_create.success {
@@ -134,13 +134,13 @@ pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
 /// `document(id:)` is non-null, so Linear reports a missing document as a
 /// GraphQL error; only that becomes NotFound.
 pub async fn document_content_id(client: &LinearClient, document: &str) -> Result<String, Error> {
-    let request = GraphQlRequest::with_variables(GetDocumentCommentTarget::build(
+    let request = LegacyRequest::with_variables(GetDocumentCommentTarget::build(
         DocumentCommentTargetVariables {
             id: document.to_owned(),
         },
     ));
     let data: GetDocumentCommentTarget = client
-        .execute(&request)
+        .execute_legacy(&request)
         .await
         .map_err(|failure| failure.or_not_found("Document", document))?;
     let target = data.document;

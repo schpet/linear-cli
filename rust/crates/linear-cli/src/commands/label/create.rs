@@ -6,7 +6,7 @@ use crate::commands::color;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::label_create::{
     CreateIssueLabel, CreateIssueLabelPayload, CreateIssueLabelVariables, IssueLabelCreateInput,
 };
@@ -71,7 +71,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
             Team::Picked(id) => Some(id.clone()),
         };
         let request =
-            GraphQlRequest::with_variables(CreateIssueLabel::build(CreateIssueLabelVariables {
+            LegacyRequest::with_variables(CreateIssueLabel::build(CreateIssueLabelVariables {
                 input: IssueLabelCreateInput {
                     name: fields.name.clone(),
                     color: fields.color.clone(),
@@ -80,7 +80,7 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
                 },
             }));
         client
-            .execute::<CreateIssueLabel, _>(&request)
+            .execute_legacy::<CreateIssueLabel, _>(&request)
             .await
             .map_err(|failure| failure.into_create_error("label"))
     })?;

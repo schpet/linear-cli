@@ -5,7 +5,7 @@ use crate::cli::project::ProjectDelete;
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_delete::{DeleteProject, DeleteProjectVariables};
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
@@ -24,8 +24,8 @@ fn delete(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
     let result: DeleteProject = ctx.spin(true, async {
         let id = resolve_project_with_transport(&reference, original, client).await?;
         let request =
-            GraphQlRequest::with_variables(DeleteProject::build(DeleteProjectVariables { id }));
-        Ok::<_, Error>(client.execute(&request).await?)
+            LegacyRequest::with_variables(DeleteProject::build(DeleteProjectVariables { id }));
+        Ok::<_, Error>(client.execute_legacy(&request).await?)
     })?;
     let payload = result.project_delete;
     if !payload.success {

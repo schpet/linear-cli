@@ -6,7 +6,7 @@ use crate::cli::team::TeamCreate;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::team_create::{
     CreateTeam, CreateTeamVariables, CreatedTeam, TeamCreateInput,
 };
@@ -59,9 +59,9 @@ fn ask(prompter: &Prompter<'_>) -> Result<TeamCreateInput> {
 /// Sends the mutation once. A failure after the request may have reached
 /// Linear says the team may already exist; nothing is retried.
 async fn submit(client: &LinearClient, input: TeamCreateInput) -> Result<CreatedTeam> {
-    let request = GraphQlRequest::with_variables(CreateTeam::build(CreateTeamVariables { input }));
+    let request = LegacyRequest::with_variables(CreateTeam::build(CreateTeamVariables { input }));
     let result: CreateTeam = client
-        .execute(&request)
+        .execute_legacy(&request)
         .await
         .map_err(|failure| failure.into_create_error("team"))?;
     let payload = result.team_create;

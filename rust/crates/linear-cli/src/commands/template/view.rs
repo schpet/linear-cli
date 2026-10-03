@@ -15,7 +15,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::template::{json as template_json, list as template_list};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::templates::{
     GetTemplate, GetTemplateVariables, GetTemplates, Template,
 };
@@ -62,7 +62,7 @@ async fn resolve(client: &LinearClient, reference: &Reference) -> Result<Templat
     match reference {
         Reference::Id(id) => by_id(client, id).await,
         Reference::Name(name) => {
-            let data: GetTemplates = client.execute(&template_list::request()).await?;
+            let data: GetTemplates = client.execute_legacy(&template_list::request()).await?;
             select_by_name(name, data.templates)
         }
     }
@@ -72,15 +72,15 @@ async fn resolve(client: &LinearClient, reference: &Reference) -> Result<Templat
 /// GraphQL error, so when that request fails the template list decides
 /// whether it is missing or the error stands.
 pub async fn by_id(client: &LinearClient, id: &str) -> Result<Template> {
-    let request = GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
+    let request = LegacyRequest::with_variables(GetTemplate::build(GetTemplateVariables {
         id: id.to_owned(),
     }));
-    let failure = match client.execute::<GetTemplate, _>(&request).await {
+    let failure = match client.execute_legacy::<GetTemplate, _>(&request).await {
         Ok(response) => return Ok(response.template),
         Err(failure @ RequestError::GraphQl { .. }) => failure,
         Err(failure) => return Err(Error::from(failure)),
     };
-    let data: GetTemplates = client.execute(&template_list::request()).await?;
+    let data: GetTemplates = client.execute_legacy(&template_list::request()).await?;
     if data
         .templates
         .iter()

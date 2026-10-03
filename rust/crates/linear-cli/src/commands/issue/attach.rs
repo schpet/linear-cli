@@ -7,7 +7,7 @@ use crate::client::LinearClient;
 use crate::commands::upload::{self, UploadedFile};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::upload::{
     AttachmentCreate, AttachmentCreateInput, AttachmentCreateVariables, CreatedAttachment,
     GetIssueId, GetIssueIdVariables,
@@ -82,14 +82,14 @@ pub fn compose_body(text: Option<&str>, files: &[UploadedFile]) -> String {
 pub fn comment_output(identifier: &str, url: &str) -> Vec<u8> {
     format!("✓ Comment added to {identifier}\n{url}\n").into_bytes()
 }
-fn lookup_request(identifier: &str) -> GraphQlRequest<GetIssueIdVariables> {
-    GraphQlRequest::with_variables(GetIssueId::build(GetIssueIdVariables {
+fn lookup_request(identifier: &str) -> LegacyRequest<GetIssueIdVariables> {
+    LegacyRequest::with_variables(GetIssueId::build(GetIssueIdVariables {
         id: identifier.to_owned(),
     }))
 }
 async fn lookup(client: &LinearClient, identifier: &str) -> Result<String, Error> {
     let data: GetIssueId = client
-        .execute(&lookup_request(identifier))
+        .execute_legacy(&lookup_request(identifier))
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     data.issue
@@ -102,8 +102,8 @@ fn attach_request(
     file: &UploadedFile,
     title: Option<&str>,
     comment: Option<&str>,
-) -> GraphQlRequest<AttachmentCreateVariables> {
-    GraphQlRequest::with_variables(AttachmentCreate::build(AttachmentCreateVariables {
+) -> LegacyRequest<AttachmentCreateVariables> {
+    LegacyRequest::with_variables(AttachmentCreate::build(AttachmentCreateVariables {
         input: AttachmentCreateInput {
             issue_id: issue_uuid.to_owned(),
             title: title
@@ -123,7 +123,7 @@ async fn attach(
     comment: Option<&str>,
 ) -> Result<CreatedAttachment, Error> {
     let data: AttachmentCreate = client
-        .execute(&attach_request(issue_uuid, file, title, comment))
+        .execute_legacy(&attach_request(issue_uuid, file, title, comment))
         .await
         .map_err(Error::from)?;
     if !data.attachment_create.success {

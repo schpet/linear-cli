@@ -7,7 +7,7 @@ use crate::client::LinearClient;
 use crate::commands::user;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::organization_members::User;
 use crate::graphql::operations::team_members::{GetTeamMembers, GetTeamMembersVariables};
 use crate::graphql::pagination::{self, Page};
@@ -39,14 +39,14 @@ fn members(ctx: &Ctx, args: &TeamMembers) -> Result<()> {
 async fn fetch(client: &LinearClient, team_key: &str, all: bool) -> Result<Vec<User>> {
     pagination::collect(None, |after, first| {
         let request =
-            GraphQlRequest::with_variables(GetTeamMembers::build(GetTeamMembersVariables {
+            LegacyRequest::with_variables(GetTeamMembers::build(GetTeamMembersVariables {
                 team_key: team_key.to_owned(),
                 include_disabled: all,
                 first: Some(first),
                 after,
             }));
         async move {
-            let data: GetTeamMembers = client.execute(&request).await?;
+            let data: GetTeamMembers = client.execute_legacy(&request).await?;
             let page = data.team.members;
             Ok(Page {
                 nodes: page.nodes,

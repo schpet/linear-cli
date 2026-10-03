@@ -1,7 +1,6 @@
 //! Minimal typed team-reference queries, separate from the broader `GetTeams`
 //! projection used by `team list`.
 
-use crate::graphql::edit::Edit;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
 
@@ -37,8 +36,8 @@ pub use resolve_team::ResolveTeam;
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetAllTeamsVariables {
     pub first: Option<i32>,
-    #[cynic(skip_serializing_if = "Edit::is_unchanged")]
-    pub after: Edit<String>,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]

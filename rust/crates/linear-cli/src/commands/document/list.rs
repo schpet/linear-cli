@@ -14,7 +14,7 @@ use crate::commands::{
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::{
-    envelope::GraphQlRequest,
+    envelope::LegacyRequest,
     operations::documents::*,
     pagination::{self, Page, PageInfo},
 };
@@ -64,14 +64,13 @@ async fn fetch(
     limit: Limit,
 ) -> Result<Vec<ListedDocument>> {
     pagination::collect(limit.max(), |after, first| {
-        let request =
-            GraphQlRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
-                filter: filter.clone(),
-                first: Some(first),
-                after,
-            }));
+        let request = LegacyRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
+            filter: filter.clone(),
+            first: Some(first),
+            after,
+        }));
         async move {
-            let data: ListDocuments = client.execute(&request).await?;
+            let data: ListDocuments = client.execute_legacy(&request).await?;
             Ok(data.documents.map_or_else(
                 || Page {
                     nodes: Vec::new(),

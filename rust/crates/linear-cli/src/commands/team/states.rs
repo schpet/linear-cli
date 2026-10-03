@@ -8,7 +8,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::number::Float;
-use crate::graphql::operations::workflow_states::{GetWorkflowStates, WorkflowState};
+use crate::graphql::operations::workflow_states::WorkflowState;
 use crate::workflow_states;
 
 pub fn run(ctx: &Ctx, args: &TeamStates) -> Result<()> {
@@ -20,10 +20,8 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     let client = ctx.client()?;
     let mut states = ctx.spin(!args.json, async {
         let key = team.key(client).await?;
-        let response: GetWorkflowStates = client.execute(&workflow_states::request(key)).await?;
-        Ok::<_, Error>(response.team.states.nodes)
+        Ok::<_, Error>(workflow_states::fetch(client, key).await?)
     })?;
-    workflow_states::sort(&mut states);
     args.limit.apply(&mut states);
     if args.json {
         ctx.print(render_json(&states))

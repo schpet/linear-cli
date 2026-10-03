@@ -7,11 +7,11 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        envelope::GraphQlRequest,
+        envelope::LegacyRequest,
         operations::{
             issue_read::*,
             issue_start_state::{UpdateIssueState, Variables},
-            workflow_states::{GetWorkflowStates, WorkflowState},
+            workflow_states::WorkflowState,
         },
     },
     platform::{
@@ -355,8 +355,8 @@ pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
     }
     selected.ok_or_else(|| Error::new("No 'started' state found in workflow"))
 }
-pub fn update_request(identifier: &str, state_id: &str) -> GraphQlRequest<Variables> {
-    GraphQlRequest::with_variables(UpdateIssueState::build(Variables {
+pub fn update_request(identifier: &str, state_id: &str) -> LegacyRequest<Variables> {
+    LegacyRequest::with_variables(UpdateIssueState::build(Variables {
         issue_id: identifier.to_owned(),
         state_id: state_id.to_owned(),
     }))
@@ -366,14 +366,12 @@ pub async fn update_state(
     team: &str,
     identifier: &str,
 ) -> Result<Vec<u8>, String> {
-    let request = crate::workflow_states::request(team.to_owned());
-    let response: GetWorkflowStates = client
-        .execute(&request)
+    let states = crate::workflow_states::fetch(client, team.to_owned())
         .await
         .map_err(|failure| Error::from(failure).to_string())?;
-    let state = started(response.team.states.nodes).map_err(|error| error.to_string())?;
+    let state = started(states).map_err(|error| error.to_string())?;
     let response: UpdateIssueState = client
-        .execute(&update_request(identifier, state.id.inner()))
+        .execute_legacy(&update_request(identifier, state.id.inner()))
         .await
         .map_err(|failure| Error::from(failure).to_string())?;
     // The `success` flag is not reported; the whole payload is still decoded.

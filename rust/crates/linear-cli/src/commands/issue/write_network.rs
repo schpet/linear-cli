@@ -6,7 +6,7 @@ use crate::client::LinearClient;
 use crate::{
     config::ConfigOptions,
     error::Error,
-    graphql::{envelope::GraphQlRequest, operations::issue_write as ops},
+    graphql::{envelope::LegacyRequest, operations::issue_write as ops},
     refs,
 };
 use cynic::{MutationBuilder, QueryBuilder};
@@ -19,14 +19,14 @@ pub struct NetworkBackend {
     pub cli_workspace: Option<String>,
     pub default_workspace: Option<String>,
 }
-fn request<F, V: Serialize>(operation: cynic::Operation<F, V>) -> GraphQlRequest<V> {
-    GraphQlRequest::with_variables(operation)
+fn request<F, V: Serialize>(operation: cynic::Operation<F, V>) -> LegacyRequest<V> {
+    LegacyRequest::with_variables(operation)
 }
 async fn fetch<T: DeserializeOwned, V: Serialize>(
     client: &LinearClient,
-    request: &GraphQlRequest<V>,
+    request: &LegacyRequest<V>,
 ) -> Result<T, Error> {
-    Ok(client.execute(request).await?)
+    Ok(client.execute_legacy(request).await?)
 }
 fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
     rows.sort_by(|left, right| {
@@ -62,8 +62,8 @@ impl Backend for NetworkBackend {
         let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
         let team = refs::resolve_team(
             &prepared,
-            |req| async move { fetch(&self.client, &req).await },
-            |req| async move { fetch(&self.client, &req).await },
+            |variables| async move { Ok(self.client.query(variables).await?) },
+            |variables| async move { Ok(self.client.query(variables).await?) },
         )
         .await?;
         Ok(Team {
@@ -75,10 +75,9 @@ impl Backend for NetworkBackend {
     async fn find_team(&self, reference: String) -> Result<Option<Team>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
-        Ok(refs::find_team(
-            &prepared,
-            |req| async move { fetch(&self.client, &req).await },
-        )
+        Ok(refs::find_team(&prepared, |variables| async move {
+            Ok(self.client.query(variables).await?)
+        })
         .await?
         .map(|team| Team {
             id: team.id,
@@ -87,17 +86,17 @@ impl Backend for NetworkBackend {
         }))
     }
     async fn teams(&self) -> Result<Vec<Team>, Error> {
-        Ok(
-            refs::fetch_all_teams(|req| async move { fetch(&self.client, &req).await })
-                .await?
-                .into_iter()
-                .map(|team| Team {
-                    id: team.id,
-                    key: team.key,
-                    name: team.name,
-                })
-                .collect(),
+        Ok(refs::fetch_all_teams(
+            |variables| async move { Ok(self.client.query(variables).await?) },
         )
+        .await?
+        .into_iter()
+        .map(|team| Team {
+            id: team.id,
+            key: team.key,
+            name: team.name,
+        })
+        .collect())
     }
     async fn team_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         let data: ops::GetTeamIdOptionsByKey = fetch(
@@ -131,7 +130,7 @@ impl Backend for NetworkBackend {
     async fn auto_assign(&self) -> Result<bool, Error> {
         let data: ops::GetUserSettings = fetch(
             &self.client,
-            &GraphQlRequest::without_variables(ops::GetUserSettings::build(())),
+            &LegacyRequest::without_variables(ops::GetUserSettings::build(())),
         )
         .await?;
         Ok(data.user_settings.auto_assign_to_self)
@@ -364,13 +363,8 @@ impl Backend for NetworkBackend {
             "a cycle URL, number, or name",
             &self.scope(&key),
         )?;
-        crate::commands::cycle::view::resolve_id_with(
-            &team_id,
-            &reference,
-            url.as_ref(),
-            |req| async move { fetch(&self.client, &req).await },
-        )
-        .await
+        crate::commands::cycle::view::resolve_id(&self.client, &team_id, &reference, url.as_ref())
+            .await
     }
     async fn parent_id(&self, reference: String) -> Result<String, Error> {
         let identifier = self.parent_reference(&reference).await?;
@@ -387,7 +381,7 @@ impl Backend for NetworkBackend {
         let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
-        let data: ops::GetParentIssueData = match self.client.execute(&req).await {
+        let data: ops::GetParentIssueData = match self.client.execute_legacy(&req).await {
             Ok(data) => data,
             Err(crate::client::RequestError::Response(error)) => {
                 return Err(Error::new(
@@ -511,7 +505,7 @@ impl Templates for NetworkBackend {
             template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
             template
         } else {
-            let req = GraphQlRequest::without_variables(GetTemplates::build(()));
+            let req = LegacyRequest::without_variables(GetTemplates::build(()));
             let data: GetTemplates = fetch(&self.client, &req).await?;
             template_scope::select(&reference, data.templates, &team_ids, TemplateScope::Issue)?
         };

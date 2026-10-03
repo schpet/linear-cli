@@ -72,7 +72,7 @@ impl<'de> Deserialize<'de> for LookupIssue {
 pub async fn lookup(client: &LinearClient, identifier: &str) -> Result<(), Error> {
     let request = super::id::request(identifier);
     let result: Lookup = client
-        .execute(&request)
+        .execute_legacy(&request)
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     if result

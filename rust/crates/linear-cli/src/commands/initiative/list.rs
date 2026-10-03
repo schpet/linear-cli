@@ -9,7 +9,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::{json, user};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiatives::{
     GetInitiatives, GetInitiativesVariables, IDComparator, Initiative, InitiativeFilter,
     InitiativeOwner, InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType,
@@ -85,14 +85,14 @@ async fn fetch(
 ) -> Result<Vec<Initiative>> {
     let mut initiatives = pagination::collect(None, |after, first| {
         let request =
-            GraphQlRequest::with_variables(GetInitiatives::build(GetInitiativesVariables {
+            LegacyRequest::with_variables(GetInitiatives::build(GetInitiativesVariables {
                 filter: filter.clone(),
                 include_archived: Some(archived),
                 first: Some(first),
                 after,
             }));
         async move {
-            let data: GetInitiatives = client.execute(&request).await?;
+            let data: GetInitiatives = client.execute_legacy(&request).await?;
             Ok(data.initiatives.map_or_else(
                 || Page {
                     nodes: Vec::new(),

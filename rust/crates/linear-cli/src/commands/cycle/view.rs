@@ -4,7 +4,6 @@
 use std::future::Future;
 
 use chrono::{DateTime, TimeZone, Utc};
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::cycle::CycleView;
@@ -14,7 +13,6 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycle_view::{
     ActiveCycle, DetailCycle, DetailVariables, GetCycleDetails, GetTeamCyclesForLookup,
     LookupCycle, LookupVariables,
@@ -55,7 +53,7 @@ fn view(ctx: &Ctx, args: &CycleView) -> Result<()> {
     let cycle = ctx.spin(!args.json, async {
         let team = resolve_team_with_transport(&lookup, client).await?;
         let id = resolve_id(client, &team.id, reference, url.as_ref()).await?;
-        let details: GetCycleDetails = client.execute(&detail_request(&id)).await?;
+        let details: GetCycleDetails = client.query(DetailVariables { id }).await?;
         details
             .cycle
             .ok_or_else(|| Error::not_found("Cycle", reference))
@@ -67,19 +65,6 @@ fn view(ctx: &Ctx, args: &CycleView) -> Result<()> {
     }
 }
 const SIMPLE_SUGGESTION: &str = "Use a cycle number or name instead.";
-
-fn lookup_request(team_id: &str, after: Option<String>) -> GraphQlRequest<LookupVariables> {
-    GraphQlRequest::with_variables(GetTeamCyclesForLookup::build(LookupVariables {
-        team_id: team_id.to_owned(),
-        after,
-    }))
-}
-
-fn detail_request(id: &str) -> GraphQlRequest<DetailVariables> {
-    GraphQlRequest::with_variables(GetCycleDetails::build(DetailVariables {
-        id: id.to_owned(),
-    }))
-}
 
 fn validate_first_team(key: &str, enabled: bool, url: Option<&LinearUrlRef>) -> Result<(), Error> {
     if let Some(LinearUrlRef::Cycle { team_key, .. }) = url
@@ -106,14 +91,18 @@ pub async fn resolve_id_with<F, Fut>(
     mut fetch: F,
 ) -> Result<String, Error>
 where
-    F: FnMut(GraphQlRequest<LookupVariables>) -> Fut,
+    F: FnMut(LookupVariables) -> Fut,
     Fut: Future<Output = Result<GetTeamCyclesForLookup, Error>>,
 {
     let mut pages = Pages::new(None);
     let mut first: Option<(String, Option<ActiveCycle>)> = None;
     let mut cycles = Vec::new();
     loop {
-        let data = fetch(lookup_request(team_id, pages.after())).await?;
+        let data = fetch(LookupVariables {
+            team_id: team_id.to_owned(),
+            after: pages.after(),
+        })
+        .await?;
         let team = data.team.ok_or_else(|| Error::not_found("Team", team_id))?;
         if first.is_none() {
             validate_first_team(&team.key, team.cycles_enabled, url)?;
@@ -141,8 +130,8 @@ pub async fn resolve_id(
     reference: &str,
     url: Option<&LinearUrlRef>,
 ) -> Result<String, Error> {
-    resolve_id_with(team_id, reference, url, |request| async move {
-        Ok(client.execute(&request).await?)
+    resolve_id_with(team_id, reference, url, |variables| async move {
+        Ok(client.query(variables).await?)
     })
     .await
 }

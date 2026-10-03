@@ -1,11 +1,8 @@
 //! `initiative comment list`: every comment on an initiative, as threads or JSON.
-use cynic::QueryBuilder;
-
 use crate::cli::initiative::InitiativeCommentList;
 use crate::commands::comments::{self, CommentSource};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::comments::CommentConnection;
 use crate::graphql::operations::initiative_comments::{
     GetInitiativeComments, GetInitiativeCommentsVariables,
@@ -21,30 +18,25 @@ fn list(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
     let client = ctx.client()?;
     let nodes = ctx.spin(!args.json, async {
         let id = super::resolve(client, &reference, original, super::Archived::Exclude).await?;
-        comments::fetch::<InitiativeComments>(client, original, &id, args.limit).await
+        comments::fetch::<GetInitiativeComments>(client, original, &id, args.limit).await
     })?;
     comments::print(ctx, &nodes, args.json, "initiative")
 }
 
-struct InitiativeComments;
-
-impl CommentSource for InitiativeComments {
+impl CommentSource for GetInitiativeComments {
     const ENTITY: &'static str = "Initiative";
     type Variables = GetInitiativeCommentsVariables;
-    type Response = GetInitiativeComments;
 
-    fn request(id: &str, after: Option<String>, first: i32) -> GraphQlRequest<Self::Variables> {
-        GraphQlRequest::with_variables(GetInitiativeComments::build(
-            GetInitiativeCommentsVariables {
-                id: id.to_owned(),
-                filter_id: cynic::Id::new(id),
-                after,
-                first,
-            },
-        ))
+    fn variables(id: &str, after: Option<String>, first: i32) -> Self::Variables {
+        GetInitiativeCommentsVariables {
+            id: id.to_owned(),
+            filter_id: cynic::Id::new(id),
+            after,
+            first,
+        }
     }
 
-    fn comments(response: Self::Response) -> Option<CommentConnection> {
-        response.initiative.map(|_| response.comments)
+    fn comments(self) -> Option<CommentConnection> {
+        self.initiative.map(|_| self.comments)
     }
 }

@@ -72,14 +72,8 @@ async fn every_page_is_fetched_and_a_number_match_beats_a_later_name_match() {
     assert_eq!(id, "first-number");
     let requests = requests.borrow();
     assert_eq!(requests.len(), 2);
-    assert_eq!(
-        requests[0]["variables"],
-        json!({"teamId":"team-id","after":null})
-    );
-    assert_eq!(
-        requests[1]["variables"],
-        json!({"teamId":"team-id","after":"next"})
-    );
+    assert_eq!(requests[0], json!({"teamId":"team-id","after":null}));
+    assert_eq!(requests[1], json!({"teamId":"team-id","after":"next"}));
 }
 
 #[tokio::test]

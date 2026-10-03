@@ -12,7 +12,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_view::{
     DateResolutionType, GetProjectDetails, GetProjectIssuesPage, GetProjectsForPicker,
     PickerProject, PickerVariables, ProjectDetails, ProjectDetailsVariables,
@@ -93,11 +93,11 @@ async fn fetch_details(
     project_id: &str,
     original: &str,
 ) -> Result<ProjectDetails> {
-    let first = GraphQlRequest::with_variables(GetProjectDetails::build(ProjectDetailsVariables {
+    let first = LegacyRequest::with_variables(GetProjectDetails::build(ProjectDetailsVariables {
         id: project_id.to_owned(),
         first: PAGE_SIZE,
     }));
-    let data: GetProjectDetails = client.execute(&first).await?;
+    let data: GetProjectDetails = client.execute_legacy(&first).await?;
     let mut project = data
         .project
         .ok_or_else(|| Error::not_found("Project", original))?;
@@ -106,14 +106,14 @@ async fn fetch_details(
     let mut page_info = project.issues.page_info.clone();
     while pages.advance(received, &page_info)? {
         let request =
-            GraphQlRequest::with_variables(GetProjectIssuesPage::build(ProjectIssuesVariables {
+            LegacyRequest::with_variables(GetProjectIssuesPage::build(ProjectIssuesVariables {
                 id: project_id.to_owned(),
                 first: PAGE_SIZE,
                 after: pages
                     .after()
                     .expect("a walk that needs a page has a cursor"),
             }));
-        let data: GetProjectIssuesPage = client.execute(&request).await?;
+        let data: GetProjectIssuesPage = client.execute_legacy(&request).await?;
         let next = data
             .project
             .ok_or_else(|| Error::not_found("Project", original))?;
@@ -127,14 +127,13 @@ async fn fetch_details(
 async fn fetch_picker(client: &LinearClient, team_key: Option<&str>) -> Result<Vec<PickerProject>> {
     let filter = super::list::filter(team_key, None);
     let projects = pagination::collect(None, |after, _first| {
-        let request =
-            GraphQlRequest::with_variables(GetProjectsForPicker::build(PickerVariables {
-                filter: filter.clone(),
-                first: 100,
-                after,
-            }));
+        let request = LegacyRequest::with_variables(GetProjectsForPicker::build(PickerVariables {
+            filter: filter.clone(),
+            first: 100,
+            after,
+        }));
         async move {
-            let data: GetProjectsForPicker = client.execute(&request).await?;
+            let data: GetProjectsForPicker = client.execute_legacy(&request).await?;
             Ok(Page {
                 nodes: data.projects.nodes,
                 page_info: data.projects.page_info,

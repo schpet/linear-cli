@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
-use crate::graphql::{envelope::GraphQlRequest, operations::issue_read::*};
+use crate::graphql::{envelope::LegacyRequest, operations::issue_read::*};
 use crate::platform::style;
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -122,7 +122,7 @@ pub async fn state_filter(
     let mut after = None;
     if !lookups.is_empty() {
         loop {
-            let request = GraphQlRequest::with_variables(GetWorkflowStatesInScope::build(
+            let request = LegacyRequest::with_variables(GetWorkflowStatesInScope::build(
                 GetWorkflowStatesInScopeVariables {
                     filter: keys.map(|keys| WorkflowStateFilter {
                         team: Some(team_filter(keys, false)),
@@ -132,7 +132,7 @@ pub async fn state_filter(
                     after: after.clone(),
                 },
             ));
-            let page: GetWorkflowStatesInScope = client.execute(&request).await?;
+            let page: GetWorkflowStatesInScope = client.execute_legacy(&request).await?;
             states.extend(page.workflow_states.nodes);
             if !page.workflow_states.page_info.has_next_page {
                 break;
@@ -337,7 +337,7 @@ pub async fn project_id(
         ProjectReference::Slug(slug) => slug,
         ProjectReference::NameOrSlug(name) => {
             let data: GetProjectIdByName = client
-                .execute(&GraphQlRequest::with_variables(GetProjectIdByName::build(
+                .execute_legacy(&LegacyRequest::with_variables(GetProjectIdByName::build(
                     ProjectReferenceVariables { name: name.clone() },
                 )))
                 .await?;
@@ -369,11 +369,11 @@ pub async fn project_id(
         }
     };
     let data: GetProjectIdBySlugId = client
-        .execute(&GraphQlRequest::with_variables(
-            GetProjectIdBySlugId::build(ProjectSlugVariables {
+        .execute_legacy(&LegacyRequest::with_variables(GetProjectIdBySlugId::build(
+            ProjectSlugVariables {
                 slug_id: slug.clone(),
-            }),
-        ))
+            },
+        )))
         .await?;
     Ok(data
         .projects
@@ -403,14 +403,14 @@ pub async fn mine(
 ) -> Result<Vec<ListedIssue>, Error> {
     let mut rows = pagination::collect(limit, |after, first| {
         let request =
-            GraphQlRequest::with_variables(GetIssuesForState::build(GetIssuesForStateVariables {
+            LegacyRequest::with_variables(GetIssuesForState::build(GetIssuesForStateVariables {
                 sort: Some(sort_payload(priority)),
                 filter: filter.clone(),
                 first: Some(first),
                 after,
             }));
         async move {
-            let data: GetIssuesForState = client.execute(&request).await?;
+            let data: GetIssuesForState = client.execute_legacy(&request).await?;
             Ok(Page {
                 nodes: data.issues.nodes,
                 page_info: data.issues.page_info,
@@ -430,7 +430,7 @@ pub async fn query(
 ) -> Result<Vec<ListedIssue>, Error> {
     let mut rows = pagination::collect(limit, |after, first| {
         let request =
-            GraphQlRequest::with_variables(GetIssuesForQuery::build(GetIssuesForQueryVariables {
+            LegacyRequest::with_variables(GetIssuesForQuery::build(GetIssuesForQueryVariables {
                 sort: Some(sort_payload(priority)),
                 filter: filter.clone(),
                 first: Some(first),
@@ -438,7 +438,7 @@ pub async fn query(
                 include_archived: archived.then_some(true),
             }));
         async move {
-            let data: GetIssuesForQuery = client.execute(&request).await?;
+            let data: GetIssuesForQuery = client.execute_legacy(&request).await?;
             Ok(Page {
                 nodes: data.issues.nodes,
                 page_info: data.issues.page_info,
@@ -458,7 +458,7 @@ pub async fn search(
     comments: bool,
 ) -> Result<Vec<SearchIssuesSearchIssuesNodes>, Error> {
     pagination::collect(limit, |after, first| {
-        let request = GraphQlRequest::with_variables(SearchIssues::build(SearchIssuesVariables {
+        let request = LegacyRequest::with_variables(SearchIssues::build(SearchIssuesVariables {
             term: term.clone(),
             filter: filter.clone(),
             first: Some(first),
@@ -468,7 +468,7 @@ pub async fn search(
             order_by: None,
         }));
         async move {
-            let data: SearchIssues = client.execute(&request).await?;
+            let data: SearchIssues = client.execute_legacy(&request).await?;
             Ok(Page {
                 nodes: data.search_issues.nodes,
                 page_info: data.search_issues.page_info,
@@ -745,7 +745,7 @@ pub(super) fn resolve_project(
         return Ok(Some(id));
     }
     let data: GetProjectIdOptionsByName =
-        ctx.block_on(client.execute(&GraphQlRequest::with_variables(
+        ctx.block_on(client.execute_legacy(&LegacyRequest::with_variables(
             GetProjectIdOptionsByName::build(GetProjectIdOptionsByNameVariables {
                 name: value.to_owned(),
             }),

@@ -10,7 +10,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::organization_members::{
     GetOrganizationMembers, GetOrganizationMembersVariables, User,
 };
@@ -39,7 +39,7 @@ fn list(ctx: &Ctx, args: &UserList) -> Result<()> {
 /// Every member of the workspace, including disabled users with `include_disabled`.
 async fn fetch(client: &LinearClient, include_disabled: bool) -> Result<Vec<User>> {
     pagination::collect(None, |after, first| {
-        let request = GraphQlRequest::with_variables(GetOrganizationMembers::build(
+        let request = LegacyRequest::with_variables(GetOrganizationMembers::build(
             GetOrganizationMembersVariables {
                 include_disabled,
                 first: Some(first),
@@ -47,7 +47,7 @@ async fn fetch(client: &LinearClient, include_disabled: bool) -> Result<Vec<User
             },
         ));
         async move {
-            let data: GetOrganizationMembers = client.execute(&request).await?;
+            let data: GetOrganizationMembers = client.execute_legacy(&request).await?;
             let users = data.viewer.organization.users;
             Ok(Page {
                 nodes: users.nodes,

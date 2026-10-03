@@ -3,7 +3,7 @@ use cynic::QueryBuilder;
 
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::auth_whoami::AuthStatus;
 
 pub fn run(ctx: &Ctx) -> Result<()> {
@@ -12,8 +12,8 @@ pub fn run(ctx: &Ctx) -> Result<()> {
 
 fn whoami(ctx: &Ctx) -> Result<()> {
     let client = ctx.client()?;
-    let request = GraphQlRequest::without_variables(AuthStatus::build(()));
-    let status: AuthStatus = ctx.spin(true, client.execute(&request))?;
+    let request = LegacyRequest::without_variables(AuthStatus::build(()));
+    let status: AuthStatus = ctx.spin(true, client.execute_legacy(&request))?;
     ctx.print(render(&status))
 }
 

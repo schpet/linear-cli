@@ -1,4 +1,4 @@
-use super::{GraphQlRequest, ResponseError, graphql_message, is_not_found, parse_response};
+use super::{LegacyRequest, ResponseError, graphql_message, is_not_found, parse_response};
 use crate::graphql::operations::agent_session::GetAgentSessionDetails;
 use crate::graphql::operations::issue_update::UpdateIssue;
 use serde_json::Value;
@@ -228,7 +228,7 @@ fn request_envelope_carries_query_variables_and_operation_name() {
         after: None,
     });
     let query = operation.query.clone();
-    let request = GraphQlRequest::with_variables(operation);
+    let request = LegacyRequest::with_variables(operation);
     assert_eq!(
         serde_json::to_value(&request).expect("request"),
         serde_json::json!({"query": query, "variables": {"first": 100}, "operationName": "GetTeams"})
@@ -237,7 +237,7 @@ fn request_envelope_carries_query_variables_and_operation_name() {
 
 #[test]
 fn request_envelope_without_variables_omits_the_variables_key() {
-    let request = GraphQlRequest::<()> {
+    let request = LegacyRequest::<()> {
         query: "query Viewer { viewer { id } }".to_owned(),
         variables: None,
         operation_name: Some("Viewer".to_owned()),
@@ -246,7 +246,7 @@ fn request_envelope_without_variables_omits_the_variables_key() {
         serde_json::to_string(&request).expect("string"),
         r#"{"query":"query Viewer { viewer { id } }","operationName":"Viewer"}"#
     );
-    let anonymous = GraphQlRequest::<()> {
+    let anonymous = LegacyRequest::<()> {
         query: "{ viewer { id } }".to_owned(),
         variables: None,
         operation_name: None,
@@ -260,7 +260,7 @@ fn request_envelope_without_variables_omits_the_variables_key() {
 #[test]
 fn raw_variables_keep_an_explicit_null() {
     // `linear api` forwards user variables untouched, including nulls.
-    let request = GraphQlRequest {
+    let request = LegacyRequest {
         query: "query ($after: String) { teams(after: $after) { nodes { id } } }".to_owned(),
         variables: Some(serde_json::json!({"first": 100, "after": null})),
         operation_name: None,

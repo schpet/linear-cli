@@ -24,7 +24,9 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};
+use cynic::Operation;
+
+use crate::graphql::envelope::{GraphQlRequest, LegacyRequest, ResponseError, parse_response};
 
 pub use config::{
     ApiKey, ApiKeyError, ClientBuildError, ClientConfig, Deadline, EndpointUrl, ResponseCap,
@@ -119,12 +121,47 @@ impl LinearClient {
         &self.endpoint
     }
 
-    /// Sends a prepared envelope and returns the exact response.
-    pub async fn send_request<V: Serialize>(
+    /// Runs a query operation; `Q`'s derive fixes the document and the
+    /// variables type.
+    pub async fn query<Q, V>(&self, variables: V) -> Result<Q, RequestError>
+    where
+        Q: cynic::QueryBuilder<V> + DeserializeOwned,
+        V: Serialize,
+    {
+        self.execute(Q::build(variables)).await
+    }
+
+    /// Runs a mutation operation. Mutations are sent once and never retried.
+    pub async fn mutate<M, V>(&self, variables: V) -> Result<M, RequestError>
+    where
+        M: cynic::MutationBuilder<V> + DeserializeOwned,
+        V: Serialize,
+    {
+        self.execute(M::build(variables)).await
+    }
+
+    /// Sends a built operation and decodes its data as `T`, which is usually
+    /// the operation's own type; `linear schema` decodes into raw JSON.
+    pub async fn execute<T, F, V>(&self, operation: Operation<F, V>) -> Result<T, RequestError>
+    where
+        T: DeserializeOwned,
+        V: Serialize,
+    {
+        let request = GraphQlRequest::new(operation).map_err(RequestError::RequestBody)?;
+        let response = self.send_request(&request).await?;
+        self.classify(response)
+    }
+
+    /// Sends a request body and returns the exact response.
+    pub async fn send_request(
         &self,
-        request: &GraphQlRequest<V>,
+        request: &GraphQlRequest,
     ) -> Result<RawHttpResponse, RequestError> {
         let body = serde_json::to_vec(request).map_err(RequestError::RequestBody)?;
+        self.post(body).await
+    }
+
+    async fn post(&self, body: Vec<u8>) -> Result<RawHttpResponse, RequestError> {
         let response = self
             .http
             .post(self.endpoint.url.clone())
@@ -140,12 +177,8 @@ impl LinearClient {
             .map_err(|failure| self.failure(failure))
     }
 
-    /// Sends a typed operation's envelope and classifies the response.
-    pub async fn execute<T: DeserializeOwned, V: Serialize>(
-        &self,
-        request: &GraphQlRequest<V>,
-    ) -> Result<T, RequestError> {
-        let response = self.send_request(request).await?;
+    /// [`classify_typed`], with the API key redacted from retained HTTP bodies.
+    fn classify<T: DeserializeOwned>(&self, response: RawHttpResponse) -> Result<T, RequestError> {
         classify_typed(response).map_err(|failure| match failure {
             RequestError::Http { mut response, body } => {
                 response.body = redact(&response.body, self.api_key.value.as_bytes());
@@ -153,6 +186,24 @@ impl LinearClient {
             }
             other => other,
         })
+    }
+
+    /// Sends a prepared envelope and returns the exact response.
+    pub async fn send_legacy<V: Serialize>(
+        &self,
+        request: &LegacyRequest<V>,
+    ) -> Result<RawHttpResponse, RequestError> {
+        let body = serde_json::to_vec(request).map_err(RequestError::RequestBody)?;
+        self.post(body).await
+    }
+
+    /// Sends a typed operation's envelope and classifies the response.
+    pub async fn execute_legacy<T: DeserializeOwned, V: Serialize>(
+        &self,
+        request: &LegacyRequest<V>,
+    ) -> Result<T, RequestError> {
+        let response = self.send_legacy(request).await?;
+        self.classify(response)
     }
 
     fn failure(&self, failure: ExchangeFailure) -> RequestError {

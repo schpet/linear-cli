@@ -22,7 +22,33 @@ use crate::error::Error;
 ///
 /// `variables` and `operationName` are omitted when absent.
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct GraphQlRequest<V> {
+pub struct GraphQlRequest {
+    pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variables: Option<Value>,
+    #[serde(rename = "operationName", skip_serializing_if = "Option::is_none")]
+    pub operation_name: Option<String>,
+}
+
+impl GraphQlRequest {
+    /// The body for a built operation. Operations without variables (whose
+    /// variables serialize to `null`) omit the key; a variables struct may
+    /// still omit individual keys with its own `skip_serializing_if`.
+    pub fn new<F, V: Serialize>(operation: Operation<F, V>) -> Result<Self, serde_json::Error> {
+        let variables = serde_json::to_value(&operation.variables)?;
+        Ok(Self {
+            query: operation.query,
+            variables: (!variables.is_null()).then_some(variables),
+            operation_name: operation.operation_name.map(|name| name.into_owned()),
+        })
+    }
+}
+
+/// The JSON body sent for one GraphQL operation.
+///
+/// `variables` and `operationName` are omitted when absent.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct LegacyRequest<V> {
     pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variables: Option<V>,
@@ -30,7 +56,7 @@ pub struct GraphQlRequest<V> {
     pub operation_name: Option<String>,
 }
 
-impl<V: Serialize> GraphQlRequest<V> {
+impl<V: Serialize> LegacyRequest<V> {
     /// Wraps an operation whose variables struct is always sent.
     ///
     /// Individual keys inside `variables` may still be omitted by the variables
@@ -44,7 +70,7 @@ impl<V: Serialize> GraphQlRequest<V> {
     }
 }
 
-impl GraphQlRequest<()> {
+impl LegacyRequest<()> {
     /// Wraps an operation with no variables; the `variables` key is omitted.
     pub fn without_variables<F>(operation: Operation<F, ()>) -> Self {
         Self {

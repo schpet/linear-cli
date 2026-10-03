@@ -8,7 +8,7 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::template::json as template_json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::templates::{GetTemplates, Template};
 use crate::platform::collation;
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
@@ -29,7 +29,7 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
             Some(lookup) => Some(resolve_team_with_transport(lookup, client).await?.id),
             None => None,
         };
-        let data: GetTemplates = client.execute(&request()).await?;
+        let data: GetTemplates = client.execute_legacy(&request()).await?;
         Ok::<_, Error>((data.templates, team_id))
     })?;
     let mut templates = select(templates, args.r#type, team_id.as_deref());
@@ -44,8 +44,8 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
 }
 
 /// Every template in the workspace, unfiltered (the API takes no filter).
-pub(super) fn request() -> GraphQlRequest<()> {
-    GraphQlRequest::without_variables(GetTemplates::build(()))
+pub(super) fn request() -> LegacyRequest<()> {
+    LegacyRequest::without_variables(GetTemplates::build(()))
 }
 
 fn type_name(template_type: TemplateType) -> &'static str {

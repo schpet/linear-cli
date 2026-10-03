@@ -4,7 +4,7 @@ use cynic::MutationBuilder;
 use crate::cli::milestone::MilestoneUpdate;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_update::{
     ProjectMilestoneUpdateInput, UpdateProjectMilestone, UpdateProjectMilestoneVariables,
     UpdatedMilestone,
@@ -30,7 +30,7 @@ fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
             }
             None => None,
         };
-        let request = GraphQlRequest::with_variables(UpdateProjectMilestone::build(
+        let request = LegacyRequest::with_variables(UpdateProjectMilestone::build(
             UpdateProjectMilestoneVariables {
                 id: args.id.clone(),
                 input: ProjectMilestoneUpdateInput {
@@ -42,7 +42,7 @@ fn update(ctx: &Ctx, args: &MilestoneUpdate) -> Result<()> {
                 },
             },
         ));
-        let result: UpdateProjectMilestone = client.execute(&request).await?;
+        let result: UpdateProjectMilestone = client.execute_legacy(&request).await?;
         let payload = result.project_milestone_update;
         if !payload.success {
             return Err(Error::new("Linear did not update the milestone"));

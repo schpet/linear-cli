@@ -1,18 +1,14 @@
 //! Team-reference preparation and typed lookup, without command context or
 //! credential or client construction.
 
-use std::collections::HashSet;
 use std::future::Future;
-
-use cynic::QueryBuilder;
 
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::edit::Edit;
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables, TeamNode,
 };
+use crate::graphql::pagination::{self, Page};
 use crate::platform::collation;
 
 use super::uuid::is_linear_uuid;
@@ -63,16 +59,16 @@ pub async fn find_team<F, Fut>(
     fetch: F,
 ) -> Result<Option<ResolvedTeam>, Error>
 where
-    F: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> Fut,
+    F: FnOnce(ResolveTeamVariables) -> Fut,
     Fut: Future<Output = Result<ResolveTeam, Error>>,
 {
     let is_uuid = is_linear_uuid(&prepared.lookup);
-    let request = GraphQlRequest::with_variables(ResolveTeam::build(ResolveTeamVariables {
+    let result = fetch(ResolveTeamVariables {
         reference: prepared.lookup.clone(),
         id: is_uuid.then(|| cynic::Id::new(prepared.lookup.clone())),
         is_uuid,
-    }));
-    let result = fetch(request).await?;
+    })
+    .await?;
     let wanted = prepared.lookup.to_lowercase();
     let candidates: Vec<ResolvedTeam> = result
         .teams
@@ -119,9 +115,9 @@ pub async fn resolve_team<ResolveFetch, ResolveFuture, AllFetch, AllFuture>(
     all_fetch: AllFetch,
 ) -> Result<ResolvedTeam, Error>
 where
-    ResolveFetch: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> ResolveFuture,
+    ResolveFetch: FnOnce(ResolveTeamVariables) -> ResolveFuture,
     ResolveFuture: Future<Output = Result<ResolveTeam, Error>>,
-    AllFetch: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> AllFuture,
+    AllFetch: FnMut(GetAllTeamsVariables) -> AllFuture,
     AllFuture: Future<Output = Result<GetAllTeams, Error>>,
 {
     if let Some(team) = find_team(prepared, resolve_fetch).await? {
@@ -134,9 +130,10 @@ where
         "This workspace has no teams you can access.".to_owned()
     } else {
         teams.sort_by(|left, right| {
-            collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+            collation::compare(&left.key, &right.key).then_with(|| {
+                collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+            })
         });
-        teams.sort_by(|left, right| collation::compare(&left.key, &right.key));
         format!(
             "Valid team keys: {}. Run `linear team list` to see all teams.",
             teams
@@ -156,8 +153,8 @@ pub async fn resolve_team_with_transport(
 ) -> Result<ResolvedTeam, Error> {
     resolve_team(
         prepared,
-        |request| async move { client.execute(&request).await.map_err(Error::from) },
-        |request| async move { client.execute(&request).await.map_err(Error::from) },
+        |variables| async move { Ok(client.query(variables).await?) },
+        |variables| async move { Ok(client.query(variables).await?) },
     )
     .await
 }
@@ -165,34 +162,23 @@ pub async fn resolve_team_with_transport(
 /// Fetches every team, sorted by lowercased name.
 pub async fn fetch_all_teams<F, Fut>(mut all_fetch: F) -> Result<Vec<ResolvedTeam>, Error>
 where
-    F: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> Fut,
+    F: FnMut(GetAllTeamsVariables) -> Fut,
     Fut: Future<Output = Result<GetAllTeams, Error>>,
 {
-    let mut teams = Vec::new();
-    let mut after = Edit::Unchanged;
-    let mut seen: HashSet<Option<String>> = HashSet::new();
-    let mut page = 1;
-    loop {
-        let request = GraphQlRequest::with_variables(GetAllTeams::build(GetAllTeamsVariables {
-            first: Some(100),
+    let mut teams = pagination::collect(None, |after, first| {
+        let response = all_fetch(GetAllTeamsVariables {
+            first: Some(first),
             after,
-        }));
-        let response = all_fetch(request).await?;
-        teams.extend(response.teams.nodes.into_iter().map(ResolvedTeam::from));
-        if !response.teams.page_info.has_next_page {
-            break;
+        });
+        async move {
+            let teams = response.await?.teams;
+            Ok(Page {
+                nodes: teams.nodes.into_iter().map(ResolvedTeam::from).collect(),
+                page_info: teams.page_info,
+            })
         }
-        let cursor = response.teams.page_info.end_cursor;
-        if !seen.insert(cursor.clone()) {
-            return Err(Error::new(format!(
-                "Linear repeated a team pagination cursor on page {page}"
-            ))
-            .with_hint("Retry the command."));
-        }
-        after = Edit::set_or_clear(cursor);
-        page += 1;
-    }
-
+    })
+    .await?;
     teams.sort_by(|left, right| {
         collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
     });
@@ -202,8 +188,7 @@ where
 pub async fn fetch_all_teams_with_transport(
     client: &LinearClient,
 ) -> Result<Vec<ResolvedTeam>, Error> {
-    fetch_all_teams(|request| async move { client.execute(&request).await.map_err(Error::from) })
-        .await
+    fetch_all_teams(|variables| async move { Ok(client.query(variables).await?) }).await
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@ use crate::{
     cli::schema::Schema,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::envelope::GraphQlRequest,
+    graphql::envelope::LegacyRequest,
 };
 use cynic::QueryBuilder;
 use cynic_introspection::{IntrospectionQuery, Type};
@@ -14,8 +14,8 @@ pub fn run(ctx: &Ctx, args: &Schema) -> Result<()> {
 
 fn write_schema(ctx: &Ctx, args: &Schema) -> Result<()> {
     let client = ctx.client()?;
-    let request = GraphQlRequest::without_variables(IntrospectionQuery::build(()));
-    let data: serde_json::Value = ctx.spin(true, client.execute(&request))?;
+    let request = LegacyRequest::without_variables(IntrospectionQuery::build(()));
+    let data: serde_json::Value = ctx.spin(true, client.execute_legacy(&request))?;
     let content = if args.json {
         serde_json::to_string_pretty(&data).expect("a JSON value always serializes")
     } else {

@@ -9,7 +9,7 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestone_view::{
     DetailMilestone, DetailVariables, GetMilestoneDetails,
 };
@@ -64,13 +64,13 @@ async fn fetch(client: &LinearClient, original: &str, id: &str) -> Result<Detail
         None,
         |after, first| {
             let request =
-                GraphQlRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
+                LegacyRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
                     id: id.to_owned(),
                     first,
                     after,
                 }));
             async move {
-                let data: GetMilestoneDetails = client.execute(&request).await?;
+                let data: GetMilestoneDetails = client.execute_legacy(&request).await?;
                 data.project_milestone
                     .ok_or_else(|| Error::not_found("Milestone", original))
             }

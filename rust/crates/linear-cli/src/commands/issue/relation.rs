@@ -4,7 +4,7 @@ use crate::client::LinearClient;
 use crate::commands::issue::id;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::issue_relations::{
     ApiRelationType, CreateIssueRelation, CreateVariables, DeleteIssueRelation, DeleteVariables,
     FindIssueRelation, IssueVariables, ListIssueRelations, ListedIssue, RelationInput,
@@ -50,21 +50,21 @@ fn pair(ctx: &Ctx, a: &str, b: &str) -> Result<(String, String)> {
     Ok((resolve(a)?, resolve(b)?))
 }
 
-pub fn list_request(identifier: &str) -> GraphQlRequest<IssueVariables> {
-    GraphQlRequest::with_variables(ListIssueRelations::build(IssueVariables {
+pub fn list_request(identifier: &str) -> LegacyRequest<IssueVariables> {
+    LegacyRequest::with_variables(ListIssueRelations::build(IssueVariables {
         issue_id: identifier.to_owned(),
     }))
 }
-pub fn find_request(id: &str) -> GraphQlRequest<IssueVariables> {
-    GraphQlRequest::with_variables(FindIssueRelation::build(IssueVariables {
+pub fn find_request(id: &str) -> LegacyRequest<IssueVariables> {
+    LegacyRequest::with_variables(FindIssueRelation::build(IssueVariables {
         issue_id: id.to_owned(),
     }))
 }
-pub fn create_request(input: RelationInput) -> GraphQlRequest<CreateVariables> {
-    GraphQlRequest::with_variables(CreateIssueRelation::build(CreateVariables { input }))
+pub fn create_request(input: RelationInput) -> LegacyRequest<CreateVariables> {
+    LegacyRequest::with_variables(CreateIssueRelation::build(CreateVariables { input }))
 }
-pub fn delete_request(id: &str) -> GraphQlRequest<DeleteVariables> {
-    GraphQlRequest::with_variables(DeleteIssueRelation::build(DeleteVariables {
+pub fn delete_request(id: &str) -> LegacyRequest<DeleteVariables> {
+    LegacyRequest::with_variables(DeleteIssueRelation::build(DeleteVariables {
         id: id.to_owned(),
     }))
 }
@@ -122,7 +122,7 @@ pub fn list_output(issue: &ListedIssue) -> Vec<u8> {
 }
 async fn fetch_list(client: &LinearClient, identifier: &str) -> Result<Vec<u8>> {
     let data: ListIssueRelations = client
-        .execute(&list_request(identifier))
+        .execute_legacy(&list_request(identifier))
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     Ok(list_output(&data.issue))
@@ -146,7 +146,7 @@ async fn create(
     b: &str,
 ) -> Result<Vec<u8>, Error> {
     let input = lookup_pair(client, kind, a, b).await?;
-    let data: CreateIssueRelation = client.execute(&create_request(input)).await?;
+    let data: CreateIssueRelation = client.execute_legacy(&create_request(input)).await?;
     if !data.issue_relation_create.success {
         return Err(Error::new("Linear did not create the relation"));
     }
@@ -159,7 +159,9 @@ async fn remove(
     b: &str,
 ) -> Result<Vec<u8>, Error> {
     let input = lookup_pair(client, kind, a, b).await?;
-    let data: FindIssueRelation = client.execute(&find_request(&input.issue_id)).await?;
+    let data: FindIssueRelation = client
+        .execute_legacy(&find_request(&input.issue_id))
+        .await?;
     let relation = data
         .issue
         .relations
@@ -175,7 +177,9 @@ async fn remove(
                 &format!("{} between {a} and {b}", kind.spelling()),
             )
         })?;
-    let deleted: DeleteIssueRelation = client.execute(&delete_request(relation.id.inner())).await?;
+    let deleted: DeleteIssueRelation = client
+        .execute_legacy(&delete_request(relation.id.inner()))
+        .await?;
     if !deleted.issue_relation_delete.success {
         return Err(Error::new("Linear did not delete the relation"));
     }

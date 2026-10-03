@@ -9,7 +9,7 @@ use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
 };
@@ -45,7 +45,7 @@ async fn fetch(
     project_id: &str,
 ) -> Result<Vec<ProjectMilestone>> {
     let mut nodes = pagination::collect(None, |after, first| {
-        let request = GraphQlRequest::with_variables(GetProjectMilestones::build(
+        let request = LegacyRequest::with_variables(GetProjectMilestones::build(
             GetProjectMilestonesVariables {
                 project_id: project_id.to_owned(),
                 first: Some(first),
@@ -53,7 +53,7 @@ async fn fetch(
             },
         ));
         async move {
-            let data: GetProjectMilestones = client.execute(&request).await?;
+            let data: GetProjectMilestones = client.execute_legacy(&request).await?;
             let project = data
                 .project
                 .ok_or_else(|| Error::not_found("Project", original))?;

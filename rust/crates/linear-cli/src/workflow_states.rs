@@ -1,10 +1,8 @@
-//! A team's workflow states: the request and the shared display ordering.
+//! A team's workflow states: fetching them and the shared display ordering.
 
 use std::cmp::Ordering;
 
-use cynic::QueryBuilder;
-
-use crate::graphql::envelope::GraphQlRequest;
+use crate::client::{LinearClient, RequestError};
 use crate::graphql::operations::workflow_states::{
     GetWorkflowStates, GetWorkflowStatesVariables, WorkflowState,
 };
@@ -20,11 +18,17 @@ const KNOWN_TYPES: [&str; 7] = [
     "duplicate",
 ];
 
-/// The workflow states of the team with key `team_key`.
-pub fn request(team_key: String) -> GraphQlRequest<GetWorkflowStatesVariables> {
-    GraphQlRequest::with_variables(GetWorkflowStates::build(GetWorkflowStatesVariables {
-        team_key,
-    }))
+/// The workflow states of the team with key `team_key`, in display order.
+pub async fn fetch(
+    client: &LinearClient,
+    team_key: String,
+) -> Result<Vec<WorkflowState>, RequestError> {
+    let data: GetWorkflowStates = client
+        .query(GetWorkflowStatesVariables { team_key })
+        .await?;
+    let mut states = data.team.states.nodes;
+    sort(&mut states);
+    Ok(states)
 }
 
 pub fn sort(states: &mut [WorkflowState]) {

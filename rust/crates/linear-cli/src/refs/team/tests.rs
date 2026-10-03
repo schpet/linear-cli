@@ -6,7 +6,6 @@ use serde_json::{Value, json};
 use super::*;
 use crate::auth::ApiKeyInput;
 use crate::error::ErrorKind;
-use crate::graphql::edit::Edit;
 use crate::graphql::envelope::{GraphQlRequest, parse_response};
 use crate::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
@@ -41,10 +40,8 @@ fn expected_variables(spec: &Value) -> Value {
     spec["steps"][0]["variables"].clone()
 }
 
-fn request_variables<V: serde::Serialize>(request: &GraphQlRequest<V>) -> Value {
-    serde_json::to_value(request)
-        .unwrap_or_else(|error| panic!("typed request: {error}"))["variables"]
-        .clone()
+fn request_variables<V: serde::Serialize>(variables: &V) -> Value {
+    serde_json::to_value(variables).unwrap_or_else(|error| panic!("typed variables: {error}"))
 }
 
 fn assert_error(spec: &Value, error: &Error, kind: ErrorKind) {
@@ -55,9 +52,7 @@ fn assert_error(spec: &Value, error: &Error, kind: ErrorKind) {
     assert_eq!(error.to_string(), error.message(), "{}", spec["id"]);
 }
 
-fn unexpected_all(
-    _: GraphQlRequest<GetAllTeamsVariables>,
-) -> std::future::Ready<Result<GetAllTeams, Error>> {
+fn unexpected_all(_: GetAllTeamsVariables) -> std::future::Ready<Result<GetAllTeams, Error>> {
     ready(Err(Error::new("GetAllTeams was not expected")))
 }
 
@@ -80,9 +75,8 @@ async fn hits_keep_request_variables_and_winning_keys() {
         let expected = expected_variables(&spec);
         let found = resolve_team(
             &prepared,
-            |request| {
-                assert_eq!(request.operation_name.as_deref(), Some("ResolveTeam"));
-                assert_eq!(request_variables(&request), expected, "{}", spec["id"]);
+            |variables| {
+                assert_eq!(request_variables(&variables), expected, "{}", spec["id"]);
                 ready(Ok(response))
             },
             unexpected_all,
@@ -118,8 +112,8 @@ async fn blank_and_ambiguous_errors_are_exact() {
         let prepared = prepared_for(&spec, &absent);
         let expected = expected_variables(&spec);
         let response = resolve_response(&spec);
-        let error = find_team(&prepared, |request| {
-            assert_eq!(request_variables(&request), expected);
+        let error = find_team(&prepared, |variables| {
+            assert_eq!(request_variables(&variables), expected);
             ready(Ok(response))
         })
         .await
@@ -152,17 +146,16 @@ async fn assert_miss(name: &str) {
     let expected_resolve = expected_variables(&spec);
     let error = resolve_team(
         &prepared,
-        |request| {
-            assert_eq!(request_variables(&request), expected_resolve);
+        |variables| {
+            assert_eq!(request_variables(&variables), expected_resolve);
             ready(Ok(resolve_response))
         },
-        |request| {
+        |variables| {
             let (expected_vars, response) = pages
                 .pop_front()
                 .unwrap_or_else(|| panic!("{} unexpected page", spec["id"]));
-            assert_eq!(request.operation_name.as_deref(), Some("GetAllTeams"));
             assert_eq!(
-                request_variables(&request),
+                request_variables(&variables),
                 expected_vars,
                 "{} page",
                 spec["id"]
@@ -184,7 +177,6 @@ async fn misses_fetch_every_page_before_failing() {
     for name in [
         "miss-empty",
         "miss-two-pages",
-        "miss-null-cursor",
         "url-miss-keeps-input",
         "untrimmed-text",
     ] {
@@ -224,34 +216,31 @@ async fn graphql_failures_pass_through_without_context() {
 }
 
 #[test]
-fn request_variables_send_each_cursor_state() {
+fn requests_name_the_operation_and_omit_an_absent_cursor() {
     use cynic::QueryBuilder;
-    let resolve = GraphQlRequest::with_variables(ResolveTeam::build(ResolveTeamVariables {
+    let resolve = GraphQlRequest::new(ResolveTeam::build(ResolveTeamVariables {
         reference: "eng".to_owned(),
         id: None,
         is_uuid: false,
-    }));
+    }))
+    .expect("variables serialize");
     assert_eq!(resolve.operation_name.as_deref(), Some("ResolveTeam"));
     assert_eq!(
-        request_variables(&resolve),
-        json!({"reference":"eng","id":null,"isUuid":false})
+        resolve.variables,
+        Some(json!({"reference":"eng","id":null,"isUuid":false}))
     );
 
     for (after, expected) in [
-        (Edit::Unchanged, json!({"first":100})),
-        (Edit::Clear, json!({"first":100,"after":null})),
-        (Edit::Set(String::new()), json!({"first":100,"after":""})),
-        (
-            Edit::Set("next".to_owned()),
-            json!({"first":100,"after":"next"}),
-        ),
+        (None, json!({"first":100})),
+        (Some("next".to_owned()), json!({"first":100,"after":"next"})),
     ] {
-        let request = GraphQlRequest::with_variables(GetAllTeams::build(GetAllTeamsVariables {
+        let request = GraphQlRequest::new(GetAllTeams::build(GetAllTeamsVariables {
             first: Some(100),
             after,
-        }));
+        }))
+        .expect("variables serialize");
         assert_eq!(request.operation_name.as_deref(), Some("GetAllTeams"));
-        assert_eq!(request_variables(&request), expected);
+        assert_eq!(request.variables, Some(expected));
     }
 }
 
@@ -279,25 +268,41 @@ async fn disjoint_alias_prioritizes_key_then_id_then_name() {
 }
 
 #[tokio::test]
-async fn repeated_cursor_fails_without_partial_result() {
+async fn unusable_cursor_fails_without_partial_result() {
     let absent = ApiKeyInput::Absent;
     let scope = absent_scope(&absent);
     let prepared = prepare_team_lookup("Unknown", &scope).unwrap_or_else(|error| panic!("{error}"));
-    for cursor in [None, Some(String::new()), Some("repeat".to_owned())] {
+    for (cursor, expected_pages, message) in [
+        (
+            None,
+            1,
+            "Linear reported more results but sent no cursor to fetch them",
+        ),
+        (
+            Some(String::new()),
+            1,
+            "Linear reported more results but sent no cursor to fetch them",
+        ),
+        (
+            Some("repeat".to_owned()),
+            2,
+            "Linear sent the same pagination cursor twice",
+        ),
+    ] {
         let empty_resolve: ResolveTeam = serde_json::from_value(json!({"teams":{"nodes":[]}}))
             .unwrap_or_else(|error| panic!("empty ResolveTeam: {error}"));
         let mut pages = 0;
         let error = resolve_team(
             &prepared,
             |_| ready(Ok(empty_resolve)),
-            |request| {
+            |variables| {
                 pages += 1;
                 let expected_after = if pages == 1 {
                     json!({"first":100})
                 } else {
                     json!({"first":100,"after":cursor})
                 };
-                assert_eq!(request_variables(&request), expected_after);
+                assert_eq!(request_variables(&variables), expected_after);
                 let response: GetAllTeams = serde_json::from_value(json!({
                     "teams": {
                         "nodes": [{"id":"partial","key":"PART","name":"Partial"}],
@@ -310,14 +315,10 @@ async fn repeated_cursor_fails_without_partial_result() {
         )
         .await
         .err()
-        .unwrap_or_else(|| panic!("repeated cursor should fail"));
-        assert_eq!(pages, 2);
-        assert_eq!(
-            error.message(),
-            "Linear repeated a team pagination cursor on page 2"
-        );
+        .unwrap_or_else(|| panic!("unusable cursor should fail"));
+        assert_eq!(pages, expected_pages);
+        assert_eq!(error.message(), message);
         assert_eq!(error.hint(), Some("Retry the command."));
-        assert_eq!(error.to_string(), error.message());
     }
 }
 
@@ -339,14 +340,14 @@ async fn later_page_failure_passes_through_without_partial_result() {
     let error = resolve_team(
         &prepared,
         |_| ready(Ok(empty_resolve)),
-        |request| {
+        |variables| {
             calls += 1;
             if calls == 1 {
-                assert_eq!(request_variables(&request), json!({"first":100}));
+                assert_eq!(request_variables(&variables), json!({"first":100}));
                 ready(Ok(page.clone()))
             } else {
                 assert_eq!(
-                    request_variables(&request),
+                    request_variables(&variables),
                     json!({"first":100,"after":"next"})
                 );
                 ready(Err(Error::new("later page failed")))

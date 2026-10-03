@@ -1,11 +1,8 @@
 //! `milestone delete`: delete one project milestone after confirmation.
-use cynic::MutationBuilder;
-
 use crate::cli::milestone::MilestoneDelete;
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_delete::{
     DeleteProjectMilestone, DeleteProjectMilestoneVariables,
 };
@@ -23,10 +20,10 @@ fn delete(ctx: &Ctx, args: &MilestoneDelete) -> Result<()> {
         return Ok(());
     }
     let client = ctx.client()?;
-    let request = GraphQlRequest::with_variables(DeleteProjectMilestone::build(
-        DeleteProjectMilestoneVariables { id: id.clone() },
-    ));
-    let result: DeleteProjectMilestone = ctx.spin(true, client.execute(&request))?;
+    let result: DeleteProjectMilestone = ctx.spin(
+        true,
+        client.mutate(DeleteProjectMilestoneVariables { id: id.clone() }),
+    )?;
     if !result.project_milestone_delete.success {
         return Err(Error::new("Linear did not delete the milestone"));
     }

@@ -7,7 +7,7 @@ use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::operations::initiatives::IDComparator;
 use crate::refs::{
@@ -154,7 +154,7 @@ pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(
                 .id,
         )),
         PreparedTarget::Issue { original, id } => {
-            let query = GraphQlRequest::with_variables(GetIssueForDocumentTarget::build(
+            let query = LegacyRequest::with_variables(GetIssueForDocumentTarget::build(
                 GetDocumentVariables { id: id.clone() },
             ));
             let not_found = || {
@@ -162,7 +162,7 @@ pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(
                     .with_hint("Provide a valid issue identifier (e.g., TC-123) or UUID.")
             };
             let data: GetIssueForDocumentTarget =
-                client.execute(&query).await.map_err(|failure| {
+                client.execute_legacy(&query).await.map_err(|failure| {
                     if failure.is_not_found() {
                         not_found()
                     } else {
@@ -180,13 +180,9 @@ pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(
             url,
         } => {
             let team = refs::resolve_team_with_transport(team, client).await?;
-            let id = crate::commands::cycle::view::resolve_id_with(
-                &team.id,
-                reference,
-                url.as_ref(),
-                |query| async move { client.execute(&query).await.map_err(Error::from) },
-            )
-            .await?;
+            let id =
+                crate::commands::cycle::view::resolve_id(client, &team.id, reference, url.as_ref())
+                    .await?;
             Ok((Kind::Cycle, id))
         }
         PreparedTarget::Release(original) => Ok((

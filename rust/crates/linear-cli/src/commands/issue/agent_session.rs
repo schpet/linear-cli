@@ -9,7 +9,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::agent_session::{
     AgentActivityContent, AgentActivityType, AgentSession, AgentSessionStatus, AgentSessionType,
     GetAgentSessionDetails, GetAgentSessionDetailsVariables, GetIssueAgentSessions,
@@ -57,7 +57,7 @@ async fn fetch_session(client: &LinearClient, id: &str) -> Result<AgentSession> 
     let session = pagination::collect_within(
         None,
         |after, first| {
-            let request = GraphQlRequest::with_variables(GetAgentSessionDetails::build(
+            let request = LegacyRequest::with_variables(GetAgentSessionDetails::build(
                 GetAgentSessionDetailsVariables {
                     id: id.to_owned(),
                     first,
@@ -65,7 +65,7 @@ async fn fetch_session(client: &LinearClient, id: &str) -> Result<AgentSession> 
                 },
             ));
             async move {
-                let data: GetAgentSessionDetails = client.execute(&request).await?;
+                let data: GetAgentSessionDetails = client.execute_legacy(&request).await?;
                 Ok(data.agent_session)
             }
         },
@@ -86,7 +86,7 @@ async fn fetch_session(client: &LinearClient, id: &str) -> Result<AgentSession> 
 /// Every comment on the issue, for the agent sessions they started.
 async fn fetch_comments(client: &LinearClient, id: &str) -> Result<Vec<SessionComment>> {
     pagination::collect(None, |after, first| {
-        let request = GraphQlRequest::with_variables(GetIssueAgentSessions::build(
+        let request = LegacyRequest::with_variables(GetIssueAgentSessions::build(
             GetIssueAgentSessionsVariables {
                 issue_id: id.to_owned(),
                 after,
@@ -94,7 +94,7 @@ async fn fetch_comments(client: &LinearClient, id: &str) -> Result<Vec<SessionCo
             },
         ));
         async move {
-            let data: GetIssueAgentSessions = client.execute(&request).await?;
+            let data: GetIssueAgentSessions = client.execute_legacy(&request).await?;
             Ok(Page {
                 nodes: data.issue.comments.nodes,
                 page_info: data.issue.comments.page_info,

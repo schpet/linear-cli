@@ -5,7 +5,7 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        envelope::{GraphQlRequest, ResponseError},
+        envelope::{LegacyRequest, ResponseError},
         operations::comment_update::*,
     },
     platform::prompt::Text,
@@ -66,11 +66,11 @@ pub fn prepare_body(
 pub fn needs_prompt(body: Option<&str>) -> bool {
     body.is_none_or(str::is_empty)
 }
-pub fn get_request(id: &str) -> GraphQlRequest<GetCommentVariables> {
-    GraphQlRequest::with_variables(GetComment::build(GetCommentVariables { id: id.to_owned() }))
+pub fn get_request(id: &str) -> LegacyRequest<GetCommentVariables> {
+    LegacyRequest::with_variables(GetComment::build(GetCommentVariables { id: id.to_owned() }))
 }
-pub fn update_request(id: &str, body: String) -> GraphQlRequest<UpdateCommentVariables> {
-    GraphQlRequest::with_variables(UpdateComment::build(UpdateCommentVariables {
+pub fn update_request(id: &str, body: String) -> LegacyRequest<UpdateCommentVariables> {
+    LegacyRequest::with_variables(UpdateComment::build(UpdateCommentVariables {
         id: id.to_owned(),
         input: CommentUpdateInput { body },
     }))
@@ -78,21 +78,24 @@ pub fn update_request(id: &str, body: String) -> GraphQlRequest<UpdateCommentVar
 /// Report a GraphQL error from the exchange first, then decode the whole result. Never decode partial JSON to confirm a mutation.
 async fn exchange<T: DeserializeOwned, V: Serialize>(
     client: &LinearClient,
-    request: &GraphQlRequest<V>,
+    request: &LegacyRequest<V>,
     mutation: bool,
 ) -> Result<T, Error> {
-    client.execute(request).await.map_err(|error| match error {
-        RequestError::Response(ResponseError::UnexpectedShape(source)) => Error::new(format!(
-            "Linear returned an unexpected response: {source}{}",
-            if mutation {
-                "; update outcome unknown; do not retry automatically"
-            } else {
-                "; no update attempted"
-            }
-        ))
-        .with_source(source),
-        error => Error::from(error),
-    })
+    client
+        .execute_legacy(request)
+        .await
+        .map_err(|error| match error {
+            RequestError::Response(ResponseError::UnexpectedShape(source)) => Error::new(format!(
+                "Linear returned an unexpected response: {source}{}",
+                if mutation {
+                    "; update outcome unknown; do not retry automatically"
+                } else {
+                    "; no update attempted"
+                }
+            ))
+            .with_source(source),
+            error => Error::from(error),
+        })
 }
 pub async fn existing_body(client: &LinearClient, id: &str) -> Result<String, Error> {
     let result: GetComment = exchange(client, &get_request(id), false).await?;

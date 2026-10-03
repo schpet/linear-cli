@@ -5,7 +5,7 @@ use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{envelope::GraphQlRequest, operations::issue_read::*},
+    graphql::{envelope::LegacyRequest, operations::issue_read::*},
     platform::{
         markdown_assets,
         markdown_terminal::{self, RenderOptions},
@@ -131,7 +131,7 @@ pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<
     let missing = || Error::not_found("Issue", &id);
     if comments {
         let data: GetIssueDetailsWithComments = client
-            .execute(&GraphQlRequest::with_variables(
+            .execute_legacy(&LegacyRequest::with_variables(
                 GetIssueDetailsWithComments::build(GetIssueDetailsWithCommentsVariables {
                     id: id.clone(),
                 }),
@@ -140,7 +140,7 @@ pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<
         Ok(Fetched::With(data.issue.ok_or_else(missing)?))
     } else {
         let data: GetIssueDetails = client
-            .execute(&GraphQlRequest::with_variables(GetIssueDetails::build(
+            .execute_legacy(&LegacyRequest::with_variables(GetIssueDetails::build(
                 GetIssueDetailsVariables { id: id.clone() },
             )))
             .await?;

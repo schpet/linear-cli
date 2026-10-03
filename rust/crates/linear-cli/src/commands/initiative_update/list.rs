@@ -8,7 +8,7 @@ use crate::commands::json;
 use crate::commands::status_update::{self, Row, UpdateHealth};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_updates::{
     ListInitiativeUpdates, ListInitiativeUpdatesVariables, UpdateNode,
 };
@@ -28,7 +28,7 @@ fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
         pagination::collect_within(
             args.limit.max(),
             |after, first| {
-                let request = GraphQlRequest::with_variables(ListInitiativeUpdates::build(
+                let request = LegacyRequest::with_variables(ListInitiativeUpdates::build(
                     ListInitiativeUpdatesVariables {
                         id: id.clone(),
                         first: Some(first),
@@ -36,7 +36,7 @@ fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
                     },
                 ));
                 async move {
-                    let data: ListInitiativeUpdates = client.execute(&request).await?;
+                    let data: ListInitiativeUpdates = client.execute_legacy(&request).await?;
                     data.initiative
                         .ok_or_else(|| Error::not_found("Initiative", original))
                 }

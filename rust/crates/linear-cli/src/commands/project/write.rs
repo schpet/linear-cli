@@ -8,7 +8,7 @@ use crate::commands::issue::template_scope::{self, TemplateScope};
 use crate::commands::project::collections::ResolvedRef;
 use crate::commands::text_input;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_write::{
     GetInitiativeByIdForUpdate, GetProjectLabelIdByName, GetProjectStatuses, InitiativeIdVariables,
     NameVariables, ProjectStatus,
@@ -69,8 +69,8 @@ pub fn plain_references<'a>(
 
 /// The workspace's project statuses.
 pub async fn statuses(client: &LinearClient) -> Result<Vec<ProjectStatus>> {
-    let request = GraphQlRequest::without_variables(GetProjectStatuses::build(()));
-    let data: GetProjectStatuses = client.execute(&request).await?;
+    let request = LegacyRequest::without_variables(GetProjectStatuses::build(()));
+    let data: GetProjectStatuses = client.execute_legacy(&request).await?;
     Ok(data.project_statuses.nodes)
 }
 
@@ -97,10 +97,10 @@ pub async fn labels(client: &LinearClient, values: &[String]) -> Result<Vec<Reso
     let mut labels: Vec<ResolvedRef> = Vec::new();
     for value in values {
         let request =
-            GraphQlRequest::with_variables(GetProjectLabelIdByName::build(NameVariables {
+            LegacyRequest::with_variables(GetProjectLabelIdByName::build(NameVariables {
                 name: value.clone(),
             }));
-        let data: GetProjectLabelIdByName = client.execute(&request).await?;
+        let data: GetProjectLabelIdByName = client.execute_legacy(&request).await?;
         let id = data
             .project_labels
             .nodes
@@ -168,12 +168,12 @@ pub async fn initiatives(
     for (original, reference) in initiatives {
         let initiative = match reference {
             InitiativeReference::Id(id) => {
-                let request = GraphQlRequest::with_variables(GetInitiativeByIdForUpdate::build(
+                let request = LegacyRequest::with_variables(GetInitiativeByIdForUpdate::build(
                     InitiativeIdVariables {
                         id: cynic::Id::new(id),
                     },
                 ));
-                let data: GetInitiativeByIdForUpdate = client.execute(&request).await?;
+                let data: GetInitiativeByIdForUpdate = client.execute_legacy(&request).await?;
                 let found = data.initiatives.nodes.into_iter().next().ok_or_else(|| {
                     Error::not_found("Initiative", original)
                         .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
@@ -202,8 +202,8 @@ pub async fn template(
     reference: &str,
     team_ids: &[String],
 ) -> Result<String> {
-    let request = GraphQlRequest::without_variables(GetTemplates::build(()));
-    let data: GetTemplates = client.execute(&request).await?;
+    let request = LegacyRequest::without_variables(GetTemplates::build(()));
+    let data: GetTemplates = client.execute_legacy(&request).await?;
     let template = if refs::is_linear_uuid(reference) {
         let template = data
             .templates

@@ -10,7 +10,7 @@ use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_write::{
     AddProjectToInitiative, CreateProject, CreateProjectVariables, CreatedProject,
     InitiativeLinkInput, LinkVariables, ProjectCreateInput,
@@ -191,8 +191,8 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
 
 async fn submit(client: &LinearClient, input: ProjectCreateInput) -> Result<CreatedProject> {
     let request =
-        GraphQlRequest::with_variables(CreateProject::build(CreateProjectVariables { input }));
-    let result: CreateProject = client.execute(&request).await?;
+        LegacyRequest::with_variables(CreateProject::build(CreateProjectVariables { input }));
+    let result: CreateProject = client.execute_legacy(&request).await?;
     let payload = result.project_create;
     match payload.project {
         Some(project) if payload.success => Ok(project),
@@ -205,13 +205,13 @@ async fn link(
     project: &CreatedProject,
     initiative_id: String,
 ) -> Result<()> {
-    let request = GraphQlRequest::with_variables(AddProjectToInitiative::build(LinkVariables {
+    let request = LegacyRequest::with_variables(AddProjectToInitiative::build(LinkVariables {
         input: InitiativeLinkInput {
             initiative_id,
             project_id: project.id.inner().to_owned(),
         },
     }));
-    let result: AddProjectToInitiative = client.execute(&request).await?;
+    let result: AddProjectToInitiative = client.execute_legacy(&request).await?;
     if result.initiative_to_project_create.success {
         Ok(())
     } else {
