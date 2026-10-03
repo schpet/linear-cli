@@ -475,3 +475,67 @@ fn agent_session_view_of_a_missing_session_fails() {
         .run(&["issue", "agent-session", "view", SESSION_ID])
         .failure();
 }
+
+#[test]
+fn relation_add_reports_uncertain_outcomes_without_retrying() {
+    for uncertain in [false, true] {
+        let api = MockLinear::start();
+        api.on("GetIssueId", issue_id(ISSUE_1))
+            .on("GetIssueId", issue_id(ISSUE_2));
+        if uncertain {
+            api.on_raw("CreateIssueRelation", 200, "not json");
+        } else {
+            api.on_error("CreateIssueRelation", "Relation rejected");
+        }
+        let run = Cli::for_api(&api).run(&["issue", "relation", "add", "ENG-1", "blocks", "ENG-2"]);
+        run.failure().stderr_has(if uncertain {
+            "relation may already exist"
+        } else {
+            "Relation rejected"
+        });
+        assert_eq!(run.stderr.contains("may already exist"), uncertain);
+        assert_eq!(
+            api.operations(),
+            ["GetIssueId", "GetIssueId", "CreateIssueRelation"]
+        );
+        assert_eq!(
+            api.variables("CreateIssueRelation"),
+            json!({"input": {"issueId": ISSUE_1, "relatedIssueId": ISSUE_2, "type": "blocks"}})
+        );
+    }
+}
+
+#[test]
+fn attach_reports_uncertain_outcomes_without_retrying() {
+    for uncertain in [false, true] {
+        let api = MockLinear::start();
+        api.on("GetIssueId", issue_id(ISSUE_1))
+            .on(
+                "FileUpload",
+                file_upload(&api, "notes.txt", "/signed/notes.txt"),
+            )
+            .on_http("PUT", "/signed/notes.txt", 200, b"");
+        if uncertain {
+            api.on_raw("AttachmentCreate", 200, "not json");
+        } else {
+            api.on_error("AttachmentCreate", "Attachment rejected");
+        }
+        let run = Cli::for_api(&api)
+            .file("cwd/notes.txt", "some notes\n")
+            .run(&["issue", "attach", "ENG-1", "notes.txt"]);
+        run.failure().stderr_has(if uncertain {
+            "attachment may already exist"
+        } else {
+            "Attachment rejected"
+        });
+        assert_eq!(run.stderr.contains("may already exist"), uncertain);
+        assert_eq!(
+            api.operations(),
+            ["GetIssueId", "FileUpload", "", "AttachmentCreate"]
+        );
+        assert_eq!(
+            api.variables("AttachmentCreate"),
+            json!({"input": {"issueId": ISSUE_1, "title": "notes.txt", "url": "https://uploads.linear.app/acme/notes.txt"}})
+        );
+    }
+}

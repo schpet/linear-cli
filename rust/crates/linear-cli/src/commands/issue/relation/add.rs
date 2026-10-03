@@ -24,7 +24,10 @@ fn add(ctx: &Ctx, args: &IssueRelationAdd) -> Result<()> {
 
 async fn create(client: &LinearClient, kind: RelationType, a: &str, b: &str) -> Result<(), Error> {
     let input = super::lookup_pair(client, kind, a, b).await?;
-    let data: CreateIssueRelation = client.mutate(CreateVariables { input }).await?;
+    let data: CreateIssueRelation = client
+        .mutate(CreateVariables { input })
+        .await
+        .map_err(|failure| failure.into_create_error("relation"))?;
     if !data.issue_relation_create.success {
         return Err(Error::new("Linear did not create the relation"));
     }

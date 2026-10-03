@@ -294,7 +294,11 @@ impl Backend for NetworkBackend {
     }
     async fn create(&self, input: Input) -> Result<Created, Error> {
         use crate::graphql::operations::issue::{CreateIssue, CreateIssueVariables};
-        let data: CreateIssue = self.client.mutate(CreateIssueVariables { input }).await?;
+        let data: CreateIssue = self
+            .client
+            .mutate(CreateIssueVariables { input })
+            .await
+            .map_err(|failure| failure.into_create_error("issue"))?;
         if !data.issue_create.success {
             return Err(Error::new("Linear did not create the issue"));
         }

@@ -859,3 +859,34 @@ fn state_url_rejection_keeps_workflow_lookup_before_validation() {
         .stderr_has("workflow state name or type");
     assert_eq!(api.operations(), ["ResolveTeam", "GetWorkflowStates"]);
 }
+
+#[test]
+fn create_reports_uncertain_outcomes_without_retrying() {
+    for uncertain in [false, true] {
+        let api = MockLinear::start();
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"));
+        if uncertain {
+            api.on_raw("CreateIssue", 200, "not json");
+        } else {
+            api.on_error("CreateIssue", "Title is required");
+        }
+        let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&[
+            "issue",
+            "create",
+            "--no-interactive",
+            "-t",
+            "Plain",
+        ]);
+        run.failure().stderr_has(if uncertain {
+            "issue may already exist"
+        } else {
+            "Title is required"
+        });
+        assert_eq!(run.stderr.contains("may already exist"), uncertain);
+        assert_eq!(api.operations(), ["ResolveTeam", "CreateIssue"]);
+        assert_eq!(
+            input(&api, "CreateIssue"),
+            json!({"title": "Plain", "teamId": ENG_ID, "useDefaultTemplate": true})
+        );
+    }
+}

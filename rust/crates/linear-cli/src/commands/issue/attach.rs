@@ -84,7 +84,8 @@ async fn attach(
                 comment_body: comment.map(str::to_owned),
             },
         })
-        .await?;
+        .await
+        .map_err(|failure| failure.into_create_error("attachment"))?;
     if !data.attachment_create.success {
         return Err(Error::new("Linear did not create the attachment"));
     }
