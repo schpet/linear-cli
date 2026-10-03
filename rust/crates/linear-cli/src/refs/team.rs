@@ -108,7 +108,7 @@ pub async fn resolve(client: &LinearClient, reference: &TeamReference) -> Result
     }
     let mut teams = fetch_all(client).await?;
     let hint = if teams.is_empty() {
-        "This workspace has no teams you can access.".to_owned()
+        NONE_ACCESSIBLE.to_owned()
     } else {
         teams.sort_by(|left, right| collation::compare(&left.key, &right.key));
         format!(
@@ -121,6 +121,14 @@ pub async fn resolve(client: &LinearClient, reference: &TeamReference) -> Result
         )
     };
     Err(Error::not_found("Team", &reference.input).with_hint(hint))
+}
+
+const NONE_ACCESSIBLE: &str = "This workspace has no teams you can access.";
+
+/// The error for a picker with no team to offer.
+pub fn none_accessible() -> Error {
+    Error::new(NONE_ACCESSIBLE.trim_end_matches('.'))
+        .with_hint("Ask a workspace admin to add you to a team, or check the API key's workspace.")
 }
 
 /// Every team the key can access, sorted by name.

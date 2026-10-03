@@ -104,7 +104,8 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
                     release_id: input.release_id,
                 },
             })
-            .await?;
+            .await
+            .map_err(|failure| failure.into_create_error("document"))?;
         if !data.document_create.success {
             return Err(Error::new("Linear did not create the document"));
         }

@@ -17,7 +17,7 @@ use crate::graphql::operations::project::{
 use crate::graphql::scalars::TimelessDate;
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
-use crate::refs::{self, initiative::InitiativeReference};
+use crate::refs::{self, initiative::InitiativeReference, team::ResolvedTeam};
 
 pub fn run(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     create(ctx, args).context("Failed to create project")
@@ -189,7 +189,10 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
 }
 
 async fn submit(client: &LinearClient, input: ProjectCreateInput) -> Result<CreatedProject> {
-    let result: CreateProject = client.mutate(CreateProjectVariables { input }).await?;
+    let result: CreateProject = client
+        .mutate(CreateProjectVariables { input })
+        .await
+        .map_err(|failure| failure.into_create_error("project"))?;
     let payload = result.project_create;
     match payload.project {
         Some(project) if payload.success => Ok(project),
@@ -217,6 +220,25 @@ async fn link(
     }
 }
 
+/// The team picker's choices (by key) and the configured team's position.
+fn team_choices(
+    teams: Vec<ResolvedTeam>,
+    configured: Option<String>,
+) -> Result<(Vec<Choice<String>>, usize)> {
+    if teams.is_empty() {
+        return Err(refs::team::none_accessible());
+    }
+    let start = teams
+        .iter()
+        .position(|team| Some(&team.key) == configured.as_ref())
+        .unwrap_or(0);
+    let choices = teams
+        .into_iter()
+        .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team.key))
+        .collect();
+    Ok((choices, start))
+}
+
 /// Asks for every field the flags left out.
 fn prompt(
     ctx: &Ctx,
@@ -233,15 +255,7 @@ fn prompt(
     }
     if draft.teams.is_empty() {
         let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
-        let default_team = configured_team_key(ctx.options());
-        let start = teams
-            .iter()
-            .position(|team| Some(&team.key) == default_team.as_ref())
-            .unwrap_or(0);
-        let choices = teams
-            .into_iter()
-            .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team.key))
-            .collect();
+        let (choices, start) = team_choices(teams, configured_team_key(ctx.options()))?;
         draft.teams = vec![prompter.select_from("Team:", choices, start)?];
     }
     if draft.status.is_none() {
@@ -284,4 +298,35 @@ fn prompt(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::team_choices;
+    use crate::refs::team::ResolvedTeam;
+
+    #[test]
+    fn no_accessible_teams_is_an_error_not_an_empty_picker() {
+        let Err(error) = team_choices(Vec::new(), Some("ENG".to_owned())) else {
+            panic!("an empty team list must not reach the picker");
+        };
+        assert_eq!(
+            error.message(),
+            "This workspace has no teams you can access"
+        );
+        assert!(error.hint().is_some());
+    }
+
+    #[test]
+    fn the_picker_starts_on_the_configured_team() {
+        let team = |key: &str| ResolvedTeam {
+            id: format!("id-{key}"),
+            key: key.to_owned(),
+            name: key.to_owned(),
+        };
+        let (choices, start) =
+            team_choices(vec![team("A"), team("ENG")], Some("ENG".to_owned())).expect("teams");
+        assert_eq!(choices.len(), 2);
+        assert_eq!(start, 1);
+    }
 }

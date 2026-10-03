@@ -849,3 +849,14 @@ fn delete_resolves_names() {
         .stdout_has("Deleted project: Mobile App");
     assert_eq!(api.variables("DeleteProject"), json!({ "id": ID }));
 }
+
+#[test]
+fn create_warns_that_an_unreadable_reply_may_have_created_it() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", team("SRC", TEAM_ID))
+        .on_raw("CreateProject", 200, "not json");
+    Cli::for_api(&api)
+        .run(&["project", "create", "--name", "New", "--team", "SRC"])
+        .failure()
+        .stderr_has("project may already exist");
+}

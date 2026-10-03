@@ -762,3 +762,22 @@ fn update_edit_without_an_editor_fails() {
         .stderr_has("EDITOR");
     assert_eq!(api.operations(), ["GetDocumentForEdit"]);
 }
+
+#[test]
+fn create_warns_that_an_unreadable_reply_may_have_created_it() {
+    let api = MockLinear::start();
+    api.on_raw("CreateDocument", 200, "not json");
+    Cli::for_api(&api)
+        .run(&[
+            "document",
+            "create",
+            "--title",
+            "Notes",
+            "--content",
+            "Body",
+            "--project",
+            PROJECT_ID,
+        ])
+        .failure()
+        .stderr_has("document may already exist");
+}

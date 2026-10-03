@@ -155,7 +155,7 @@ fn pick_workspace(ctx: &Ctx, workspaces: &[String]) -> Result<String> {
 
 fn pick_team(ctx: &Ctx, teams: Vec<ResolvedTeam>) -> Result<ResolvedTeam> {
     if teams.is_empty() {
-        return Err(Error::new("No teams available to select"));
+        return Err(refs::team::none_accessible());
     }
     let choices = teams
         .into_iter()

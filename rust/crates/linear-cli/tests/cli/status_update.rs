@@ -414,3 +414,19 @@ fn initiative_create_reports_lookup_failures() {
             .contains(&"CreateInitiativeUpdate".to_owned())
     );
 }
+
+#[test]
+fn create_warns_that_an_unreadable_reply_may_have_created_it() {
+    let api = MockLinear::start();
+    api.on_raw("CreateInitiativeUpdate", 200, "not json");
+    Cli::for_api(&api)
+        .run(&[
+            "initiative-update",
+            "create",
+            INITIATIVE_ID,
+            "--body",
+            "Shipped",
+        ])
+        .failure()
+        .stderr_has("status update may already exist");
+}

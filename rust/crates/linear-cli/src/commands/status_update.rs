@@ -121,7 +121,8 @@ async fn submit(
                         }),
                     },
                 })
-                .await?;
+                .await
+                .map_err(|failure| failure.into_create_error("status update"))?;
             let payload = data.project_update_create;
             let update = payload.project_update;
             (
@@ -146,7 +147,8 @@ async fn submit(
                         }),
                     },
                 })
-                .await?;
+                .await
+                .map_err(|failure| failure.into_create_error("status update"))?;
             let payload = data.initiative_update_create;
             let update = payload.initiative_update;
             (
