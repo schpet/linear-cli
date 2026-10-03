@@ -1,38 +1,20 @@
-use crate::{LookupReply, hydrate};
-use linear_cli::auth::{
-    ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialSource, LookupResult,
-    parse_credentials, resolve,
-};
-use linear_cli::config::{
-    ConfigInputs, ConfigOptions, ConfigSecret, OptionInputs, OptionSource, OsFamily, RawConfigFile,
-    SelectedEnv, parse_config_tier,
-};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-fn store() -> linear_cli::auth::CredentialStore {
-    let tier = parse_config_tier(RawConfigFile {
-        path: PathBuf::from("/fake/credentials.toml"),
-        bytes: b"workspaces=['a','b']\ndefault='a'".to_vec(),
-    })
-    .expect("TOML");
-    let manifest = parse_credentials(tier).expect("manifest");
-    hydrate(
-        manifest,
-        vec![
-            LookupReply {
-                workspace: "a".to_owned(),
-                result: LookupResult::Hit(ConfigSecret::new("ka".to_owned())),
-            },
-            LookupReply {
-                workspace: "b".to_owned(),
-                result: LookupResult::Miss,
-            },
-        ],
-    )
-    .expect("store")
-}
+use super::*;
+use crate::auth::test_support::{hit, manifest, store as canned_store};
+use crate::auth::{CredentialStore, LookupResult};
+use crate::config::{
+    ConfigInputs, OptionInputs, OsFamily, RawConfigFile, SelectedEnv, parse_config_tier,
+};
 
+/// Workspaces `a` (key `ka`, the default) and `b` (no keyring entry).
+fn store() -> CredentialStore {
+    canned_store(
+        manifest("workspaces=['a','b']\ndefault='a'").expect("manifest"),
+        &[("a", hit("ka")), ("b", LookupResult::Miss)],
+    )
+}
 #[test]
 fn raw_config_cli_workspace_and_default_precedence() {
     let store = store();
@@ -139,12 +121,7 @@ fn empty_raw_shadows_config_and_workspace_fallbacks_are_exact() {
 
 #[test]
 fn no_key_is_a_normal_outcome() {
-    let tier = parse_config_tier(RawConfigFile {
-        path: PathBuf::from("/fake/credentials.toml"),
-        bytes: Vec::new(),
-    })
-    .expect("TOML");
-    let store = hydrate(parse_credentials(tier).expect("manifest"), vec![]).expect("empty store");
+    let store = canned_store(manifest("").expect("manifest"), &[]);
     let inputs = CredentialSelectionInputs {
         api_key: ApiKeyInput::Absent,
         cli_workspace: None,
@@ -226,19 +203,10 @@ fn successful_workspace_selections_and_empty_cached_keys() {
 
 #[test]
 fn empty_default_cache_yields_no_key_and_empty_explicit_cache_is_missing() {
-    let tier = parse_config_tier(RawConfigFile {
-        path: PathBuf::from("/fake/credentials.toml"),
-        bytes: b"workspaces=['a']\ndefault='a'".to_vec(),
-    })
-    .expect("TOML");
-    let store = hydrate(
-        parse_credentials(tier).expect("manifest"),
-        vec![LookupReply {
-            workspace: "a".to_owned(),
-            result: LookupResult::Hit(ConfigSecret::new(String::new())),
-        }],
-    )
-    .expect("store");
+    let store = canned_store(
+        manifest("workspaces=['a']\ndefault='a'").expect("manifest"),
+        &[("a", hit(""))],
+    );
     let default = CredentialSelectionInputs {
         api_key: ApiKeyInput::Absent,
         cli_workspace: None,

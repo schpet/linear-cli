@@ -118,3 +118,80 @@ impl ReaderFlavor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn workspace_names_are_passed_literally() {
+        let workspace = "dummy space;'中";
+        assert_eq!(
+            ReaderFlavor::MacSecurity.lookup_arguments(workspace),
+            [
+                "find-generic-password",
+                "-a",
+                workspace,
+                "-s",
+                "linear-cli",
+                "-w"
+            ]
+        );
+        assert_eq!(
+            ReaderFlavor::SecretTool.lookup_arguments(workspace),
+            ["lookup", "service", "linear-cli", "account", workspace]
+        );
+        assert_eq!(
+            ReaderFlavor::MacSecurity.delete_arguments(workspace),
+            [
+                "delete-generic-password",
+                "-a",
+                workspace,
+                "-s",
+                "linear-cli"
+            ]
+        );
+        assert_eq!(
+            ReaderFlavor::SecretTool.delete_arguments(workspace),
+            ["clear", "service", "linear-cli", "account", workspace]
+        );
+    }
+
+    #[test]
+    fn secrets_go_to_stdin_never_to_arguments() {
+        let workspace = "dummy space;'中";
+        let secret = ConfigSecret::new("dummy key\n中".to_owned());
+        let secret_tool = ReaderFlavor::SecretTool
+            .store_command(workspace, &secret)
+            .expect("secret-tool accepts any value");
+        assert_eq!(secret_tool.input, "dummy key\n中".as_bytes());
+        assert_eq!(
+            secret_tool.arguments,
+            [
+                "store",
+                "--label",
+                &format!("linear-cli: {workspace}"),
+                "service",
+                "linear-cli",
+                "account",
+                workspace
+            ]
+        );
+
+        // `security -i` would split these on whitespace.
+        assert!(
+            ReaderFlavor::MacSecurity
+                .store_command(workspace, &secret)
+                .is_err()
+        );
+        let plain = ConfigSecret::new("lin_api_ab-1.2".to_owned());
+        let mac = ReaderFlavor::MacSecurity
+            .store_command("acme-co", &plain)
+            .expect("plain values");
+        assert_eq!(mac.arguments, ["-i"]);
+        assert_eq!(
+            mac.input,
+            b"add-generic-password -U -a acme-co -s linear-cli -w lin_api_ab-1.2\n"
+        );
+    }
+}

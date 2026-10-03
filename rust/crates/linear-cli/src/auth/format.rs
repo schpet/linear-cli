@@ -301,3 +301,6 @@ impl CredentialStore {
         )
     }
 }
+
+#[cfg(test)]
+mod tests;

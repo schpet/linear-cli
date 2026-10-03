@@ -269,3 +269,6 @@ fn write_private(path: &Path, contents: &[u8]) -> io::Result<()> {
     let mut file = options.open(path)?;
     file.write_all(contents)
 }
+
+#[cfg(test)]
+mod tests;

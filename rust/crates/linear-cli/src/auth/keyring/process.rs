@@ -341,3 +341,6 @@ impl KeyringBackend for ProcessMutationBackend {
         self.check(&output, self.flavor.delete_action(), accepted)
     }
 }
+
+#[cfg(all(test, unix))]
+mod tests;

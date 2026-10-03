@@ -1,79 +1,48 @@
 //! Adding, removing and migrating stored credentials, and the files written.
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 
-use linear_cli::auth::mutation::{Credentials, KeyringBackend};
-use linear_cli::auth::{
-    CredentialFormat, CredentialManifest, CredentialStore, LookupResult, parse_credentials,
-};
-use linear_cli::config::{ConfigSecret, RawConfigFile, parse_config_tier};
-use linear_cli::error::{Error, Result};
-
-use crate::{LookupReply, hydrate};
-
-static NEXT: AtomicU64 = AtomicU64::new(0);
+use super::*;
+use crate::auth::test_support::{hit, manifest, store};
+use crate::auth::{CredentialManifest, LookupResult};
 
 /// A credentials file in a fresh temporary directory.
 struct File {
-    dir: PathBuf,
+    _dir: tempfile::TempDir,
     path: PathBuf,
 }
 
 impl File {
     fn new(contents: Option<&str>) -> Self {
-        let dir = std::env::temp_dir().join(format!(
-            "linear-credentials-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        let path = dir.join("linear").join("credentials.toml");
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("linear").join("credentials.toml");
         if let Some(contents) = contents {
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(&path, contents).unwrap();
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("create dir");
+            std::fs::write(&path, contents).expect("write credentials");
         }
-        Self { dir, path }
+        Self { _dir: dir, path }
     }
 
     fn read(&self) -> String {
-        std::fs::read_to_string(&self.path).unwrap()
+        std::fs::read_to_string(&self.path).expect("read credentials")
     }
 
     /// The file as the CLI reads it, with `keyring` answering lookups.
     fn store(&self, keyring: &[(&str, &str)]) -> CredentialStore {
-        let manifest = manifest(&self.path);
-        let replies = keyring
+        let manifest = match std::fs::read_to_string(&self.path) {
+            Ok(text) => manifest(&text).expect("valid credentials"),
+            Err(_) => CredentialManifest::empty(),
+        };
+        let replies: Vec<(&str, LookupResult)> = keyring
             .iter()
-            .map(|(workspace, key)| LookupReply {
-                workspace: (*workspace).to_owned(),
-                result: LookupResult::Hit(secret(key)),
-            })
+            .map(|(workspace, key)| (*workspace, hit(key)))
             .collect();
-        hydrate(manifest, replies).unwrap()
+        store(manifest, &replies)
     }
 
     fn credentials(&self, store: &CredentialStore) -> Credentials {
         Credentials::new(store, &self.path)
     }
-}
-
-impl Drop for File {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
-    }
-}
-
-fn manifest(path: &Path) -> CredentialManifest {
-    let Ok(bytes) = std::fs::read(path) else {
-        return CredentialManifest::empty();
-    };
-    let tier = parse_config_tier(RawConfigFile {
-        path: path.to_owned(),
-        bytes,
-    })
-    .unwrap();
-    parse_credentials(tier).unwrap()
 }
 
 fn secret(value: &str) -> ConfigSecret {
@@ -125,13 +94,24 @@ async fn first_login_stores_the_key_in_the_keyring_and_lists_the_workspace() {
     credentials
         .add("acme", secret("key-acme"), false, &store, &keyring)
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(file.read(), "default = \"acme\"\nworkspaces = [\"acme\"]\n");
-    assert_eq!(keyring.entries.borrow()["acme"], "key-acme");
+    assert_eq!(
+        keyring
+            .entries
+            .borrow()
+            .get("acme")
+            .expect("stored")
+            .as_str(),
+        "key-acme"
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mode = std::fs::metadata(&file.path).unwrap().permissions().mode();
+        let mode = std::fs::metadata(&file.path)
+            .expect("should succeed")
+            .permissions()
+            .mode();
         assert_eq!(mode & 0o777, 0o600);
     }
 }
@@ -147,7 +127,7 @@ async fn plaintext_files_stay_plaintext_and_are_sorted_with_quoted_names() {
         credentials
             .add(name, secret(key), false, &store, &keyring)
             .await
-            .unwrap();
+            .expect("should succeed");
     }
     assert_eq!(
         file.read(),
@@ -158,7 +138,7 @@ async fn plaintext_files_stay_plaintext_and_are_sorted_with_quoted_names() {
         credentials
             .add(reserved, secret("key"), false, &store, &keyring)
             .await
-            .unwrap_err();
+            .expect_err("should fail");
     }
 }
 
@@ -168,7 +148,7 @@ async fn written_files_read_back_the_same() {
         let file = File::new(Some(contents));
         let store = file.store(&[]);
         let mut credentials = file.credentials(&store);
-        credentials.set_default("acme").unwrap();
+        credentials.set_default("acme").expect("should succeed");
         let expected = contents.replace("default = \"beta\"", "default = \"acme\"");
         assert_eq!(file.read(), expected);
         let reread = file.store(&[]);
@@ -186,7 +166,7 @@ async fn plaintext_key_added_to_a_keyring_file_moves_every_key_into_the_file() {
     credentials
         .add("gamma", secret("key-gamma"), true, &store, &keyring)
         .await
-        .unwrap();
+        .expect("should succeed");
     assert_eq!(credentials.format(), CredentialFormat::Inline);
     assert_eq!(
         file.read(),
@@ -209,7 +189,7 @@ async fn plaintext_conversion_fails_without_writing_when_a_keyring_key_is_unread
             &FakeKeyring::default(),
         )
         .await
-        .unwrap_err();
+        .expect_err("should fail");
     assert!(error.to_string().contains("\"beta\""), "{error}");
     assert_eq!(file.read(), KEYRING);
 }
@@ -226,7 +206,7 @@ async fn keyring_failure_on_add_leaves_the_file_alone() {
         .credentials(&store)
         .add("gamma", secret("key-gamma"), false, &store, &keyring)
         .await
-        .unwrap_err();
+        .expect_err("should fail");
     assert!(
         error
             .to_string()
@@ -242,16 +222,25 @@ async fn removing_the_default_picks_the_next_workspace() {
     let store = file.store(&[]);
     let keyring = FakeKeyring::default();
     let mut credentials = file.credentials(&store);
-    credentials.remove("beta", &keyring).await.unwrap();
+    credentials
+        .remove("beta", &keyring)
+        .await
+        .expect("should succeed");
     assert_eq!(*keyring.calls.borrow(), ["delete beta"]);
     assert_eq!(file.read(), "default = \"acme\"\nworkspaces = [\"acme\"]\n");
 
     let file = File::new(Some(INLINE));
     let store = file.store(&[]);
     let mut credentials = file.credentials(&store);
-    credentials.remove("acme", &keyring).await.unwrap();
+    credentials
+        .remove("acme", &keyring)
+        .await
+        .expect("should succeed");
     assert_eq!(file.read(), "default = \"beta\"\nbeta = \"key-beta\"\n");
-    credentials.remove("beta", &keyring).await.unwrap();
+    credentials
+        .remove("beta", &keyring)
+        .await
+        .expect("should succeed");
     assert_eq!(file.read(), "");
     assert_eq!(*keyring.calls.borrow(), ["delete beta"]);
 }
@@ -267,7 +256,7 @@ async fn keyring_failure_on_remove_leaves_the_file_alone() {
     file.credentials(&store)
         .remove("acme", &keyring)
         .await
-        .unwrap_err();
+        .expect_err("should fail");
     assert_eq!(file.read(), KEYRING);
 }
 
@@ -277,11 +266,27 @@ async fn migrate_moves_plaintext_keys_into_the_keyring() {
     let store = file.store(&[]);
     let keyring = FakeKeyring::default();
     let mut credentials = file.credentials(&store);
-    let migrated = credentials.migrate(&keyring).await.unwrap();
+    let migrated = credentials.migrate(&keyring).await.expect("should succeed");
     assert_eq!(migrated, ["acme", "beta"]);
     assert_eq!(file.read(), KEYRING);
-    assert_eq!(keyring.entries.borrow()["acme"], "key-acme");
-    assert_eq!(keyring.entries.borrow()["beta"], "key-beta");
+    assert_eq!(
+        keyring
+            .entries
+            .borrow()
+            .get("acme")
+            .expect("stored")
+            .as_str(),
+        "key-acme"
+    );
+    assert_eq!(
+        keyring
+            .entries
+            .borrow()
+            .get("beta")
+            .expect("stored")
+            .as_str(),
+        "key-beta"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -296,7 +301,7 @@ async fn failed_migration_removes_the_entries_it_wrote() {
         .credentials(&store)
         .migrate(&keyring)
         .await
-        .unwrap_err();
+        .expect_err("should fail");
     assert!(error.to_string().contains("\"beta\""), "{error}");
     assert_eq!(
         *keyring.calls.borrow(),

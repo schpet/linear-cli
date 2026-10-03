@@ -81,3 +81,62 @@ fn read(path: &Path) -> std::result::Result<Option<Vec<u8>>, String> {
     }
     Ok(Some(bytes))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::keyring::UnsupportedKeyringReader;
+    use crate::auth::{CredentialWarning, LookupFailureCategory};
+
+    fn read(path: &Path) -> Result<CredentialStore> {
+        load(Some(path), Box::new(UnsupportedKeyringReader))
+    }
+
+    fn failure(path: &Path) -> String {
+        read(path).expect_err("unreadable file").to_string()
+    }
+
+    #[test]
+    fn a_missing_file_is_an_empty_store_and_other_unreadable_paths_fail() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let missing = read(&dir.path().join("missing")).expect("missing file");
+        assert!(missing.workspaces().is_empty());
+        let file = dir.path().join("credentials.toml");
+        std::fs::write(&file, b"default = 'demo'\n").expect("write");
+        assert!(read(&file).is_ok());
+        assert!(failure(dir.path()).contains("not a regular file"));
+        assert!(failure(&file.join("child")).contains("read failed"));
+        std::fs::write(&file, vec![b'x'; 1024 * 1024 + 1]).expect("write");
+        assert!(failure(&file).contains("too large"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_fifo_is_refused_without_blocking() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let fifo = dir.path().join("fifo");
+        let status = std::process::Command::new("/usr/bin/mkfifo")
+            .arg(&fifo)
+            .status()
+            .expect("run mkfifo");
+        assert!(status.success());
+        assert!(failure(&fifo).contains("not a regular file"));
+    }
+
+    #[test]
+    fn keyring_entries_are_read_only_when_a_key_is_needed() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let file = dir.path().join("credentials.toml");
+        std::fs::write(&file, b"default = 'a'\nworkspaces = ['a', 'b']\n").expect("write");
+        let store = read(&file).expect("store");
+        assert!(store.take_warnings().is_empty());
+        assert!(store.key("b").is_none());
+        assert_eq!(
+            store.take_warnings(),
+            [CredentialWarning::LookupFailed {
+                workspace: "b".to_owned(),
+                category: LookupFailureCategory::UnsupportedPlatform,
+            }]
+        );
+    }
+}

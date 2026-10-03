@@ -45,6 +45,15 @@ impl ChildEnvOverlay {
             .iter()
             .map(|(key, value)| (key.as_str(), value.as_str()))
     }
+
+    /// No `.env` values.
+    #[cfg(test)]
+    pub(crate) fn empty() -> Self {
+        Self {
+            os: OsFamily::Unix,
+            values: BTreeMap::new(),
+        }
+    }
 }
 
 impl fmt::Debug for ChildEnvOverlay {

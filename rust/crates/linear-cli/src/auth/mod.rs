@@ -15,3 +15,6 @@ pub use resolve::{
     ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialSource, resolve,
 };
 pub mod mutation;
+
+#[cfg(test)]
+pub(crate) mod test_support;

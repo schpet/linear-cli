@@ -161,3 +161,6 @@ pub fn resolve<'a>(
     }
     CredentialSelection::NoKey
 }
+
+#[cfg(test)]
+mod tests;
