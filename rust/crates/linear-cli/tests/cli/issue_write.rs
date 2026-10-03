@@ -268,6 +268,20 @@ fn create_rejects_a_non_issue_template() {
 }
 
 #[test]
+fn create_reports_an_unknown_template_id_as_not_found() {
+    let api = MockLinear::start();
+    let id = "00000000-0000-4000-8000-000000000010";
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on_error("GetTemplate", "Entity not found")
+        .on("GetTemplates", json!({ "templates": [] }));
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["issue", "create", "--no-interactive", "--template", id])
+        .failure()
+        .stderr_has(&format!("Template not found: {id}"));
+}
+
+#[test]
 fn create_fails_on_an_unknown_label_without_creating() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))

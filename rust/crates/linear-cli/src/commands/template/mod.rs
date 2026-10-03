@@ -7,6 +7,8 @@ use crate::cli::template::TemplateCommand;
 use crate::ctx::Ctx;
 use crate::error::Result;
 
+pub use view::by_id as template_by_id;
+
 pub fn run(ctx: &Ctx, command: &TemplateCommand) -> Result<()> {
     match command {
         TemplateCommand::List(args) => list::run(ctx, args),

@@ -532,42 +532,14 @@ impl<'de> serde::Deserialize<'de> for OptionalId {
 impl Templates for NetworkBackend {
     async fn issue_template(&self, reference: String, team_id: String) -> Result<String, Error> {
         use super::template_scope::{self, TemplateScope};
-        use crate::graphql::operations::templates::{
-            GetTemplate, GetTemplateVariables, GetTemplates,
-        };
+        use crate::graphql::operations::templates::GetTemplates;
         refs::reject_linear_url(&reference, "a template name or UUID")?;
         let team_ids = [team_id];
         let template = if refs::is_linear_uuid(&reference) {
-            let req = request(GetTemplate::build(GetTemplateVariables {
-                id: reference.clone(),
-            }));
-            let response = self
-                .transport
-                .send_request(&req)
-                .await
-                .map_err(Error::from)?;
-            let observed = bulk_error::observe_source_error(&response, &req)
-                .map_err(bulk_error::BulkExchangeFailure::into_error)?;
-            let typed: Result<GetTemplate, _> = crate::graphql::transport::classify_typed(response);
-            match typed {
-                Err(crate::graphql::transport::TransportFailure::GraphQl {
-                    ref errors, ..
-                }) if errors
-                    .iter()
-                    .any(|e| e.message.to_lowercase().contains("no template found")) =>
-                {
-                    return Err(Error::not_found("Template", &reference)
-                        .with_hint("Run `linear template list` to see every template."));
-                }
-                other => {
-                    if let Some(error) = observed {
-                        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
-                    }
-                    let template = other.map_err(Error::from)?.template;
-                    template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
-                    template
-                }
-            }
+            let template =
+                crate::commands::template::template_by_id(&self.transport, &reference).await?;
+            template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
+            template
         } else {
             let req = GraphQlRequest::without_variables(GetTemplates::build(()));
             let data: GetTemplates = fetch(&self.transport, &req).await?;

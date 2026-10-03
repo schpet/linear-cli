@@ -57,39 +57,38 @@ fn view(ctx: &Ctx, args: &TemplateView) -> Result<()> {
     ctx.print(text)
 }
 
-/// Whether Linear reported that no template has the requested ID.
-fn is_missing_template(failure: &TransportFailure) -> bool {
-    match failure {
-        TransportFailure::GraphQl { errors, .. } => errors.iter().any(|error| {
-            error
-                .message
-                .to_ascii_lowercase()
-                .contains("no template found")
-        }),
-        _ => false,
-    }
-}
-
-/// One request: the template by ID, or every template to match the name.
+/// The template by ID, or every template to match the name.
 async fn resolve(client: &GraphQlTransport, reference: &Reference) -> Result<Template> {
     match reference {
-        Reference::Id(id) => {
-            let request =
-                GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
-                    id: id.clone(),
-                }));
-            match client.execute::<GetTemplate, _>(&request).await {
-                Ok(response) => Ok(response.template),
-                Err(failure) if is_missing_template(&failure) => {
-                    Err(Error::not_found("Template", id).with_hint(LIST_SUGGESTION))
-                }
-                Err(failure) => Err(Error::from(failure)),
-            }
-        }
+        Reference::Id(id) => by_id(client, id).await,
         Reference::Name(name) => {
             let data: GetTemplates = client.execute(&template_list::request()).await?;
             select_by_name(name, data.templates)
         }
+    }
+}
+
+/// The template with `id`. Linear reports a missing template only as a
+/// GraphQL error, so when that request fails the template list decides
+/// whether it is missing or the error stands.
+pub async fn by_id(client: &GraphQlTransport, id: &str) -> Result<Template> {
+    let request = GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
+        id: id.to_owned(),
+    }));
+    let failure = match client.execute::<GetTemplate, _>(&request).await {
+        Ok(response) => return Ok(response.template),
+        Err(failure @ TransportFailure::GraphQl { .. }) => failure,
+        Err(failure) => return Err(Error::from(failure)),
+    };
+    let data: GetTemplates = client.execute(&template_list::request()).await?;
+    if data
+        .templates
+        .iter()
+        .any(|template| template.id.inner() == id)
+    {
+        Err(Error::from(failure))
+    } else {
+        Err(Error::not_found("Template", id).with_hint(LIST_SUGGESTION))
     }
 }
 

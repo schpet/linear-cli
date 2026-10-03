@@ -209,15 +209,24 @@ fn view_text_lists_pre_fills_with_bodies_last() {
 #[test]
 fn view_unknown_id_is_not_found() {
     let api = MockLinear::start();
-    api.on_error(
-        "GetTemplate",
-        &format!("No template found with id {BUG_ID}"),
-    );
+    api.on_error("GetTemplate", "Entity not found")
+        .on("GetTemplates", json!({ "templates": [] }));
     Cli::for_api(&api)
         .run(&["template", "view", BUG_ID])
         .failure()
         .stderr_has(&format!("Template not found: {BUG_ID}"))
         .stderr_has("linear template list");
+}
+
+#[test]
+fn view_reports_the_error_for_a_template_that_exists() {
+    let api = MockLinear::start();
+    api.on_error("GetTemplate", "Rate limited")
+        .on("GetTemplates", json!({ "templates": [bug_report()] }));
+    Cli::for_api(&api)
+        .run(&["template", "view", BUG_ID])
+        .failure()
+        .stderr_has("Rate limited");
 }
 
 #[test]
