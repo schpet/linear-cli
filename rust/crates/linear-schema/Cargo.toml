@@ -7,11 +7,14 @@ license = "MIT"
 repository = "https://github.com/schpet/linear-cli"
 homepage = "https://github.com/schpet/linear-cli"
 
+[lib]
+doctest = false
+
 [dependencies]
-cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
+cynic = { version = "3.14.0", default-features = false, features = ["rkyv"] }
 
 [build-dependencies]
-cynic-codegen = { version = "=3.14.0", features = ["rkyv"] }
+cynic-codegen = { version = "3.14.0", features = ["rkyv"] }
 
 [package.metadata.dist]
 dist = false
