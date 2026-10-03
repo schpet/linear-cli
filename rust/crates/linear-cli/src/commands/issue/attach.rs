@@ -7,12 +7,11 @@ use crate::client::LinearClient;
 use crate::commands::upload::{self, UploadedFile};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::upload::{
     AttachmentCreate, AttachmentCreateInput, AttachmentCreateVariables, CreatedAttachment,
     GetIssueId, GetIssueIdVariables,
 };
-use cynic::{MutationBuilder, QueryBuilder};
+
 pub fn run(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
     attach_file(ctx, args).context("Failed to attach file")
 }
@@ -82,38 +81,17 @@ pub fn compose_body(text: Option<&str>, files: &[UploadedFile]) -> String {
 pub fn comment_output(identifier: &str, url: &str) -> Vec<u8> {
     format!("✓ Comment added to {identifier}\n{url}\n").into_bytes()
 }
-fn lookup_request(identifier: &str) -> LegacyRequest<GetIssueIdVariables> {
-    LegacyRequest::with_variables(GetIssueId::build(GetIssueIdVariables {
-        id: identifier.to_owned(),
-    }))
-}
 async fn lookup(client: &LinearClient, identifier: &str) -> Result<String, Error> {
     let data: GetIssueId = client
-        .execute_legacy(&lookup_request(identifier))
+        .query(GetIssueIdVariables {
+            id: identifier.to_owned(),
+        })
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
     data.issue
         .map(|x| x.id.into_inner())
         .filter(|x| !x.is_empty())
         .ok_or_else(|| Error::not_found("Issue", identifier))
-}
-fn attach_request(
-    issue_uuid: &str,
-    file: &UploadedFile,
-    title: Option<&str>,
-    comment: Option<&str>,
-) -> LegacyRequest<AttachmentCreateVariables> {
-    LegacyRequest::with_variables(AttachmentCreate::build(AttachmentCreateVariables {
-        input: AttachmentCreateInput {
-            issue_id: issue_uuid.to_owned(),
-            title: title
-                .filter(|x| !x.is_empty())
-                .unwrap_or(&file.file.filename)
-                .to_owned(),
-            url: file.asset_url.clone(),
-            comment_body: comment.map(str::to_owned),
-        },
-    }))
 }
 async fn attach(
     client: &LinearClient,
@@ -123,9 +101,18 @@ async fn attach(
     comment: Option<&str>,
 ) -> Result<CreatedAttachment, Error> {
     let data: AttachmentCreate = client
-        .execute_legacy(&attach_request(issue_uuid, file, title, comment))
-        .await
-        .map_err(Error::from)?;
+        .mutate(AttachmentCreateVariables {
+            input: AttachmentCreateInput {
+                issue_id: issue_uuid.to_owned(),
+                title: title
+                    .filter(|x| !x.is_empty())
+                    .unwrap_or(&file.file.filename)
+                    .to_owned(),
+                url: file.asset_url.clone(),
+                comment_body: comment.map(str::to_owned),
+            },
+        })
+        .await?;
     if !data.attachment_create.success {
         return Err(Error::new("Failed to create attachment"));
     }

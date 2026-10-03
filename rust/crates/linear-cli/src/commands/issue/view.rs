@@ -5,14 +5,14 @@ use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{envelope::LegacyRequest, operations::issue_read::*},
+    graphql::operations::issue_read::*,
     platform::{
         markdown_assets,
         markdown_terminal::{self, RenderOptions},
     },
 };
 use chrono::{DateTime, Utc};
-use cynic::QueryBuilder;
+
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -131,18 +131,12 @@ pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<
     let missing = || Error::not_found("Issue", &id);
     if comments {
         let data: GetIssueDetailsWithComments = client
-            .execute_legacy(&LegacyRequest::with_variables(
-                GetIssueDetailsWithComments::build(GetIssueDetailsWithCommentsVariables {
-                    id: id.clone(),
-                }),
-            ))
+            .query(GetIssueDetailsWithCommentsVariables { id: id.clone() })
             .await?;
         Ok(Fetched::With(data.issue.ok_or_else(missing)?))
     } else {
         let data: GetIssueDetails = client
-            .execute_legacy(&LegacyRequest::with_variables(GetIssueDetails::build(
-                GetIssueDetailsVariables { id: id.clone() },
-            )))
+            .query(GetIssueDetailsVariables { id: id.clone() })
             .await?;
         Ok(Fetched::Without(data.issue.ok_or_else(missing)?))
     }

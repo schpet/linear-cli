@@ -1,15 +1,14 @@
 //! `issue archive`/`delete`, single or bulk.
-use crate::client::LinearClient;
+use crate::client::{LinearClient, RequestError};
 use crate::{
     cli::issue::{IssueArchive, IssueDelete},
     commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb},
     commands::team_key::configured_team_key,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{envelope::LegacyRequest, operations::issue_archive_delete::*},
+    graphql::operations::issue_archive_delete::*,
     refs::{self, IssueReference, WorkspaceScope},
 };
-use cynic::{MutationBuilder, QueryBuilder};
 
 pub fn archive(ctx: &Ctx, args: &IssueArchive) -> Result<()> {
     let request = Request {
@@ -177,48 +176,12 @@ impl Details {
         format!("{}: {}", self.identifier, self.title)
     }
 }
-pub fn details_request(id: &str, mode: Mode, bulk: bool) -> LegacyRequest<IdVariables> {
-    let variables = IdVariables { id: id.to_owned() };
-    match (mode, bulk) {
-        (Mode::Archive, false) => {
-            LegacyRequest::with_variables(GetIssueArchiveDetails::build(variables))
-        }
-        (Mode::Archive, true) => {
-            LegacyRequest::with_variables(GetIssueDetailsForBulkArchive::build(variables))
-        }
-        (Mode::Delete, false) => {
-            LegacyRequest::with_variables(GetIssueDeleteDetails::build(variables))
-        }
-        (Mode::Delete, true) => {
-            LegacyRequest::with_variables(GetIssueDetailsForBulkDelete::build(variables))
-        }
-    }
-}
-pub fn mutation_request(id: &str, mode: Mode, bulk: bool) -> LegacyRequest<IdVariables> {
-    let variables = IdVariables { id: id.to_owned() };
-    match (mode, bulk) {
-        (Mode::Archive, false) => LegacyRequest::with_variables(ArchiveIssue::build(variables)),
-        (Mode::Archive, true) => LegacyRequest::with_variables(BulkArchiveIssue::build(variables)),
-        (Mode::Delete, false) => LegacyRequest::with_variables(DeleteIssue::build(variables)),
-        (Mode::Delete, true) => LegacyRequest::with_variables(BulkDeleteIssue::build(variables)),
-    }
-}
-/// A request whose "not found" answer means issue `id` does not exist.
-async fn exchange<T: serde::de::DeserializeOwned>(
-    client: &LinearClient,
-    request: &LegacyRequest<IdVariables>,
-    id: &str,
-) -> Result<T, Error> {
-    client
-        .execute_legacy(request)
-        .await
-        .map_err(|failure| failure.or_not_found("Issue", id))
-}
 pub async fn single_details(client: &LinearClient, id: &str, mode: Mode) -> Result<Details, Error> {
-    let request = details_request(id, mode, false);
+    let variables = IdVariables { id: id.to_owned() };
+    let not_found = |failure: RequestError| failure.or_not_found("Issue", id);
     let details = match mode {
         Mode::Archive => {
-            let data: GetIssueArchiveDetails = exchange(client, &request, id).await?;
+            let data: GetIssueArchiveDetails = client.query(variables).await.map_err(not_found)?;
             data.issue.map(|issue| Details {
                 identifier: issue.identifier,
                 title: issue.title,
@@ -226,7 +189,7 @@ pub async fn single_details(client: &LinearClient, id: &str, mode: Mode) -> Resu
             })
         }
         Mode::Delete => {
-            let data: GetIssueDeleteDetails = exchange(client, &request, id).await?;
+            let data: GetIssueDeleteDetails = client.query(variables).await.map_err(not_found)?;
             data.issue.map(|issue| Details {
                 identifier: issue.identifier,
                 title: issue.title,
@@ -236,23 +199,42 @@ pub async fn single_details(client: &LinearClient, id: &str, mode: Mode) -> Resu
     };
     details.ok_or_else(|| Error::not_found("Issue", id))
 }
+/// Archives or deletes issue `id`; `true` when Linear reports success.
+async fn mutate(
+    client: &LinearClient,
+    id: &str,
+    mode: Mode,
+    bulk: bool,
+) -> Result<bool, RequestError> {
+    let variables = IdVariables { id: id.to_owned() };
+    Ok(match (mode, bulk) {
+        (Mode::Archive, false) => {
+            let data: ArchiveIssue = client.mutate(variables).await?;
+            data.issue_archive.success
+        }
+        (Mode::Archive, true) => {
+            let data: BulkArchiveIssue = client.mutate(variables).await?;
+            data.issue_archive.success
+        }
+        (Mode::Delete, false) => {
+            let data: DeleteIssue = client.mutate(variables).await?;
+            data.issue_delete.success
+        }
+        (Mode::Delete, true) => {
+            let data: BulkDeleteIssue = client.mutate(variables).await?;
+            data.issue_delete.success
+        }
+    })
+}
 pub async fn submit_single(
     client: &LinearClient,
     id: &str,
     details: &Details,
     mode: Mode,
 ) -> Result<Vec<u8>, Error> {
-    let request = mutation_request(id, mode, false);
-    let success = match mode {
-        Mode::Archive => {
-            let data: ArchiveIssue = exchange(client, &request, id).await?;
-            data.issue_archive.success
-        }
-        Mode::Delete => {
-            let data: DeleteIssue = exchange(client, &request, id).await?;
-            data.issue_delete.success
-        }
-    };
+    let success = mutate(client, id, mode, false)
+        .await
+        .map_err(|failure| failure.or_not_found("Issue", id))?;
     if !success {
         return Err(Error::new(match mode {
             Mode::Archive => "Linear reported the archive as unsuccessful",
@@ -262,7 +244,7 @@ pub async fn submit_single(
     Ok(format!("✓ Successfully {} issue: {}\n", mode.past(), details.name()).into_bytes())
 }
 async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<BulkResult, Error> {
-    let request = details_request(id, mode, true);
+    let variables = IdVariables { id: id.to_owned() };
     let not_found = || BulkResult {
         id: id.to_owned(),
         name: None,
@@ -270,7 +252,7 @@ async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<Bu
     };
     let (name, already_archived) = match mode {
         Mode::Archive => {
-            let data: GetIssueDetailsForBulkArchive = match client.execute_legacy(&request).await {
+            let data: GetIssueDetailsForBulkArchive = match client.query(variables).await {
                 Ok(data) => data,
                 Err(failure) if failure.is_not_found() => return Ok(not_found()),
                 Err(failure) => return Err(failure.into()),
@@ -286,8 +268,7 @@ async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<Bu
         Mode::Delete => {
             // A failed details lookup only loses the title in the summary; the
             // delete still runs.
-            let data: Result<GetIssueDetailsForBulkDelete, _> =
-                client.execute_legacy(&request).await;
+            let data: Result<GetIssueDetailsForBulkDelete, _> = client.query(variables).await;
             let issue = match data {
                 Ok(data) => data.issue,
                 Err(_) => None,
@@ -305,21 +286,7 @@ async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<Bu
             (name, false)
         }
     };
-    let success = if already_archived {
-        true
-    } else {
-        let request = mutation_request(id, mode, true);
-        match mode {
-            Mode::Archive => {
-                let data: BulkArchiveIssue = client.execute_legacy(&request).await?;
-                data.issue_archive.success
-            }
-            Mode::Delete => {
-                let data: BulkDeleteIssue = client.execute_legacy(&request).await?;
-                data.issue_delete.success
-            }
-        }
-    };
+    let success = already_archived || mutate(client, id, mode, true).await?;
     Ok(BulkResult {
         id: id.to_owned(),
         name: Some(name),

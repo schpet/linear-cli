@@ -1,6 +1,5 @@
 //! `issue agent-session list/view`: agent sessions on an issue's comments.
 use chrono::{DateTime, TimeZone, Utc};
-use cynic::QueryBuilder;
 
 use crate::cli::issue::{IssueAgentSessionList, IssueAgentSessionView};
 use crate::client::LinearClient;
@@ -9,7 +8,7 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
+
 use crate::graphql::operations::agent_session::{
     AgentActivityContent, AgentActivityType, AgentSession, AgentSessionStatus, AgentSessionType,
     GetAgentSessionDetails, GetAgentSessionDetailsVariables, GetIssueAgentSessions,
@@ -56,18 +55,15 @@ fn print_sessions(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
 async fn fetch_session(client: &LinearClient, id: &str) -> Result<AgentSession> {
     let session = pagination::collect_within(
         None,
-        |after, first| {
-            let request = LegacyRequest::with_variables(GetAgentSessionDetails::build(
-                GetAgentSessionDetailsVariables {
+        |after, first| async move {
+            let data: GetAgentSessionDetails = client
+                .query(GetAgentSessionDetailsVariables {
                     id: id.to_owned(),
                     first,
                     after,
-                },
-            ));
-            async move {
-                let data: GetAgentSessionDetails = client.execute_legacy(&request).await?;
-                Ok(data.agent_session)
-            }
+                })
+                .await?;
+            Ok(data.agent_session)
         },
         |session| Page {
             nodes: std::mem::take(&mut session.activities.nodes),
@@ -85,21 +81,18 @@ async fn fetch_session(client: &LinearClient, id: &str) -> Result<AgentSession> 
 
 /// Every comment on the issue, for the agent sessions they started.
 async fn fetch_comments(client: &LinearClient, id: &str) -> Result<Vec<SessionComment>> {
-    pagination::collect(None, |after, first| {
-        let request = LegacyRequest::with_variables(GetIssueAgentSessions::build(
-            GetIssueAgentSessionsVariables {
+    pagination::collect(None, |after, first| async move {
+        let data: GetIssueAgentSessions = client
+            .query(GetIssueAgentSessionsVariables {
                 issue_id: id.to_owned(),
                 after,
                 first,
-            },
-        ));
-        async move {
-            let data: GetIssueAgentSessions = client.execute_legacy(&request).await?;
-            Ok(Page {
-                nodes: data.issue.comments.nodes,
-                page_info: data.issue.comments.page_info,
             })
-        }
+            .await?;
+        Ok(Page {
+            nodes: data.issue.comments.nodes,
+            page_info: data.issue.comments.page_info,
+        })
     })
     .await
 }

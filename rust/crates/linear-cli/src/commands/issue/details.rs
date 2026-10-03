@@ -1,10 +1,7 @@
 //! `issue title` and `issue url`.
-use cynic::QueryBuilder;
-
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::issue_details::{GetIssueDetails, IssueDetails, Variables};
 
 #[derive(Clone, Copy)]
@@ -32,11 +29,7 @@ fn print(ctx: &Ctx, issue_id: Option<&str>, field: Field) -> Result<()> {
     ctx.print(format!("{value}\n"))
 }
 
-pub fn request(id: String) -> LegacyRequest<Variables> {
-    LegacyRequest::with_variables(GetIssueDetails::build(Variables { id }))
-}
-
 pub async fn fetch(client: &LinearClient, id: String) -> Result<IssueDetails> {
-    let result: GetIssueDetails = client.execute_legacy(&request(id)).await?;
+    let result: GetIssueDetails = client.query(Variables { id }).await?;
     Ok(result.issue)
 }

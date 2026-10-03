@@ -6,13 +6,10 @@ use crate::{
     config::{ChildEnvOverlay, Vcs},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{
-        envelope::LegacyRequest,
-        operations::{
-            issue_read::*,
-            issue_start_state::{UpdateIssueState, Variables},
-            workflow_states::WorkflowState,
-        },
+    graphql::operations::{
+        issue_read::*,
+        issue_start_state::{UpdateIssueState, Variables},
+        workflow_states::WorkflowState,
     },
     platform::{
         prompt::Choice,
@@ -20,7 +17,6 @@ use crate::{
     },
     refs::{IssueReference, prepare_issue_reference},
 };
-use cynic::MutationBuilder;
 use std::{io::Write, path::Path};
 pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
     start(ctx, args).context("Failed to start issue")
@@ -355,12 +351,7 @@ pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
     }
     selected.ok_or_else(|| Error::new("No 'started' state found in workflow"))
 }
-pub fn update_request(identifier: &str, state_id: &str) -> LegacyRequest<Variables> {
-    LegacyRequest::with_variables(UpdateIssueState::build(Variables {
-        issue_id: identifier.to_owned(),
-        state_id: state_id.to_owned(),
-    }))
-}
+
 pub async fn update_state(
     client: &LinearClient,
     team: &str,
@@ -371,7 +362,10 @@ pub async fn update_state(
         .map_err(|failure| Error::from(failure).to_string())?;
     let state = started(states).map_err(|error| error.to_string())?;
     let response: UpdateIssueState = client
-        .execute_legacy(&update_request(identifier, state.id.inner()))
+        .mutate(Variables {
+            issue_id: identifier.to_owned(),
+            state_id: state.id.inner().to_owned(),
+        })
         .await
         .map_err(|failure| Error::from(failure).to_string())?;
     // The `success` flag is not reported; the whole payload is still decoded.

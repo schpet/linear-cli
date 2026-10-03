@@ -1,18 +1,13 @@
 //! `issue comment update`: body from a flag, a file or a prompt, then one mutation.
-use crate::client::{LinearClient, RequestError};
+use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueCommentUpdate,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{
-        envelope::{LegacyRequest, ResponseError},
-        operations::comment_update::*,
-    },
+    graphql::operations::comment_update::*,
     platform::prompt::Text,
     refs::{reject_comment_url, reject_linear_url},
 };
-use cynic::{MutationBuilder, QueryBuilder};
-use serde::{Serialize, de::DeserializeOwned};
 
 pub fn run(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     update(ctx, args).context("Failed to update comment")
@@ -66,46 +61,30 @@ pub fn prepare_body(
 pub fn needs_prompt(body: Option<&str>) -> bool {
     body.is_none_or(str::is_empty)
 }
-pub fn get_request(id: &str) -> LegacyRequest<GetCommentVariables> {
-    LegacyRequest::with_variables(GetComment::build(GetCommentVariables { id: id.to_owned() }))
-}
-pub fn update_request(id: &str, body: String) -> LegacyRequest<UpdateCommentVariables> {
-    LegacyRequest::with_variables(UpdateComment::build(UpdateCommentVariables {
-        id: id.to_owned(),
-        input: CommentUpdateInput { body },
-    }))
-}
-/// Report a GraphQL error from the exchange first, then decode the whole result. Never decode partial JSON to confirm a mutation.
-async fn exchange<T: DeserializeOwned, V: Serialize>(
-    client: &LinearClient,
-    request: &LegacyRequest<V>,
-    mutation: bool,
-) -> Result<T, Error> {
-    client
-        .execute_legacy(request)
-        .await
-        .map_err(|error| match error {
-            RequestError::Response(ResponseError::UnexpectedShape(source)) => Error::new(format!(
-                "Linear returned an unexpected response: {source}{}",
-                if mutation {
-                    "; update outcome unknown; do not retry automatically"
-                } else {
-                    "; no update attempted"
-                }
-            ))
-            .with_source(source),
-            error => Error::from(error),
-        })
-}
 pub async fn existing_body(client: &LinearClient, id: &str) -> Result<String, Error> {
-    let result: GetComment = exchange(client, &get_request(id), false).await?;
+    let result: GetComment = client
+        .query(GetCommentVariables { id: id.to_owned() })
+        .await?;
     Ok(result
         .comment
         .and_then(|comment| comment.body)
         .unwrap_or_default())
 }
 pub async fn submit(client: &LinearClient, id: &str, body: String) -> Result<Vec<u8>, Error> {
-    let result: UpdateComment = exchange(client, &update_request(id, body), true).await?;
+    let result: UpdateComment = client
+        .mutate(UpdateCommentVariables {
+            id: id.to_owned(),
+            input: CommentUpdateInput { body },
+        })
+        .await
+        .map_err(|failure| {
+            let uncertain = failure.outcome_unknown();
+            let mut error = Error::from(failure);
+            if uncertain {
+                error.push_message("; the comment may already be updated");
+            }
+            error
+        })?;
     if !result.comment_update.success {
         return Err(Error::new("Linear did not update the comment"));
     }

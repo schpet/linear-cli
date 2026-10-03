@@ -4,9 +4,7 @@ use crate::client::LinearClient;
 use crate::commands::issue::id;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::issue_link::{AttachmentLinkURL, Variables};
-use cynic::MutationBuilder;
 
 pub fn run(ctx: &Ctx, args: &IssueLink) -> Result<()> {
     link(ctx, args).context("Failed to link URL")
@@ -43,21 +41,20 @@ pub fn inputs<'a>(
     }
     Ok((issue, url))
 }
-pub fn request(id: &str, url: &str, title: Option<&str>) -> LegacyRequest<Variables> {
-    LegacyRequest::with_variables(AttachmentLinkURL::build(Variables {
-        issue_id: id.to_owned(),
-        url: url.to_owned(),
-        title: title.map(str::to_owned),
-    }))
-}
 pub async fn submit(
     client: &LinearClient,
     identifier: &str,
     url: &str,
     title: Option<&str>,
 ) -> Result<Vec<u8>, Error> {
-    let id = id::fetch(client, identifier).await?;
-    let result: AttachmentLinkURL = client.execute_legacy(&request(&id, url, title)).await?;
+    let issue_id = id::fetch(client, identifier).await?;
+    let result: AttachmentLinkURL = client
+        .mutate(Variables {
+            issue_id,
+            url: url.to_owned(),
+            title: title.map(str::to_owned),
+        })
+        .await?;
     if !result.attachment_link_url.success {
         return Err(Error::new("Failed to link URL to issue"));
     }

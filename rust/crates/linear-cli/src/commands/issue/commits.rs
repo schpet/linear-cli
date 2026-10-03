@@ -1,5 +1,4 @@
 //! `issue commits`: the jj commits whose trailers name an issue.
-use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueCommits,
     config::Vcs,
@@ -7,7 +6,6 @@ use crate::{
     error::{Error, Result, ResultExt},
     platform::vcs_script::{self, ChildOutcome, CommandSpec, ProcessRunner, Program},
 };
-use serde::Deserialize;
 use std::{num::NonZeroU8, path::Path};
 pub fn run(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
     show_commits(ctx, args).context("Failed to show commits")
@@ -17,7 +15,7 @@ fn show_commits(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
     check_vcs(super::vcs(ctx))?;
     let identifier = super::require(ctx, args.issue_id.as_deref())?;
     let client = ctx.client()?;
-    ctx.spin(true, lookup(client, &identifier))?;
+    ctx.spin(true, super::id::fetch(client, &identifier))?;
     ctx.flush()?;
     show(
         &mut vcs_script::NativeProcessRunner,
@@ -31,58 +29,6 @@ pub fn check_vcs(vcs: Vcs) -> Result<(), Error> {
         Vcs::Jj => Ok(()),
         Vcs::Git => Err(Error::new("commits is only supported with jj-vcs")
             .with_hint("This command requires jujutsu (jj) version control.")),
-    }
-}
-#[derive(Deserialize)]
-struct Lookup {
-    #[serde(default)]
-    issue: Option<LookupIssue>,
-}
-struct LookupIssue {
-    id: Option<String>,
-}
-impl<'de> Deserialize<'de> for LookupIssue {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct ObjectVisitor;
-        impl<'de> serde::de::Visitor<'de> for ObjectVisitor {
-            type Value = LookupIssue;
-            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("an issue object")
-            }
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                map: A,
-            ) -> Result<Self::Value, A::Error> {
-                #[derive(Deserialize)]
-                struct Fields {
-                    #[serde(default)]
-                    id: Option<String>,
-                }
-                let fields =
-                    Fields::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
-                Ok(LookupIssue { id: fields.id })
-            }
-        }
-        // Derived structs also accept JSON arrays as positional fields. This
-        // selected GraphQL field requires an object; absent/null still mean None.
-        deserializer.deserialize_map(ObjectVisitor)
-    }
-}
-/// Look up the issue; a missing or null issue is "not found".
-pub async fn lookup(client: &LinearClient, identifier: &str) -> Result<(), Error> {
-    let request = super::id::request(identifier);
-    let result: Lookup = client
-        .execute_legacy(&request)
-        .await
-        .map_err(|failure| failure.or_not_found("Issue", identifier))?;
-    if result
-        .issue
-        .and_then(|issue| issue.id)
-        .is_some_and(|id| !id.is_empty())
-    {
-        Ok(())
-    } else {
-        Err(Error::not_found("Issue", identifier))
     }
 }
 pub fn revset(identifier: &str) -> String {

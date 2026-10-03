@@ -618,7 +618,7 @@ fn query_unknown_state_fails() {
         .stderr_has("Absent");
     assert_eq!(
         api.variables("GetWorkflowStatesInScope"),
-        json!({ "first": 250 })
+        json!({ "first": 100 })
     );
 }
 
