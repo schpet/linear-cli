@@ -149,3 +149,28 @@ pub fn show(
     }
     child_status(runner.inherit(&show_spec(identifier), cwd, env)?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn child_exit_status_becomes_the_command_exit_status() {
+        for (outcome, expected) in [
+            (ChildOutcome::Code(0), 0),
+            (ChildOutcome::Code(7), 7),
+            (ChildOutcome::Code(255), 255),
+            (ChildOutcome::Signal(15), 143),
+        ] {
+            let code = child_status(outcome).map_or_else(|error| error.exit_code(), |()| 0);
+            assert_eq!(code, expected, "{outcome:?}");
+        }
+        for code in [-1, 256, i32::MAX, i32::MIN] {
+            let error = child_status(ChildOutcome::Code(code)).expect_err("out of range");
+            assert_eq!(
+                error.message(),
+                format!("Child exit code {code} is outside supported range 0..255")
+            );
+        }
+    }
+}

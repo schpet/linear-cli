@@ -372,3 +372,6 @@ pub fn infer_issue(
         }),
     }
 }
+
+#[cfg(test)]
+mod tests;
