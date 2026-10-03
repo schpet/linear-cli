@@ -560,6 +560,31 @@ fn comment_add_without_a_body_or_terminal_fails_before_any_request() {
     assert!(api.requests().is_empty());
 }
 
+#[test]
+fn comment_add_needs_the_document_content_record() {
+    let api = MockLinear::start();
+    api.on(
+        "GetDocumentCommentTarget",
+        json!({ "document": { "id": DOC_ID, "title": "Design notes", "documentContentId": null } }),
+    );
+    Cli::for_api(&api)
+        .run(&["document", "comment", "add", SLUG, "--body", "Hi"])
+        .failure()
+        .stderr_has("Document \"Design notes\" has no content record to comment on");
+    assert_eq!(api.operations(), ["GetDocumentCommentTarget"]);
+}
+
+#[test]
+fn comment_add_reports_a_missing_document() {
+    let api = MockLinear::start();
+    api.on_error("GetDocumentCommentTarget", "Entity not found: Document");
+    Cli::for_api(&api)
+        .run(&["document", "comment", "add", "gone", "--body", "Hi"])
+        .failure()
+        .stderr_has("Document not found: gone");
+    assert_eq!(api.operations(), ["GetDocumentCommentTarget"]);
+}
+
 fn listed_comment(id: &str, body: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null,

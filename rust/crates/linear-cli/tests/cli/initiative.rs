@@ -920,6 +920,25 @@ fn comment_add_rejects_ambiguous_names() {
 }
 
 #[test]
+fn comment_add_rejects_a_parent_link_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "initiative",
+            "comment",
+            "add",
+            "Roadmap",
+            "-b",
+            "Hi",
+            "-p",
+            "https://linear.app/acme/project/x-000000000001",
+        ])
+        .failure()
+        .stderr_has("Pass the UUID of the comment to reply to.");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn comment_list_json_returns_comments() {
     let comments = json!([
         comment("comment-1", "Root A", None),

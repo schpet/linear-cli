@@ -517,6 +517,36 @@ fn comment_add_replies_with_a_body_file() {
 }
 
 #[test]
+fn comment_add_reports_a_comment_linear_did_not_create() {
+    let api = MockLinear::start();
+    api.on(
+        "AddComment",
+        json!({ "commentCreate": {
+            "success": false,
+            "comment": { "id": "comment-1", "url": "https://linear.app/acme/comment/c0de" }
+        } }),
+    );
+    Cli::for_api(&api)
+        .run(&["project", "comment", "add", ID, "--body", "Hi"])
+        .failure()
+        .stderr_has("Failed to create comment");
+}
+
+#[test]
+fn comment_add_without_a_returned_comment_is_not_retried() {
+    let api = MockLinear::start();
+    api.on(
+        "AddComment",
+        json!({ "commentCreate": { "success": true, "comment": null } }),
+    );
+    Cli::for_api(&api)
+        .run(&["project", "comment", "add", ID, "--body", "Hi"])
+        .failure()
+        .stderr_has("comment may already exist");
+    assert_eq!(api.operations(), ["AddComment"]);
+}
+
+#[test]
 fn comment_list_json_returns_comments() {
     let comments = json!([
         comment("comment-1", "Root A", None),
