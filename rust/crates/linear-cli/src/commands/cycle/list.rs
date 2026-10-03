@@ -9,7 +9,7 @@ use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::operations::cycle::{self, GetTeamCycles, GetTeamCyclesVariables};
 use crate::graphql::pagination::{self, Page};
-use crate::platform::{collation, style};
+use crate::platform::style;
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 
 pub fn run(ctx: &Ctx, args: &CycleList) -> Result<()> {
@@ -51,7 +51,7 @@ async fn fetch(client: &LinearClient, team_id: &str) -> Result<Vec<cycle::Cycle>
         }
     })
     .await?;
-    nodes.sort_by(|left, right| collation::compare(&right.starts_at.0, &left.starts_at.0));
+    nodes.sort_by(|left, right| right.starts_at.cmp(&left.starts_at));
     Ok(nodes)
 }
 
@@ -78,10 +78,6 @@ fn status(cycle: &cycle::Cycle) -> &'static str {
     }
 }
 
-fn date_prefix(date: &str) -> String {
-    date.chars().take(10).collect()
-}
-
 fn render_text(nodes: &[cycle::Cycle]) -> Table {
     let mut table = Table::new([
         Column::fixed("#"),
@@ -103,8 +99,8 @@ fn render_text(nodes: &[cycle::Cycle]) -> Table {
         table.row([
             Cell::from(number),
             Cell::from(name),
-            Cell::from(date_prefix(&cycle.starts_at.0)),
-            Cell::from(date_prefix(&cycle.ends_at.0)),
+            Cell::from(cycle.starts_at.0.date_naive().to_string()),
+            Cell::from(cycle.ends_at.0.date_naive().to_string()),
             status,
         ]);
     }

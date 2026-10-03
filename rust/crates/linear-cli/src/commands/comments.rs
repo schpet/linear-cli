@@ -1,7 +1,6 @@
 //! Comment lists, shared by the issue, project, document and initiative
 //! `comment list` commands: fetching every page, and printing threads or JSON.
 use crate::graphql::operations::user::UserRef;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
@@ -12,7 +11,7 @@ use serde::de::DeserializeOwned;
 use crate::cli::Limit;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::operations::comment::{
@@ -131,26 +130,6 @@ fn author(node: &CommentNode) -> &str {
         .unwrap_or("Unknown")
 }
 
-fn timestamp_millis(node: &CommentNode) -> Option<i64> {
-    DateTime::parse_from_rfc3339(&node.created_at.0)
-        .ok()
-        .map(|date| date.timestamp_millis())
-}
-
-fn compare_time(left: &CommentNode, right: &CommentNode, descending: bool) -> Ordering {
-    let order = match (timestamp_millis(left), timestamp_millis(right)) {
-        (Some(left), Some(right)) => left.cmp(&right),
-        (Some(_), None) => Ordering::Less,
-        (None, Some(_)) => Ordering::Greater,
-        (None, None) => Ordering::Equal,
-    };
-    if descending && timestamp_millis(left).is_some() && timestamp_millis(right).is_some() {
-        order.reverse()
-    } else {
-        order
-    }
-}
-
 fn indent(text: &str) -> String {
     text.split('\n')
         .map(|line| format!("  {line}"))
@@ -162,7 +141,7 @@ fn header(node: &CommentNode, verb: &str, now: DateTime<Utc>, color: bool) -> St
     format!(
         "{} {verb} {} [{}]",
         bold(&format!("@{}", author(node)), color),
-        format_relative_time(&node.created_at.0, now, &Local),
+        ago(node.created_at.0, now, &Local),
         node.id.inner()
     )
 }
@@ -181,7 +160,7 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
             }
         }
     }
-    roots.sort_by(|left, right| compare_time(left, right, true));
+    roots.sort_by(|left, right| right.created_at.cmp(&left.created_at));
     let mut output = String::new();
     for root in roots {
         output.push_str(&header(root, "commented", now, color));
@@ -197,7 +176,7 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
             && !siblings.is_empty()
         {
             output.push('\n');
-            siblings.sort_by(|left, right| compare_time(left, right, false));
+            siblings.sort_by_key(|node| node.created_at);
             for reply in siblings {
                 output.push_str(&indent(&header(reply, "replied", now, color)));
                 output.push('\n');
@@ -211,7 +190,7 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
         }
         output.push('\n');
     }
-    orphans.sort_by(|(left, _), (right, _)| compare_time(left, right, false));
+    orphans.sort_by_key(|(node, _)| node.created_at);
     for (reply, parent) in orphans {
         output.push_str(&indent(&header(
             reply,

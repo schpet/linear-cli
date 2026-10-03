@@ -314,7 +314,7 @@ fn delete_fails_when_the_api_reports_no_success() {
 fn comment(id: &str, body: &str, user: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null,
-        "createdAt": "2026-01-02T12:00:00Z", "updatedAt": "2026-01-02T12:00:00Z",
+        "createdAt": "2026-01-02T12:00:00.000Z", "updatedAt": "2026-01-02T12:00:00.000Z",
         "editedAt": null, "url": format!("https://linear.app/acme/issue/ENG-7#comment-{id}"),
         "user": { "id": format!("user-{user}"), "name": user, "displayName": user },
         "externalUser": null, "botActor": null,

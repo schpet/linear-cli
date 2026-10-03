@@ -6,7 +6,7 @@ use crate::cli::Limit;
 use crate::cli::document::DocumentList;
 use crate::commands::{
     json,
-    relative_time::format_relative_time,
+    relative_time::ago,
     table::{Cell, Column, Table},
 };
 use crate::ctx::Ctx;
@@ -136,7 +136,7 @@ fn text(documents: &[ListedDocument], now: SystemTime) -> Table {
             Cell::from(doc.title.as_str()),
             Cell::from(attachment(doc)),
             Cell::styled(
-                format_relative_time(&doc.updated_at.0, now.into(), &chrono::Local),
+                ago(doc.updated_at.0, now.into(), &chrono::Local),
                 style::gray,
             ),
         ]);

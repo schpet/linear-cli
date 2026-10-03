@@ -32,19 +32,19 @@ fn issue(comments: bool) -> Value {
         "attachments": { "nodes": [{
             "id": "att-1", "title": "Design doc", "url": "https://example.com/docs",
             "subtitle": "Reference", "sourceType": "github", "metadata": { "nested": true },
-            "createdAt": "2024-01-01T00:00:00Z"
+            "createdAt": "2024-01-01T00:00:00.000Z"
         }] },
         "documents": { "nodes": [{
             "id": "doc-1", "title": "Spec", "slugId": "spec-123",
             "url": "https://linear.app/acme/document/spec-123",
-            "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z"
+            "createdAt": "2024-01-01T00:00:00.000Z", "updatedAt": "2024-01-01T00:00:00.000Z"
         }] }
     });
     if comments {
         issue["comments"] = json!({ "nodes": [
             comment("root", "Root comment body", None, None),
             comment("reply", "Reply body", Some("root"), None),
-            comment("resolved", "Resolved thread body", None, Some("2024-01-02T00:00:00Z")),
+            comment("resolved", "Resolved thread body", None, Some("2024-01-02T00:00:00.000Z")),
         ] });
     }
     issue
@@ -52,7 +52,7 @@ fn issue(comments: bool) -> Value {
 
 fn comment(id: &str, body: &str, parent: Option<&str>, resolved_at: Option<&str>) -> Value {
     json!({
-        "id": id, "body": body, "quotedText": null, "createdAt": "2024-01-03T00:00:00Z",
+        "id": id, "body": body, "quotedText": null, "createdAt": "2024-01-03T00:00:00.000Z",
         "url": format!("https://linear.app/acme/issue/ENG-1#comment-{id}"),
         "resolvedAt": resolved_at, "resolvingCommentId": null, "resolvingUser": null,
         "user": { "name": "alice", "displayName": "Alice Example" },
@@ -212,7 +212,7 @@ fn list_issue(number: u32, team: &str, state_type: &str) -> Value {
         "title": format!("Issue {number} title"),
         "url": format!("https://linear.app/acme/issue/{team}-{number}"),
         "priority": 2, "priorityLabel": "High", "estimate": null,
-        "createdAt": "2024-01-01T00:00:00Z", "updatedAt": "2024-01-01T00:00:00Z",
+        "createdAt": "2024-01-01T00:00:00.000Z", "updatedAt": "2024-01-01T00:00:00.000Z",
         "state": {
             "id": format!("state-{state_type}"), "name": state_type, "color": "#112233",
             "type": state_type, "position": 1
@@ -301,7 +301,7 @@ fn mine_sends_filters() {
             "--created-after",
             "2024-01-01",
             "--updated-after",
-            "2024-01-02T03:00:00Z",
+            "2024-01-02T03:00:00.000Z",
             "--limit",
             "1",
         ])
@@ -381,7 +381,7 @@ fn mine_resolves_team_cycle_and_state_names() {
                 "cycles": {
                     "nodes": [{
                         "id": "cycle-active", "number": 7, "name": "Sprint",
-                        "startsAt": "2024-01-01T00:00:00Z", "isNext": false, "isPrevious": false
+                        "startsAt": "2024-01-01T00:00:00.000Z", "isNext": false, "isPrevious": false
                     }],
                     "pageInfo": { "hasNextPage": false, "endCursor": null }
                 },

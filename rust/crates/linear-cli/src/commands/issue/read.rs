@@ -654,7 +654,7 @@ pub fn table(rows: &[ListedIssue], team: bool, assignee: bool, now: SystemTime) 
             style::rgb(text, &state_color, on)
         }));
         cells.push(Cell::styled(
-            relative_time::format_relative_time(&r.updated_at.0, now.into(), &chrono::Local),
+            relative_time::ago(r.updated_at.0, now.into(), &chrono::Local),
             style::gray,
         ));
         table.row(cells);

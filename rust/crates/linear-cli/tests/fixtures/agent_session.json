@@ -4,11 +4,11 @@
       "id": "00000000-0000-4000-9000-000000000065",
       "status": "awaitingInput",
       "type": "commentThread",
-      "createdAt": "2020-01-02T03:04:05Z",
-      "updatedAt": "2020-01-02T03:04:05Z",
-      "startedAt": "2020-01-02T03:04:05Z",
-      "endedAt": "2020-01-02T03:04:05Z",
-      "dismissedAt": "2020-01-02T03:04:05Z",
+      "createdAt": "2020-01-02T03:04:05.000Z",
+      "updatedAt": "2020-01-02T03:04:05.000Z",
+      "startedAt": "2020-01-02T03:04:05.000Z",
+      "endedAt": "2020-01-02T03:04:05.000Z",
+      "dismissedAt": "2020-01-02T03:04:05.000Z",
       "summary": "**Strong** summary with a [link](https://example.com/guide) and `code`.\n\nSecond paragraph.",
       "externalLink": "https://example.com/session",
       "creator": {
@@ -29,7 +29,7 @@
         "nodes": [
           {
             "id": "a0",
-            "createdAt": "2020-01-02T03:04:05Z",
+            "createdAt": "2020-01-02T03:04:05.000Z",
             "content": {
               "__typename": "AgentActivityThoughtContent",
               "type": "thought",
@@ -38,7 +38,7 @@
           },
           {
             "id": "a1",
-            "createdAt": "2020-01-02T03:04:05Z",
+            "createdAt": "2020-01-02T03:04:05.000Z",
             "content": {
               "__typename": "AgentActivityActionContent",
               "type": "action",
@@ -49,7 +49,7 @@
           },
           {
             "id": "a2",
-            "createdAt": "2020-01-02T03:04:05Z",
+            "createdAt": "2020-01-02T03:04:05.000Z",
             "content": {
               "__typename": "AgentActivityResponseContent",
               "type": "response",
@@ -58,7 +58,7 @@
           },
           {
             "id": "a3",
-            "createdAt": "2020-01-02T03:04:05Z",
+            "createdAt": "2020-01-02T03:04:05.000Z",
             "content": {
               "__typename": "AgentActivityPromptContent",
               "type": "prompt",
@@ -67,7 +67,7 @@
           },
           {
             "id": "a4",
-            "createdAt": "2020-01-02T03:04:05Z",
+            "createdAt": "2020-01-02T03:04:05.000Z",
             "content": {
               "__typename": "AgentActivityErrorContent",
               "type": "error",
@@ -76,7 +76,7 @@
           },
           {
             "id": "a5",
-            "createdAt": "2020-01-02T03:04:05Z",
+            "createdAt": "2020-01-02T03:04:05.000Z",
             "content": {
               "__typename": "AgentActivityElicitationContent",
               "type": "elicitation",

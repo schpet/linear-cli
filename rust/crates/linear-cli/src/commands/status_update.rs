@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, Utc};
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
 use crate::client::LinearClient;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
@@ -287,7 +287,7 @@ impl From<&InitiativeUpdateHealthType> for UpdateHealth {
 /// One status update in a `list` table.
 pub struct Row<'a> {
     pub health: Option<UpdateHealth>,
-    pub created_at: &'a str,
+    pub created_at: DateTime<Utc>,
     pub author: &'a str,
     pub body: &'a str,
 }
@@ -310,10 +310,7 @@ pub fn table(rows: Vec<Row<'_>>, now: DateTime<Utc>) -> Table {
             None => Cell::from("-"),
         };
         table.row([
-            Cell::styled(
-                format_relative_time(row.created_at, now, &Local),
-                style::gray,
-            ),
+            Cell::styled(ago(row.created_at, now, &Local), style::gray),
             health,
             Cell::from(if row.author.is_empty() {
                 "-"

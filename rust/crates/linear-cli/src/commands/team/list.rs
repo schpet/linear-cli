@@ -4,7 +4,7 @@ use std::time::SystemTime;
 use crate::cli::team::TeamList;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
@@ -51,11 +51,7 @@ async fn fetch(client: &LinearClient) -> Result<Vec<team::Team>> {
     .await?;
     let mut teams: Vec<_> = teams
         .into_iter()
-        .filter(|team| {
-            team.archived_at
-                .as_ref()
-                .is_none_or(|date| date.0.is_empty())
-        })
+        .filter(|team| team.archived_at.is_none())
         .collect();
     teams.sort_by(|left, right| collation::compare(&left.name, &right.name));
     Ok(teams)
@@ -78,7 +74,7 @@ fn render_text(teams: &[team::Team], now: SystemTime) -> Table {
             Cell::from(team.name.as_str()),
             Cell::from(if team.cycles_enabled { "Yes" } else { "No" }),
             Cell::styled(
-                format_relative_time(&team.updated_at.0, now.into(), &chrono::Local),
+                ago(team.updated_at.0, now.into(), &chrono::Local),
                 style::gray,
             ),
             Cell::styled(team.id.inner(), style::gray),

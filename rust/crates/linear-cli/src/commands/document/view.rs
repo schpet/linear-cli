@@ -155,11 +155,11 @@ fn markdown<Tz: TimeZone>(
     }
     lines.push(format!(
         "**Created:** {}",
-        crate::commands::relative_time::format_relative_time(&document.created_at.0, now, zone)
+        crate::commands::relative_time::ago(document.created_at.0, now, zone)
     ));
     lines.push(format!(
         "**Updated:** {}",
-        crate::commands::relative_time::format_relative_time(&document.updated_at.0, now, zone)
+        crate::commands::relative_time::ago(document.updated_at.0, now, zone)
     ));
     if let Some(content) = content.filter(|content| !content.is_empty()) {
         lines.extend([

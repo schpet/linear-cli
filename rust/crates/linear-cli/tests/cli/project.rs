@@ -48,7 +48,7 @@ fn details() -> Value {
         "targetDate": null, "targetDateResolution": null,
         "startedAt": null, "completedAt": null, "canceledAt": null,
         "archivedAt": null, "autoArchivedAt": null,
-        "createdAt": "2024-01-20T12:00:00Z", "updatedAt": "2024-01-20T12:00:00Z",
+        "createdAt": "2024-01-20T12:00:00.000Z", "updatedAt": "2024-01-20T12:00:00.000Z",
         "status": { "id": "s1", "name": "Backlog", "color": "#94a3b8", "type": "backlog", "position": 0 },
         "creator": null,
         "lead": { "id": "user-1", "name": "ada", "displayName": "Ada Lovelace" },
@@ -78,7 +78,7 @@ fn updated() -> Value {
             "project": {
                 "id": ID, "slugId": "fixture-project", "name": "Fixture project",
                 "description": "returned", "url": "https://linear.app/acme/project/fixture-project",
-                "updatedAt": "2026-09-30T00:00:00Z"
+                "updatedAt": "2026-09-30T00:00:00.000Z"
             }
         }
     })
@@ -96,7 +96,7 @@ fn comment_created() -> Value {
 fn comment(id: &str, body: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null,
-        "createdAt": "2020-01-02T12:00:00Z", "updatedAt": "2020-02-01T00:00:00Z", "editedAt": null,
+        "createdAt": "2020-01-02T12:00:00.000Z", "updatedAt": "2020-02-01T00:00:00.000Z", "editedAt": null,
         "url": format!("https://linear.app/acme/project/simple/activity#{id}"),
         "user": { "id": "user-1", "name": "ada", "displayName": "Ada Lovelace" },
         "externalUser": null, "botActor": null,

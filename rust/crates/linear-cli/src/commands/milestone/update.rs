@@ -54,12 +54,8 @@ fn render(milestone: &UpdatedMilestone) -> String {
         milestone.name,
         milestone.id.inner()
     );
-    if let Some(date) = milestone
-        .target_date
-        .as_ref()
-        .filter(|date| !date.0.is_empty())
-    {
-        output.push_str(&format!("  Target Date: {}\n", date.0));
+    if let Some(date) = milestone.target_date {
+        output.push_str(&format!("  Target Date: {date}\n"));
     }
     output.push_str(&format!(
         "  Sort Order: {}\n  Project: {}\n",

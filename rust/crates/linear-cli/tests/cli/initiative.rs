@@ -499,7 +499,7 @@ fn archive_skips_already_archived_initiatives() {
     let api = MockLinear::start();
     api.on(
         "GetInitiativeForArchive",
-        archive_detail(json!("2026-01-01T00:00:00Z")),
+        archive_detail(json!("2026-01-01T00:00:00.000Z")),
     );
     Cli::for_api(&api)
         .run(&["initiative", "archive", ID, "--force"])
@@ -672,7 +672,7 @@ fn bulk_failures_are_reported_and_fail_the_command() {
 fn unarchive_detail() -> Value {
     json!({ "initiatives": { "nodes": [{
         "id": ID, "slugId": "1a2b3c4d5e6f", "name": "Roadmap",
-        "archivedAt": "2026-01-01T00:00:00Z"
+        "archivedAt": "2026-01-01T00:00:00.000Z"
     }] } })
 }
 
@@ -867,7 +867,7 @@ fn remove_project_fails_for_an_unlinked_project() {
 fn comment(id: &str, body: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null,
-        "createdAt": "2026-01-02T12:00:00Z", "updatedAt": "2026-01-02T12:00:00Z", "editedAt": null,
+        "createdAt": "2026-01-02T12:00:00.000Z", "updatedAt": "2026-01-02T12:00:00.000Z", "editedAt": null,
         "url": format!("https://linear.app/acme/initiative/roadmap#{id}"),
         "user": { "id": "user-1", "name": "ada", "displayName": "Ada Lovelace" },
         "externalUser": null, "botActor": null,

@@ -329,21 +329,12 @@ pub struct Threads<'a> {
     pub replies: HashMap<String, Vec<&'a Comment>>,
     pub hidden: usize,
 }
-fn chronological(a: &Comment, b: &Comment) -> std::cmp::Ordering {
-    match (
-        DateTime::parse_from_rfc3339(&a.created_at.0),
-        DateTime::parse_from_rfc3339(&b.created_at.0),
-    ) {
-        (Ok(a), Ok(b)) => a.cmp(&b),
-        _ => std::cmp::Ordering::Equal,
-    }
-}
 pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>, Error> {
     let mut roots = comments
         .iter()
         .filter(|c| c.parent.is_none())
         .collect::<Vec<_>>();
-    roots.sort_by(|a, b| chronological(a, b));
+    roots.sort_by_key(|comment| comment.created_at);
     let by_id = comments
         .iter()
         .map(|c| (c.id.inner(), c))
@@ -364,7 +355,7 @@ pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>,
         replies.entry(id.to_owned()).or_default().push(comment);
     }
     for children in replies.values_mut() {
-        children.sort_by(|a, b| chronological(a, b));
+        children.sort_by_key(|comment| comment.created_at);
     }
     let before = roots.len();
     if !show_resolved {
@@ -403,7 +394,7 @@ fn author(c: &Comment) -> &str {
         .unwrap_or("Unknown")
 }
 fn date(c: &Comment, now: DateTime<Utc>) -> String {
-    crate::commands::relative_time::format_relative_time(&c.created_at.0, now, &chrono::Local)
+    crate::commands::relative_time::ago(c.created_at.0, now, &chrono::Local)
 }
 fn suffix(c: &Comment, links: bool) -> String {
     let text = format!("[thread: {}]", c.id.inner());

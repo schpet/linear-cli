@@ -5,7 +5,7 @@ use crate::cli::Limit;
 use crate::cli::user::UserList;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
@@ -120,7 +120,7 @@ pub fn table(members: &[User], now: DateTime<Utc>) -> Table {
         let last_seen = member
             .last_seen
             .as_ref()
-            .map(|date| format_relative_time(&date.0, now, &Local))
+            .map(|date| ago(date.0, now, &Local))
             .unwrap_or_default();
         let name = if member.active {
             Cell::from(name)

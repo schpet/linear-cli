@@ -56,7 +56,7 @@ fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
         .iter()
         .map(|node| Row {
             health: node.health.as_ref().map(UpdateHealth::from),
-            created_at: &node.created_at.0,
+            created_at: node.created_at.0,
             author: author(node),
             body: &node.body,
         })

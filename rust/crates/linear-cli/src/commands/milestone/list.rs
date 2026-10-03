@@ -62,23 +62,15 @@ async fn fetch(
     .await?;
     nodes.sort_by(|left, right| {
         let name = || collation::compare(&left.name, &right.name);
-        match (target_date(left), target_date(right)) {
+        // Milestones without a target date sort last.
+        match (left.target_date, right.target_date) {
             (None, None) => name(),
             (None, Some(_)) => Ordering::Greater,
             (Some(_), None) => Ordering::Less,
-            (Some(left), Some(right)) => collation::compare(left, right).then_with(name),
+            (Some(left), Some(right)) => left.cmp(&right).then_with(name),
         }
     });
     Ok(nodes)
-}
-
-/// A null or empty target date sorts last and prints `No date`.
-fn target_date(milestone: &ProjectMilestone) -> Option<&str> {
-    milestone
-        .target_date
-        .as_ref()
-        .map(|date| date.0.as_str())
-        .filter(|date| !date.is_empty())
 }
 
 fn render_text(nodes: &[ProjectMilestone]) -> Table {
@@ -92,7 +84,11 @@ fn render_text(nodes: &[ProjectMilestone]) -> Table {
         table.row([
             Cell::from(milestone.name.as_str()),
             Cell::from(milestone.id.inner()),
-            Cell::from(target_date(milestone).unwrap_or("No date")),
+            Cell::from(
+                milestone
+                    .target_date
+                    .map_or_else(|| "No date".to_owned(), |date| date.to_string()),
+            ),
             Cell::from(milestone.project.name.as_str()),
         ]);
     }

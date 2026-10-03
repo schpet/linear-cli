@@ -167,16 +167,17 @@ fn prompt(prompter: &Prompter<'_>, current: &CurrentInitiative) -> Result<Change
     if Some(&status) != current.status.as_ref() {
         changes.status = Some(status);
     }
+    let current_target = current.target_date.map(|date| date.0);
     let default = current
         .target_date
-        .as_ref()
-        .map_or("", |date| date.0.as_str());
+        .map(|date| date.to_string())
+        .unwrap_or_default();
     let value = prompter.parsed(
-        Text::new("Target date (YYYY-MM-DD):").with_default(default),
+        Text::new("Target date (YYYY-MM-DD):").with_default(&default),
         &date,
     )?;
     if let Some(value) = value
-        && value.format("%Y-%m-%d").to_string() != default
+        && Some(value) != current_target
     {
         changes.target_date = Some(value);
     }

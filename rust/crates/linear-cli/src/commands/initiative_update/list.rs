@@ -56,7 +56,7 @@ fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
         .iter()
         .map(|node| Row {
             health: Some(UpdateHealth::from(&node.health)),
-            created_at: &node.created_at.0,
+            created_at: node.created_at.0,
             author: author(node),
             body: &node.body,
         })

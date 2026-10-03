@@ -9,7 +9,7 @@ use serde::Serialize;
 use crate::cli::cycle::CycleView;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -182,7 +182,7 @@ fn select(
                 format!(
                     "The next cycle (#{}) starts {} — use --cycle next, a cycle number, or a name.",
                     next.number,
-                    next.starts_at.0.chars().take(10).collect::<String>()
+                    next.starts_at.0.date_naive()
                 )
             } else {
                 SIMPLE_SUGGESTION.to_owned()
@@ -347,25 +347,13 @@ fn markdown<Tz: TimeZone>(cycle: &DetailCycle, now: DateTime<Utc>, zone: &Tz) ->
         format!("# {title}"),
         String::new(),
         format!("**Number:** {number}"),
-        format!(
-            "**Start:** {}",
-            cycle.starts_at.0.chars().take(10).collect::<String>()
-        ),
-        format!(
-            "**End:** {}",
-            cycle.ends_at.0.chars().take(10).collect::<String>()
-        ),
+        format!("**Start:** {}", cycle.starts_at.0.date_naive()),
+        format!("**End:** {}", cycle.ends_at.0.date_naive()),
         format!("**Status:** {status}"),
         format!("**Team:** {} ({})", cycle.team.name, cycle.team.key),
         String::new(),
-        format!(
-            "**Created:** {}",
-            format_relative_time(&cycle.created_at.0, now, zone)
-        ),
-        format!(
-            "**Updated:** {}",
-            format_relative_time(&cycle.updated_at.0, now, zone)
-        ),
+        format!("**Created:** {}", ago(cycle.created_at.0, now, zone)),
+        format!("**Updated:** {}", ago(cycle.updated_at.0, now, zone)),
     ];
     if let Some(description) = cycle
         .description

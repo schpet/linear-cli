@@ -296,7 +296,7 @@ fn relation_list_shows_outgoing_and_incoming_relations() {
 fn session(id: &str, status: &str) -> Value {
     json!({
         "id": id, "status": status, "type": "commentThread",
-        "createdAt": "2026-01-02T03:04:05Z", "startedAt": null, "endedAt": null,
+        "createdAt": "2026-01-02T03:04:05.000Z", "startedAt": null, "endedAt": null,
         "summary": format!("Session {id}"),
         "creator": { "name": "Alice" }, "appUser": { "name": "Agent" }
     })
@@ -376,15 +376,15 @@ fn agent_session_list_text_names_sessions() {
 fn session_details() -> Value {
     json!({
         "id": SESSION_ID, "status": "awaitingInput", "type": "commentThread",
-        "createdAt": "2026-01-02T03:04:05Z", "updatedAt": "2026-01-02T03:04:05Z",
-        "startedAt": "2026-01-02T03:04:05Z", "endedAt": null, "dismissedAt": null,
+        "createdAt": "2026-01-02T03:04:05.000Z", "updatedAt": "2026-01-02T03:04:05.000Z",
+        "startedAt": "2026-01-02T03:04:05.000Z", "endedAt": null, "dismissedAt": null,
         "summary": "Investigating the bug", "externalLink": "https://example.com/session",
         "creator": { "name": "Alice" }, "appUser": { "name": "Agent" }, "dismissedBy": null,
         "issue": { "identifier": "ENG-1", "title": "Issue title", "url": "https://linear.app/acme/issue/ENG-1" },
         "activities": { "nodes": [
-            { "id": "a1", "createdAt": "2026-01-02T03:04:05Z",
+            { "id": "a1", "createdAt": "2026-01-02T03:04:05.000Z",
               "content": { "type": "thought", "body": "Thinking hard" } },
-            { "id": "a2", "createdAt": "2026-01-02T03:04:05Z",
+            { "id": "a2", "createdAt": "2026-01-02T03:04:05.000Z",
               "content": { "type": "action", "action": "run", "parameter": "tests", "result": "ok" } }
         ], "pageInfo": { "hasNextPage": false, "endCursor": null } }
     })

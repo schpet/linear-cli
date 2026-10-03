@@ -112,7 +112,7 @@ fn document_view_opens_the_document_url() {
         json!({ "document": {
             "id": "doc-1", "title": "Design notes", "slugId": "d0c5a1b2c3d4",
             "content": "# Heading\n", "url": url,
-            "createdAt": "2024-01-02T00:00:00Z", "updatedAt": "2024-01-03T00:00:00Z",
+            "createdAt": "2024-01-02T00:00:00.000Z", "updatedAt": "2024-01-03T00:00:00.000Z",
             "creator": { "name": "Ada", "email": "ada@example.com" },
             "project": null, "issue": null, "initiative": null, "team": null, "cycle": null,
             "release": null

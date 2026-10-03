@@ -10,7 +10,7 @@ use serde_json::{Map, Number, Value};
 use crate::cli::template::TemplateView;
 use crate::client::{LinearClient, RequestError};
 use crate::commands::prosemirror;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::template::json as template_json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -200,14 +200,11 @@ fn render_text<Tz: TimeZone>(
         lines.push(format!("Created by: {}", creator.name));
     }
     if let Some(applied) = &template.last_applied_at {
-        lines.push(format!(
-            "Last applied: {}",
-            format_relative_time(&applied.0, now, zone)
-        ));
+        lines.push(format!("Last applied: {}", ago(applied.0, now, zone)));
     }
     lines.push(format!(
         "Updated: {}",
-        format_relative_time(&template.updated_at.0, now, zone)
+        ago(template.updated_at.0, now, zone)
     ));
     lines.push(String::new());
     lines.push("Pre-fills:".to_owned());

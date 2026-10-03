@@ -4,7 +4,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use crate::cli::issue::{IssueAgentSessionList, IssueAgentSessionView};
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -217,21 +217,15 @@ pub fn markdown<Tz: TimeZone>(
     }
     lines.extend([
         String::new(),
-        format!(
-            "**Created:** {}",
-            format_relative_time(&session.created_at.0, now, zone)
-        ),
+        format!("**Created:** {}", ago(session.created_at.0, now, zone)),
     ]);
     for (label, value) in [
         ("Started", &session.started_at),
         ("Ended", &session.ended_at),
         ("Dismissed", &session.dismissed_at),
     ] {
-        if let Some(value) = value.as_ref().filter(|value| !value.0.is_empty()) {
-            lines.push(format!(
-                "**{label}:** {}",
-                format_relative_time(&value.0, now, zone)
-            ));
+        if let Some(value) = value {
+            lines.push(format!("**{label}:** {}", ago(value.0, now, zone)));
             if label == "Dismissed"
                 && let Some(user) = &session.dismissed_by
             {
@@ -261,7 +255,7 @@ pub fn markdown<Tz: TimeZone>(
             lines.push(format!(
                 "- **{}** ({}){detail}",
                 activity_type_name(kind),
-                format_relative_time(&activity.created_at.0, now, zone)
+                ago(activity.created_at.0, now, zone)
             ));
         }
     }
@@ -296,10 +290,7 @@ pub fn table(sessions: &[ListSession], now: DateTime<Utc>) -> Table {
             Cell::from(session.id.inner()),
             status,
             Cell::from(session.app_user.name.as_str()),
-            Cell::styled(
-                format_relative_time(&session.created_at.0, now, &chrono::Local),
-                style::gray,
-            ),
+            Cell::styled(ago(session.created_at.0, now, &chrono::Local), style::gray),
             summary,
         ]);
     }

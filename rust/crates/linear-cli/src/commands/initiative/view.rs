@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::cli::initiative::InitiativeView;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::initiative::{
@@ -13,6 +13,7 @@ use crate::graphql::operations::initiative::{
 };
 use crate::graphql::operations::initiative::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::project::ProjectStatusType;
+use crate::graphql::scalars;
 
 pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     view(ctx, args).context("Failed to view initiative")
@@ -80,14 +81,14 @@ struct JsonDetail<'a> {
     name: &'a str,
     description: Option<&'a str>,
     status: &'a str,
-    target_date: Option<&'a str>,
+    target_date: Option<&'a scalars::TimelessDate>,
     health: Option<&'a str>,
     color: Option<&'a str>,
     icon: Option<&'a str>,
     url: &'a str,
-    archived_at: Option<&'a str>,
-    created_at: &'a str,
-    updated_at: &'a str,
+    archived_at: Option<&'a scalars::DateTime>,
+    created_at: &'a scalars::DateTime,
+    updated_at: &'a scalars::DateTime,
     owner: Option<JsonOwner<'a>>,
     projects: Vec<JsonProject<'a>>,
 }
@@ -121,7 +122,7 @@ fn render_json(detail: &InitiativeDetails) -> Vec<u8> {
         name: &detail.name,
         description: detail.description.as_deref(),
         status: detail.status.as_str(),
-        target_date: detail.target_date.as_ref().map(|d| d.0.as_str()),
+        target_date: detail.target_date.as_ref(),
         health: detail
             .health
             .as_ref()
@@ -129,9 +130,9 @@ fn render_json(detail: &InitiativeDetails) -> Vec<u8> {
         color: detail.color.as_deref(),
         icon: detail.icon.as_deref(),
         url: &detail.url,
-        archived_at: detail.archived_at.as_ref().map(|d| d.0.as_str()),
-        created_at: &detail.created_at.0,
-        updated_at: &detail.updated_at.0,
+        archived_at: detail.archived_at.as_ref(),
+        created_at: &detail.created_at,
+        updated_at: &detail.updated_at,
         owner: detail.owner.as_ref().map(|o| JsonOwner {
             id: &o.id,
             name: &o.name,
@@ -195,22 +196,19 @@ fn markdown(detail: &InitiativeDetails, now: DateTime<Utc>, terminal: bool) -> S
         lines.push(format!("**Owner:** {display}"));
     }
     if let Some(date) = &detail.target_date {
-        lines.push(format!("**Target Date:** {}", date.0));
+        lines.push(format!("**Target Date:** {date}"));
     }
     if let Some(date) = &detail.archived_at {
-        lines.push(format!(
-            "**Archived:** {}",
-            format_relative_time(&date.0, now, &Local)
-        ));
+        lines.push(format!("**Archived:** {}", ago(date.0, now, &Local)));
     }
     lines.push(String::new());
     lines.push(format!(
         "**Created:** {}",
-        format_relative_time(&detail.created_at.0, now, &Local)
+        ago(detail.created_at.0, now, &Local)
     ));
     lines.push(format!(
         "**Updated:** {}",
-        format_relative_time(&detail.updated_at.0, now, &Local)
+        ago(detail.updated_at.0, now, &Local)
     ));
     if let Some(description) = detail.description.as_deref().filter(|s| !s.is_empty()) {
         lines.extend([

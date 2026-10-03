@@ -620,7 +620,9 @@ mod tests {
     #[test]
     fn scalars_lists_and_enums_keep_their_wire_form() {
         let variables = value(IssueUpdateInput {
-            due_date: Edit::Set(TimelessDate("2026-09-30".to_owned())),
+            due_date: Edit::Set(TimelessDate(
+                chrono::NaiveDate::from_ymd_opt(2026, 9, 30).expect("valid date"),
+            )),
             description_data: Edit::Set(Json(r#"{"type":"doc"}"#.to_owned())),
             added_label_ids: Some(vec!["l1".to_owned(), "l2".to_owned()]),
             removed_label_ids: Some(vec![]),

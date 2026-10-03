@@ -15,6 +15,7 @@ use crate::graphql::operations::initiative::{
 };
 use crate::graphql::operations::team::StringComparator;
 use crate::graphql::pagination::{self, Page, PageInfo};
+use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::platform::{collation, style};
 
 pub fn run(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
@@ -135,12 +136,12 @@ struct JsonInitiative<'a> {
     name: &'a str,
     description: Option<&'a str>,
     status: &'a str,
-    target_date: Option<&'a str>,
+    target_date: Option<&'a TimelessDate>,
     health: Option<&'a str>,
     color: Option<&'a str>,
     icon: Option<&'a str>,
     url: &'a str,
-    archived_at: Option<&'a str>,
+    archived_at: Option<&'a DateTime>,
     owner: Option<&'a InitiativeOwner>,
     projects: &'a InitiativeProjects,
 }
@@ -154,12 +155,12 @@ fn render_json(initiatives: &[Initiative]) -> Vec<u8> {
             name: &item.name,
             description: item.description.as_deref(),
             status: item.status.as_str(),
-            target_date: item.target_date.as_ref().map(|date| date.0.as_str()),
+            target_date: item.target_date.as_ref(),
             health: item.health.as_ref().map(InitiativeUpdateHealthType::as_str),
             color: item.color.as_deref(),
             icon: item.icon.as_deref(),
             url: &item.url,
-            archived_at: item.archived_at.as_ref().map(|date| date.0.as_str()),
+            archived_at: item.archived_at.as_ref(),
             owner: item.owner.as_ref(),
             projects: &item.projects,
         })
@@ -212,8 +213,7 @@ fn render_text(initiatives: &[Initiative]) -> Table {
             Cell::from(item.projects.nodes.len().to_string()),
             Cell::styled(
                 item.target_date
-                    .as_ref()
-                    .map_or("-", |date| date.0.as_str()),
+                    .map_or_else(|| "-".to_owned(), |date| date.to_string()),
                 style::gray,
             ),
         ]);

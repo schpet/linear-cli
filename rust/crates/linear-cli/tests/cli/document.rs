@@ -16,7 +16,7 @@ fn list_node(slug: &str, title: &str) -> Value {
     json!({
         "id": format!("doc-{slug}"), "title": title, "slugId": slug,
         "url": format!("https://linear.app/acme/document/{slug}"),
-        "updatedAt": "2024-01-03T00:00:00Z",
+        "updatedAt": "2024-01-03T00:00:00.000Z",
         "project": { "name": "Roadmap", "slugId": "roadmap-slug" },
         "issue": null, "initiative": null, "team": null, "cycle": null, "release": null,
         "creator": { "name": "Ada" }
@@ -28,7 +28,7 @@ fn document() -> Value {
         "id": DOC_ID, "title": "Design notes", "slugId": SLUG,
         "content": "# Heading\n\nThe plan in **bold**.\n",
         "url": format!("https://linear.app/acme/document/design-notes-{SLUG}"),
-        "createdAt": "2024-01-02T00:00:00Z", "updatedAt": "2024-01-03T00:00:00Z",
+        "createdAt": "2024-01-02T00:00:00.000Z", "updatedAt": "2024-01-03T00:00:00.000Z",
         "creator": { "name": "Ada", "email": "ada@example.com" },
         "project": { "name": "Roadmap", "slugId": "roadmap-slug" },
         "issue": null, "initiative": null, "team": null, "cycle": null, "release": null
@@ -38,7 +38,7 @@ fn document() -> Value {
 fn comment(id: &str, body: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null, "documentContentId": "content-1",
-        "createdAt": "2024-01-02T00:00:00Z", "updatedAt": "2024-01-03T00:00:00Z",
+        "createdAt": "2024-01-02T00:00:00.000Z", "updatedAt": "2024-01-03T00:00:00.000Z",
         "archivedAt": null, "resolvedAt": null,
         "url": format!("https://linear.app/acme/comment/{id}"),
         "user": { "name": "Ada", "email": "ada@example.com" },
@@ -57,7 +57,7 @@ fn written(operation: &str) -> Value {
         "document": {
             "id": DOC_ID, "slugId": SLUG, "title": "Server title",
             "url": format!("https://linear.app/acme/document/server-{SLUG}"),
-            "updatedAt": "2024-01-04T00:00:00Z"
+            "updatedAt": "2024-01-04T00:00:00.000Z"
         }
     } })
 }
@@ -348,7 +348,7 @@ fn update_content_checks_for_inline_comments_first() {
     let api = MockLinear::start();
     let resolved_quote = json!({
         "id": "old", "quotedText": "quote",
-        "resolvedAt": "2024-01-01T00:00:00Z", "archivedAt": null
+        "resolvedAt": "2024-01-01T00:00:00.000Z", "archivedAt": null
     });
     api.on("DocumentInlineCommentGuard", guard(json!([resolved_quote])))
         .on("UpdateDocument", written("UpdateDocument"));
@@ -592,7 +592,7 @@ fn comment_add_reports_a_missing_document() {
 fn listed_comment(id: &str, body: &str, parent: Option<&str>) -> Value {
     json!({
         "id": id, "body": body, "quotedText": null,
-        "createdAt": "2024-01-02T12:00:00Z", "updatedAt": "2024-01-02T12:00:00Z",
+        "createdAt": "2024-01-02T12:00:00.000Z", "updatedAt": "2024-01-02T12:00:00.000Z",
         "editedAt": null, "url": format!("https://linear.app/acme/comment/{id}"),
         "user": { "id": "user-1", "name": "ada", "displayName": "Ada" },
         "externalUser": null, "botActor": null,

@@ -48,13 +48,10 @@ fn markdown_omits_empty_details() {
     let mut wire = wire();
     let details = &mut wire["data"]["agentSession"];
     details["type"] = Value::Null;
-    for field in [
-        "startedAt",
-        "endedAt",
-        "dismissedAt",
-        "summary",
-        "externalLink",
-    ] {
+    for field in ["startedAt", "endedAt", "dismissedAt"] {
+        details[field] = Value::Null;
+    }
+    for field in ["summary", "externalLink"] {
         details[field] = json!("");
     }
     for index in [0, 2, 3, 4, 5] {

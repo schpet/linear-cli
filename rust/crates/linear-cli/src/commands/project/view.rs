@@ -7,7 +7,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use crate::cli::project::ProjectView;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -364,7 +364,7 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
                 percent(milestone.progress.get()),
             ];
             if let Some(date) = &milestone.target_date {
-                parts.push(format!("target {}", date.0));
+                parts.push(format!("target {date}"));
             }
             out.push_str(&format!(
                 "- **{}** _[{}]_\n",
@@ -434,7 +434,7 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
         out.push_str(&format!(
             "**By:** {}\n**When:** {}\n",
             display_name(update.user.as_ref()).unwrap_or("Unknown"),
-            format_relative_time(&update.created_at.0, now, zone)
+            ago(update.created_at.0, now, zone)
         ));
         if let Some(health) = &update.health {
             out.push_str(&format!("**Health:** {}\n", health.as_str()));
@@ -503,24 +503,22 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
     if project.scope.get() > 0.0 {
         push("Scope", Some(project.scope.to_string()));
     }
-    let project_date = |date: &Option<crate::graphql::scalars::TimelessDate>,
+    let project_date = |date: Option<crate::graphql::scalars::TimelessDate>,
                         resolution: &Option<DateResolutionType>| {
-        date.as_ref().map(|date| {
-            resolution.as_ref().map_or(date.0.clone(), |r| {
-                format!("{} ({})", date.0, date_resolution(r))
-            })
+        date.map(|date| match resolution {
+            Some(resolution) => format!("{date} ({})", date_resolution(resolution)),
+            None => date.to_string(),
         })
     };
     push(
         "Start date",
-        project_date(&project.start_date, &project.start_date_resolution),
+        project_date(project.start_date, &project.start_date_resolution),
     );
     push(
         "Target date",
-        project_date(&project.target_date, &project.target_date_resolution),
+        project_date(project.target_date, &project.target_date_resolution),
     );
-    let relative =
-        |date: &crate::graphql::scalars::DateTime| format_relative_time(&date.0, now, zone);
+    let relative = |date: &crate::graphql::scalars::DateTime| ago(date.0, now, zone);
     push("Started", project.started_at.as_ref().map(relative));
     push("Completed", project.completed_at.as_ref().map(relative));
     push("Canceled", project.canceled_at.as_ref().map(relative));

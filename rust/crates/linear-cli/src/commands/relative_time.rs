@@ -1,21 +1,7 @@
 //! How every command shows a timestamp: "5 minutes ago" for the last week,
 //! the local date after that. The clock and display zone are injected.
 
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-
-/// Parses a Linear timestamp: RFC 3339, or a bare `YYYY-MM-DD` as UTC midnight.
-pub fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(value)
-        .map(|date| date.to_utc())
-        .ok()
-        .or_else(|| {
-            NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                .ok()
-                .filter(|_| value.len() == 10)
-                .and_then(|date| date.and_hms_opt(0, 0, 0))
-                .map(|date| date.and_utc())
-        })
-}
+use chrono::{DateTime, TimeZone, Utc};
 
 /// How long ago `then` was: "just now" under a minute (or in the future),
 /// then minutes, hours and days, and the `YYYY-MM-DD` date in `zone` after a week.
@@ -36,22 +22,21 @@ pub fn ago<Tz: TimeZone>(then: DateTime<Utc>, now: DateTime<Utc>, zone: &Tz) -> 
     }
 }
 
-/// [`ago`] for a timestamp as Linear sends it; text that does not parse is shown as-is.
-pub fn format_relative_time<Tz: TimeZone>(value: &str, now: DateTime<Utc>, zone: &Tz) -> String {
-    parse_timestamp(value).map_or_else(|| value.to_owned(), |then| ago(then, now, zone))
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, FixedOffset, Utc};
 
-    use super::format_relative_time;
+    use super::ago;
+
+    fn instant(value: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(value)
+            .expect("test timestamp")
+            .to_utc()
+    }
 
     #[test]
     fn thresholds_use_the_injected_clock() {
-        let now = DateTime::parse_from_rfc3339("2026-09-25T12:00:00.999999Z")
-            .expect("now")
-            .with_timezone(&Utc);
+        let now = instant("2026-09-25T12:00:00.999999Z");
         for (value, expected) in [
             ("2026-09-25T12:00:01Z", "just now"),
             ("2026-09-25T12:00:00Z", "just now"),
@@ -63,24 +48,21 @@ mod tests {
             ("2026-09-25T10:00:00Z", "2 hours ago"),
             ("2026-09-24T13:00:00Z", "23 hours ago"),
             ("2026-09-24T12:00:00Z", "1 day ago"),
-            ("2026-09-19", "6 days ago"),
+            ("2026-09-19T00:00:00Z", "6 days ago"),
             ("2026-09-18T12:00:00Z", "2026-09-18"),
             ("2026-09-25T17:30:00+05:30", "just now"),
-            ("not a date", "not a date"),
-            ("2026-9-5", "2026-9-5"),
         ] {
-            assert_eq!(format_relative_time(value, now, &Utc), expected, "{value}");
+            assert_eq!(ago(instant(value), now, &Utc), expected, "{value}");
         }
     }
 
     #[test]
-    fn date_only_uses_utc_midnight_and_absolute_date_uses_display_zone() {
-        let now = DateTime::parse_from_rfc3339("2026-09-25T12:00:00Z")
-            .expect("now")
-            .with_timezone(&Utc);
+    fn absolute_date_uses_the_display_zone() {
+        let now = instant("2026-09-25T12:00:00Z");
+        let then = instant("2026-09-18T00:00:00Z");
         let west = FixedOffset::west_opt(7 * 3600).expect("west");
         let east = FixedOffset::east_opt(9 * 3600).expect("east");
-        assert_eq!(format_relative_time("2026-09-18", now, &west), "2026-09-17");
-        assert_eq!(format_relative_time("2026-09-18", now, &east), "2026-09-18");
+        assert_eq!(ago(then, now, &west), "2026-09-17");
+        assert_eq!(ago(then, now, &east), "2026-09-18");
     }
 }

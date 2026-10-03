@@ -1,40 +1,88 @@
 //! Newtypes for the Linear custom scalars the CLI sends or reads.
 //!
-//! Every newtype preserves the original wire form. Date and duration
-//! scalars stay strings: no parsing or normalization happens here; values are
-//! passed through and formatted only for display.
+//! `DateTime` and `TimelessDate` are parsed into chrono values when a response
+//! is decoded, so a malformed timestamp is a decode error rather than odd
+//! output later. `DateTimeOrDuration` stays a string because it can hold
+//! either form.
 //! `JSON` is *stringified* JSON (a JSON string on the wire) while `JSONObject`
 //! is *embedded* JSON (an object on the wire); the two are deliberately distinct
 //! types so one cannot be used where the schema expects the other.
 
 use std::fmt;
 
+use chrono::{NaiveDate, SecondsFormat, Utc};
 use serde::de::Error as _;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
 
 use super::schema;
 
-/// ISO 8601 date-time, kept as the exact wire string.
-#[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
-#[cynic(graphql_type = "DateTime")]
-pub struct DateTime(pub String);
+/// An RFC 3339 instant, held in UTC.
+///
+/// It serializes the way Linear sends it: UTC, millisecond precision, `Z`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DateTime(pub chrono::DateTime<Utc>);
+
+impl<'de> Deserialize<'de> for DateTime {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        chrono::DateTime::parse_from_rfc3339(&text)
+            .map(|instant| Self(instant.to_utc()))
+            .map_err(|error| D::Error::custom(format!("invalid DateTime {text:?}: {error}")))
+    }
+}
+
+impl Serialize for DateTime {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0.to_rfc3339_opts(SecondsFormat::Millis, true))
+    }
+}
+
+cynic::impl_scalar!(DateTime, schema::DateTime);
 
 /// ISO 8601 date-time or duration, kept as the exact wire string.
 #[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
 #[cynic(graphql_type = "DateTimeOrDuration")]
 pub struct DateTimeOrDuration(pub String);
 
-/// ISO 8601 date without time, kept as the exact wire string.
-#[derive(cynic::Scalar, Clone, Debug, PartialEq, Eq)]
-#[cynic(graphql_type = "TimelessDate")]
-pub struct TimelessDate(pub String);
+/// A calendar date without time or zone, `YYYY-MM-DD` on the wire.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TimelessDate(pub NaiveDate);
 
-impl From<chrono::NaiveDate> for TimelessDate {
-    fn from(date: chrono::NaiveDate) -> Self {
-        Self(date.format("%Y-%m-%d").to_string())
+const TIMELESS_DATE_FORMAT: &str = "%Y-%m-%d";
+
+impl<'de> Deserialize<'de> for TimelessDate {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        // The round trip rejects unpadded forms such as `2026-9-5`, which the
+        // parser alone accepts.
+        NaiveDate::parse_from_str(&text, TIMELESS_DATE_FORMAT)
+            .ok()
+            .filter(|date| date.format(TIMELESS_DATE_FORMAT).to_string() == text)
+            .map(Self)
+            .ok_or_else(|| D::Error::custom(format!("invalid TimelessDate {text:?}")))
     }
 }
+
+impl Serialize for TimelessDate {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl fmt::Display for TimelessDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.format(TIMELESS_DATE_FORMAT).fmt(f)
+    }
+}
+
+impl From<NaiveDate> for TimelessDate {
+    fn from(date: NaiveDate) -> Self {
+        Self(date)
+    }
+}
+
+cynic::impl_scalar!(TimelessDate, schema::TimelessDate);
 
 /// The `JSON` scalar: arbitrary values as *stringified* JSON.
 ///
@@ -149,13 +197,41 @@ mod tests {
     }
 
     #[test]
-    fn string_scalars_preserve_wire_text_and_reject_other_types() {
-        let date: DateTime = from_value(json!("2026-09-23T10:00:00.000Z")).expect("string");
-        assert_eq!(date.0, "2026-09-23T10:00:00.000Z");
-        assert!(from_value::<DateTime>(json!(1_700_000_000)).is_err());
-        assert!(from_value::<DateTime>(Value::Null).is_err());
-        let day: TimelessDate = from_value(json!("2026")).expect("shortcut kept verbatim");
-        assert_eq!(day.0, "2026");
-        assert!(from_value::<TimelessDate>(json!(true)).is_err());
+    fn date_time_parses_rfc3339_and_writes_utc_millis() {
+        let date: DateTime = from_value(json!("2026-09-23T10:00:00Z")).expect("rfc3339");
+        assert_eq!(
+            to_value(date).expect("value"),
+            json!("2026-09-23T10:00:00.000Z")
+        );
+        let offset: DateTime = from_value(json!("2026-09-23T15:30:00.5+05:30")).expect("offset");
+        assert_eq!(
+            to_value(offset).expect("value"),
+            json!("2026-09-23T10:00:00.500Z")
+        );
+        for bad in [
+            json!("2026-09-23"),
+            json!("2026-09-23 10:00:00"),
+            json!("not a date"),
+            json!(1_700_000_000),
+            Value::Null,
+        ] {
+            assert!(from_value::<DateTime>(bad.clone()).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn timeless_date_round_trips_and_rejects_other_forms() {
+        let day: TimelessDate = from_value(json!("2026-09-05")).expect("date");
+        assert_eq!(day.to_string(), "2026-09-05");
+        assert_eq!(to_value(day).expect("value"), json!("2026-09-05"));
+        for bad in [
+            json!("2026"),
+            json!("2026-9-5"),
+            json!("2026-02-30"),
+            json!("2026-09-05T00:00:00Z"),
+            json!(true),
+        ] {
+            assert!(from_value::<TimelessDate>(bad.clone()).is_err(), "{bad}");
+        }
     }
 }

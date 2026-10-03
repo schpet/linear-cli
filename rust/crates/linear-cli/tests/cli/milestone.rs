@@ -124,7 +124,7 @@ fn details(issues: Vec<Value>, end_cursor: Value, has_next: bool) -> Value {
     json!({ "projectMilestone": {
         "id": MILESTONE_ID, "name": "Launch", "description": "Ship the release.",
         "targetDate": "2025-03-01", "sortOrder": 4,
-        "createdAt": "2020-01-01T00:00:00Z", "updatedAt": "2020-02-01T00:00:00Z",
+        "createdAt": "2020-01-01T00:00:00.000Z", "updatedAt": "2020-02-01T00:00:00.000Z",
         "project": {
             "id": PROJECT_ID, "name": "Mobile App", "slugId": "abc123def456",
             "url": "https://linear.app/acme/project/mobile-app-abc123def456"

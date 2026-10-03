@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::cli::project::ProjectList;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -199,12 +199,9 @@ pub(super) fn priority_label(priority: i32) -> String {
 /// The date that matters for the project's status, like "Started 3 days ago".
 fn display_date(project: &Project, now: SystemTime) -> String {
     let relative = |label: &str, date: &DateTime| {
-        format!(
-            "{label} {}",
-            format_relative_time(&date.0, now.into(), &chrono::Local)
-        )
+        format!("{label} {}", ago(date.0, now.into(), &chrono::Local))
     };
-    let planned = |label: &str, date: &TimelessDate| format!("{label}: {}", date.0);
+    let planned = |label: &str, date: &TimelessDate| format!("{label}: {date}");
     let updated = || relative("Updated", &project.updated_at);
     let created = || relative("Created", &project.created_at);
     match &project.status.status_type {

@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::cli::milestone::MilestoneView;
 use crate::client::LinearClient;
 use crate::commands::json;
-use crate::commands::relative_time::format_relative_time;
+use crate::commands::relative_time::ago;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::milestone::{
@@ -170,10 +170,7 @@ fn markdown<Tz: TimeZone>(
             "**Target Date:** {}",
             milestone
                 .target_date
-                .as_ref()
-                .map(|date| date.0.as_str())
-                .filter(|date| !date.is_empty())
-                .unwrap_or("Not set")
+                .map_or_else(|| "Not set".to_owned(), |date| date.to_string())
         ),
         format!(
             "**Project:** {} ({})",
@@ -181,14 +178,8 @@ fn markdown<Tz: TimeZone>(
         ),
         format!("**Project URL:** {}", milestone.project.url),
         String::new(),
-        format!(
-            "**Created:** {}",
-            format_relative_time(&milestone.created_at.0, now, zone)
-        ),
-        format!(
-            "**Updated:** {}",
-            format_relative_time(&milestone.updated_at.0, now, zone)
-        ),
+        format!("**Created:** {}", ago(milestone.created_at.0, now, zone)),
+        format!("**Updated:** {}", ago(milestone.updated_at.0, now, zone)),
     ];
     if let Some(description) = milestone
         .description
