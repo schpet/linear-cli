@@ -33,9 +33,9 @@ fn tls_fixture(name: &str) -> PathBuf {
 
 fn config(deadline: Duration, cap: usize) -> ClientConfig {
     ClientConfig {
-        ca_bundle: None,
         deadline: Deadline(deadline),
         max_response_bytes: ResponseCap(NonZeroUsize::new(cap).expect("nonzero cap")),
+        ..ClientConfig::default()
     }
 }
 
@@ -758,4 +758,37 @@ async fn raw_document_without_variables_returns_exact_bytes() {
         requests.first().map(|request| request.body.as_slice()),
         Some(br#"{"query":"{ viewer { id } }"}"#.as_slice())
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn raw_api_requests_stop_at_the_api_cap_and_deadline() {
+    let server = Server::start(vec![
+        Reply::status(200, "application/json", vec![b' '; 8192]),
+        Reply::Stall,
+    ]);
+    let client = client_for(
+        &server.url("/graphql"),
+        config(Duration::from_millis(300), 4096),
+    );
+    let error = client
+        .fetch_api("{}".to_owned())
+        .await
+        .expect_err("too large");
+    assert_eq!(
+        error.message(),
+        "Failed to read API response; the request was sent and may have taken effect: \
+         response exceeds the 4096 byte limit"
+    );
+    let started = Instant::now();
+    let error = client
+        .fetch_api("{}".to_owned())
+        .await
+        .expect_err("timeout");
+    assert!(
+        error.message().ends_with("did not complete within 300ms"),
+        "{}",
+        error.message()
+    );
+    assert!(started.elapsed() < Duration::from_secs(30));
+    server.finish();
 }

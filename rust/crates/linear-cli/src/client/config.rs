@@ -181,25 +181,30 @@ impl fmt::Display for ApiKey {
 // ---------------------------------------------------------------------------
 // Configuration
 
-/// A non-zero total deadline for one GraphQL exchange: connect, send and body.
+/// A non-zero total deadline for one request: connect, send and body.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Deadline(pub(super) Duration);
 
 impl Deadline {
+    /// API requests, including `linear api`.
     pub const DEFAULT: Self = Self(Duration::from_secs(30));
+    /// Image and attachment downloads, which can be large.
+    pub const DOWNLOAD: Self = Self(Duration::from_secs(300));
 
     pub fn duration(self) -> Duration {
         self.0
     }
 }
 
-/// A cap on collected GraphQL response bytes.
+/// A cap on collected response bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResponseCap(pub(super) NonZeroUsize);
 
 impl ResponseCap {
     /// 64 MiB: far above any real Linear page, small enough to stop a runaway body.
     pub const DEFAULT: Self = Self(NonZeroUsize::MIN.saturating_add(64 * 1024 * 1024 - 1));
+    /// 256 MiB for one downloaded image or attachment, which is held in memory.
+    pub const DOWNLOAD: Self = Self(NonZeroUsize::MIN.saturating_add(256 * 1024 * 1024 - 1));
 
     pub fn bytes(self) -> usize {
         self.0.get()
@@ -212,8 +217,12 @@ pub struct ClientConfig {
     /// A PEM bundle whose certificates are trusted in addition to the
     /// built-in roots (`SSL_CERT_FILE`).
     pub ca_bundle: Option<PathBuf>,
+    /// API requests: GraphQL operations and `linear api`.
     pub deadline: Deadline,
     pub max_response_bytes: ResponseCap,
+    /// Image and attachment downloads.
+    pub download_deadline: Deadline,
+    pub max_download_bytes: ResponseCap,
 }
 
 impl Default for ClientConfig {
@@ -222,6 +231,8 @@ impl Default for ClientConfig {
             ca_bundle: None,
             deadline: Deadline::DEFAULT,
             max_response_bytes: ResponseCap::DEFAULT,
+            download_deadline: Deadline::DOWNLOAD,
+            max_download_bytes: ResponseCap::DOWNLOAD,
         }
     }
 }

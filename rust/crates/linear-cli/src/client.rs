@@ -100,6 +100,8 @@ pub struct LinearClient {
     api_key: ApiKey,
     deadline: Deadline,
     max_response_bytes: ResponseCap,
+    download_deadline: Deadline,
+    max_download_bytes: ResponseCap,
 }
 
 impl LinearClient {
@@ -114,6 +116,8 @@ impl LinearClient {
             api_key,
             deadline: config.deadline,
             max_response_bytes: config.max_response_bytes,
+            download_deadline: config.download_deadline,
+            max_download_bytes: config.max_download_bytes,
         })
     }
 

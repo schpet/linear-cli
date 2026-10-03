@@ -1,12 +1,13 @@
 //! Requests outside GraphQL operations: Markdown image and attachment
 //! downloads, the raw `api` command and signed uploads. They share the
-//! client's connection settings, plus the bounded body collection GraphQL
-//! responses use.
+//! client's connection settings and read bodies through the same bounded
+//! [`collect`]: `linear api` with the API deadline and cap, downloads with
+//! their own larger ones.
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 use reqwest::{StatusCode, Url};
 
-use super::config::{EndpointUrl, ResponseCap};
+use super::config::{Deadline, EndpointUrl, ResponseCap};
 use super::error::{NetworkPhase, RawHttpResponse, SanitizedReqwestError};
 use super::{CONTENT_TYPE_VALUE, LinearClient};
 use crate::error::Error;
@@ -73,9 +74,20 @@ pub(super) async fn collect(
 }
 
 /// A short, display-safe description of a failed non-GraphQL request.
-fn request_error(prefix: &str, error: reqwest::Error) -> Error {
-    let error = SanitizedReqwestError::new(error);
-    Error::new(format!("{prefix}: {}", error.root_message())).with_source(error)
+fn bounded_failure(prefix: &str, failure: ExchangeFailure, deadline: Deadline) -> Error {
+    match failure {
+        ExchangeFailure::ResponseTooLarge { limit, .. } => Error::new(format!(
+            "{prefix}: response exceeds the {} byte limit",
+            limit.bytes()
+        )),
+        ExchangeFailure::Timeout => Error::new(format!(
+            "{prefix}: did not complete within {:?}",
+            deadline.duration()
+        )),
+        ExchangeFailure::Network { source, .. } => {
+            Error::new(format!("{prefix}: {}", source.root_message())).with_source(source)
+        }
+    }
 }
 
 impl LinearClient {
@@ -89,8 +101,9 @@ impl LinearClient {
         self.download(url, "Failed to download").await
     }
 
-    /// GETs an `http(s)` URL. The API key is sent only to Linear's private
-    /// upload host; reqwest drops it if a redirect leaves that host.
+    /// GETs an `http(s)` URL within the download deadline and size cap. The
+    /// API key is sent only to Linear's private upload host; reqwest drops it
+    /// if a redirect leaves that host.
     async fn download(&self, original: &str, failure_prefix: &str) -> Result<Vec<u8>, Error> {
         let url = Url::parse(original)
             .map_err(|error| Error::new(format!("Invalid URL: '{original}'")).with_source(error))?;
@@ -101,47 +114,60 @@ impl LinearClient {
             )));
         }
         let authenticated = url.host_str() == Some("uploads.linear.app");
-        let mut request = self.http.get(url);
+        let mut request = self
+            .http
+            .get(url)
+            .timeout(self.download_deadline.duration());
         if authenticated {
             request = request.header(AUTHORIZATION, self.api_key.header_value());
         }
+        let failed = |failure| bounded_failure(failure_prefix, failure, self.download_deadline);
         let response = request
             .send()
             .await
-            .map_err(|error| request_error(failure_prefix, error))?;
+            .map_err(|error| failed(classify_network(error)))?;
         let status = response.status();
         if !status.is_success() {
             return Err(Error::new(format!("{failure_prefix}: {status}")));
         }
-        let body = response
-            .bytes()
+        let response = collect(response, self.max_download_bytes)
             .await
-            .map_err(|error| request_error(failure_prefix, error))?;
-        Ok(body.to_vec())
+            .map_err(failed)?;
+        Ok(response.body)
     }
 
     /// POSTs a raw GraphQL body for the `api` command and returns the status
-    /// and body text unclassified, with no deadline or size cap.
+    /// and body text unclassified, within the API deadline and size cap.
     pub async fn fetch_api(&self, body: String) -> Result<(u16, String), Error> {
         let response = self
             .http
             .post(self.endpoint.url.clone())
+            .timeout(self.deadline.duration())
             .header(AUTHORIZATION, self.api_key.header_value())
             .header(CONTENT_TYPE, HeaderValue::from_static(CONTENT_TYPE_VALUE))
             .body(body)
             .send()
             .await
             .map_err(|error| {
-                request_error(&format!("Request to {} failed", self.endpoint), error)
+                bounded_failure(
+                    &format!("Request to {} failed", self.endpoint),
+                    classify_network(error),
+                    self.deadline,
+                )
             })?;
-        let status = response.status().as_u16();
-        let bytes = response.bytes().await.map_err(|error| {
-            request_error(
-                "Failed to read API response; the request was sent and may have taken effect",
-                error,
-            )
-        })?;
-        Ok((status, String::from_utf8_lossy(&bytes).into_owned()))
+        let response = collect(response, self.max_response_bytes)
+            .await
+            .map_err(|failure| {
+                bounded_failure(
+                    "Failed to read API response; the request was sent and may have taken effect",
+                    failure,
+                    self.deadline,
+                )
+            })?;
+        Ok((
+            response.status.as_u16(),
+            String::from_utf8_lossy(&response.body).into_owned(),
+        ))
     }
 
     /// PUTs a file to a pre-signed upload URL with exactly the headers Linear

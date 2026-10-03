@@ -1,10 +1,12 @@
-//! Image and attachment downloads, which ignore the GraphQL deadline and cap.
+//! Image and attachment downloads, which have their own deadline and cap
+//! instead of the GraphQL ones.
 
-use std::time::Duration;
+use std::num::NonZeroUsize;
+use std::time::{Duration, Instant};
 
 use super::server::{Reply, Server};
 use super::{USER_AGENT_VALUE, client_for, config};
-use crate::client::LinearClient;
+use crate::client::{ClientConfig, Deadline, LinearClient, ResponseCap};
 
 /// A client whose GraphQL deadline and cap would fail any download.
 fn strict_client() -> LinearClient {
@@ -174,4 +176,42 @@ async fn downloads_follow_twenty_redirects_and_refuse_the_twenty_first() {
     assert!(message.starts_with("Failed to download image"), "{message}");
     assert!(message.contains("redirect"), "{message}");
     assert_eq!(server.finish().len(), 21);
+}
+
+/// A client whose downloads stop after `cap` bytes or `deadline`.
+fn download_client(deadline: Duration, cap: usize) -> LinearClient {
+    client_for(
+        "http://127.0.0.1:9/graphql",
+        ClientConfig {
+            download_deadline: Deadline(deadline),
+            max_download_bytes: ResponseCap(NonZeroUsize::new(cap).expect("nonzero cap")),
+            ..ClientConfig::default()
+        },
+    )
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn downloads_stop_at_the_download_cap_and_deadline() {
+    let server = Server::start(vec![bytes(&[7; 8192]), Reply::Stall]);
+    let url = server.url("/image");
+    let client = download_client(Duration::from_millis(300), 4096);
+    let error = client
+        .download_markdown_image(&url)
+        .await
+        .expect_err("too large");
+    assert_eq!(
+        error.message(),
+        "Failed to download image: response exceeds the 4096 byte limit"
+    );
+    let started = Instant::now();
+    let error = client
+        .download_issue_attachment(&url)
+        .await
+        .expect_err("timeout");
+    assert_eq!(
+        error.message(),
+        "Failed to download: did not complete within 300ms"
+    );
+    assert!(started.elapsed() < Duration::from_secs(30));
+    server.finish();
 }
