@@ -1,6 +1,3 @@
-mod completions;
-mod fish_completion;
-
 mod issue_reads;
 
 mod api_schema;

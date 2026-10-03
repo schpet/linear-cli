@@ -6,7 +6,6 @@ pub mod completions;
 pub mod config;
 pub mod cycle;
 pub mod document;
-pub mod fish_completion;
 pub mod initiative;
 pub mod initiative_update;
 pub mod issue;
@@ -71,7 +70,7 @@ pub enum RootCommand {
     #[command(
         name = "completions",
         about = "Generate shell completions.",
-        long_about = "Generate shell completions.\n\nTo enable shell completions for this program add the following line to your ~/.bashrc or similar:\n\n    source <(linear completions [shell])\n\n    For more information run linear completions [shell] --help\n"
+        long_about = "Generate shell completions.\n\nLoad them from your shell's startup file:\n\n  bash (~/.bashrc):                   source <(linear completions bash)\n  zsh (~/.zshrc):                     source <(linear completions zsh)\n  fish (~/.config/fish/config.fish):  linear completions fish | source\n  elvish (rc.elv):                    eval (linear completions elvish | slurp)\n  powershell ($PROFILE):              linear completions powershell | Out-String | Invoke-Expression"
     )]
     Completions(completions::Completions),
     #[command(name = "config", about = "Generate .linear.toml configuration, asking for what the flags leave out", visible_aliases = ["configure"])]

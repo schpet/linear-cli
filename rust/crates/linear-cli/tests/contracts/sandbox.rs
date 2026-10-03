@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -39,10 +39,6 @@ impl BinarySandbox {
             .env("PATH", self.root.join("bin"))
             .env("LINEAR_IGNORE_ENV_FILE", "1");
         command
-    }
-
-    pub fn root(&self) -> &Path {
-        &self.root
     }
 }
 

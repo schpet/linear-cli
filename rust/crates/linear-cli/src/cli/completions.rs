@@ -1,65 +1,34 @@
-use clap::{Args, Subcommand};
+use clap::Args;
+use clap_complete::Shell;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
 pub struct Completions {
-    #[command(subcommand)]
-    pub command: CompletionsCommand,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum CompletionsCommand {
-    #[command(
-        name = "bash",
-        about = "Generate shell completions for bash.",
-        long_about = "Generate shell completions for bash.\n\nTo enable bash completions for this program add following line to your ~/.bashrc:\n\n    source <(linear completions bash)"
+    #[arg(value_enum, help = "The shell to generate completions for")]
+    pub shell: Shell,
+    #[arg(
+        long = "name",
+        short = 'n',
+        help = "The name the completions are registered for, if not linear",
+        value_name = "command-name",
+        value_parser = command_name
     )]
-    Bash(CompletionsBash),
-    #[command(
-        name = "fish",
-        about = "Generate shell completions for fish.",
-        long_about = "Generate shell completions for fish.\n\nTo enable fish completions for this program add following line to your ~/.config/fish/config.fish:\n\n    source (linear completions fish | psub)"
-    )]
-    Fish(CompletionsFish),
-    #[command(
-        name = "zsh",
-        about = "Generate shell completions for zsh.",
-        long_about = "Generate shell completions for zsh.\n\nTo enable zsh completions for this program add following line to your ~/.zshrc:\n\n    source <(linear completions zsh)"
-    )]
-    Zsh(CompletionsZsh),
-    #[command(
-        name = "complete",
-        about = "Get completions for given action from given command.",
-        hide = true
-    )]
-    Complete(CompletionsComplete),
-}
-
-#[derive(Debug, Args)]
-pub struct CompletionsBash {
-    #[arg(long = "name", short = 'n', help = "The name of the main command.", value_name = "command-name", value_parser = super::nonempty_string)]
     pub name: Option<String>,
 }
 
-#[derive(Debug, Args)]
-pub struct CompletionsFish {
-    #[arg(long = "name", short = 'n', help = "The name of the main command.", value_name = "command-name", value_parser = super::nonempty_string)]
-    pub name: Option<String>,
-}
-
-#[derive(Debug, Args)]
-pub struct CompletionsZsh {
-    #[arg(long = "name", short = 'n', help = "The name of the main command.", value_name = "command-name", value_parser = super::nonempty_string)]
-    pub name: Option<String>,
-}
-
-#[derive(Debug, Args)]
-pub struct CompletionsComplete {
-    #[arg(value_name = "action")]
-    pub action: String,
-    #[arg(value_name = "command")]
-    pub command: Vec<String>,
-    /// Literal words from saved scripts are not command-path words.
-    #[arg(last = true, value_name = "literal")]
-    pub literals: Vec<String>,
+/// A program name that is safe to embed in every shell's completion script.
+fn command_name(name: &str) -> Result<String, String> {
+    let mut chars = name.chars();
+    let valid = chars
+        .next()
+        .is_some_and(|first| first.is_ascii_alphanumeric() || first == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+    if valid {
+        Ok(name.to_owned())
+    } else {
+        Err(
+            "use ASCII letters, digits, '_', '-' or '.', starting with a letter, digit or '_'"
+                .to_owned(),
+        )
+    }
 }

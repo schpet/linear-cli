@@ -6,7 +6,7 @@ use std::error::Error as StdError;
 use crate::auth::credentials_path;
 use crate::cli::{self, Cli, RootCommand};
 use crate::commands;
-use crate::commands::completions::{self, CompletionShell};
+use crate::commands::completions;
 use crate::config::{
     DisplaySettings, OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup, render_diagnostic,
 };
@@ -101,22 +101,9 @@ fn report(error: &Error, settings: DisplaySettings) {
     let _ignored = output::eprint(lines.as_bytes());
 }
 
-fn completions_command(action: &cli::completions::Completions) -> Result<()> {
-    use cli::completions::CompletionsCommand;
-    let output = match &action.command {
-        CompletionsCommand::Bash(action) => {
-            completions::script(CompletionShell::Bash, action.name.as_deref())?
-        }
-        CompletionsCommand::Fish(action) => {
-            completions::script(CompletionShell::Fish, action.name.as_deref())?
-        }
-        CompletionsCommand::Zsh(action) => {
-            completions::script(CompletionShell::Zsh, action.name.as_deref())?
-        }
-        CompletionsCommand::Complete(action) => completions::complete(action)?,
-    };
+fn completions_command(args: &cli::completions::Completions) -> Result<()> {
     let stdout = Stdout::new();
-    stdout.write(&output)?;
+    stdout.write(&completions::script(args))?;
     stdout.flush()
 }
 
