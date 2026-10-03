@@ -306,7 +306,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
                 .default_team
                 .clone()
                 .filter(|v| !v.is_empty())
-                .ok_or_else(|| shared::validation("Could not determine team key"))?;
+                .ok_or_else(crate::commands::team_key::no_team)?;
             match backend.find_team(reference.clone()).await? {
                 Some(team) => (team.id, reference),
                 None => {

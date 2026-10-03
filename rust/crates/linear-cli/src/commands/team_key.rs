@@ -18,7 +18,8 @@ pub(crate) fn team_or_configured(ctx: &Ctx, explicit: Option<&str>) -> Result<St
         .ok_or_else(no_team)
 }
 
+/// No `--team` was given and no default team is configured.
 pub(crate) fn no_team() -> Error {
-    Error::new("Could not determine team key from directory name or team flag")
-        .with_hint("Pass --team, or run `linear config` to set a default team.")
+    Error::new("No team given and no default team configured")
+        .with_hint("Pass --team <key, name, or ID>, or run `linear config` to set a default team.")
 }

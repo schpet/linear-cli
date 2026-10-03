@@ -1,9 +1,8 @@
 //! `issue mine` (alias `issue list`): your issues in one team.
-use std::process::{Command, Stdio};
 use std::time::SystemTime;
 
 use crate::cli::issue::IssueMine;
-use crate::commands::team_key::configured_team_key;
+use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue_read::IssueFilter;
@@ -37,7 +36,7 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
         );
     }
     if args.team.is_none() && configured_team_key(ctx.options()).is_none() {
-        return Err(no_team(ctx));
+        return Err(no_team());
     }
     if args
         .milestone
@@ -102,20 +101,4 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
     })?;
     let table = read::table(&rows, false, false, SystemTime::now());
     read::print_table(ctx, &table, !args.no_pager)
-}
-
-fn no_team(ctx: &Ctx) -> Error {
-    let in_repository = Command::new("git")
-        .args(["rev-parse", "--is-inside-work-tree"])
-        .current_dir(ctx.cwd())
-        .stdin(Stdio::null())
-        .envs(ctx.config().child_env.iter())
-        .output()
-        .is_ok_and(|output| output.status.success());
-    let hint = if in_repository {
-        "Use --team <key, name, or ID> to specify a team, or run `linear config` to link this repository to a team."
-    } else {
-        "Use --team <key, name, or ID> to specify a team."
-    };
-    Error::new("No default team configured and no team scope provided").with_hint(hint)
 }

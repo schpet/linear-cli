@@ -432,7 +432,10 @@ fn mine_resolves_team_cycle_and_state_names() {
 fn mine_validation_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
-    cli.run(&["issue", "mine"]).failure().stderr_has("--team");
+    cli.run(&["issue", "mine"])
+        .failure()
+        .stderr_has("No team given and no default team configured")
+        .stderr_has("--team");
     let cli = cli.env("LINEAR_TEAM_ID", "ENG");
     cli.run(&["issue", "mine", "--created-after", "nope"])
         .usage_error()
