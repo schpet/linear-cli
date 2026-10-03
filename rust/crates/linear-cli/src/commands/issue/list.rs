@@ -54,7 +54,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         return ctx.open_in_linear(&path, args.app);
     }
     let client = ctx.client()?;
-    let priority = read::priority_sort(ctx, args.sort);
+    let sort = ctx.options().issue_sort(args.sort).0;
     let project = filter::resolve_project(ctx, client, filters.project.as_deref())?;
     let cycle = filter::resolve_cycle(
         ctx,
@@ -95,7 +95,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
             &filters.label,
         );
         filter::apply_dates(&mut filter, filters.created_after, filters.updated_after);
-        read::mine(client, filter, priority, filters.limit.max()).await
+        read::mine(client, filter, sort, filters.limit.max()).await
     })?;
     if args.json {
         return ctx.print(json::render(&rows));

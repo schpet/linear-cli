@@ -97,7 +97,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
         .as_deref()
         .map(|milestone| ctx.block_on(filter::milestone_id(client, milestone, project.as_deref())))
         .transpose()?;
-    let priority = read::priority_sort(ctx, args.sort);
+    let sort = ctx.options().issue_sort(args.sort).0;
     let show_team = scope.several();
     let show_assignee = filters.assignee.is_none() && !filters.unassigned;
     let output = ctx.spin(!args.json, async {
@@ -148,7 +148,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                 let data = read::query(
                     client,
                     filter,
-                    priority,
+                    sort,
                     filters.limit.max(),
                     args.include_archived,
                 )

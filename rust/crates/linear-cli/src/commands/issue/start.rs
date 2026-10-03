@@ -61,14 +61,14 @@ fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 /// Asks which of the team's unstarted issues to start.
 fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
     ctx.require_tty("an issue ID")?;
-    let priority = ctx.options().issue_sort(None).0 == crate::config::IssueSort::Priority;
+    let sort = ctx.options().issue_sort(None).0;
     let client = ctx.client()?;
     let issues = ctx.spin(
         true,
         issue_read::mine(
             client,
             filter(team, args.all_assignees, args.unassigned),
-            priority,
+            sort,
             None,
         ),
     )?;

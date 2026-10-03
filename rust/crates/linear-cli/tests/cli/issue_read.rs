@@ -450,6 +450,45 @@ fn list_sends_filters() {
 }
 
 #[test]
+fn list_and_query_resolve_sort_flags_over_configuration() {
+    let manual = json!([
+        { "workflowState": { "order": "Ascending" } },
+        { "manual": { "nulls": "last", "order": "Ascending" } }
+    ]);
+    for (command, operation) in [
+        ("list", "GetIssuesForState"),
+        ("query", "GetIssuesForQuery"),
+    ] {
+        for flag in [None, Some("manual"), Some("priority")] {
+            let api = MockLinear::start();
+            api.on(operation, issues(vec![], None));
+            let cli = Cli::for_api(&api)
+                .env("LINEAR_TEAM_ID", "ENG")
+                .file("cwd/.linear.toml", "issue_sort = 'manual'\n");
+            let mut args = vec!["issue", command, "--json"];
+            if let Some(flag) = flag {
+                args.extend(["--sort", flag]);
+            }
+            cli.run(&args).success();
+            let mut filter = json!({ "team": { "key": { "eq": "ENG" } } });
+            if command == "list" {
+                filter["state"] = json!({ "type": { "in": ["unstarted"] } });
+                filter["assignee"] = json!({ "isMe": { "eq": true } });
+            }
+            assert_eq!(
+                api.variables(operation),
+                json!({
+                    "sort": if flag == Some("priority") { default_sort() } else { manual.clone() },
+                    "filter": filter,
+                    "first": 50
+                }),
+                "{command} with {flag:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn list_unlimited_follows_pages() {
     let api = MockLinear::start();
     api.on(
