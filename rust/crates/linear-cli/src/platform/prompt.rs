@@ -144,7 +144,7 @@ impl<'a> Prompter<'a> {
     }
 }
 
-/// Checks a trimmed, nonblank answer; the error is shown at the prompt.
+/// Checks a nonempty answer: trimmed input, or the default as supplied.
 pub type Check<'a> = &'a dyn Fn(&str) -> std::result::Result<(), String>;
 
 /// A free-text question. Answers are trimmed, and a blank answer takes the
@@ -188,7 +188,7 @@ impl<'a> Text<'a> {
         }
     }
 
-    /// Checks nonblank answers; the error is shown and the question asked again.
+    /// Checks nonempty answers, including defaults; errors repeat the question.
     pub fn with_check(self, check: Check<'a>) -> Self {
         Self {
             check: Some(check),
@@ -199,13 +199,15 @@ impl<'a> Text<'a> {
     /// The answer `raw` input gives, or why it is refused.
     pub fn answer(&self, raw: &str) -> std::result::Result<String, String> {
         let answer = raw.trim();
-        if answer.is_empty() {
-            return match self.default {
-                Some(default) => Ok(default.to_owned()),
-                None if self.required => Err("An answer is required".to_owned()),
-                None => Ok(String::new()),
-            };
-        }
+        let answer = if answer.is_empty() {
+            match self.default {
+                Some(default) => default,
+                None if self.required => return Err("An answer is required".to_owned()),
+                None => return Ok(String::new()),
+            }
+        } else {
+            answer
+        };
         if let Some(check) = self.check {
             check(answer)?;
         }
@@ -329,6 +331,47 @@ mod tests {
         assert_eq!(text.answer(""), ok(""));
     }
 
+    #[test]
+    fn checked_defaults_must_parse_before_they_can_be_accepted() {
+        let hex = |value: &str| value.parse::<crate::cli::values::HexColor>().map(drop);
+        for default in ["red", "#fff"] {
+            for required in [false, true] {
+                let text = Text::new("Color").with_default(default).with_check(&hex);
+                let text = if required { text.required() } else { text };
+                for answer in ["", " \t "] {
+                    assert_eq!(
+                        text.answer(answer),
+                        hex(default).map(|()| default.to_owned())
+                    );
+                    assert!(text.answer(answer).is_err());
+                }
+                assert_eq!(text.answer(" #123456 "), ok("#123456"));
+            }
+        }
+        let text = Text::new("Color").with_default("#5E6AD2").with_check(&hex);
+        assert_eq!(text.answer(""), ok("#5E6AD2"));
+    }
+
+    #[test]
+    fn optional_blank_answers_bypass_checks_but_defaults_keep_their_whitespace() {
+        let reject = |_: &str| Err("checked".to_owned());
+        let text = Text::new("Optional").with_default("").with_check(&reject);
+        assert_eq!(text.answer(" \t "), ok(""));
+        assert_eq!(
+            text.required().answer(""),
+            Err("An answer is required".to_owned())
+        );
+        let exact = |value: &str| {
+            assert_eq!(value, " Current ");
+            Ok(())
+        };
+        let text = Text::new("Name")
+            .with_default(" Current ")
+            .with_check(&exact);
+        assert_eq!(text.answer(""), ok(" Current "));
+        let text = Text::new("Name").with_default("   ").with_check(&reject);
+        assert_eq!(text.answer(""), Err("checked".to_owned()));
+    }
     #[test]
     fn the_filter_needs_every_word_ignoring_case() {
         assert!(matches("", "Engineering (ENG)"));
