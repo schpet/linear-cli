@@ -91,7 +91,7 @@ fn process_in(cwd: &str, values: &[(&str, &str)]) -> ProcessEnvSnapshot {
 }
 
 #[test]
-fn source_precedence_and_redacted_overlay_are_typed() {
+fn env_beats_files_and_debug_output_hides_the_key() {
     let process = process(&[
         ("XDG_CONFIG_HOME", "/global"),
         ("LINEAR_ISSUE_SORT", "manual"),

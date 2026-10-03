@@ -109,7 +109,7 @@ pr_template = "  .github/pr.md  "
 }
 
 #[test]
-fn precedence_and_shadowed_poison_are_strict() {
+fn higher_tiers_win_and_an_invalid_lower_tier_value_still_fails() {
     let global = tier(
         "/global/linear.toml",
         "team_id = 'global'\nissue_sort = 'manual'",

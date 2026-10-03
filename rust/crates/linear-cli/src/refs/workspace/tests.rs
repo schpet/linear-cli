@@ -71,7 +71,7 @@ fn workspace_suggestions_use_key_provenance_even_for_empty_values() {
 }
 
 #[test]
-fn workspace_check_precedes_later_key_conflict_and_empty_config_shadows_default() {
+fn a_foreign_url_fails_before_key_checks_and_an_empty_config_workspace_falls_back_to_the_default() {
     let fake = ConfigSecret::new("lin_api_fake".to_owned());
     let key = ApiKeyInput::Raw {
         value: &fake,
@@ -95,7 +95,7 @@ fn workspace_check_precedes_later_key_conflict_and_empty_config_shadows_default(
 }
 
 #[test]
-fn url_normalization_and_error_order() {
+fn team_urls_are_normalized_and_foreign_urls_name_the_workspace() {
     let key = ApiKeyInput::Absent;
     let mut scope = absent_scope(&key);
     scope.cli_workspace = Some("acme");
@@ -193,7 +193,7 @@ fn url_preparation_tracks_request_variables_across_normalization() {
 }
 
 #[test]
-fn fallthrough_and_refusal_cases_keep_exact_boundaries() {
+fn lookalike_urls_are_plain_text_and_dot_segments_are_refused() {
     let fake = ConfigSecret::new("lin_api_fake".to_owned());
     let key = ApiKeyInput::Raw {
         value: &fake,
@@ -255,7 +255,7 @@ fn scope_uses_the_sourced_workspace() {
 }
 
 #[test]
-fn sourced_key_and_default_provenance_errors_are_exact() {
+fn workspace_mismatch_hints_name_where_the_key_came_from() {
     let fake = ConfigSecret::new("lin_api_fake_project".to_owned());
     let empty = ConfigSecret::new(String::new());
     let config_source = OptionSource::ProjectConfig {
@@ -285,7 +285,7 @@ fn sourced_key_and_default_provenance_errors_are_exact() {
 }
 
 #[test]
-fn workspace_priority_and_case_handling() {
+fn cli_then_env_then_default_workspace_with_trimming_and_case_folding() {
     let fake = ConfigSecret::new("lin_api_fake".to_owned());
     let raw = ApiKeyInput::Raw {
         value: &fake,
