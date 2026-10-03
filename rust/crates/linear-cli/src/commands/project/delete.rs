@@ -1,11 +1,8 @@
 //! `project delete`: move one project to the trash after confirmation.
-use cynic::MutationBuilder;
-
 use crate::cli::project::ProjectDelete;
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_delete::{DeleteProject, DeleteProjectVariables};
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
@@ -23,9 +20,7 @@ fn delete(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
     let client = ctx.client()?;
     let result: DeleteProject = ctx.spin(true, async {
         let id = resolve_project_with_transport(&reference, original, client).await?;
-        let request =
-            LegacyRequest::with_variables(DeleteProject::build(DeleteProjectVariables { id }));
-        Ok::<_, Error>(client.execute_legacy(&request).await?)
+        Ok::<_, Error>(client.mutate(DeleteProjectVariables { id }).await?)
     })?;
     let payload = result.project_delete;
     if !payload.success {

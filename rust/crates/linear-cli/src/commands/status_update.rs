@@ -1,7 +1,6 @@
 //! Project and initiative status updates: creating one, and the shared
 //! table their `list` commands print.
 use chrono::{DateTime, Local, Utc};
-use cynic::MutationBuilder;
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
 use crate::client::LinearClient;
@@ -10,7 +9,6 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiatives::InitiativeUpdateHealthType;
 use crate::graphql::operations::projects::ProjectUpdateHealthType;
 use crate::graphql::operations::update_create::{
@@ -115,8 +113,8 @@ async fn submit(
 ) -> Result<Created> {
     let (success, created) = match target {
         Target::Project(_) => {
-            let request =
-                LegacyRequest::with_variables(CreateProjectUpdate::build(ProjectVariables {
+            let data: CreateProjectUpdate = client
+                .mutate(ProjectVariables {
                     input: ProjectInput {
                         project_id: id.to_owned(),
                         body,
@@ -126,8 +124,8 @@ async fn submit(
                             Health::OffTrack => ProjectHealthInput::OffTrack,
                         }),
                     },
-                }));
-            let data: CreateProjectUpdate = client.execute_legacy(&request).await?;
+                })
+                .await?;
             let payload = data.project_update_create;
             let update = payload.project_update;
             (
@@ -140,8 +138,8 @@ async fn submit(
             )
         }
         Target::Initiative(_) => {
-            let request =
-                LegacyRequest::with_variables(CreateInitiativeUpdate::build(InitiativeVariables {
+            let data: CreateInitiativeUpdate = client
+                .mutate(InitiativeVariables {
                     input: InitiativeInput {
                         initiative_id: id.to_owned(),
                         body,
@@ -151,8 +149,8 @@ async fn submit(
                             Health::OffTrack => InitiativeHealthInput::OffTrack,
                         }),
                     },
-                }));
-            let data: CreateInitiativeUpdate = client.execute_legacy(&request).await?;
+                })
+                .await?;
             let payload = data.initiative_update_create;
             let update = payload.initiative_update;
             (

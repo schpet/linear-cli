@@ -1,8 +1,6 @@
 //! `project update`: resolve every reference first, then apply the field
 //! update and the initiative links in order.
 
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::project::ProjectUpdate;
 use crate::cli::values::Priority;
 use crate::client::LinearClient;
@@ -13,7 +11,6 @@ use crate::commands::project::write;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::edit::Edit;
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_write::{
     AddProjectToInitiative, GetProjectInitiativeLinksForUpdate, GetProjectLabelsForUpdate,
     GetProjectTeamsForUpdate, IdVariables, InitiativeLinkInput, LinkVariables, PageVariables,
@@ -321,13 +318,12 @@ fn no_overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result
 
 async fn current_teams(client: &LinearClient, id: &str) -> Result<Vec<ProjectTeam>> {
     let mut teams = pagination::collect(None, |after, _first| {
-        let request =
-            LegacyRequest::with_variables(GetProjectTeamsForUpdate::build(PageVariables {
-                id: id.to_owned(),
-                after,
-            }));
+        let variables = PageVariables {
+            id: id.to_owned(),
+            after,
+        };
         async move {
-            let data: GetProjectTeamsForUpdate = client.execute_legacy(&request).await?;
+            let data: GetProjectTeamsForUpdate = client.query(variables).await?;
             Ok(Page {
                 nodes: data.project.teams.nodes,
                 page_info: data.project.teams.page_info,
@@ -341,13 +337,12 @@ async fn current_teams(client: &LinearClient, id: &str) -> Result<Vec<ProjectTea
 
 async fn current_labels(client: &LinearClient, id: &str) -> Result<Vec<ProjectLabel>> {
     let mut labels = pagination::collect(None, |after, _first| {
-        let request =
-            LegacyRequest::with_variables(GetProjectLabelsForUpdate::build(PageVariables {
-                id: id.to_owned(),
-                after,
-            }));
+        let variables = PageVariables {
+            id: id.to_owned(),
+            after,
+        };
         async move {
-            let data: GetProjectLabelsForUpdate = client.execute_legacy(&request).await?;
+            let data: GetProjectLabelsForUpdate = client.query(variables).await?;
             Ok(Page {
                 nodes: data.project.labels.nodes,
                 page_info: data.project.labels.page_info,
@@ -364,15 +359,12 @@ async fn current_links(client: &LinearClient, id: &str) -> Result<(Vec<Initiativ
     let project = pagination::collect_within(
         None,
         |after, _first| {
-            let request = LegacyRequest::with_variables(GetProjectInitiativeLinksForUpdate::build(
-                PageVariables {
-                    id: id.to_owned(),
-                    after,
-                },
-            ));
+            let variables = PageVariables {
+                id: id.to_owned(),
+                after,
+            };
             async move {
-                let data: GetProjectInitiativeLinksForUpdate =
-                    client.execute_legacy(&request).await?;
+                let data: GetProjectInitiativeLinksForUpdate = client.query(variables).await?;
                 Ok(data.project)
             }
         },
@@ -412,11 +404,12 @@ async fn submit(
     id: &str,
     input: ProjectUpdateInput,
 ) -> Result<Option<Shown>> {
-    let request = LegacyRequest::with_variables(UpdateProject::build(UpdateProjectVariables {
-        id: id.to_owned(),
-        input,
-    }));
-    let result: UpdateProject = client.execute_legacy(&request).await?;
+    let result: UpdateProject = client
+        .mutate(UpdateProjectVariables {
+            id: id.to_owned(),
+            input,
+        })
+        .await?;
     let payload = result.project_update;
     if !payload.success {
         return Err(Error::new("Linear did not update the project"));
@@ -437,30 +430,21 @@ async fn apply(
 ) -> Result<()> {
     for (applied, change) in changes.iter().enumerate() {
         let result = match change {
-            InitiativeChange::Add { initiative_id, .. } => {
-                let request =
-                    LegacyRequest::with_variables(AddProjectToInitiative::build(LinkVariables {
-                        input: InitiativeLinkInput {
-                            initiative_id: initiative_id.clone(),
-                            project_id: project_id.to_owned(),
-                        },
-                    }));
-                client
-                    .execute_legacy::<AddProjectToInitiative, _>(&request)
-                    .await
-                    .map(|data| data.initiative_to_project_create.success)
-            }
-            InitiativeChange::Remove { link_id, .. } => {
-                let request = LegacyRequest::with_variables(RemoveProjectFromInitiative::build(
-                    IdVariables {
-                        id: link_id.clone(),
+            InitiativeChange::Add { initiative_id, .. } => client
+                .mutate::<AddProjectToInitiative, _>(LinkVariables {
+                    input: InitiativeLinkInput {
+                        initiative_id: initiative_id.clone(),
+                        project_id: project_id.to_owned(),
                     },
-                ));
-                client
-                    .execute_legacy::<RemoveProjectFromInitiative, _>(&request)
-                    .await
-                    .map(|data| data.initiative_to_project_delete.success)
-            }
+                })
+                .await
+                .map(|data| data.initiative_to_project_create.success),
+            InitiativeChange::Remove { link_id, .. } => client
+                .mutate::<RemoveProjectFromInitiative, _>(IdVariables {
+                    id: link_id.clone(),
+                })
+                .await
+                .map(|data| data.initiative_to_project_delete.success),
         };
         let (outcome, cause) = match result {
             Ok(true) => continue,

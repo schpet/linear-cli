@@ -1,6 +1,5 @@
 //! `initiative-update list`: an initiative's latest status updates as a table or JSON.
 use chrono::Utc;
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::initiative_update::InitiativeUpdateList;
@@ -8,7 +7,6 @@ use crate::commands::json;
 use crate::commands::status_update::{self, Row, UpdateHealth};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_updates::{
     ListInitiativeUpdates, ListInitiativeUpdatesVariables, UpdateNode,
 };
@@ -28,15 +26,13 @@ fn list(ctx: &Ctx, args: &InitiativeUpdateList) -> Result<()> {
         pagination::collect_within(
             args.limit.max(),
             |after, first| {
-                let request = LegacyRequest::with_variables(ListInitiativeUpdates::build(
-                    ListInitiativeUpdatesVariables {
-                        id: id.clone(),
-                        first: Some(first),
-                        after,
-                    },
-                ));
+                let variables = ListInitiativeUpdatesVariables {
+                    id: id.clone(),
+                    first: Some(first),
+                    after,
+                };
                 async move {
-                    let data: ListInitiativeUpdates = client.execute_legacy(&request).await?;
+                    let data: ListInitiativeUpdates = client.query(variables).await?;
                     data.initiative
                         .ok_or_else(|| Error::not_found("Initiative", original))
                 }

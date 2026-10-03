@@ -1,7 +1,6 @@
 //! `project create`: fields from flags or prompts, then one mutation, then
 //! the optional initiative link.
 use chrono::NaiveDate;
-use cynic::MutationBuilder;
 
 use crate::cli::project::{ProjectCreate, Status};
 use crate::cli::values::{self, Priority};
@@ -10,7 +9,6 @@ use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_write::{
     AddProjectToInitiative, CreateProject, CreateProjectVariables, CreatedProject,
     InitiativeLinkInput, LinkVariables, ProjectCreateInput,
@@ -190,9 +188,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
 }
 
 async fn submit(client: &LinearClient, input: ProjectCreateInput) -> Result<CreatedProject> {
-    let request =
-        LegacyRequest::with_variables(CreateProject::build(CreateProjectVariables { input }));
-    let result: CreateProject = client.execute_legacy(&request).await?;
+    let result: CreateProject = client.mutate(CreateProjectVariables { input }).await?;
     let payload = result.project_create;
     match payload.project {
         Some(project) if payload.success => Ok(project),
@@ -205,13 +201,14 @@ async fn link(
     project: &CreatedProject,
     initiative_id: String,
 ) -> Result<()> {
-    let request = LegacyRequest::with_variables(AddProjectToInitiative::build(LinkVariables {
-        input: InitiativeLinkInput {
-            initiative_id,
-            project_id: project.id.inner().to_owned(),
-        },
-    }));
-    let result: AddProjectToInitiative = client.execute_legacy(&request).await?;
+    let result: AddProjectToInitiative = client
+        .mutate(LinkVariables {
+            input: InitiativeLinkInput {
+                initiative_id,
+                project_id: project.id.inner().to_owned(),
+            },
+        })
+        .await?;
     if result.initiative_to_project_create.success {
         Ok(())
     } else {

@@ -1,13 +1,11 @@
 //! `initiative update`: fields from flags or prompts, then one mutation.
 use chrono::NaiveDate;
-use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::initiative::InitiativeUpdate;
 use crate::cli::values::{date, hex_color};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_update::{
     CurrentInitiative, GetInitiativeForUpdate, InitiativeUpdateInput, UpdateInitiative,
     UpdateVariables, UpdatedInitiative,
@@ -115,10 +113,8 @@ impl Changes {
 }
 
 async fn details(client: &LinearClient, id: &str, original: &str) -> Result<CurrentInitiative> {
-    let request = LegacyRequest::with_variables(GetInitiativeForUpdate::build(DetailVariables {
-        id: id.to_owned(),
-    }));
-    let result: GetInitiativeForUpdate = client.execute_legacy(&request).await?;
+    let result: GetInitiativeForUpdate =
+        client.query(DetailVariables { id: id.to_owned() }).await?;
     result
         .initiative
         .ok_or_else(|| Error::not_found("Initiative", original))
@@ -129,11 +125,12 @@ async fn submit(
     id: &str,
     input: InitiativeUpdateInput,
 ) -> Result<UpdatedInitiative> {
-    let request = LegacyRequest::with_variables(UpdateInitiative::build(UpdateVariables {
-        id: id.to_owned(),
-        input,
-    }));
-    let result: UpdateInitiative = client.execute_legacy(&request).await?;
+    let result: UpdateInitiative = client
+        .mutate(UpdateVariables {
+            id: id.to_owned(),
+            input,
+        })
+        .await?;
     if !result.initiative_update.success {
         return Err(Error::new("Linear did not update the initiative"));
     }

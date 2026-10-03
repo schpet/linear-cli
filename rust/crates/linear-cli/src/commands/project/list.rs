@@ -3,7 +3,6 @@
 
 use std::time::SystemTime;
 
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::project::ProjectList;
@@ -14,7 +13,6 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::projects::{
     GetProjects, GetProjectsVariables, Project, ProjectFilter, ProjectStatusFilter,
@@ -109,13 +107,13 @@ pub(super) fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<Pro
 /// Every matching project, in Linear's manual order.
 async fn fetch(client: &LinearClient, filter: Option<ProjectFilter>) -> Result<Vec<Project>> {
     let mut projects = pagination::collect(None, |after, first| {
-        let request = LegacyRequest::with_variables(GetProjects::build(GetProjectsVariables {
+        let variables = GetProjectsVariables {
             filter: filter.clone(),
             first: Some(first),
             after,
-        }));
+        };
         async move {
-            let data: GetProjects = client.execute_legacy(&request).await?;
+            let data: GetProjects = client.query(variables).await?;
             Ok(Page {
                 nodes: data.projects.nodes,
                 page_info: data.projects.page_info,

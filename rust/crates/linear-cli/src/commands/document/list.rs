@@ -2,8 +2,6 @@
 use crate::client::LinearClient;
 use std::time::SystemTime;
 
-use cynic::QueryBuilder;
-
 use crate::cli::Limit;
 use crate::cli::document::DocumentList;
 use crate::commands::{
@@ -14,7 +12,6 @@ use crate::commands::{
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::{
-    envelope::LegacyRequest,
     operations::documents::*,
     pagination::{self, Page, PageInfo},
 };
@@ -64,13 +61,13 @@ async fn fetch(
     limit: Limit,
 ) -> Result<Vec<ListedDocument>> {
     pagination::collect(limit.max(), |after, first| {
-        let request = LegacyRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
+        let variables = ListDocumentsVariables {
             filter: filter.clone(),
             first: Some(first),
             after,
-        }));
+        };
         async move {
-            let data: ListDocuments = client.execute_legacy(&request).await?;
+            let data: ListDocuments = client.query(variables).await?;
             Ok(data.documents.map_or_else(
                 || Page {
                     nodes: Vec::new(),

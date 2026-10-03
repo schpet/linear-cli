@@ -1,11 +1,8 @@
 //! `initiative unarchive`: find the archived initiative, confirm, restore it.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::initiative::InitiativeUnarchive;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_unarchive::{
     DetailVariables, GetInitiativeForUnarchive, UnarchiveDetail, UnarchiveInitiative,
     UnarchiveVariables,
@@ -33,10 +30,12 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     if !args.force && !ctx.confirm(&question, "--force")? {
         return ctx.print("Unarchive cancelled.\n");
     }
-    let request = LegacyRequest::with_variables(UnarchiveInitiative::build(UnarchiveVariables {
-        id: detail.id.inner().to_owned(),
-    }));
-    let result: UnarchiveInitiative = ctx.spin(true, client.execute_legacy(&request))?;
+    let result: UnarchiveInitiative = ctx.spin(
+        true,
+        client.mutate(UnarchiveVariables {
+            id: detail.id.inner().to_owned(),
+        }),
+    )?;
     if !result.initiative_unarchive.success {
         return Err(Error::new("Linear did not unarchive the initiative"));
     }
@@ -52,11 +51,11 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
 }
 
 async fn details(client: &LinearClient, id: &str, original: &str) -> Result<UnarchiveDetail> {
-    let request =
-        LegacyRequest::with_variables(GetInitiativeForUnarchive::build(DetailVariables {
+    let data: GetInitiativeForUnarchive = client
+        .query(DetailVariables {
             id: cynic::Id::new(id),
-        }));
-    let data: GetInitiativeForUnarchive = client.execute_legacy(&request).await?;
+        })
+        .await?;
     data.initiatives
         .nodes
         .into_iter()

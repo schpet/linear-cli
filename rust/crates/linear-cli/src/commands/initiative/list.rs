@@ -1,5 +1,4 @@
 //! `initiative list`: every page, sorted by status then name, as a table or JSON.
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::initiative::InitiativeList;
@@ -9,7 +8,6 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::commands::{json, user};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiatives::{
     GetInitiatives, GetInitiativesVariables, IDComparator, Initiative, InitiativeFilter,
     InitiativeOwner, InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType,
@@ -84,15 +82,14 @@ async fn fetch(
     archived: bool,
 ) -> Result<Vec<Initiative>> {
     let mut initiatives = pagination::collect(None, |after, first| {
-        let request =
-            LegacyRequest::with_variables(GetInitiatives::build(GetInitiativesVariables {
-                filter: filter.clone(),
-                include_archived: Some(archived),
-                first: Some(first),
-                after,
-            }));
+        let variables = GetInitiativesVariables {
+            filter: filter.clone(),
+            include_archived: Some(archived),
+            first: Some(first),
+            after,
+        };
         async move {
-            let data: GetInitiatives = client.execute_legacy(&request).await?;
+            let data: GetInitiatives = client.query(variables).await?;
             Ok(data.initiatives.map_or_else(
                 || Page {
                     nodes: Vec::new(),

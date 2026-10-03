@@ -1,14 +1,11 @@
 //! `document create` and `document update`: fields from flags, stdin, an
 //! editor or prompts, then one mutation.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::document::{DocumentCreate, DocumentUpdate};
 use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::document_write::*;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::editor;
@@ -93,8 +90,8 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
     let title = fields.title;
     let created = ctx.spin(true, async {
         attach(client, &mut input, target.as_ref()).await?;
-        let request =
-            LegacyRequest::with_variables(CreateDocument::build(CreateDocumentVariables {
+        let data: CreateDocument = client
+            .mutate(CreateDocumentVariables {
                 input: DocumentCreateInput {
                     title,
                     content: input.content,
@@ -106,8 +103,8 @@ fn create_document(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
                     cycle_id: input.cycle_id,
                     release_id: input.release_id,
                 },
-            }));
-        let data: CreateDocument = client.execute_legacy(&request).await?;
+            })
+            .await?;
         if !data.document_create.success {
             return Err(Error::new("Linear did not create the document"));
         }
@@ -175,12 +172,12 @@ fn update_document(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
         if input.content.is_some() && !args.force {
             refuse_inline_comments(client, &id).await?;
         }
-        let request =
-            LegacyRequest::with_variables(UpdateDocument::build(UpdateDocumentVariables {
+        let data: UpdateDocument = client
+            .mutate(UpdateDocumentVariables {
                 id: id.clone(),
                 input,
-            }));
-        let data: UpdateDocument = client.execute_legacy(&request).await?;
+            })
+            .await?;
         if !data.document_update.success {
             return Err(Error::new("Linear did not update the document"));
         }
@@ -215,11 +212,8 @@ async fn attach(
 }
 
 async fn for_edit(client: &LinearClient, id: &str) -> Result<DocumentForEdit> {
-    let request = LegacyRequest::with_variables(GetDocumentForEdit::build(DocumentEditVariables {
-        id: id.to_owned(),
-    }));
     let data: GetDocumentForEdit = client
-        .execute_legacy(&request)
+        .query(DocumentEditVariables { id: id.to_owned() })
         .await
         .map_err(|failure| super::not_found(failure, id))?;
     data.document
@@ -230,15 +224,13 @@ async fn for_edit(client: &LinearClient, id: &str) -> Result<DocumentForEdit> {
 /// updates stop while any open comment quotes the document.
 async fn refuse_inline_comments(client: &LinearClient, id: &str) -> Result<()> {
     let comments = pagination::collect(None, |after, _first| {
-        let request = LegacyRequest::with_variables(DocumentInlineCommentGuard::build(
-            DocumentGuardVariables {
-                id: id.to_owned(),
-                after,
-            },
-        ));
+        let variables = DocumentGuardVariables {
+            id: id.to_owned(),
+            after,
+        };
         async move {
             let data: DocumentInlineCommentGuard = client
-                .execute_legacy(&request)
+                .query(variables)
                 .await
                 .map_err(|failure| super::not_found(failure, id))?;
             let document = data

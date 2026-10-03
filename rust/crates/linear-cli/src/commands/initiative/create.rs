@@ -1,6 +1,5 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
 use chrono::NaiveDate;
-use cynic::MutationBuilder;
 
 use crate::cli::initiative::InitiativeCreate;
 use crate::cli::values::{InitiativeStatus, date};
@@ -8,7 +7,6 @@ use crate::client::LinearClient;
 use crate::commands::color;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_create::{
     CreateInitiative, CreateInitiativeVariables, CreatedInitiative, InitiativeCreateInput,
 };
@@ -168,10 +166,8 @@ fn validate(fields: Fields) -> Result<Valid> {
 /// Sends the mutation once. A failure after the request may have reached
 /// Linear says the initiative may already exist; nothing is retried.
 async fn submit(client: &LinearClient, input: InitiativeCreateInput) -> Result<CreatedInitiative> {
-    let request =
-        LegacyRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables { input }));
     let result: CreateInitiative = client
-        .execute_legacy(&request)
+        .mutate(CreateInitiativeVariables { input })
         .await
         .map_err(|failure| failure.into_create_error("initiative"))?;
     if !result.initiative_create.success {

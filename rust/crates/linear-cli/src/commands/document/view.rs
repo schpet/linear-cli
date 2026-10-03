@@ -1,14 +1,12 @@
 //! `document view`: a document as Markdown, raw content or JSON (with every
 //! comment), or opened in the browser.
 use chrono::{DateTime, TimeZone, Utc};
-use cynic::QueryBuilder;
 
 use crate::cli::document::DocumentView;
 use crate::client::LinearClient;
 use crate::commands::json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::markdown_assets;
@@ -67,11 +65,8 @@ fn local_images(ctx: &Ctx, client: &LinearClient, content: &str) -> Result<Strin
 }
 
 async fn body(client: &LinearClient, id: &str, original: &str) -> Result<DocumentBody> {
-    let request = LegacyRequest::with_variables(GetDocument::build(GetDocumentVariables {
-        id: id.to_owned(),
-    }));
     let data: GetDocument = client
-        .execute_legacy(&request)
+        .query(GetDocumentVariables { id: id.to_owned() })
         .await
         .map_err(|failure| super::not_found(failure, original))?;
     data.document
@@ -87,15 +82,13 @@ async fn with_comments(
     pagination::collect_within(
         None,
         |after, _first| {
-            let request = LegacyRequest::with_variables(GetDocumentWithComments::build(
-                GetDocumentCommentsVariables {
-                    id: id.to_owned(),
-                    comments_after: after,
-                },
-            ));
+            let variables = GetDocumentCommentsVariables {
+                id: id.to_owned(),
+                comments_after: after,
+            };
             async move {
                 let data: GetDocumentWithComments = client
-                    .execute_legacy(&request)
+                    .query(variables)
                     .await
                     .map_err(|failure| super::not_found(failure, original))?;
                 data.document

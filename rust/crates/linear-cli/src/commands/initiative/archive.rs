@@ -1,12 +1,9 @@
 //! `initiative archive`/`delete`, for one initiative or in bulk.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::initiative::{InitiativeArchive, InitiativeDelete};
 use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_bulk::{
     ArchiveInitiative, DeleteInitiative, GetInitiativeForArchive, GetInitiativeForDelete,
     IdVariables,
@@ -245,8 +242,7 @@ async fn details(client: &LinearClient, id: &str, mode: Mode) -> Result<Option<D
     let variables = IdVariables { id: id.to_owned() };
     Ok(match mode {
         Mode::Archive => {
-            let request = LegacyRequest::with_variables(GetInitiativeForArchive::build(variables));
-            let data: GetInitiativeForArchive = client.execute_legacy(&request).await?;
+            let data: GetInitiativeForArchive = client.query(variables).await?;
             data.initiative.map(|initiative| Details {
                 id: initiative.id.into_inner(),
                 name: initiative.name,
@@ -255,8 +251,7 @@ async fn details(client: &LinearClient, id: &str, mode: Mode) -> Result<Option<D
             })
         }
         Mode::Delete => {
-            let request = LegacyRequest::with_variables(GetInitiativeForDelete::build(variables));
-            let data: GetInitiativeForDelete = client.execute_legacy(&request).await?;
+            let data: GetInitiativeForDelete = client.query(variables).await?;
             data.initiative.map(|initiative| Details {
                 id: initiative.id.into_inner(),
                 name: initiative.name,
@@ -273,13 +268,11 @@ async fn submit(client: &LinearClient, id: &str, mode: Mode) -> Result<()> {
     let variables = IdVariables { id: id.to_owned() };
     let success = match mode {
         Mode::Archive => {
-            let request = LegacyRequest::with_variables(ArchiveInitiative::build(variables));
-            let data: ArchiveInitiative = client.execute_legacy(&request).await?;
+            let data: ArchiveInitiative = client.mutate(variables).await?;
             data.initiative_archive.success
         }
         Mode::Delete => {
-            let request = LegacyRequest::with_variables(DeleteInitiative::build(variables));
-            let data: DeleteInitiative = client.execute_legacy(&request).await?;
+            let data: DeleteInitiative = client.mutate(variables).await?;
             data.initiative_delete.success
         }
     };

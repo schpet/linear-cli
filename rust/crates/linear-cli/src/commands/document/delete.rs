@@ -1,12 +1,9 @@
 //! `document delete`: move one document, or many in bulk, to the trash.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::document::DocumentDelete;
 use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::document_delete::{
     DeleteDocument, DocumentDetails, GetDocumentForDelete, IdVariables,
 };
@@ -104,20 +101,15 @@ async fn delete_item(client: &LinearClient, original: String, id: Result<String>
 }
 
 async fn details(client: &LinearClient, id: &str) -> Result<Option<DocumentDetails>> {
-    let request = LegacyRequest::with_variables(GetDocumentForDelete::build(IdVariables {
-        id: id.to_owned(),
-    }));
     let data: GetDocumentForDelete = client
-        .execute_legacy(&request)
+        .query(IdVariables { id: id.to_owned() })
         .await
         .map_err(|failure| super::not_found(failure, id))?;
     Ok(data.document)
 }
 
 async fn submit(client: &LinearClient, id: &str) -> Result<()> {
-    let request =
-        LegacyRequest::with_variables(DeleteDocument::build(IdVariables { id: id.to_owned() }));
-    let data: DeleteDocument = client.execute_legacy(&request).await?;
+    let data: DeleteDocument = client.mutate(IdVariables { id: id.to_owned() }).await?;
     if !data.document_delete.success {
         return Err(Error::new("Linear did not delete the document"));
     }

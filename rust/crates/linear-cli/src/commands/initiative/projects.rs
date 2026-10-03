@@ -1,11 +1,8 @@
 //! `initiative add-project` / `remove-project`: link or unlink a project.
-use cynic::{MutationBuilder, QueryBuilder};
-
 use crate::cli::initiative::{InitiativeAddProject, InitiativeRemoveProject};
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_projects::{
     AddProjectToInitiative, AddVariables, GetInitiativeProjectLinks, IdVariables,
     InitiativeToProjectCreateInput, LinksVariables, RemoveProjectFromInitiative,
@@ -31,14 +28,16 @@ fn add_project(ctx: &Ctx, args: &InitiativeAddProject) -> Result<()> {
             link.project, link.initiative
         ));
     }
-    let request = LegacyRequest::with_variables(AddProjectToInitiative::build(AddVariables {
-        input: InitiativeToProjectCreateInput {
-            initiative_id: link.initiative_id.clone(),
-            project_id: link.project_id.clone(),
-            sort_order: args.sort_order.clone(),
-        },
-    }));
-    let result: AddProjectToInitiative = ctx.spin(true, client.execute_legacy(&request))?;
+    let result: AddProjectToInitiative = ctx.spin(
+        true,
+        client.mutate(AddVariables {
+            input: InitiativeToProjectCreateInput {
+                initiative_id: link.initiative_id.clone(),
+                project_id: link.project_id.clone(),
+                sort_order: args.sort_order.clone(),
+            },
+        }),
+    )?;
     if !result.initiative_to_project_create.success {
         return Err(Error::new("Linear did not link the project"));
     }
@@ -68,10 +67,8 @@ fn remove_project(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
     if !args.force && !ctx.confirm(&question, "--force")? {
         return ctx.print("Removal cancelled.\n");
     }
-    let request = LegacyRequest::with_variables(RemoveProjectFromInitiative::build(IdVariables {
-        id: link_id,
-    }));
-    let result: RemoveProjectFromInitiative = ctx.spin(true, client.execute_legacy(&request))?;
+    let result: RemoveProjectFromInitiative =
+        ctx.spin(true, client.mutate(IdVariables { id: link_id }))?;
     if !result.initiative_to_project_delete.success {
         return Err(Error::new("Linear did not unlink the project"));
     }
@@ -117,16 +114,14 @@ impl<'a> Pair<'a> {
         let data = pagination::collect_within(
             None,
             |after, _first| {
-                let request = LegacyRequest::with_variables(GetInitiativeProjectLinks::build(
-                    LinksVariables {
-                        initiative_id: initiative_id.clone(),
-                        project_id: project_id.clone(),
-                        after,
-                    },
-                ));
+                let variables = LinksVariables {
+                    initiative_id: initiative_id.clone(),
+                    project_id: project_id.clone(),
+                    after,
+                };
                 async move {
                     Ok(client
-                        .execute_legacy::<GetInitiativeProjectLinks, _>(&request)
+                        .query::<GetInitiativeProjectLinks, _>(variables)
                         .await?)
                 }
             },

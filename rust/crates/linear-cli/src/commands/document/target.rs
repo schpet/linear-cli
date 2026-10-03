@@ -1,13 +1,10 @@
 //! A document's attachment: exactly one project, issue, initiative, team,
 //! cycle or release. Clap rejects more than one; `--team` with `--cycle`
 //! names the team to look the cycle up in.
-use cynic::QueryBuilder;
-
 use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::operations::initiatives::IDComparator;
 use crate::refs::{
@@ -154,15 +151,14 @@ pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(
                 .id,
         )),
         PreparedTarget::Issue { original, id } => {
-            let query = LegacyRequest::with_variables(GetIssueForDocumentTarget::build(
-                GetDocumentVariables { id: id.clone() },
-            ));
             let not_found = || {
                 Error::not_found("Issue", original)
                     .with_hint("Provide a valid issue identifier (e.g., TC-123) or UUID.")
             };
-            let data: GetIssueForDocumentTarget =
-                client.execute_legacy(&query).await.map_err(|failure| {
+            let data: GetIssueForDocumentTarget = client
+                .query(GetDocumentVariables { id: id.clone() })
+                .await
+                .map_err(|failure| {
                     if failure.is_not_found() {
                         not_found()
                     } else {

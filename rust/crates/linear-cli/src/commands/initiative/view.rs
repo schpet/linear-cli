@@ -1,6 +1,5 @@
 //! `initiative view`: an initiative's details as Markdown or JSON, or opened in Linear.
 use chrono::{DateTime, Local, Utc};
-use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::initiative::InitiativeView;
@@ -9,7 +8,6 @@ use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::initiative_view::{
     DetailVariables, GetInitiativeDetails, InitiativeDetails,
 };
@@ -45,9 +43,7 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
 }
 
 async fn fetch(client: &LinearClient, id: String, original: &str) -> Result<InitiativeDetails> {
-    let request =
-        LegacyRequest::with_variables(GetInitiativeDetails::build(DetailVariables { id }));
-    let result: GetInitiativeDetails = client.execute_legacy(&request).await?;
+    let result: GetInitiativeDetails = client.query(DetailVariables { id }).await?;
     let detail = result
         .initiative
         .ok_or_else(|| Error::not_found("Initiative", original))?;

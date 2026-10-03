@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, TimeZone, Utc};
-use cynic::QueryBuilder;
 
 use crate::cli::project::ProjectView;
 use crate::client::LinearClient;
@@ -12,7 +11,6 @@ use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::LegacyRequest;
 use crate::graphql::operations::project_view::{
     DateResolutionType, GetProjectDetails, GetProjectIssuesPage, GetProjectsForPicker,
     PickerProject, PickerVariables, ProjectDetails, ProjectDetailsVariables,
@@ -93,11 +91,12 @@ async fn fetch_details(
     project_id: &str,
     original: &str,
 ) -> Result<ProjectDetails> {
-    let first = LegacyRequest::with_variables(GetProjectDetails::build(ProjectDetailsVariables {
-        id: project_id.to_owned(),
-        first: PAGE_SIZE,
-    }));
-    let data: GetProjectDetails = client.execute_legacy(&first).await?;
+    let data: GetProjectDetails = client
+        .query(ProjectDetailsVariables {
+            id: project_id.to_owned(),
+            first: PAGE_SIZE,
+        })
+        .await?;
     let mut project = data
         .project
         .ok_or_else(|| Error::not_found("Project", original))?;
@@ -105,15 +104,15 @@ async fn fetch_details(
     let mut received = project.issues.nodes.len();
     let mut page_info = project.issues.page_info.clone();
     while pages.advance(received, &page_info)? {
-        let request =
-            LegacyRequest::with_variables(GetProjectIssuesPage::build(ProjectIssuesVariables {
+        let data: GetProjectIssuesPage = client
+            .query(ProjectIssuesVariables {
                 id: project_id.to_owned(),
                 first: PAGE_SIZE,
                 after: pages
                     .after()
                     .expect("a walk that needs a page has a cursor"),
-            }));
-        let data: GetProjectIssuesPage = client.execute_legacy(&request).await?;
+            })
+            .await?;
         let next = data
             .project
             .ok_or_else(|| Error::not_found("Project", original))?;
@@ -127,13 +126,13 @@ async fn fetch_details(
 async fn fetch_picker(client: &LinearClient, team_key: Option<&str>) -> Result<Vec<PickerProject>> {
     let filter = super::list::filter(team_key, None);
     let projects = pagination::collect(None, |after, _first| {
-        let request = LegacyRequest::with_variables(GetProjectsForPicker::build(PickerVariables {
+        let variables = PickerVariables {
             filter: filter.clone(),
             first: 100,
             after,
-        }));
+        };
         async move {
-            let data: GetProjectsForPicker = client.execute_legacy(&request).await?;
+            let data: GetProjectsForPicker = client.query(variables).await?;
             Ok(Page {
                 nodes: data.projects.nodes,
                 page_info: data.projects.page_info,
