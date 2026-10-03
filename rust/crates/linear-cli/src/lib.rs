@@ -9,6 +9,7 @@
 pub mod app;
 mod auth;
 pub mod cli;
+mod client;
 mod commands;
 mod config;
 mod ctx;

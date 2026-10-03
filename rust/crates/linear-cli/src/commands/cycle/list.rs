@@ -3,6 +3,7 @@
 use cynic::QueryBuilder;
 
 use crate::cli::cycle::CycleList;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::team_or_configured;
@@ -11,7 +12,6 @@ use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycles::{self, GetTeamCycles, GetTeamCyclesVariables};
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 
@@ -38,7 +38,7 @@ fn list(ctx: &Ctx, args: &CycleList) -> Result<()> {
 }
 
 /// Every cycle of the team, newest first.
-async fn fetch(client: &GraphQlTransport, team_id: &str) -> Result<Vec<cycles::Cycle>> {
+async fn fetch(client: &LinearClient, team_id: &str) -> Result<Vec<cycles::Cycle>> {
     let mut nodes = pagination::collect(None, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetTeamCycles::build(GetTeamCyclesVariables {

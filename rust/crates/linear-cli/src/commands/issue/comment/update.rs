@@ -1,4 +1,5 @@
 //! `issue comment update`: body from a flag, a file or a prompt, then one mutation.
+use crate::client::{LinearClient, RequestError};
 use crate::{
     cli::issue::IssueCommentUpdate,
     ctx::Ctx,
@@ -6,7 +7,6 @@ use crate::{
     graphql::{
         envelope::{GraphQlRequest, ResponseError},
         operations::comment_update::*,
-        transport::{GraphQlTransport, TransportFailure},
     },
     platform::prompt::Text,
     refs::{reject_comment_url, reject_linear_url},
@@ -40,7 +40,7 @@ fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     };
     ctx.print(ctx.spin(true, submit(client, id, body))?)
 }
-/// URL guards and local body/file work happen before transport construction.
+/// URL guards and local body/file work happen before the client is built.
 pub fn prepare_body(
     id: &str,
     body: Option<&str>,
@@ -77,41 +77,32 @@ pub fn update_request(id: &str, body: String) -> GraphQlRequest<UpdateCommentVar
 }
 /// Report a GraphQL error from the exchange first, then decode the whole result. Never decode partial JSON to confirm a mutation.
 async fn exchange<T: DeserializeOwned, V: Serialize>(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     request: &GraphQlRequest<V>,
     mutation: bool,
 ) -> Result<T, Error> {
-    transport
-        .execute(request)
-        .await
-        .map_err(|error| match error {
-            TransportFailure::Response(ResponseError::UnexpectedShape(source)) => {
-                Error::new(format!(
-                    "Linear returned an unexpected response: {source}{}",
-                    if mutation {
-                        "; update outcome unknown; do not retry automatically"
-                    } else {
-                        "; no update attempted"
-                    }
-                ))
-                .with_source(source)
+    client.execute(request).await.map_err(|error| match error {
+        RequestError::Response(ResponseError::UnexpectedShape(source)) => Error::new(format!(
+            "Linear returned an unexpected response: {source}{}",
+            if mutation {
+                "; update outcome unknown; do not retry automatically"
+            } else {
+                "; no update attempted"
             }
-            error => Error::from(error),
-        })
+        ))
+        .with_source(source),
+        error => Error::from(error),
+    })
 }
-pub async fn existing_body(transport: &GraphQlTransport, id: &str) -> Result<String, Error> {
-    let result: GetComment = exchange(transport, &get_request(id), false).await?;
+pub async fn existing_body(client: &LinearClient, id: &str) -> Result<String, Error> {
+    let result: GetComment = exchange(client, &get_request(id), false).await?;
     Ok(result
         .comment
         .and_then(|comment| comment.body)
         .unwrap_or_default())
 }
-pub async fn submit(
-    transport: &GraphQlTransport,
-    id: &str,
-    body: String,
-) -> Result<Vec<u8>, Error> {
-    let result: UpdateComment = exchange(transport, &update_request(id, body), true).await?;
+pub async fn submit(client: &LinearClient, id: &str, body: String) -> Result<Vec<u8>, Error> {
+    let result: UpdateComment = exchange(client, &update_request(id, body), true).await?;
     if !result.comment_update.success {
         return Err(Error::new("Linear did not update the comment"));
     }

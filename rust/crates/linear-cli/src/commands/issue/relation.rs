@@ -1,5 +1,6 @@
 //! `issue relation`: add, delete and list relations between issues.
 use crate::cli::issue::{IssueRelationAdd, IssueRelationDelete, IssueRelationList, RelationType};
+use crate::client::LinearClient;
 use crate::commands::issue::id;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -8,7 +9,6 @@ use crate::graphql::operations::issue_relations::{
     ApiRelationType, CreateIssueRelation, CreateVariables, DeleteIssueRelation, DeleteVariables,
     FindIssueRelation, IssueVariables, ListIssueRelations, ListedIssue, RelationInput,
 };
-use crate::graphql::transport::GraphQlTransport;
 use cynic::{MutationBuilder, QueryBuilder};
 
 pub fn list(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
@@ -120,8 +120,8 @@ pub fn list_output(issue: &ListedIssue) -> Vec<u8> {
     }
     text.into_bytes()
 }
-async fn fetch_list(transport: &GraphQlTransport, identifier: &str) -> Result<Vec<u8>> {
-    let data: ListIssueRelations = transport
+async fn fetch_list(client: &LinearClient, identifier: &str) -> Result<Vec<u8>> {
+    let data: ListIssueRelations = client
         .execute(&list_request(identifier))
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
@@ -129,37 +129,37 @@ async fn fetch_list(transport: &GraphQlTransport, identifier: &str) -> Result<Ve
 }
 
 async fn lookup_pair(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     kind: RelationType,
     a: &str,
     b: &str,
 ) -> Result<RelationInput, Error> {
-    let a_id = id::fetch(transport, a).await?;
+    let a_id = id::fetch(client, a).await?;
     // Even equal identifiers must be looked up twice, sequentially.
-    let b_id = id::fetch(transport, b).await?;
+    let b_id = id::fetch(client, b).await?;
     Ok(directional_input(kind, a_id, b_id))
 }
 async fn create(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     kind: RelationType,
     a: &str,
     b: &str,
 ) -> Result<Vec<u8>, Error> {
-    let input = lookup_pair(transport, kind, a, b).await?;
-    let data: CreateIssueRelation = transport.execute(&create_request(input)).await?;
+    let input = lookup_pair(client, kind, a, b).await?;
+    let data: CreateIssueRelation = client.execute(&create_request(input)).await?;
     if !data.issue_relation_create.success {
         return Err(Error::new("Linear did not create the relation"));
     }
     Ok(format!("✓ Created relation: {a} {} {b}\n", kind.spelling()).into_bytes())
 }
 async fn remove(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     kind: RelationType,
     a: &str,
     b: &str,
 ) -> Result<Vec<u8>, Error> {
-    let input = lookup_pair(transport, kind, a, b).await?;
-    let data: FindIssueRelation = transport.execute(&find_request(&input.issue_id)).await?;
+    let input = lookup_pair(client, kind, a, b).await?;
+    let data: FindIssueRelation = client.execute(&find_request(&input.issue_id)).await?;
     let relation = data
         .issue
         .relations
@@ -175,9 +175,7 @@ async fn remove(
                 &format!("{} between {a} and {b}", kind.spelling()),
             )
         })?;
-    let deleted: DeleteIssueRelation = transport
-        .execute(&delete_request(relation.id.inner()))
-        .await?;
+    let deleted: DeleteIssueRelation = client.execute(&delete_request(relation.id.inner())).await?;
     if !deleted.issue_relation_delete.success {
         return Err(Error::new("Linear did not delete the relation"));
     }

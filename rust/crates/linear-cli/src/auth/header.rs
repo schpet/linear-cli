@@ -1,5 +1,5 @@
+use crate::client::{ApiKey, ApiKeyError};
 use crate::config::ConfigSecret;
-use crate::graphql::transport::{ApiKey, ApiKeyError};
 
 /// Trims surrounding whitespace, which is never part of a key; the stored
 /// secret is left unchanged.

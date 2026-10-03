@@ -4,13 +4,13 @@ use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 
 use crate::cli::document::DocumentView;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::markdown_assets;
 
 pub fn run(ctx: &Ctx, args: &DocumentView) -> Result<()> {
@@ -55,7 +55,7 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
 
 /// The content with its uploaded files downloaded and pointed at the local
 /// copies.
-fn local_images(ctx: &Ctx, client: &GraphQlTransport, content: &str) -> Result<String> {
+fn local_images(ctx: &Ctx, client: &LinearClient, content: &str) -> Result<String> {
     let root = &ctx.config().image_cache_root;
     let paths = ctx.block_on(markdown_assets::download(
         client,
@@ -66,7 +66,7 @@ fn local_images(ctx: &Ctx, client: &GraphQlTransport, content: &str) -> Result<S
     Ok(markdown_assets::rewrite(content, &paths))
 }
 
-async fn body(client: &GraphQlTransport, id: &str, original: &str) -> Result<DocumentBody> {
+async fn body(client: &LinearClient, id: &str, original: &str) -> Result<DocumentBody> {
     let request = GraphQlRequest::with_variables(GetDocument::build(GetDocumentVariables {
         id: id.to_owned(),
     }));
@@ -80,7 +80,7 @@ async fn body(client: &GraphQlTransport, id: &str, original: &str) -> Result<Doc
 
 /// The document with every page of its comments.
 async fn with_comments(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     id: &str,
     original: &str,
 ) -> Result<DocumentWithComments> {

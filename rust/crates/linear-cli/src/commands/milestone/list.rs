@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use cynic::QueryBuilder;
 
 use crate::cli::milestone::MilestoneList;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
@@ -13,7 +14,6 @@ use crate::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
@@ -40,7 +40,7 @@ fn list(ctx: &Ctx, args: &MilestoneList) -> Result<()> {
 
 /// Every milestone of the project, sorted by target date (undated last), then name.
 async fn fetch(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     original: &str,
     project_id: &str,
 ) -> Result<Vec<ProjectMilestone>> {

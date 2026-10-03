@@ -7,6 +7,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::project::ProjectList;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
@@ -22,7 +23,6 @@ use crate::graphql::operations::projects::{
 use crate::graphql::operations::teams::{StringComparator, TeamFilter};
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::{DateTime, TimelessDate};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 
@@ -107,7 +107,7 @@ pub(super) fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<Pro
 }
 
 /// Every matching project, in Linear's manual order.
-async fn fetch(client: &GraphQlTransport, filter: Option<ProjectFilter>) -> Result<Vec<Project>> {
+async fn fetch(client: &LinearClient, filter: Option<ProjectFilter>) -> Result<Vec<Project>> {
     let mut projects = pagination::collect(None, |after, first| {
         let request = GraphQlRequest::with_variables(GetProjects::build(GetProjectsVariables {
             filter: filter.clone(),

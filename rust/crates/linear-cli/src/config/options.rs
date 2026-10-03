@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde::de::value::{Error as ValueError, StrDeserializer};
 use serde::de::{DeserializeOwned, IntoDeserializer};
 
-use crate::graphql::transport::EndpointUrl;
+use crate::client::EndpointUrl;
 
 use super::dotenv::SelectedEnv;
 use super::parse::ConfigTier;

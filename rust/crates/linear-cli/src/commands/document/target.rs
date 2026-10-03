@@ -3,13 +3,13 @@
 //! names the team to look the cycle up in.
 use cynic::QueryBuilder;
 
+use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::documents::*;
 use crate::graphql::operations::initiatives::IDComparator;
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     self, InitiativeReference, LinearUrlKind, LinearUrlRef, PreparedTeamLookup, ProjectReference,
 };
@@ -131,28 +131,25 @@ pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTa
 }
 
 /// The target's kind and Linear ID.
-pub async fn resolve(
-    target: &PreparedTarget,
-    transport: &GraphQlTransport,
-) -> Result<(Kind, String)> {
+pub async fn resolve(target: &PreparedTarget, client: &LinearClient) -> Result<(Kind, String)> {
     match target {
         PreparedTarget::Project {
             original,
             reference,
         } => Ok((
             Kind::Project,
-            refs::resolve_project_with_transport(reference, original, transport).await?,
+            refs::resolve_project_with_transport(reference, original, client).await?,
         )),
         PreparedTarget::Initiative {
             original,
             reference,
         } => Ok((
             Kind::Initiative,
-            refs::resolve_initiative_with_transport(reference, original, transport).await?,
+            refs::resolve_initiative_with_transport(reference, original, client).await?,
         )),
         PreparedTarget::Team(reference) => Ok((
             Kind::Team,
-            refs::resolve_team_with_transport(reference, transport)
+            refs::resolve_team_with_transport(reference, client)
                 .await?
                 .id,
         )),
@@ -165,7 +162,7 @@ pub async fn resolve(
                     .with_hint("Provide a valid issue identifier (e.g., TC-123) or UUID.")
             };
             let data: GetIssueForDocumentTarget =
-                transport.execute(&query).await.map_err(|failure| {
+                client.execute(&query).await.map_err(|failure| {
                     if failure.is_not_found() {
                         not_found()
                     } else {
@@ -182,19 +179,19 @@ pub async fn resolve(
             reference,
             url,
         } => {
-            let team = refs::resolve_team_with_transport(team, transport).await?;
+            let team = refs::resolve_team_with_transport(team, client).await?;
             let id = crate::commands::cycle::view::resolve_id_with(
                 &team.id,
                 reference,
                 url.as_ref(),
-                |query| async move { transport.execute(&query).await.map_err(Error::from) },
+                |query| async move { client.execute(&query).await.map_err(Error::from) },
             )
             .await?;
             Ok((Kind::Cycle, id))
         }
         PreparedTarget::Release(original) => Ok((
             Kind::Release,
-            crate::commands::release_lookup::resolve(transport, original).await?,
+            crate::commands::release_lookup::resolve(client, original).await?,
         )),
     }
 }

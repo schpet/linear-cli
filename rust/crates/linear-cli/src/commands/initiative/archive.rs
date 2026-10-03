@@ -2,6 +2,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::initiative::{InitiativeArchive, InitiativeDelete};
+use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -10,7 +11,6 @@ use crate::graphql::operations::initiative_bulk::{
     ArchiveInitiative, DeleteInitiative, GetInitiativeForArchive, GetInitiativeForDelete,
     IdVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Text;
 use crate::refs::InitiativeReference;
 
@@ -204,7 +204,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
 /// One bulk row. Failures, including an unparseable reference, become the
 /// row's message rather than stopping the other items.
 async fn run_item(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     original: String,
     reference: Result<InitiativeReference>,
     mode: Mode,
@@ -241,7 +241,7 @@ struct Details {
     linked_projects: usize,
 }
 
-async fn details(client: &GraphQlTransport, id: &str, mode: Mode) -> Result<Option<Details>> {
+async fn details(client: &LinearClient, id: &str, mode: Mode) -> Result<Option<Details>> {
     let variables = IdVariables { id: id.to_owned() };
     Ok(match mode {
         Mode::Archive => {
@@ -269,7 +269,7 @@ async fn details(client: &GraphQlTransport, id: &str, mode: Mode) -> Result<Opti
     })
 }
 
-async fn submit(client: &GraphQlTransport, id: &str, mode: Mode) -> Result<()> {
+async fn submit(client: &LinearClient, id: &str, mode: Mode) -> Result<()> {
     let variables = IdVariables { id: id.to_owned() };
     let success = match mode {
         Mode::Archive => {

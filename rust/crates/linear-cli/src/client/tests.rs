@@ -1,4 +1,4 @@
-//! Transport behavior against loopback servers: request bytes, response
+//! Client behavior against loopback servers: request bytes, response
 //! classification, size caps, deadlines, cancellation and redaction.
 
 mod download;
@@ -14,10 +14,11 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::{Map, Value, json};
 
 use self::server::{Reply, Server};
+use super::config::{EndpointUrlError, USER_AGENT_VALUE};
+use super::error::NetworkPhase;
 use super::{
-    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, Deadline, EndpointUrl, EndpointUrlError,
-    GraphQlTransport, HttpBodyShape, NetworkPhase, RawHttpResponse, ResponseCap,
-    TransportBuildError, TransportConfig, TransportFailure, USER_AGENT_VALUE, classify_typed,
+    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, ClientBuildError, ClientConfig, Deadline, EndpointUrl,
+    HttpBodyShape, LinearClient, RawHttpResponse, RequestError, ResponseCap, classify_typed,
 };
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
 use crate::graphql::operations::teams::{GetTeams, GetTeamsVariables};
@@ -30,26 +31,26 @@ fn tls_fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn config(deadline: Duration, cap: usize) -> TransportConfig {
-    TransportConfig {
+fn config(deadline: Duration, cap: usize) -> ClientConfig {
+    ClientConfig {
         ca_bundle: None,
         deadline: Deadline(deadline),
         max_response_bytes: ResponseCap(NonZeroUsize::new(cap).expect("nonzero cap")),
     }
 }
 
-fn transport(endpoint: &str, config: TransportConfig) -> GraphQlTransport {
-    GraphQlTransport::new(
+fn client_for(endpoint: &str, config: ClientConfig) -> LinearClient {
+    LinearClient::new(
         EndpointUrl::parse(endpoint).expect("endpoint"),
         ApiKey::new(FAKE_KEY.to_owned()).expect("fake key"),
         config,
     )
-    .expect("transport")
+    .expect("client")
 }
 
-/// A transport for `server` with a generous deadline and cap.
-fn transport_to(server: &Server) -> GraphQlTransport {
-    transport(
+/// A client for `server` with a generous deadline and cap.
+fn client_to(server: &Server) -> LinearClient {
+    client_for(
         &server.url("/graphql"),
         config(Duration::from_secs(10), 1024 * 1024),
     )
@@ -154,30 +155,30 @@ fn api_key_accepts_visible_ascii_with_spaces_and_redacts_itself() {
 fn ca_bundle_must_be_a_readable_pem_file_with_certificates() {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let build = |path: PathBuf| {
-        GraphQlTransport::new(
+        LinearClient::new(
             EndpointUrl::parse("https://uploads.linear.app/x").expect("endpoint"),
             ApiKey::new(FAKE_KEY.to_owned()).expect("fake key"),
-            TransportConfig {
+            ClientConfig {
                 ca_bundle: Some(path),
-                ..TransportConfig::default()
+                ..ClientConfig::default()
             },
         )
     };
     build(tls_fixture("test-ca.pem")).expect("valid bundle");
     assert!(matches!(
         build(dir.path().join("missing.pem")).expect_err("missing"),
-        TransportBuildError::CaRead { .. }
+        ClientBuildError::CaRead { .. }
     ));
     assert!(matches!(
         build(dir.path().to_owned()).expect_err("directory"),
-        TransportBuildError::CaRead { .. }
+        ClientBuildError::CaRead { .. }
     ));
     for (name, contents) in [("empty.pem", " \n"), ("garbage.pem", "not a certificate")] {
         let path = dir.path().join(name);
         std::fs::write(&path, contents).expect("write");
         assert!(matches!(
             build(path).expect_err(name),
-            TransportBuildError::CaEmpty { .. }
+            ClientBuildError::CaEmpty { .. }
         ));
     }
     let bogus = dir.path().join("bogus.pem");
@@ -188,7 +189,7 @@ fn ca_bundle_must_be_a_readable_pem_file_with_certificates() {
     .expect("write");
     let error = build(bogus).expect_err("bad DER");
     assert!(
-        matches!(error, TransportBuildError::CaInvalid { .. }),
+        matches!(error, ClientBuildError::CaInvalid { .. }),
         "{error:?}"
     );
     let app = crate::error::Error::from(error);
@@ -204,14 +205,14 @@ async fn network_failures_never_expose_the_path_query_or_api_key() {
     let endpoint = EndpointUrl::parse("http://127.0.0.1:1/graphql?signature=SIGNED-SECRET-TOKEN")
         .expect("endpoint");
     let key = ApiKey::new("lin_api_SECRET_KEY_VALUE".to_owned()).expect("key");
-    let transport = GraphQlTransport::new(endpoint, key, config(Duration::from_secs(5), 1024))
-        .expect("transport");
-    assert!(!format!("{transport:?}").contains("SECRET"));
-    let failure = transport
+    let client =
+        LinearClient::new(endpoint, key, config(Duration::from_secs(5), 1024)).expect("client");
+    assert!(!format!("{client:?}").contains("SECRET"));
+    let failure = client
         .send_request(&raw("{ viewer { id } }", None))
         .await
         .expect_err("connection refused");
-    let TransportFailure::Network { origin, phase, .. } = &failure else {
+    let RequestError::Network { origin, phase, .. } = &failure else {
         panic!("expected Network, got {failure:?}");
     };
     assert_eq!(origin, "http://127.0.0.1:1");
@@ -258,7 +259,7 @@ async fn request_carries_exact_headers_and_envelope_bytes() {
         operation_name: Some("Q".to_owned()),
         ..raw("query($after: String) { x }", Some(variables))
     };
-    transport_to(&server)
+    client_to(&server)
         .send_request(&request)
         .await
         .expect("empty 200");
@@ -288,7 +289,7 @@ async fn declared_oversized_body_is_rejected_before_reading() {
         "application/json",
         vec![b'x'; 4096],
     )]);
-    let failure = transport(
+    let failure = client_for(
         &server.url("/graphql"),
         config(Duration::from_secs(5), 1024),
     )
@@ -296,7 +297,7 @@ async fn declared_oversized_body_is_rejected_before_reading() {
     .await
     .expect_err("too large");
     assert!(
-        matches!(&failure, TransportFailure::ResponseTooLarge { status, limit }
+        matches!(&failure, RequestError::ResponseTooLarge { status, limit }
             if status.as_u16() == 200 && limit.bytes() == 1024),
         "{failure:?}"
     );
@@ -314,7 +315,7 @@ async fn body_exactly_at_the_cap_is_kept_intact() {
         "application/json",
         vec![b'x'; 1024],
     )]);
-    let response = transport(
+    let response = client_for(
         &server.url("/graphql"),
         config(Duration::from_secs(5), 1024),
     )
@@ -333,24 +334,24 @@ async fn body_exactly_at_the_cap_is_kept_intact() {
 #[tokio::test(flavor = "current_thread")]
 async fn endless_chunked_body_stops_at_the_cap() {
     let server = Server::start(vec![Reply::EndlessChunks]);
-    let transport = transport(
+    let client = client_for(
         &server.url("/graphql"),
         config(Duration::from_secs(5), 2048),
     );
     let started = Instant::now();
-    let failure = transport
+    let failure = client
         .send_request(&raw("{ x }", None))
         .await
         .expect_err("too large");
     assert!(
-        matches!(failure, TransportFailure::ResponseTooLarge { .. }),
+        matches!(failure, RequestError::ResponseTooLarge { .. }),
         "{failure:?}"
     );
     assert!(
         started.elapsed() < Duration::from_secs(4),
         "stopped before the deadline"
     );
-    drop(transport);
+    drop(client);
     assert_eq!(server.finish().len(), 1);
 }
 
@@ -358,7 +359,7 @@ async fn endless_chunked_body_stops_at_the_cap() {
 async fn silent_server_hits_the_total_deadline() {
     let server = Server::start(vec![Reply::Silent]);
     let started = Instant::now();
-    let failure = transport(
+    let failure = client_for(
         &server.url("/graphql"),
         config(Duration::from_millis(300), 1024),
     )
@@ -367,7 +368,7 @@ async fn silent_server_hits_the_total_deadline() {
     .expect_err("timeout");
     let elapsed = started.elapsed();
     assert!(
-        matches!(failure, TransportFailure::Timeout { .. }),
+        matches!(failure, RequestError::Timeout { .. }),
         "{failure:?}"
     );
     assert!(
@@ -388,7 +389,7 @@ async fn silent_server_hits_the_total_deadline() {
 async fn stalled_body_hits_the_total_deadline_without_partial_data() {
     let server = Server::start(vec![Reply::Stall]);
     let started = Instant::now();
-    let failure = transport(
+    let failure = client_for(
         &server.url("/graphql"),
         config(Duration::from_millis(300), 4096),
     )
@@ -396,7 +397,7 @@ async fn stalled_body_hits_the_total_deadline_without_partial_data() {
     .await
     .expect_err("timeout");
     assert!(
-        matches!(failure, TransportFailure::Timeout { .. }),
+        matches!(failure, RequestError::Timeout { .. }),
         "{failure:?}"
     );
     assert!(started.elapsed() < Duration::from_secs(3));
@@ -410,7 +411,7 @@ fn cancelled_request_completes_promptly_and_releases_the_connection() {
         .enable_all()
         .build()
         .expect("runtime");
-    let transport = transport(
+    let client = client_for(
         &server.url("/graphql"),
         config(Duration::from_secs(30), 4096),
     );
@@ -418,7 +419,7 @@ fn cancelled_request_completes_promptly_and_releases_the_connection() {
     runtime.block_on(async {
         let cancelled = tokio::time::timeout(
             Duration::from_millis(150),
-            transport.send_request(&raw("{ x }", None)),
+            client.send_request(&raw("{ x }", None)),
         )
         .await;
         assert!(
@@ -429,7 +430,7 @@ fn cancelled_request_completes_promptly_and_releases_the_connection() {
             started.elapsed() < Duration::from_secs(2),
             "cancellation returned promptly"
         );
-        drop(transport);
+        drop(client);
         // A current-thread runtime only drives the connection's shutdown
         // while it runs, so wait for the release here.
         let window = Instant::now();
@@ -537,14 +538,14 @@ async fn graphql_errors_classify_ahead_of_http_status() {
         ),
         Reply::status(401, "application/json", unauthenticated),
     ]);
-    let transport = transport_to(&server);
+    let client = client_to(&server);
     let request = teams_request();
 
-    let failure = transport
+    let failure = client
         .execute::<GetTeams, _>(&request)
         .await
         .expect_err("errors only");
-    let TransportFailure::GraphQl {
+    let RequestError::GraphQl {
         status,
         errors,
         partial_data,
@@ -561,23 +562,23 @@ async fn graphql_errors_classify_ahead_of_http_status() {
         "Something went wrong. Please try again."
     );
 
-    let failure = transport
+    let failure = client
         .execute::<GetTeams, _>(&request)
         .await
         .expect_err("partial data");
     assert!(
         matches!(
             &failure,
-            TransportFailure::GraphQl { status, partial_data: true, .. } if status.as_u16() == 200
+            RequestError::GraphQl { status, partial_data: true, .. } if status.as_u16() == 200
         ),
         "partial data is never returned as success: {failure:?}"
     );
 
-    let failure = transport
+    let failure = client
         .execute::<GetTeams, _>(&request)
         .await
         .expect_err("400 errors");
-    let TransportFailure::GraphQl {
+    let RequestError::GraphQl {
         status,
         errors,
         headers,
@@ -595,7 +596,7 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     assert!(errors[0].locations.is_some());
     assert_eq!(failure.to_string(), "The request was invalid.");
 
-    let raw = transport
+    let raw = client
         .send_request(&request)
         .await
         .expect("401 bytes captured");
@@ -603,7 +604,7 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     assert_eq!(raw.body, unauthenticated.as_bytes());
     let failure = classify_typed::<GetTeams>(raw).expect_err("401 with errors");
     assert!(
-        matches!(&failure, TransportFailure::GraphQl { status, errors, .. }
+        matches!(&failure, RequestError::GraphQl { status, errors, .. }
             if status.as_u16() == 401
                 && errors[0].message == "Authentication required, not authenticated"),
         "{failure:?}"
@@ -625,12 +626,12 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
         Reply::status(200, "application/json", r#"{"data":null}"#),
         Reply::status(200, "application/json", r#"{"data":{"teams":"nope"}}"#),
     ]);
-    let transport = transport_to(&server);
+    let client = client_to(&server);
     let request = teams_request();
-    let next = || transport.execute::<GetTeams, _>(&request);
+    let next = || client.execute::<GetTeams, _>(&request);
 
     let failure = next().await.expect_err("429");
-    let TransportFailure::Http { response, body } = &failure else {
+    let RequestError::Http { response, body } = &failure else {
         panic!("{failure:?}");
     };
     assert_eq!(response.status.as_u16(), 429);
@@ -658,7 +659,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
 
     let failure = next().await.expect_err("502");
     assert!(
-        matches!(&failure, TransportFailure::Http { response, body: HttpBodyShape::Unusable(ResponseError::NotJson { .. }) }
+        matches!(&failure, RequestError::Http { response, body: HttpBodyShape::Unusable(ResponseError::NotJson { .. }) }
             if response.status.as_u16() == 502
                 && response.body == b"<html><body>bad gateway</body></html>"),
         "{failure:?}"
@@ -668,7 +669,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
     assert!(
         matches!(
             &failure,
-            TransportFailure::Http { response, body: HttpBodyShape::Data }
+            RequestError::Http { response, body: HttpBodyShape::Data }
                 if response.status.as_u16() == 500
         ),
         "valid data under 500 is still an HTTP failure: {failure:?}"
@@ -678,7 +679,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
     assert!(
         matches!(
             &failure,
-            TransportFailure::Response(ResponseError::NotJson { .. })
+            RequestError::Response(ResponseError::NotJson { .. })
         ),
         "{failure:?}"
     );
@@ -692,7 +693,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
         assert!(
             matches!(
                 &failure,
-                TransportFailure::Response(ResponseError::MalformedJson(_))
+                RequestError::Response(ResponseError::MalformedJson(_))
             ),
             "{case}: {failure:?}"
         );
@@ -700,10 +701,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
 
     let failure = next().await.expect_err("data null");
     assert!(
-        matches!(
-            &failure,
-            TransportFailure::Response(ResponseError::MissingData)
-        ),
+        matches!(&failure, RequestError::Response(ResponseError::MissingData)),
         "{failure:?}"
     );
 
@@ -711,7 +709,7 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
     assert!(
         matches!(
             &failure,
-            TransportFailure::Response(ResponseError::UnexpectedShape(_))
+            RequestError::Response(ResponseError::UnexpectedShape(_))
         ),
         "{failure:?}"
     );
@@ -725,7 +723,7 @@ async fn temporary_redirect_replays_the_request_at_the_new_location() {
         Reply::status(307, "text/plain", "").header("location", "/moved"),
         Reply::json(&json!({"data": teams_data()})),
     ]);
-    let teams: GetTeams = transport_to(&server)
+    let teams: GetTeams = client_to(&server)
         .execute(&teams_request())
         .await
         .expect("redirect followed");
@@ -747,7 +745,7 @@ async fn raw_document_without_variables_returns_exact_bytes() {
     let server = Server::start(vec![Reply::json(
         &json!({"data": {"viewer": {"id": "user-1"}}}),
     )]);
-    let response = transport_to(&server)
+    let response = client_to(&server)
         .send_request(&raw("{ viewer { id } }", None))
         .await
         .expect("200");

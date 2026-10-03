@@ -1,13 +1,12 @@
 //! `issue archive`/`delete`, single or bulk.
+use crate::client::LinearClient;
 use crate::{
     cli::issue::{IssueArchive, IssueDelete},
     commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb},
     commands::team_key::configured_team_key,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{
-        envelope::GraphQlRequest, operations::issue_archive_delete::*, transport::GraphQlTransport,
-    },
+    graphql::{envelope::GraphQlRequest, operations::issue_archive_delete::*},
     refs::{self, IssueReference, WorkspaceScope},
 };
 use cynic::{MutationBuilder, QueryBuilder};
@@ -206,24 +205,20 @@ pub fn mutation_request(id: &str, mode: Mode, bulk: bool) -> GraphQlRequest<IdVa
 }
 /// A request whose "not found" answer means issue `id` does not exist.
 async fn exchange<T: serde::de::DeserializeOwned>(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     request: &GraphQlRequest<IdVariables>,
     id: &str,
 ) -> Result<T, Error> {
-    transport
+    client
         .execute(request)
         .await
         .map_err(|failure| failure.or_not_found("Issue", id))
 }
-pub async fn single_details(
-    transport: &GraphQlTransport,
-    id: &str,
-    mode: Mode,
-) -> Result<Details, Error> {
+pub async fn single_details(client: &LinearClient, id: &str, mode: Mode) -> Result<Details, Error> {
     let request = details_request(id, mode, false);
     let details = match mode {
         Mode::Archive => {
-            let data: GetIssueArchiveDetails = exchange(transport, &request, id).await?;
+            let data: GetIssueArchiveDetails = exchange(client, &request, id).await?;
             data.issue.map(|issue| Details {
                 identifier: issue.identifier,
                 title: issue.title,
@@ -231,7 +226,7 @@ pub async fn single_details(
             })
         }
         Mode::Delete => {
-            let data: GetIssueDeleteDetails = exchange(transport, &request, id).await?;
+            let data: GetIssueDeleteDetails = exchange(client, &request, id).await?;
             data.issue.map(|issue| Details {
                 identifier: issue.identifier,
                 title: issue.title,
@@ -242,7 +237,7 @@ pub async fn single_details(
     details.ok_or_else(|| Error::not_found("Issue", id))
 }
 pub async fn submit_single(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     id: &str,
     details: &Details,
     mode: Mode,
@@ -250,11 +245,11 @@ pub async fn submit_single(
     let request = mutation_request(id, mode, false);
     let success = match mode {
         Mode::Archive => {
-            let data: ArchiveIssue = exchange(transport, &request, id).await?;
+            let data: ArchiveIssue = exchange(client, &request, id).await?;
             data.issue_archive.success
         }
         Mode::Delete => {
-            let data: DeleteIssue = exchange(transport, &request, id).await?;
+            let data: DeleteIssue = exchange(client, &request, id).await?;
             data.issue_delete.success
         }
     };
@@ -266,11 +261,7 @@ pub async fn submit_single(
     }
     Ok(format!("✓ Successfully {} issue: {}\n", mode.past(), details.name()).into_bytes())
 }
-async fn bulk_resolved(
-    transport: &GraphQlTransport,
-    id: &str,
-    mode: Mode,
-) -> Result<BulkResult, Error> {
+async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<BulkResult, Error> {
     let request = details_request(id, mode, true);
     let not_found = || BulkResult {
         id: id.to_owned(),
@@ -279,7 +270,7 @@ async fn bulk_resolved(
     };
     let (name, already_archived) = match mode {
         Mode::Archive => {
-            let data: GetIssueDetailsForBulkArchive = match transport.execute(&request).await {
+            let data: GetIssueDetailsForBulkArchive = match client.execute(&request).await {
                 Ok(data) => data,
                 Err(failure) if failure.is_not_found() => return Ok(not_found()),
                 Err(failure) => return Err(failure.into()),
@@ -295,7 +286,7 @@ async fn bulk_resolved(
         Mode::Delete => {
             // A failed details lookup only loses the title in the summary; the
             // delete still runs.
-            let data: Result<GetIssueDetailsForBulkDelete, _> = transport.execute(&request).await;
+            let data: Result<GetIssueDetailsForBulkDelete, _> = client.execute(&request).await;
             let issue = match data {
                 Ok(data) => data.issue,
                 Err(_) => None,
@@ -319,11 +310,11 @@ async fn bulk_resolved(
         let request = mutation_request(id, mode, true);
         match mode {
             Mode::Archive => {
-                let data: BulkArchiveIssue = transport.execute(&request).await?;
+                let data: BulkArchiveIssue = client.execute(&request).await?;
                 data.issue_archive.success
             }
             Mode::Delete => {
-                let data: BulkDeleteIssue = transport.execute(&request).await?;
+                let data: BulkDeleteIssue = client.execute(&request).await?;
                 data.issue_delete.success
             }
         }
@@ -344,9 +335,9 @@ async fn bulk_resolved(
         },
     })
 }
-pub async fn run_item(transport: &GraphQlTransport, target: Target, mode: Mode) -> BulkResult {
+pub async fn run_item(client: &LinearClient, target: Target, mode: Mode) -> BulkResult {
     let result = match target.reference {
-        ReferenceOutcome::Resolved(id) => bulk_resolved(transport, &id, mode).await,
+        ReferenceOutcome::Resolved(id) => bulk_resolved(client, &id, mode).await,
         ReferenceOutcome::Unresolved => Ok(BulkResult {
             id: target.original.clone(),
             name: None,

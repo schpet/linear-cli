@@ -3,6 +3,7 @@
 //! target and then calls these in order.
 use cynic::{MutationBuilder, QueryBuilder};
 
+use crate::client::LinearClient;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
@@ -11,7 +12,6 @@ use crate::graphql::operations::comment_create::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
 };
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Text;
 use crate::refs::{reject_comment_url, reject_linear_url};
 
@@ -113,10 +113,10 @@ pub fn request(input: CommentCreateInput) -> GraphQlRequest<AddCommentVariables>
 /// Send the mutation once. A failure after the request may have reached
 /// Linear says the comment may already exist; nothing is retried.
 pub async fn create(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     input: CommentCreateInput,
 ) -> Result<CreatedComment, Error> {
-    let result: AddComment = transport
+    let result: AddComment = client
         .execute(&request(input))
         .await
         .map_err(|failure| failure.into_create_error("comment"))?;
@@ -133,16 +133,13 @@ pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
 
 /// `document(id:)` is non-null, so Linear reports a missing document as a
 /// GraphQL error; only that becomes NotFound.
-pub async fn document_content_id(
-    transport: &GraphQlTransport,
-    document: &str,
-) -> Result<String, Error> {
+pub async fn document_content_id(client: &LinearClient, document: &str) -> Result<String, Error> {
     let request = GraphQlRequest::with_variables(GetDocumentCommentTarget::build(
         DocumentCommentTargetVariables {
             id: document.to_owned(),
         },
     ));
-    let data: GetDocumentCommentTarget = transport
+    let data: GetDocumentCommentTarget = client
         .execute(&request)
         .await
         .map_err(|failure| failure.or_not_found("Document", document))?;

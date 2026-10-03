@@ -3,13 +3,13 @@
 use cynic::MutationBuilder;
 
 use crate::cli::team::TeamCreate;
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_create::{
     CreateTeam, CreateTeamVariables, CreatedTeam, TeamCreateInput,
 };
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
 pub fn run(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
@@ -58,7 +58,7 @@ fn ask(prompter: &Prompter<'_>) -> Result<TeamCreateInput> {
 
 /// Sends the mutation once. A failure after the request may have reached
 /// Linear says the team may already exist; nothing is retried.
-async fn submit(client: &GraphQlTransport, input: TeamCreateInput) -> Result<CreatedTeam> {
+async fn submit(client: &LinearClient, input: TeamCreateInput) -> Result<CreatedTeam> {
     let request = GraphQlRequest::with_variables(CreateTeam::build(CreateTeamVariables { input }));
     let result: CreateTeam = client
         .execute(&request)

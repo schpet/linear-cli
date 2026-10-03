@@ -6,6 +6,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 
 use crate::cli::project::ProjectView;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::configured_team_key;
@@ -18,7 +19,6 @@ use crate::graphql::operations::project_view::{
     ProjectIssuesVariables, ProjectMilestoneStatus, ViewInverseRelation, ViewRelation,
 };
 use crate::graphql::pagination::{self, Page, PageInfo, Pages};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 use crate::platform::prompt::Choice;
 use crate::refs::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
@@ -89,7 +89,7 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
 
 /// The project with every issue page, so the issue counts are complete.
 async fn fetch_details(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project_id: &str,
     original: &str,
 ) -> Result<ProjectDetails> {
@@ -124,10 +124,7 @@ async fn fetch_details(
     Ok(project)
 }
 
-async fn fetch_picker(
-    client: &GraphQlTransport,
-    team_key: Option<&str>,
-) -> Result<Vec<PickerProject>> {
+async fn fetch_picker(client: &LinearClient, team_key: Option<&str>) -> Result<Vec<PickerProject>> {
     let filter = super::list::filter(team_key, None);
     let projects = pagination::collect(None, |after, _first| {
         let request =

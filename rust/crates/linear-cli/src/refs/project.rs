@@ -2,12 +2,12 @@
 
 use cynic::QueryBuilder;
 
+use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_view::{
     GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 
 use super::is_linear_uuid;
 use super::url::{LinearUrlKind, LinearUrlRef};
@@ -42,18 +42,18 @@ pub fn prepare_project_lookup(
 pub async fn resolve_project_with_transport(
     reference: &ProjectReference,
     original: &str,
-    transport: &GraphQlTransport,
+    client: &LinearClient,
 ) -> Result<String, Error> {
     match reference {
         ProjectReference::Id(id) => Ok(id.clone()),
-        ProjectReference::Slug(slug) => find_slug(slug, transport)
+        ProjectReference::Slug(slug) => find_slug(slug, client)
             .await?
             .ok_or_else(|| not_found(original)),
         ProjectReference::NameOrSlug(name) => {
             let query = GraphQlRequest::with_variables(GetProjectIdByName::build(
                 ProjectReferenceVariables { name: name.clone() },
             ));
-            let data: GetProjectIdByName = transport.execute(&query).await.map_err(Error::from)?;
+            let data: GetProjectIdByName = client.execute(&query).await.map_err(Error::from)?;
             let matches = data.projects.nodes;
             if matches.len() > 1 {
                 return Err(Error::new(format!(
@@ -77,18 +77,18 @@ pub async fn resolve_project_with_transport(
             {
                 return Ok(id);
             }
-            find_slug(name, transport)
+            find_slug(name, client)
                 .await?
                 .ok_or_else(|| not_found(original))
         }
     }
 }
 
-async fn find_slug(slug: &str, transport: &GraphQlTransport) -> Result<Option<String>, Error> {
+async fn find_slug(slug: &str, client: &LinearClient) -> Result<Option<String>, Error> {
     let query = GraphQlRequest::with_variables(GetProjectIdBySlugId::build(ProjectSlugVariables {
         slug_id: slug.to_owned(),
     }));
-    let data: GetProjectIdBySlugId = transport.execute(&query).await.map_err(Error::from)?;
+    let data: GetProjectIdBySlugId = client.execute(&query).await.map_err(Error::from)?;
     Ok(data
         .projects
         .nodes

@@ -3,6 +3,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::label::LabelDelete;
+use crate::client::LinearClient;
 use crate::commands::confirm;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -11,7 +12,6 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Choice;
 use crate::refs::{
     is_linear_uuid, prepare_team_lookup, reject_linear_url, resolve_team_with_transport,
@@ -77,7 +77,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
     ctx.print(format!("✓ Deleted label: {}\n", display(&label)))
 }
 
-async fn by_uuid(client: &GraphQlTransport, id: &str) -> Result<Label> {
+async fn by_uuid(client: &LinearClient, id: &str) -> Result<Label> {
     let request =
         GraphQlRequest::with_variables(GetLabelById::build(IdVariables { id: id.to_owned() }));
     match client.execute::<GetLabelById, _>(&request).await {
@@ -87,7 +87,7 @@ async fn by_uuid(client: &GraphQlTransport, id: &str) -> Result<Label> {
 }
 
 /// Labels whose name matches, ignoring case, in server order.
-async fn by_name(client: &GraphQlTransport, name: &str) -> Result<Vec<Label>> {
+async fn by_name(client: &LinearClient, name: &str) -> Result<Vec<Label>> {
     let request = GraphQlRequest::with_variables(GetLabelByName::build(NameVariables {
         name: name.to_owned(),
     }));

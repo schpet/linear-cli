@@ -12,13 +12,13 @@ pub mod view;
 use cynic::QueryBuilder;
 
 use crate::cli::initiative::{InitiativeCommand, InitiativeCommentCommand};
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_reference::{NameVariables, UrlSlugVariables};
 use crate::graphql::operations::initiative_unarchive::ResolveInitiativeByNameIncludingArchived;
 use crate::graphql::operations::initiative_view::ResolveInitiativeBySlug;
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{self, InitiativeReference};
 
 pub fn run(ctx: &Ctx, command: &InitiativeCommand) -> Result<()> {
@@ -53,7 +53,7 @@ enum Archived {
 
 /// The initiative's UUID: a slug ID first, then an exact (case-insensitive) name.
 async fn resolve(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     reference: &InitiativeReference,
     original: &str,
     archived: Archived,

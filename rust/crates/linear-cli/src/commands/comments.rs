@@ -8,6 +8,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::cli::Limit;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
@@ -18,7 +19,6 @@ use crate::graphql::operations::comments::{
     CommentUser,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::style::bold;
 
 /// What comments are listed for: one query per kind of entity.
@@ -37,7 +37,7 @@ pub trait CommentSource {
 
 /// The comments on entity `id` (which the user called `original`), up to `limit`.
 pub async fn fetch<S: CommentSource>(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     original: &str,
     id: &str,
     limit: Limit,

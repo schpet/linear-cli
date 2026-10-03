@@ -1,8 +1,7 @@
 //! Complete release name/version lookup, insertion-ordered UUID deduplication.
+use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::{
-    envelope::GraphQlRequest, operations::releases::*, transport::GraphQlTransport,
-};
+use crate::graphql::{envelope::GraphQlRequest, operations::releases::*};
 use cynic::QueryBuilder;
 use std::{
     collections::{HashMap, HashSet},
@@ -14,9 +13,9 @@ pub fn request(input: &str, after: Option<String>) -> GraphQlRequest<ResolveRele
         after,
     }))
 }
-pub async fn resolve(transport: &GraphQlTransport, input: &str) -> Result<String, Error> {
+pub async fn resolve(client: &LinearClient, input: &str) -> Result<String, Error> {
     resolve_with(input, |query| async move {
-        transport.execute(&query).await.map_err(Error::from)
+        client.execute(&query).await.map_err(Error::from)
     })
     .await
 }

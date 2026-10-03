@@ -3,6 +3,7 @@ use cynic::QueryBuilder;
 use futures_util::future::try_join_all;
 
 use crate::cli::project::{ProjectFields, Status};
+use crate::client::LinearClient;
 use crate::commands::issue::template_scope::{self, TemplateScope};
 use crate::commands::project::collections::ResolvedRef;
 use crate::commands::text_input;
@@ -14,7 +15,6 @@ use crate::graphql::operations::project_write::{
 };
 use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::operations::templates::GetTemplates;
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     self, InitiativeReference, PreparedTeamLookup, ResolvedTeam, WorkspaceScope,
     prepare_initiative_lookup, prepare_team_lookup, reject_linear_url,
@@ -68,14 +68,14 @@ pub fn plain_references<'a>(
 }
 
 /// The workspace's project statuses.
-pub async fn statuses(client: &GraphQlTransport) -> Result<Vec<ProjectStatus>> {
+pub async fn statuses(client: &LinearClient) -> Result<Vec<ProjectStatus>> {
     let request = GraphQlRequest::without_variables(GetProjectStatuses::build(()));
     let data: GetProjectStatuses = client.execute(&request).await?;
     Ok(data.project_statuses.nodes)
 }
 
 /// The ID of the workspace's first status of kind `status`.
-pub async fn status_id(client: &GraphQlTransport, status: Status) -> Result<String> {
+pub async fn status_id(client: &LinearClient, status: Status) -> Result<String> {
     let kind = match status {
         Status::Planned => ProjectStatusType::Planned,
         Status::Started => ProjectStatusType::Started,
@@ -93,7 +93,7 @@ pub async fn status_id(client: &GraphQlTransport, status: Status) -> Result<Stri
 }
 
 /// The project labels named by `values`, without duplicates.
-pub async fn labels(client: &GraphQlTransport, values: &[String]) -> Result<Vec<ResolvedRef>> {
+pub async fn labels(client: &LinearClient, values: &[String]) -> Result<Vec<ResolvedRef>> {
     let mut labels: Vec<ResolvedRef> = Vec::new();
     for value in values {
         let request =
@@ -130,7 +130,7 @@ pub fn prepare_teams(
 
 /// The teams named by `teams`, without duplicates.
 pub async fn teams(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     teams: &[PreparedTeamLookup],
 ) -> Result<Vec<ResolvedTeam>> {
     let resolved = try_join_all(
@@ -161,7 +161,7 @@ pub fn prepare_initiatives(
 /// The initiatives named by `initiatives`, without duplicates. An initiative
 /// given by UUID is looked up for its name.
 pub async fn initiatives(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     initiatives: &[(String, InitiativeReference)],
 ) -> Result<Vec<ResolvedRef>> {
     let mut resolved: Vec<ResolvedRef> = Vec::new();
@@ -198,7 +198,7 @@ pub async fn initiatives(
 /// The ID of the project template named by `reference` (a name or UUID) that
 /// may be applied to a project of `team_ids`.
 pub async fn template(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     reference: &str,
     team_ids: &[String],
 ) -> Result<String> {

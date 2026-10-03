@@ -11,9 +11,9 @@ use crate::auth::{
     self, ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialStore,
     CredentialWarning, LookupFailureCategory,
 };
+use crate::client::LinearClient;
 use crate::config::{ConfigOptions, ConfigSecret, StartupConfig, TransportEnvInputs};
 use crate::error::{Error, Result};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::markdown_terminal::{self, RenderOptions};
 use crate::platform::output::{self, Stdout};
 use crate::platform::prompt::Prompter;
@@ -57,7 +57,7 @@ pub struct Ctx {
     terminal: Terminal,
     credentials_path: Option<PathBuf>,
     credentials: OnceCell<CredentialStore>,
-    client: OnceCell<GraphQlTransport>,
+    client: OnceCell<LinearClient>,
     runtime: tokio::runtime::Runtime,
     stdout: Stdout,
 }
@@ -154,7 +154,7 @@ impl Ctx {
     }
 
     /// The authenticated API client, built on first use and shared after.
-    pub fn client(&self) -> Result<&GraphQlTransport> {
+    pub fn client(&self) -> Result<&LinearClient> {
         if let Some(client) = self.client.get() {
             return Ok(client);
         }
@@ -397,11 +397,11 @@ pub fn connect(
     options: &ConfigOptions,
     secret: &ConfigSecret,
     transport_env: &TransportEnvInputs,
-) -> Result<GraphQlTransport> {
+) -> Result<LinearClient> {
     let key = auth::header::to_api_key(secret).map_err(|error| {
         Error::new("API key cannot be used as an HTTP header").with_source(error)
     })?;
-    GraphQlTransport::new(
+    LinearClient::new(
         options.endpoint().value().clone(),
         key,
         transport_env.production(),

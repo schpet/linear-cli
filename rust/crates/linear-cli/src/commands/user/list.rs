@@ -4,6 +4,7 @@ use cynic::QueryBuilder;
 
 use crate::cli::Limit;
 use crate::cli::user::UserList;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
@@ -14,7 +15,6 @@ use crate::graphql::operations::organization_members::{
     GetOrganizationMembers, GetOrganizationMembersVariables, User,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 
 pub fn run(ctx: &Ctx, args: &UserList) -> Result<()> {
@@ -37,7 +37,7 @@ fn list(ctx: &Ctx, args: &UserList) -> Result<()> {
 }
 
 /// Every member of the workspace, including disabled users with `include_disabled`.
-async fn fetch(client: &GraphQlTransport, include_disabled: bool) -> Result<Vec<User>> {
+async fn fetch(client: &LinearClient, include_disabled: bool) -> Result<Vec<User>> {
     pagination::collect(None, |after, first| {
         let request = GraphQlRequest::with_variables(GetOrganizationMembers::build(
             GetOrganizationMembersVariables {

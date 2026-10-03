@@ -5,6 +5,7 @@ use cynic::MutationBuilder;
 
 use crate::cli::project::{ProjectCreate, Status};
 use crate::cli::values::{self, Priority};
+use crate::client::LinearClient;
 use crate::commands::project::write;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -16,7 +17,6 @@ use crate::graphql::operations::project_write::{
 };
 use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
 use crate::refs::{self, prepare_initiative_lookup, resolve_initiative_with_transport};
@@ -189,7 +189,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     }
 }
 
-async fn submit(client: &GraphQlTransport, input: ProjectCreateInput) -> Result<CreatedProject> {
+async fn submit(client: &LinearClient, input: ProjectCreateInput) -> Result<CreatedProject> {
     let request =
         GraphQlRequest::with_variables(CreateProject::build(CreateProjectVariables { input }));
     let result: CreateProject = client.execute(&request).await?;
@@ -201,7 +201,7 @@ async fn submit(client: &GraphQlTransport, input: ProjectCreateInput) -> Result<
 }
 
 async fn link(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project: &CreatedProject,
     initiative_id: String,
 ) -> Result<()> {

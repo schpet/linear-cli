@@ -2,6 +2,7 @@
 use cynic::MutationBuilder;
 
 use crate::cli::milestone::MilestoneCreate;
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -10,7 +11,6 @@ use crate::graphql::operations::milestone_create::{
     ProjectMilestoneCreateInput,
 };
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
 pub fn run(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
@@ -30,7 +30,7 @@ fn create(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
 /// Sends the mutation once. A failure after the request may have reached
 /// Linear says the milestone may already exist; nothing is retried.
 async fn submit(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project_id: String,
     args: &MilestoneCreate,
 ) -> Result<CreatedMilestone> {

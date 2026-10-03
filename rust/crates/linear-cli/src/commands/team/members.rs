@@ -3,6 +3,7 @@ use cynic::QueryBuilder;
 
 use super::TeamArg;
 use crate::cli::team::TeamMembers;
+use crate::client::LinearClient;
 use crate::commands::user;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
@@ -10,7 +11,6 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::organization_members::User;
 use crate::graphql::operations::team_members::{GetTeamMembers, GetTeamMembersVariables};
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 
 pub fn run(ctx: &Ctx, args: &TeamMembers) -> Result<()> {
     members(ctx, args).context("Failed to list team members")
@@ -36,7 +36,7 @@ fn members(ctx: &Ctx, args: &TeamMembers) -> Result<()> {
 }
 
 /// Every member of the team, including disabled users with `all`.
-async fn fetch(client: &GraphQlTransport, team_key: &str, all: bool) -> Result<Vec<User>> {
+async fn fetch(client: &LinearClient, team_key: &str, all: bool) -> Result<Vec<User>> {
     pagination::collect(None, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetTeamMembers::build(GetTeamMembersVariables {

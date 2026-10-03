@@ -4,6 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::milestone::MilestoneView;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
@@ -14,7 +15,6 @@ use crate::graphql::operations::milestone_view::{
 };
 use crate::graphql::operations::number::Float;
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     is_linear_uuid, prepare_project_lookup, reject_linear_url, resolve_project_with_transport,
 };
@@ -59,7 +59,7 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
 }
 
 /// The milestone with every one of its issues.
-async fn fetch(client: &GraphQlTransport, original: &str, id: &str) -> Result<DetailMilestone> {
+async fn fetch(client: &LinearClient, original: &str, id: &str) -> Result<DetailMilestone> {
     pagination::collect_within(
         None,
         |after, first| {

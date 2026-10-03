@@ -2,12 +2,11 @@ use super::{
     create::{Input, Templates},
     write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
 };
+use crate::client::LinearClient;
 use crate::{
     config::ConfigOptions,
     error::Error,
-    graphql::{
-        envelope::GraphQlRequest, operations::issue_write as ops, transport::GraphQlTransport,
-    },
+    graphql::{envelope::GraphQlRequest, operations::issue_write as ops},
     refs,
 };
 use cynic::{MutationBuilder, QueryBuilder};
@@ -15,7 +14,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 #[derive(Clone)]
 pub struct NetworkBackend {
-    pub transport: GraphQlTransport,
+    pub client: LinearClient,
     pub options: ConfigOptions,
     pub cli_workspace: Option<String>,
     pub default_workspace: Option<String>,
@@ -24,10 +23,10 @@ fn request<F, V: Serialize>(operation: cynic::Operation<F, V>) -> GraphQlRequest
     GraphQlRequest::with_variables(operation)
 }
 async fn fetch<T: DeserializeOwned, V: Serialize>(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     request: &GraphQlRequest<V>,
 ) -> Result<T, Error> {
-    Ok(transport.execute(request).await?)
+    Ok(client.execute(request).await?)
 }
 fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
     rows.sort_by(|left, right| {
@@ -63,8 +62,8 @@ impl Backend for NetworkBackend {
         let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
         let team = refs::resolve_team(
             &prepared,
-            |req| async move { fetch(&self.transport, &req).await },
-            |req| async move { fetch(&self.transport, &req).await },
+            |req| async move { fetch(&self.client, &req).await },
+            |req| async move { fetch(&self.client, &req).await },
         )
         .await?;
         Ok(Team {
@@ -76,9 +75,10 @@ impl Backend for NetworkBackend {
     async fn find_team(&self, reference: String) -> Result<Option<Team>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
-        Ok(refs::find_team(&prepared, |req| async move {
-            fetch(&self.transport, &req).await
-        })
+        Ok(refs::find_team(
+            &prepared,
+            |req| async move { fetch(&self.client, &req).await },
+        )
         .await?
         .map(|team| Team {
             id: team.id,
@@ -88,7 +88,7 @@ impl Backend for NetworkBackend {
     }
     async fn teams(&self) -> Result<Vec<Team>, Error> {
         Ok(
-            refs::fetch_all_teams(|req| async move { fetch(&self.transport, &req).await })
+            refs::fetch_all_teams(|req| async move { fetch(&self.client, &req).await })
                 .await?
                 .into_iter()
                 .map(|team| Team {
@@ -101,7 +101,7 @@ impl Backend for NetworkBackend {
     }
     async fn team_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         let data: ops::GetTeamIdOptionsByKey = fetch(
-            &self.transport,
+            &self.client,
             &request(ops::GetTeamIdOptionsByKey::build(ops::TeamSubstring {
                 team: reference,
             })),
@@ -122,7 +122,7 @@ impl Backend for NetworkBackend {
     async fn viewer(&self) -> Result<String, Error> {
         use crate::graphql::operations::initiatives::{GetViewerId, GetViewerIdVariables};
         let data: GetViewerId = fetch(
-            &self.transport,
+            &self.client,
             &request(GetViewerId::build(GetViewerIdVariables {})),
         )
         .await?;
@@ -130,7 +130,7 @@ impl Backend for NetworkBackend {
     }
     async fn auto_assign(&self) -> Result<bool, Error> {
         let data: ops::GetUserSettings = fetch(
-            &self.transport,
+            &self.client,
             &GraphQlRequest::without_variables(ops::GetUserSettings::build(())),
         )
         .await?;
@@ -141,14 +141,14 @@ impl Backend for NetworkBackend {
         if reference == "self" || reference == "@me" {
             return self.viewer().await;
         }
-        crate::commands::user::resolve(&self.transport, &reference, "User").await
+        crate::commands::user::resolve(&self.client, &reference, "User").await
     }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
         use crate::graphql::operations::workflow_states::{
             GetWorkflowStates, GetWorkflowStatesVariables,
         };
         let data: GetWorkflowStates = fetch(
-            &self.transport,
+            &self.client,
             &request(GetWorkflowStates::build(GetWorkflowStatesVariables {
                 team_key,
             })),
@@ -210,7 +210,7 @@ impl Backend for NetworkBackend {
     async fn label(&self, team_key: String, reference: String) -> Result<Option<String>, Error> {
         refs::reject_linear_url(&reference, "a label name")?;
         let data: ops::GetIssueLabelIdByNameForTeam = fetch(
-            &self.transport,
+            &self.client,
             &request(ops::GetIssueLabelIdByNameForTeam::build(
                 ops::LabelVariables {
                     name: reference,
@@ -232,7 +232,7 @@ impl Backend for NetworkBackend {
         reference: String,
     ) -> Result<Vec<Named>, Error> {
         let data: ops::GetIssueLabelIdOptionsByNameForTeam = fetch(
-            &self.transport,
+            &self.client,
             &request(ops::GetIssueLabelIdOptionsByNameForTeam::build(
                 ops::LabelVariables {
                     name: reference,
@@ -254,7 +254,7 @@ impl Backend for NetworkBackend {
     }
     async fn labels(&self, team_key: String) -> Result<Vec<Label>, Error> {
         let data: ops::GetLabelsForTeam = fetch(
-            &self.transport,
+            &self.client,
             &request(ops::GetLabelsForTeam::build(ops::TeamKey { team_key })),
         )
         .await?;
@@ -274,14 +274,14 @@ impl Backend for NetworkBackend {
     async fn project(&self, reference: String) -> Result<Option<String>, Error> {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
-        crate::commands::issue::read::project_id(&self.transport, &prepared).await
+        crate::commands::issue::read::project_id(&self.client, &prepared).await
     }
     async fn project_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         use crate::graphql::operations::issue_read::{
             GetProjectIdOptionsByName, GetProjectIdOptionsByNameVariables,
         };
         let data: GetProjectIdOptionsByName = fetch(
-            &self.transport,
+            &self.client,
             &request(GetProjectIdOptionsByName::build(
                 GetProjectIdOptionsByNameVariables { name: reference },
             )),
@@ -319,7 +319,7 @@ impl Backend for NetworkBackend {
         let mut rows = Vec::new();
         loop {
             let data: ops::GetProjectsForTeam = fetch(
-                &self.transport,
+                &self.client,
                 &request(ops::GetProjectsForTeam::build(ops::ProjectsVariables {
                     filter: Some(filter.clone()),
                     first: Some(100),
@@ -350,7 +350,7 @@ impl Backend for NetworkBackend {
     }
     async fn milestone(&self, project_id: String, reference: String) -> Result<String, Error> {
         crate::commands::issue::read::milestone_id(
-            &self.transport,
+            &self.client,
             &reference,
             Some(project_id.as_str()).filter(|project| !project.is_empty()),
         )
@@ -368,7 +368,7 @@ impl Backend for NetworkBackend {
             &team_id,
             &reference,
             url.as_ref(),
-            |req| async move { fetch(&self.transport, &req).await },
+            |req| async move { fetch(&self.client, &req).await },
         )
         .await
     }
@@ -377,7 +377,7 @@ impl Backend for NetworkBackend {
         // Object-only optional selected shape: reuse the already approved pattern,
         // but return its ID rather than committing the old strict GetIssueId model.
         let request = crate::commands::issue::id::request(&identifier);
-        let data: OptionalIssue = fetch(&self.transport, &request).await?;
+        let data: OptionalIssue = fetch(&self.client, &request).await?;
         data.issue
             .and_then(|i| i.id)
             .filter(|id| !id.is_empty())
@@ -387,9 +387,9 @@ impl Backend for NetworkBackend {
         let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
-        let data: ops::GetParentIssueData = match self.transport.execute(&req).await {
+        let data: ops::GetParentIssueData = match self.client.execute(&req).await {
             Ok(data) => data,
-            Err(crate::graphql::transport::TransportFailure::Response(error)) => {
+            Err(crate::client::RequestError::Response(error)) => {
                 return Err(Error::new(
                     "Linear returned parent issue metadata with an unexpected shape",
                 )
@@ -411,7 +411,7 @@ impl Backend for NetworkBackend {
     }
     async fn issue_project(&self, id: String) -> Result<Option<String>, Error> {
         let data: ops::GetIssueProjectId = fetch(
-            &self.transport,
+            &self.client,
             &request(ops::GetIssueProjectId::build(ops::IssueVariables { id })),
         )
         .await?;
@@ -423,7 +423,7 @@ impl Backend for NetworkBackend {
     async fn create(&self, input: Input) -> Result<Created, Error> {
         use crate::graphql::operations::issue_create::{CreateIssue, CreateIssueVariables};
         let data: CreateIssue = fetch(
-            &self.transport,
+            &self.client,
             &request(CreateIssue::build(CreateIssueVariables { input })),
         )
         .await?;
@@ -447,7 +447,7 @@ impl Backend for NetworkBackend {
     ) -> Result<Updated, Error> {
         use crate::graphql::operations::issue_update::{UpdateIssue, UpdateIssueVariables};
         let data: UpdateIssue = fetch(
-            &self.transport,
+            &self.client,
             &request(UpdateIssue::build(UpdateIssueVariables { id, input })),
         )
         .await?;
@@ -507,12 +507,12 @@ impl Templates for NetworkBackend {
         let team_ids = [team_id];
         let template = if refs::is_linear_uuid(&reference) {
             let template =
-                crate::commands::template::template_by_id(&self.transport, &reference).await?;
+                crate::commands::template::template_by_id(&self.client, &reference).await?;
             template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
             template
         } else {
             let req = GraphQlRequest::without_variables(GetTemplates::build(()));
-            let data: GetTemplates = fetch(&self.transport, &req).await?;
+            let data: GetTemplates = fetch(&self.client, &req).await?;
             template_scope::select(&reference, data.templates, &team_ids, TemplateScope::Issue)?
         };
         Ok(template.id.into_inner())

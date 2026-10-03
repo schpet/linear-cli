@@ -5,7 +5,7 @@
 //! with a Cynic upgrade. The response side classifies a body into exactly one
 //! outcome: data, GraphQL errors (with or without partial data), an envelope
 //! with neither, malformed JSON, or well-formed JSON that does not match the
-//! operation's types. HTTP status handling lives in the transport.
+//! operation's types. HTTP status handling lives in the client.
 
 use std::error::Error as StdError;
 use std::fmt;
@@ -169,7 +169,7 @@ impl From<ResponseError> for Error {
             ResponseError::MalformedJson(source) => Error::new(message).with_source(source),
             ResponseError::NotJson { source, .. } => Error::new(message).with_source(source),
             // Valid JSON that contradicts the schema the types were compiled
-            // against is a broken contract, not a transport or GraphQL failure.
+            // against is a broken contract, not a network or GraphQL failure.
             ResponseError::UnexpectedShape(source) => Error::new(message).with_source(source),
             ResponseError::GraphQl { .. } | ResponseError::MissingData => Error::new(message),
         }
@@ -235,9 +235,9 @@ pub fn graphql_message(errors: &[ResponseGraphQlError]) -> Option<String> {
 /// other bad argument, so the message is the only signal: the raw message is
 /// `Entity not found: <Type>` and the presentable one `Could not find
 /// referenced <Type>.`. This is the only place the program inspects error
-/// text; commands go through [`TransportFailure::is_not_found`].
+/// text; commands go through [`RequestError::is_not_found`].
 ///
-/// [`TransportFailure::is_not_found`]: crate::graphql::transport::TransportFailure::is_not_found
+/// [`RequestError::is_not_found`]: crate::client::RequestError::is_not_found
 pub fn is_not_found(errors: &[ResponseGraphQlError]) -> bool {
     graphql_message(errors).is_some_and(|message| {
         let message = message.to_lowercase();

@@ -8,6 +8,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::cycle::CycleView;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::{configured_team_key, no_team};
@@ -20,7 +21,6 @@ use crate::graphql::operations::cycle_view::{
 };
 use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::pagination::Pages;
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     CycleSelector, LinearUrlKind, LinearUrlRef, expect_url_kind, prepare_team_lookup,
     resolve_team_with_transport,
@@ -136,13 +136,13 @@ where
 }
 
 pub async fn resolve_id(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     team_id: &str,
     reference: &str,
     url: Option<&LinearUrlRef>,
 ) -> Result<String, Error> {
     resolve_id_with(team_id, reference, url, |request| async move {
-        Ok(transport.execute(&request).await?)
+        Ok(client.execute(&request).await?)
     })
     .await
 }

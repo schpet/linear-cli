@@ -1,9 +1,9 @@
 //! `issue id`, and resolving an issue identifier to its UUID.
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_id::{GetIssueId, Variables};
-use crate::graphql::transport::GraphQlTransport;
 use cynic::QueryBuilder;
 
 /// Prints the issue the current git branch or jj change names.
@@ -20,8 +20,8 @@ pub fn request(identifier: &str) -> GraphQlRequest<Variables> {
     }))
 }
 
-pub async fn fetch(transport: &GraphQlTransport, identifier: &str) -> Result<String, Error> {
-    let result: GetIssueId = transport
+pub async fn fetch(client: &LinearClient, identifier: &str) -> Result<String, Error> {
+    let result: GetIssueId = client
         .execute(&request(identifier))
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;

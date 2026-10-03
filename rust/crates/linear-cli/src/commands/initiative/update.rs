@@ -4,6 +4,7 @@ use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::initiative::InitiativeUpdate;
 use crate::cli::values::{date, hex_color};
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -14,7 +15,6 @@ use crate::graphql::operations::initiative_update::{
 use crate::graphql::operations::initiative_view::DetailVariables;
 use crate::graphql::operations::initiatives::InitiativeStatus;
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
 pub fn run(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
@@ -114,7 +114,7 @@ impl Changes {
     }
 }
 
-async fn details(client: &GraphQlTransport, id: &str, original: &str) -> Result<CurrentInitiative> {
+async fn details(client: &LinearClient, id: &str, original: &str) -> Result<CurrentInitiative> {
     let request = GraphQlRequest::with_variables(GetInitiativeForUpdate::build(DetailVariables {
         id: id.to_owned(),
     }));
@@ -125,7 +125,7 @@ async fn details(client: &GraphQlTransport, id: &str, original: &str) -> Result<
 }
 
 async fn submit(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     id: &str,
     input: InitiativeUpdateInput,
 ) -> Result<UpdatedInitiative> {

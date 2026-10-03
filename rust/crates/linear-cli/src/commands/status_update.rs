@@ -4,6 +4,7 @@ use chrono::{DateTime, Local, Utc};
 use cynic::MutationBuilder;
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
+use crate::client::LinearClient;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
@@ -16,7 +17,6 @@ use crate::graphql::operations::update_create::{
     CreateInitiativeUpdate, CreateProjectUpdate, InitiativeHealthInput, InitiativeInput,
     InitiativeVariables, ProjectHealthInput, ProjectInput, ProjectVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
 use crate::refs::{
@@ -107,7 +107,7 @@ struct Created {
 }
 
 async fn submit(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     target: Target<'_>,
     id: &str,
     body: Option<String>,

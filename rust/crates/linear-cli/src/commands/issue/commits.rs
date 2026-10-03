@@ -1,10 +1,10 @@
 //! `issue commits`: the jj commits whose trailers name an issue.
+use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueCommits,
     config::Vcs,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::transport::GraphQlTransport,
     platform::vcs_script::{self, ChildOutcome, CommandSpec, ProcessRunner, Program},
 };
 use serde::Deserialize;
@@ -69,9 +69,9 @@ impl<'de> Deserialize<'de> for LookupIssue {
     }
 }
 /// Look up the issue; a missing or null issue is "not found".
-pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), Error> {
+pub async fn lookup(client: &LinearClient, identifier: &str) -> Result<(), Error> {
     let request = super::id::request(identifier);
-    let result: Lookup = transport
+    let result: Lookup = client
         .execute(&request)
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;

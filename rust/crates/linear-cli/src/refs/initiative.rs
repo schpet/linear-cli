@@ -1,11 +1,11 @@
 //! Strict initiative references: URL slug, UUID, plain slug, then exact name.
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
+use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_reference::{
     NameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 use cynic::QueryBuilder;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InitiativeReference {
@@ -34,13 +34,13 @@ pub fn prepare_initiative_lookup(
 pub async fn resolve_initiative_with_transport(
     reference: &InitiativeReference,
     original: &str,
-    transport: &GraphQlTransport,
+    client: &LinearClient,
 ) -> Result<String, Error> {
     resolve_initiative_with(
         reference,
         original,
-        |query| async move { transport.execute(&query).await.map_err(Error::from) },
-        |query| async move { transport.execute(&query).await.map_err(Error::from) },
+        |query| async move { client.execute(&query).await.map_err(Error::from) },
+        |query| async move { client.execute(&query).await.map_err(Error::from) },
     )
     .await
 }

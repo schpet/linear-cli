@@ -1,11 +1,11 @@
 //! `issue link`: attach a URL to an issue (the issue may be inferred from the branch).
 use crate::cli::issue::IssueLink;
+use crate::client::LinearClient;
 use crate::commands::issue::id;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_link::{AttachmentLinkURL, Variables};
-use crate::graphql::transport::GraphQlTransport;
 use cynic::MutationBuilder;
 
 pub fn run(ctx: &Ctx, args: &IssueLink) -> Result<()> {
@@ -51,13 +51,13 @@ pub fn request(id: &str, url: &str, title: Option<&str>) -> GraphQlRequest<Varia
     }))
 }
 pub async fn submit(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     identifier: &str,
     url: &str,
     title: Option<&str>,
 ) -> Result<Vec<u8>, Error> {
-    let id = id::fetch(transport, identifier).await?;
-    let result: AttachmentLinkURL = transport.execute(&request(&id, url, title)).await?;
+    let id = id::fetch(client, identifier).await?;
+    let result: AttachmentLinkURL = client.execute(&request(&id, url, title)).await?;
     if !result.attachment_link_url.success {
         return Err(Error::new("Failed to link URL to issue"));
     }

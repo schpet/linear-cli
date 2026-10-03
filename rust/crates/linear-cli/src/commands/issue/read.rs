@@ -1,4 +1,5 @@
 //! Command-local issue read filters, lookups, pagination and presentation.
+use crate::client::LinearClient;
 use std::time::SystemTime;
 
 use crate::commands::relative_time;
@@ -7,9 +8,7 @@ use crate::error::Error;
 use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
-use crate::graphql::{
-    envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport,
-};
+use crate::graphql::{envelope::GraphQlRequest, operations::issue_read::*};
 use crate::platform::style;
 use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
@@ -93,7 +92,7 @@ pub const STATE_TYPES: [&str; 6] = [
     "canceled",
 ];
 pub async fn state_filter(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     values: &[String],
     keys: Option<&[String]>,
 ) -> Result<Option<WorkflowStateFilter>, Error> {
@@ -133,7 +132,7 @@ pub async fn state_filter(
                     after: after.clone(),
                 },
             ));
-            let page: GetWorkflowStatesInScope = transport.execute(&request).await?;
+            let page: GetWorkflowStatesInScope = client.execute(&request).await?;
             states.extend(page.workflow_states.nodes);
             if !page.workflow_states.page_info.has_next_page {
                 break;
@@ -294,7 +293,7 @@ pub fn entity_filters(
     };
 }
 pub async fn assignee_filter(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     input: Option<&str>,
     unassigned: bool,
     mine: bool,
@@ -315,7 +314,7 @@ pub async fn assignee_filter(
         return Ok(None);
     };
     reject_linear_url(input, "an email, username, display name, or @me")?;
-    let id = cynic::Id::new(crate::commands::user::resolve(transport, input, "User").await?);
+    let id = cynic::Id::new(crate::commands::user::resolve(client, input, "User").await?);
     Ok(Some(NullableUserFilter {
         id: Some(IDComparator {
             eq: Some(id),
@@ -327,7 +326,7 @@ pub async fn assignee_filter(
 /// The ID of the project `reference` names: a UUID as given, else an exact
 /// name match (refusing ambiguous names), else a slug ID match.
 pub async fn project_id(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     reference: &ProjectReference,
 ) -> Result<Option<String>, Error> {
     use crate::graphql::operations::project_view::{
@@ -337,7 +336,7 @@ pub async fn project_id(
         ProjectReference::Id(id) => return Ok(Some(id.clone())),
         ProjectReference::Slug(slug) => slug,
         ProjectReference::NameOrSlug(name) => {
-            let data: GetProjectIdByName = transport
+            let data: GetProjectIdByName = client
                 .execute(&GraphQlRequest::with_variables(GetProjectIdByName::build(
                     ProjectReferenceVariables { name: name.clone() },
                 )))
@@ -369,7 +368,7 @@ pub async fn project_id(
             name
         }
     };
-    let data: GetProjectIdBySlugId = transport
+    let data: GetProjectIdBySlugId = client
         .execute(&GraphQlRequest::with_variables(
             GetProjectIdBySlugId::build(ProjectSlugVariables {
                 slug_id: slug.clone(),
@@ -385,7 +384,7 @@ pub async fn project_id(
 }
 /// A milestone UUID, or the ID of the named milestone in `project`.
 pub async fn milestone_id(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     value: &str,
     project: Option<&str>,
 ) -> Result<String, Error> {
@@ -394,10 +393,10 @@ pub async fn milestone_id(
     }
     reject_linear_url(value, "a milestone name or UUID")?;
     let project = project.ok_or_else(|| Error::new(format!("Cannot resolve milestone \"{value}\" without --project")).with_hint("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
-    crate::commands::milestone::id_by_name(transport, project, value).await
+    crate::commands::milestone::id_by_name(client, project, value).await
 }
 pub async fn mine(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     filter: IssueFilter,
     priority: bool,
     limit: Option<NonZeroU32>,
@@ -411,7 +410,7 @@ pub async fn mine(
                 after,
             }));
         async move {
-            let data: GetIssuesForState = transport.execute(&request).await?;
+            let data: GetIssuesForState = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.issues.nodes,
                 page_info: data.issues.page_info,
@@ -423,7 +422,7 @@ pub async fn mine(
     Ok(rows)
 }
 pub async fn query(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     filter: Option<IssueFilter>,
     priority: bool,
     limit: Option<NonZeroU32>,
@@ -439,7 +438,7 @@ pub async fn query(
                 include_archived: archived.then_some(true),
             }));
         async move {
-            let data: GetIssuesForQuery = transport.execute(&request).await?;
+            let data: GetIssuesForQuery = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.issues.nodes,
                 page_info: data.issues.page_info,
@@ -451,7 +450,7 @@ pub async fn query(
     Ok(rows)
 }
 pub async fn search(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     filter: Option<IssueFilter>,
     term: String,
     limit: Option<NonZeroU32>,
@@ -469,7 +468,7 @@ pub async fn search(
             order_by: None,
         }));
         async move {
-            let data: SearchIssues = transport.execute(&request).await?;
+            let data: SearchIssues = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.search_issues.nodes,
                 page_info: data.search_issues.page_info,
@@ -725,7 +724,7 @@ fn labels_cell(labels: &[GetIssuesForStateIssuesNodesLabelsNodes]) -> Cell {
 /// The team `reference` (a key, name, ID or URL) names.
 pub(super) fn resolve_team(
     ctx: &crate::ctx::Ctx,
-    client: &GraphQlTransport,
+    client: &LinearClient,
     reference: &str,
 ) -> Result<crate::refs::ResolvedTeam, Error> {
     let lookup = crate::refs::prepare_team_lookup(reference, &ctx.scope()?)?;
@@ -736,7 +735,7 @@ pub(super) fn resolve_team(
 /// user may pick one of the similarly named projects.
 pub(super) fn resolve_project(
     ctx: &crate::ctx::Ctx,
-    client: &GraphQlTransport,
+    client: &LinearClient,
     value: Option<&str>,
 ) -> Result<Option<String>, Error> {
     use crate::platform::prompt::Choice;
@@ -799,7 +798,7 @@ pub(super) fn resolve_project(
 /// The cycle `--cycle` names in the one team in scope.
 pub(super) fn resolve_cycle(
     ctx: &crate::ctx::Ctx,
-    client: &GraphQlTransport,
+    client: &LinearClient,
     value: Option<&str>,
     team_key: Option<&str>,
     team_id: Option<&str>,

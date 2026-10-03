@@ -8,10 +8,10 @@ mod members;
 mod states;
 
 use crate::cli::team::TeamCommand;
+use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
 
 pub fn run(ctx: &Ctx, command: &TeamCommand) -> Result<()> {
@@ -47,7 +47,7 @@ impl TeamArg {
         }
     }
 
-    async fn key(self, client: &GraphQlTransport) -> Result<String> {
+    async fn key(self, client: &LinearClient) -> Result<String> {
         match self {
             Self::Lookup(lookup) => Ok(resolve_team_with_transport(&lookup, client).await?.key),
             Self::Configured(key) => Ok(key),

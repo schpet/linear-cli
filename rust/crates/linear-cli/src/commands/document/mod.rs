@@ -8,9 +8,9 @@ mod view;
 pub mod write;
 
 use crate::cli::document::{DocumentCommand, DocumentCommentCommand};
+use crate::client::RequestError;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::transport::TransportFailure;
 
 pub fn run(ctx: &Ctx, command: &DocumentCommand) -> Result<()> {
     match command {
@@ -33,6 +33,6 @@ fn reference(ctx: &Ctx, input: &str) -> Result<String> {
 
 /// `document(id:)` is non-null, so Linear reports a missing document as a
 /// GraphQL error.
-fn not_found(failure: TransportFailure, original: &str) -> Error {
+fn not_found(failure: RequestError, original: &str) -> Error {
     failure.or_not_found("Document", original)
 }

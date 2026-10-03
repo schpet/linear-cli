@@ -1,10 +1,10 @@
 //! `linear api`: send a user-written GraphQL document and print the response.
+use crate::client::LinearClient;
 use crate::{
     cli::api::Api,
     commands::text_input,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::transport::GraphQlTransport,
 };
 use serde_json::{Map, Number, Value};
 use std::collections::HashSet;
@@ -222,7 +222,7 @@ fn find_page(value: &Value) -> Option<Page> {
     }
 }
 async fn execute(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     query: &str,
     variables: Map<String, Value>,
     paginate: bool,
@@ -244,7 +244,7 @@ async fn execute(
                 cursor.clone().map_or(Value::Null, Value::String),
             );
         }
-        let (status, text) = transport.fetch_api(request(query, &vars)).await?;
+        let (status, text) = client.fetch_api(request(query, &vars)).await?;
         if status >= 400 {
             return Ok(Response::HttpError(format!("{text}\n")));
         }

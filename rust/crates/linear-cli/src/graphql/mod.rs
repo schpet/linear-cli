@@ -8,7 +8,6 @@ pub mod envelope;
 pub mod operations;
 pub mod pagination;
 pub mod scalars;
-pub mod transport;
 
 /// Cynic marker types generated from the registered Linear schema.
 ///

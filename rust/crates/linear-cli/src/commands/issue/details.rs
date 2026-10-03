@@ -1,11 +1,11 @@
 //! `issue title` and `issue url`.
 use cynic::QueryBuilder;
 
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_details::{GetIssueDetails, IssueDetails, Variables};
-use crate::graphql::transport::GraphQlTransport;
 
 #[derive(Clone, Copy)]
 pub enum Field {
@@ -36,7 +36,7 @@ pub fn request(id: String) -> GraphQlRequest<Variables> {
     GraphQlRequest::with_variables(GetIssueDetails::build(Variables { id }))
 }
 
-pub async fn fetch(client: &GraphQlTransport, id: String) -> Result<IssueDetails> {
+pub async fn fetch(client: &LinearClient, id: String) -> Result<IssueDetails> {
     let result: GetIssueDetails = client.execute(&request(id)).await?;
     Ok(result.issue)
 }

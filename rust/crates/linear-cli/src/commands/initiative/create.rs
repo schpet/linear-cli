@@ -4,6 +4,7 @@ use cynic::MutationBuilder;
 
 use crate::cli::initiative::InitiativeCreate;
 use crate::cli::values::{InitiativeStatus, date};
+use crate::client::LinearClient;
 use crate::commands::color;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -12,7 +13,6 @@ use crate::graphql::operations::initiative_create::{
     CreateInitiative, CreateInitiativeVariables, CreatedInitiative, InitiativeCreateInput,
 };
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
 pub fn run(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
@@ -167,10 +167,7 @@ fn validate(fields: Fields) -> Result<Valid> {
 
 /// Sends the mutation once. A failure after the request may have reached
 /// Linear says the initiative may already exist; nothing is retried.
-async fn submit(
-    client: &GraphQlTransport,
-    input: InitiativeCreateInput,
-) -> Result<CreatedInitiative> {
+async fn submit(client: &LinearClient, input: InitiativeCreateInput) -> Result<CreatedInitiative> {
     let request =
         GraphQlRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables {
             input,

@@ -5,6 +5,7 @@ use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::project::ProjectUpdate;
 use crate::cli::values::Priority;
+use crate::client::LinearClient;
 use crate::commands::project::collections::{
     self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
 };
@@ -21,7 +22,6 @@ use crate::graphql::operations::project_write::{
 };
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     InitiativeReference, PreparedTeamLookup, prepare_project_lookup, resolve_project_with_transport,
 };
@@ -153,7 +153,7 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
 }
 
 async fn team_ids(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project_id: &str,
     change: &SetChange<PreparedTeamLookup>,
 ) -> Result<Option<Vec<String>>> {
@@ -196,7 +196,7 @@ async fn team_ids(
 }
 
 async fn team_refs(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     teams: &[PreparedTeamLookup],
 ) -> Result<Vec<ResolvedRef>> {
     Ok(write::teams(client, teams)
@@ -210,7 +210,7 @@ async fn team_refs(
 }
 
 async fn label_ids(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project_id: &str,
     change: &SetChange<String>,
 ) -> Result<Option<Vec<String>>> {
@@ -252,7 +252,7 @@ async fn label_ids(
 
 /// The link changes to make, and the project as its links query names it.
 async fn initiative_changes(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project_id: &str,
     change: &SetChange<(String, InitiativeReference)>,
 ) -> Result<(Vec<InitiativeChange>, Option<Shown>)> {
@@ -319,7 +319,7 @@ fn no_overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result
     Ok(())
 }
 
-async fn current_teams(client: &GraphQlTransport, id: &str) -> Result<Vec<ProjectTeam>> {
+async fn current_teams(client: &LinearClient, id: &str) -> Result<Vec<ProjectTeam>> {
     let mut teams = pagination::collect(None, |after, _first| {
         let request =
             GraphQlRequest::with_variables(GetProjectTeamsForUpdate::build(PageVariables {
@@ -339,7 +339,7 @@ async fn current_teams(client: &GraphQlTransport, id: &str) -> Result<Vec<Projec
     Ok(teams)
 }
 
-async fn current_labels(client: &GraphQlTransport, id: &str) -> Result<Vec<ProjectLabel>> {
+async fn current_labels(client: &LinearClient, id: &str) -> Result<Vec<ProjectLabel>> {
     let mut labels = pagination::collect(None, |after, _first| {
         let request =
             GraphQlRequest::with_variables(GetProjectLabelsForUpdate::build(PageVariables {
@@ -360,10 +360,7 @@ async fn current_labels(client: &GraphQlTransport, id: &str) -> Result<Vec<Proje
 }
 
 /// The project's initiative links, and the project as that query names it.
-async fn current_links(
-    client: &GraphQlTransport,
-    id: &str,
-) -> Result<(Vec<InitiativeLink>, Shown)> {
+async fn current_links(client: &LinearClient, id: &str) -> Result<(Vec<InitiativeLink>, Shown)> {
     let project = pagination::collect_within(
         None,
         |after, _first| {
@@ -410,7 +407,7 @@ fn dedupe<T>(items: &mut Vec<T>, key: impl Fn(&T) -> String) {
 }
 
 async fn submit(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     id: &str,
     input: ProjectUpdateInput,
 ) -> Result<Option<Shown>> {
@@ -432,7 +429,7 @@ async fn submit(
 /// Makes the link changes one at a time. A failure reports what was and was
 /// not applied, since earlier changes are not rolled back.
 async fn apply(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     project_id: &str,
     changes: &[InitiativeChange],
     updated_fields: bool,

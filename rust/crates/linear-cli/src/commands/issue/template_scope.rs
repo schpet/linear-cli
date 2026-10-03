@@ -165,5 +165,5 @@ pub fn select(
     };
     Err(Error::not_found("Template", reference).with_hint(suggestion))
 }
-// Project callers use scope=Project with the shared transport; the issue path
+// Project callers use scope=Project with the shared client; the issue path
 // uses NetworkBackend's exchange below.

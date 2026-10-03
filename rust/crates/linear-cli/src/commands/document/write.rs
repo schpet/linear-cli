@@ -3,6 +3,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::document::{DocumentCreate, DocumentUpdate};
+use crate::client::LinearClient;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::ctx::Ctx;
@@ -10,7 +11,6 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::document_write::*;
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::editor;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
@@ -194,7 +194,7 @@ fn update_document(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
 
 /// Looks up the target and sets its ID in the field for its kind.
 async fn attach(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     input: &mut DocumentUpdateInput,
     target: Option<&PreparedTarget>,
 ) -> Result<()> {
@@ -214,7 +214,7 @@ async fn attach(
     Ok(())
 }
 
-async fn for_edit(client: &GraphQlTransport, id: &str) -> Result<DocumentForEdit> {
+async fn for_edit(client: &LinearClient, id: &str) -> Result<DocumentForEdit> {
     let request =
         GraphQlRequest::with_variables(GetDocumentForEdit::build(DocumentEditVariables {
             id: id.to_owned(),
@@ -229,7 +229,7 @@ async fn for_edit(client: &GraphQlTransport, id: &str) -> Result<DocumentForEdit
 
 /// Replacing the Markdown can detach or hide inline comments, so content
 /// updates stop while any open comment quotes the document.
-async fn refuse_inline_comments(client: &GraphQlTransport, id: &str) -> Result<()> {
+async fn refuse_inline_comments(client: &LinearClient, id: &str) -> Result<()> {
     let comments = pagination::collect(None, |after, _first| {
         let request = GraphQlRequest::with_variables(DocumentInlineCommentGuard::build(
             DocumentGuardVariables {

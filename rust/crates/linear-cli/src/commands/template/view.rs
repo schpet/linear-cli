@@ -9,6 +9,7 @@ use cynic::QueryBuilder;
 use serde_json::{Map, Number, Value};
 
 use crate::cli::template::TemplateView;
+use crate::client::{LinearClient, RequestError};
 use crate::commands::prosemirror;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::template::{json as template_json, list as template_list};
@@ -18,7 +19,6 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::templates::{
     GetTemplate, GetTemplateVariables, GetTemplates, Template,
 };
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::collation;
 use crate::refs::{is_linear_uuid, reject_linear_url};
 
@@ -58,7 +58,7 @@ fn view(ctx: &Ctx, args: &TemplateView) -> Result<()> {
 }
 
 /// The template by ID, or every template to match the name.
-async fn resolve(client: &GraphQlTransport, reference: &Reference) -> Result<Template> {
+async fn resolve(client: &LinearClient, reference: &Reference) -> Result<Template> {
     match reference {
         Reference::Id(id) => by_id(client, id).await,
         Reference::Name(name) => {
@@ -71,13 +71,13 @@ async fn resolve(client: &GraphQlTransport, reference: &Reference) -> Result<Tem
 /// The template with `id`. Linear reports a missing template only as a
 /// GraphQL error, so when that request fails the template list decides
 /// whether it is missing or the error stands.
-pub async fn by_id(client: &GraphQlTransport, id: &str) -> Result<Template> {
+pub async fn by_id(client: &LinearClient, id: &str) -> Result<Template> {
     let request = GraphQlRequest::with_variables(GetTemplate::build(GetTemplateVariables {
         id: id.to_owned(),
     }));
     let failure = match client.execute::<GetTemplate, _>(&request).await {
         Ok(response) => return Ok(response.template),
-        Err(failure @ TransportFailure::GraphQl { .. }) => failure,
+        Err(failure @ RequestError::GraphQl { .. }) => failure,
         Err(failure) => return Err(Error::from(failure)),
     };
     let data: GetTemplates = client.execute(&template_list::request()).await?;

@@ -4,6 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::initiative::InitiativeView;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
@@ -14,7 +15,6 @@ use crate::graphql::operations::initiative_view::{
 };
 use crate::graphql::operations::initiatives::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::projects::ProjectStatusType;
-use crate::graphql::transport::GraphQlTransport;
 
 pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     view(ctx, args).context("Failed to view initiative")
@@ -44,7 +44,7 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     ctx.print(format!("{status}\n{rendered}\n"))
 }
 
-async fn fetch(client: &GraphQlTransport, id: String, original: &str) -> Result<InitiativeDetails> {
+async fn fetch(client: &LinearClient, id: String, original: &str) -> Result<InitiativeDetails> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeDetails::build(DetailVariables { id }));
     let result: GetInitiativeDetails = client.execute(&request).await?;

@@ -1,18 +1,18 @@
 //! Team-reference preparation and typed lookup, without command context or
-//! credential/transport construction.
+//! credential or client construction.
 
 use std::collections::HashSet;
 use std::future::Future;
 
 use cynic::QueryBuilder;
 
+use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::edit::Edit;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables, TeamNode,
 };
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 
 use super::uuid::is_linear_uuid;
@@ -152,12 +152,12 @@ where
 /// Execute through a client that the caller already built after preparation.
 pub async fn resolve_team_with_transport(
     prepared: &PreparedTeamLookup,
-    transport: &GraphQlTransport,
+    client: &LinearClient,
 ) -> Result<ResolvedTeam, Error> {
     resolve_team(
         prepared,
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
+        |request| async move { client.execute(&request).await.map_err(Error::from) },
+        |request| async move { client.execute(&request).await.map_err(Error::from) },
     )
     .await
 }
@@ -200,9 +200,9 @@ where
 }
 
 pub async fn fetch_all_teams_with_transport(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
 ) -> Result<Vec<ResolvedTeam>, Error> {
-    fetch_all_teams(|request| async move { transport.execute(&request).await.map_err(Error::from) })
+    fetch_all_teams(|request| async move { client.execute(&request).await.map_err(Error::from) })
         .await
 }
 

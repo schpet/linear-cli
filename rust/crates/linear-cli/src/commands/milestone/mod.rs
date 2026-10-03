@@ -8,11 +8,11 @@ mod view;
 use cynic::QueryBuilder;
 
 use crate::cli::milestone::MilestoneCommand;
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_view::{GetProjectMilestonesForLookup, LookupVariables};
-use crate::graphql::transport::GraphQlTransport;
 
 pub fn run(ctx: &Ctx, command: &MilestoneCommand) -> Result<()> {
     match command {
@@ -25,7 +25,7 @@ pub fn run(ctx: &Ctx, command: &MilestoneCommand) -> Result<()> {
 }
 
 /// The ID of the project's milestone named `name`, ignoring case.
-pub async fn id_by_name(client: &GraphQlTransport, project_id: &str, name: &str) -> Result<String> {
+pub async fn id_by_name(client: &LinearClient, project_id: &str, name: &str) -> Result<String> {
     let request =
         GraphQlRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
             project_id: project_id.to_owned(),

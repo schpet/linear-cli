@@ -5,12 +5,12 @@ use futures_util::future::join_all;
 use reqwest::StatusCode;
 
 use crate::auth::{self, CredentialStore};
+use crate::client::{LinearClient, RequestError};
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, graphql_message};
 use crate::graphql::operations::auth_list::AuthListViewer;
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::style;
 
 const EMPTY: &str = "No workspaces configured\nRun `linear auth login` to add a workspace\n";
@@ -23,7 +23,7 @@ struct Row {
 
 /// What to do for one workspace.
 enum Check {
-    Request(GraphQlTransport),
+    Request(LinearClient),
     /// The key cannot be used; the reason is shown instead of an organization.
     Skip(&'static str),
 }
@@ -76,7 +76,7 @@ fn clients(ctx: &Ctx, store: &CredentialStore) -> Result<Vec<Check>> {
             let Ok(key) = auth::header::to_api_key(secret) else {
                 return Ok(Check::Skip("invalid API key"));
             };
-            let client = GraphQlTransport::new(endpoint.clone(), key, transport.clone())?;
+            let client = LinearClient::new(endpoint.clone(), key, transport.clone())?;
             Ok(Check::Request(client))
         })
         .collect()
@@ -103,26 +103,25 @@ fn rejected(status: StatusCode) -> bool {
 }
 
 /// A short cell for a failed check. A 401 or 403 means the key was refused.
-fn failure_cell(failure: &TransportFailure) -> String {
+fn failure_cell(failure: &RequestError) -> String {
     match failure {
-        TransportFailure::GraphQl { status, .. }
-        | TransportFailure::ResponseTooLarge { status, .. }
+        RequestError::GraphQl { status, .. } | RequestError::ResponseTooLarge { status, .. }
             if rejected(*status) =>
         {
             "invalid credentials".to_owned()
         }
-        TransportFailure::Http { response, .. } if rejected(response.status) => {
+        RequestError::Http { response, .. } if rejected(response.status) => {
             "invalid credentials".to_owned()
         }
-        TransportFailure::GraphQl { errors, .. } => {
+        RequestError::GraphQl { errors, .. } => {
             graphql_message(errors).unwrap_or_else(|| failure.to_string())
         }
-        TransportFailure::Http { .. }
-        | TransportFailure::ResponseTooLarge { .. }
-        | TransportFailure::Response(_)
-        | TransportFailure::Timeout { .. }
-        | TransportFailure::Network { .. }
-        | TransportFailure::RequestBody(_) => failure.to_string(),
+        RequestError::Http { .. }
+        | RequestError::ResponseTooLarge { .. }
+        | RequestError::Response(_)
+        | RequestError::Timeout { .. }
+        | RequestError::Network { .. }
+        | RequestError::RequestBody(_) => failure.to_string(),
     }
 }
 

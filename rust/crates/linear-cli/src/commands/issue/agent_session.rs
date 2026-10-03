@@ -3,6 +3,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 
 use crate::cli::issue::{IssueAgentSessionList, IssueAgentSessionView};
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
@@ -15,7 +16,6 @@ use crate::graphql::operations::agent_session::{
     GetIssueAgentSessionsVariables, ListSession, SessionComment,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::style;
 use crate::refs::reject_linear_url;
 
@@ -53,7 +53,7 @@ fn print_sessions(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
 }
 
 /// The session with every one of its activities.
-async fn fetch_session(transport: &GraphQlTransport, id: &str) -> Result<AgentSession> {
+async fn fetch_session(client: &LinearClient, id: &str) -> Result<AgentSession> {
     let session = pagination::collect_within(
         None,
         |after, first| {
@@ -65,7 +65,7 @@ async fn fetch_session(transport: &GraphQlTransport, id: &str) -> Result<AgentSe
                 },
             ));
             async move {
-                let data: GetAgentSessionDetails = transport.execute(&request).await?;
+                let data: GetAgentSessionDetails = client.execute(&request).await?;
                 Ok(data.agent_session)
             }
         },
@@ -84,7 +84,7 @@ async fn fetch_session(transport: &GraphQlTransport, id: &str) -> Result<AgentSe
 }
 
 /// Every comment on the issue, for the agent sessions they started.
-async fn fetch_comments(transport: &GraphQlTransport, id: &str) -> Result<Vec<SessionComment>> {
+async fn fetch_comments(client: &LinearClient, id: &str) -> Result<Vec<SessionComment>> {
     pagination::collect(None, |after, first| {
         let request = GraphQlRequest::with_variables(GetIssueAgentSessions::build(
             GetIssueAgentSessionsVariables {
@@ -94,7 +94,7 @@ async fn fetch_comments(transport: &GraphQlTransport, id: &str) -> Result<Vec<Se
             },
         ));
         async move {
-            let data: GetIssueAgentSessions = transport.execute(&request).await?;
+            let data: GetIssueAgentSessions = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.issue.comments.nodes,
                 page_info: data.issue.comments.page_info,

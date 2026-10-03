@@ -3,6 +3,7 @@
 use cynic::QueryBuilder;
 
 use crate::cli::label::LabelList;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
@@ -14,7 +15,6 @@ use crate::graphql::operations::issue_labels::{
 };
 use crate::graphql::operations::teams::StringComparator;
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
 
@@ -74,10 +74,7 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
 }
 
 /// Every label matching `filter`.
-async fn fetch(
-    client: &GraphQlTransport,
-    filter: Option<IssueLabelFilter>,
-) -> Result<Vec<IssueLabel>> {
+async fn fetch(client: &LinearClient, filter: Option<IssueLabelFilter>) -> Result<Vec<IssueLabel>> {
     pagination::collect(None, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetIssueLabels::build(GetIssueLabelsVariables {

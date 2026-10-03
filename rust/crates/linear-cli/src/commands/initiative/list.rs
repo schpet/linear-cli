@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::cli::initiative::InitiativeList;
 use crate::cli::values;
+use crate::client::LinearClient;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::{json, user};
 use crate::ctx::Ctx;
@@ -16,7 +17,6 @@ use crate::graphql::operations::initiatives::{
 };
 use crate::graphql::operations::teams::StringComparator;
 use crate::graphql::pagination::{self, Page, PageInfo};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 
 pub fn run(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
@@ -79,7 +79,7 @@ fn filter(status: Option<&str>, owner: Option<String>) -> Option<InitiativeFilte
 
 /// Every matching initiative, sorted by status then name.
 async fn fetch(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     filter: Option<InitiativeFilter>,
     archived: bool,
 ) -> Result<Vec<Initiative>> {

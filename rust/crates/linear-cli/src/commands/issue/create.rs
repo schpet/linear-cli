@@ -78,7 +78,7 @@ fn create_with(
 /// The API backend issue creation and updates resolve names through.
 pub(super) fn backend(ctx: &Ctx) -> Result<NetworkBackend> {
     Ok(NetworkBackend {
-        transport: ctx.client()?.clone(),
+        client: ctx.client()?.clone(),
         options: ctx.options().clone(),
         cli_workspace: ctx.workspace().map(str::to_owned),
         default_workspace: ctx.credentials()?.default().map(str::to_owned),

@@ -2,6 +2,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::document::DocumentDelete;
+use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -9,7 +10,6 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::document_delete::{
     DeleteDocument, DocumentDetails, GetDocumentForDelete, IdVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 
 pub fn run(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete document")
@@ -80,11 +80,7 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
 
 /// One bulk row. Failures, including an unparseable reference, become the
 /// row's message rather than stopping the other items.
-async fn delete_item(
-    client: &GraphQlTransport,
-    original: String,
-    id: Result<String>,
-) -> BulkResult {
+async fn delete_item(client: &LinearClient, original: String, id: Result<String>) -> BulkResult {
     let row = async {
         let Some(document) = details(client, &id?).await? else {
             return Ok(BulkResult {
@@ -107,7 +103,7 @@ async fn delete_item(
     })
 }
 
-async fn details(client: &GraphQlTransport, id: &str) -> Result<Option<DocumentDetails>> {
+async fn details(client: &LinearClient, id: &str) -> Result<Option<DocumentDetails>> {
     let request = GraphQlRequest::with_variables(GetDocumentForDelete::build(IdVariables {
         id: id.to_owned(),
     }));
@@ -118,7 +114,7 @@ async fn details(client: &GraphQlTransport, id: &str) -> Result<Option<DocumentD
     Ok(data.document)
 }
 
-async fn submit(client: &GraphQlTransport, id: &str) -> Result<()> {
+async fn submit(client: &LinearClient, id: &str) -> Result<()> {
     let request =
         GraphQlRequest::with_variables(DeleteDocument::build(IdVariables { id: id.to_owned() }));
     let data: DeleteDocument = client.execute(&request).await?;

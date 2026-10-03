@@ -2,6 +2,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::initiative::InitiativeUnarchive;
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -9,7 +10,6 @@ use crate::graphql::operations::initiative_unarchive::{
     DetailVariables, GetInitiativeForUnarchive, UnarchiveDetail, UnarchiveInitiative,
     UnarchiveVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 
 pub fn run(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     unarchive(ctx, args).context("Failed to unarchive initiative")
@@ -51,7 +51,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     ctx.print(output)
 }
 
-async fn details(client: &GraphQlTransport, id: &str, original: &str) -> Result<UnarchiveDetail> {
+async fn details(client: &LinearClient, id: &str, original: &str) -> Result<UnarchiveDetail> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeForUnarchive::build(DetailVariables {
             id: cynic::Id::new(id),

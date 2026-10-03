@@ -4,7 +4,7 @@
 //! `HTTPS_PROXY`, `ALL_PROXY` and `NO_PROXY` (either case) itself.
 use std::path::PathBuf;
 
-use crate::graphql::transport::TransportConfig;
+use crate::client::ClientConfig;
 
 use super::runtime::ProcessEnvSnapshot;
 
@@ -29,10 +29,10 @@ impl TransportEnvInputs {
     }
 
     /// The transport configuration with default deadline and response cap.
-    pub fn production(&self) -> TransportConfig {
-        TransportConfig {
+    pub fn production(&self) -> ClientConfig {
+        ClientConfig {
             ca_bundle: self.ca_bundle.clone(),
-            ..TransportConfig::default()
+            ..ClientConfig::default()
         }
     }
 }
@@ -43,10 +43,10 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+    use crate::client::{Deadline, ResponseCap};
     use crate::config::OsFamily;
-    use crate::graphql::transport::{Deadline, ResponseCap};
 
-    fn production(vars: &[(&str, &str)]) -> TransportConfig {
+    fn production(vars: &[(&str, &str)]) -> ClientConfig {
         let snapshot = ProcessEnvSnapshot::from_vars_os(
             PathBuf::from("/work"),
             OsFamily::Unix,

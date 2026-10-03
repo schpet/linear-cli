@@ -1,10 +1,11 @@
 //! `issue view`: the issue as Markdown with comment threads, or JSON, or
 //! opened in Linear.
+use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    graphql::{envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport},
+    graphql::{envelope::GraphQlRequest, operations::issue_read::*},
     platform::{
         markdown_assets,
         markdown_terminal::{self, RenderOptions},
@@ -126,14 +127,10 @@ impl Fetched {
         }
     }
 }
-pub async fn fetch(
-    transport: &GraphQlTransport,
-    id: String,
-    comments: bool,
-) -> Result<Fetched, Error> {
+pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<Fetched, Error> {
     let missing = || Error::not_found("Issue", &id);
     if comments {
-        let data: GetIssueDetailsWithComments = transport
+        let data: GetIssueDetailsWithComments = client
             .execute(&GraphQlRequest::with_variables(
                 GetIssueDetailsWithComments::build(GetIssueDetailsWithCommentsVariables {
                     id: id.clone(),
@@ -142,7 +139,7 @@ pub async fn fetch(
             .await?;
         Ok(Fetched::With(data.issue.ok_or_else(missing)?))
     } else {
-        let data: GetIssueDetails = transport
+        let data: GetIssueDetails = client
             .execute(&GraphQlRequest::with_variables(GetIssueDetails::build(
                 GetIssueDetailsVariables { id: id.clone() },
             )))
@@ -151,7 +148,7 @@ pub async fn fetch(
     }
 }
 pub async fn download_images(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     issue: &mut Issue,
     root: &Path,
     report: impl FnMut(String) -> Result<(), Error>,
@@ -161,7 +158,7 @@ pub async fn download_images(
         sources.push(body);
     }
     sources.extend(issue.comments.nodes.iter().map(|c| c.body.as_str()));
-    let paths = markdown_assets::download(transport, root, &sources, report).await?;
+    let paths = markdown_assets::download(client, root, &sources, report).await?;
     if !paths.is_empty() {
         if let Some(body) = issue.description.as_mut() {
             *body = markdown_assets::rewrite(body, &paths);
@@ -173,7 +170,7 @@ pub async fn download_images(
     Ok(())
 }
 pub async fn download_attachments<E>(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     issue: &Issue,
     root: &Path,
     mut emit: E,
@@ -203,7 +200,7 @@ where
                 "attachment",
             ));
             if !path.exists() {
-                let bytes = transport.download_issue_attachment(&attachment.url).await?;
+                let bytes = client.download_issue_attachment(&attachment.url).await?;
                 std::fs::write(&path, bytes).map_err(io_error)?;
             }
             path.into_os_string()

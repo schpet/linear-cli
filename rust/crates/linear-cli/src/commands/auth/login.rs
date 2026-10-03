@@ -8,12 +8,12 @@ use crate::auth::keyring::native_backend;
 use crate::auth::mutation::{Credentials, KeyringBackend};
 use crate::auth::{ApiKeyInput, CredentialFormat};
 use crate::cli::auth::AuthLogin;
+use crate::client::{ApiKey, LinearClient, RequestError};
 use crate::config::ConfigSecret;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, ResponseGraphQlError};
 use crate::graphql::operations::auth_login_viewer::AuthLoginViewer;
-use crate::graphql::transport::{ApiKey, GraphQlTransport, TransportFailure};
 use crate::platform::style;
 
 const KEY_HINT: &str = "Create one at https://linear.app/settings/account/security";
@@ -36,7 +36,7 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
         Some(key) => ConfigSecret::new(key.clone()),
         None => read_key(ctx)?,
     })?;
-    let client = GraphQlTransport::new(
+    let client = LinearClient::new(
         ctx.options().endpoint().value().clone(),
         ApiKey::new(key.expose().to_owned()).map_err(|error| {
             Error::new("API key cannot be used as an HTTP header").with_source(error)
@@ -128,17 +128,17 @@ fn clean_key(key: ConfigSecret) -> Result<ConfigSecret> {
 }
 
 /// Linear refused the key: HTTP 401/403 or an authentication error.
-fn rejected_key(failure: TransportFailure) -> Error {
+fn rejected_key(failure: RequestError) -> Error {
     let refused = match &failure {
-        TransportFailure::GraphQl { status, errors, .. } => {
+        RequestError::GraphQl { status, errors, .. } => {
             refused_status(*status) || errors.iter().any(authentication_error)
         }
-        TransportFailure::Http { response, .. } => refused_status(response.status),
-        TransportFailure::ResponseTooLarge { status, .. } => refused_status(*status),
-        TransportFailure::RequestBody(_)
-        | TransportFailure::Response(_)
-        | TransportFailure::Timeout { .. }
-        | TransportFailure::Network { .. } => false,
+        RequestError::Http { response, .. } => refused_status(response.status),
+        RequestError::ResponseTooLarge { status, .. } => refused_status(*status),
+        RequestError::RequestBody(_)
+        | RequestError::Response(_)
+        | RequestError::Timeout { .. }
+        | RequestError::Network { .. } => false,
     };
     if refused {
         Error::auth("Invalid API key")

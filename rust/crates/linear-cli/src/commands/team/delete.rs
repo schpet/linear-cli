@@ -2,6 +2,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::team::TeamDelete;
+use crate::client::LinearClient;
 use crate::commands::bulk::{self, BulkOutcome, BulkResult, Verb};
 use crate::commands::confirm;
 use crate::ctx::Ctx;
@@ -12,7 +13,6 @@ use crate::graphql::operations::team_delete::{
     MoveVariables,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Choice;
 use crate::refs::{
     ResolvedTeam, fetch_all_teams_with_transport, prepare_team_lookup, resolve_team_with_transport,
@@ -81,7 +81,7 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
 }
 
 /// Every issue of the team.
-async fn team_issues(client: &GraphQlTransport, team: &ResolvedTeam) -> Result<Vec<MoveIssue>> {
+async fn team_issues(client: &LinearClient, team: &ResolvedTeam) -> Result<Vec<MoveIssue>> {
     pagination::collect(None, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetTeamIssuesForMove::build(MovePageVariables {
@@ -107,7 +107,7 @@ async fn team_issues(client: &GraphQlTransport, team: &ResolvedTeam) -> Result<V
 /// Asks which team gets the issues of the team being deleted.
 fn choose_target(
     ctx: &Ctx,
-    client: &GraphQlTransport,
+    client: &LinearClient,
     team: &ResolvedTeam,
     count: usize,
 ) -> Result<ResolvedTeam> {
@@ -139,7 +139,7 @@ fn choose_target(
 /// reporting which issues did not move.
 fn move_issues(
     ctx: &Ctx,
-    client: &GraphQlTransport,
+    client: &LinearClient,
     team: &ResolvedTeam,
     target: &ResolvedTeam,
     issues: &[MoveIssue],

@@ -4,13 +4,13 @@ pub mod list;
 use cynic::QueryBuilder;
 
 use crate::cli::user::UserCommand;
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
     GetViewerId, GetViewerIdVariables, LookupUser, LookupUserNode, LookupUserVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 
 pub fn run(ctx: &Ctx, command: &UserCommand) -> Result<()> {
     match command {
@@ -21,7 +21,7 @@ pub fn run(ctx: &Ctx, command: &UserCommand) -> Result<()> {
 /// The ID of the user `input` names: `@me` (or `self`), an email, a display
 /// name, or part of a name. `noun` names the role in the not-found error,
 /// like "Owner".
-pub async fn resolve(client: &GraphQlTransport, input: &str, noun: &str) -> Result<String> {
+pub async fn resolve(client: &LinearClient, input: &str, noun: &str) -> Result<String> {
     if input == "@me" || input == "self" {
         let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
         let data: GetViewerId = client.execute(&request).await?;

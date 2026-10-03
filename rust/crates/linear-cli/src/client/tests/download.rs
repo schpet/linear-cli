@@ -3,12 +3,12 @@
 use std::time::Duration;
 
 use super::server::{Reply, Server};
-use super::{USER_AGENT_VALUE, config, transport};
-use crate::graphql::transport::GraphQlTransport;
+use super::{USER_AGENT_VALUE, client_for, config};
+use crate::client::LinearClient;
 
-/// A transport whose GraphQL deadline and cap would fail any download.
-fn strict_transport() -> GraphQlTransport {
-    transport(
+/// A client whose GraphQL deadline and cap would fail any download.
+fn strict_client() -> LinearClient {
+    client_for(
         "http://127.0.0.1:9/graphql",
         config(Duration::from_millis(10), 1),
     )
@@ -25,7 +25,7 @@ async fn downloads_ignore_the_graphql_deadline_and_cap_and_send_no_api_key() {
         bytes(&[0, 255, 7]).delayed(Duration::from_millis(50)),
     ]);
     let url = server.url("/image");
-    let client = strict_transport();
+    let client = strict_client();
     assert_eq!(
         client.download_markdown_image(&url).await.expect("image"),
         [0, 255, 7]
@@ -59,7 +59,7 @@ async fn failures_report_the_http_status_with_a_per_kind_prefix() {
         Reply::status(500, "text/plain", ""),
     ]);
     let url = server.url("/image");
-    let client = strict_transport();
+    let client = strict_client();
     assert_eq!(
         client
             .download_markdown_image(&url)
@@ -81,7 +81,7 @@ async fn failures_report_the_http_status_with_a_per_kind_prefix() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn only_http_urls_are_downloaded() {
-    let client = strict_transport();
+    let client = strict_client();
     for (url, scheme) in [
         ("data:application/octet-stream;base64,AP8H", "data"),
         ("file:///work/local.bin", "file"),
@@ -114,7 +114,7 @@ async fn url_userinfo_is_sent_as_basic_auth_instead_of_the_api_key() {
         .url("/image")
         .replacen("http://", "http://fake-user:fake-password@", 1);
     assert_eq!(
-        strict_transport()
+        strict_client()
             .download_markdown_image(&url)
             .await
             .expect("image"),
@@ -145,7 +145,7 @@ async fn downloads_follow_twenty_redirects_and_refuse_the_twenty_first() {
             })
             .collect::<Vec<_>>()
     };
-    let client = strict_transport();
+    let client = strict_client();
 
     let server = Server::start(hops(20));
     assert_eq!(

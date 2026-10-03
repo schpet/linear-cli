@@ -1,4 +1,5 @@
 //! `issue start`: create or switch the VCS branch, then move the issue to a started state.
+use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueStart,
     commands::{issue::read as issue_read, team_key::configured_team_key},
@@ -12,7 +13,6 @@ use crate::{
             issue_start_state::{UpdateIssueState, Variables},
             workflow_states::{GetWorkflowStates, WorkflowState},
         },
-        transport::GraphQlTransport,
     },
     platform::{
         prompt::Choice,
@@ -172,11 +172,11 @@ pub fn filter(team: &str, all: bool, unassigned: bool) -> IssueFilter {
     }
 }
 pub async fn list(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     filter: IssueFilter,
     priority: bool,
 ) -> Result<Vec<ListedIssue>, Error> {
-    issue_read::mine(transport, filter, priority, None).await
+    issue_read::mine(client, filter, priority, None).await
 }
 fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
     if issues.is_empty() {
@@ -362,17 +362,17 @@ pub fn update_request(identifier: &str, state_id: &str) -> GraphQlRequest<Variab
     }))
 }
 pub async fn update_state(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     team: &str,
     identifier: &str,
 ) -> Result<Vec<u8>, String> {
     let request = crate::workflow_states::request(team.to_owned());
-    let response: GetWorkflowStates = transport
+    let response: GetWorkflowStates = client
         .execute(&request)
         .await
         .map_err(|failure| Error::from(failure).to_string())?;
     let state = started(response.team.states.nodes).map_err(|error| error.to_string())?;
-    let response: UpdateIssueState = transport
+    let response: UpdateIssueState = client
         .execute(&update_request(identifier, state.id.inner()))
         .await
         .map_err(|failure| Error::from(failure).to_string())?;

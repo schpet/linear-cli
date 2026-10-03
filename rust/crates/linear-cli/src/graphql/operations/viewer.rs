@@ -1,10 +1,10 @@
 //! The authenticated user's workspace.
 use cynic::QueryBuilder;
 
+use crate::client::LinearClient;
 use crate::error::{Error, Result};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::schema;
-use crate::graphql::transport::GraphQlTransport;
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Query")]
@@ -25,7 +25,7 @@ pub struct ViewerOrganization {
 }
 
 /// The URL key of the workspace the client's API key belongs to.
-pub async fn url_key(client: &GraphQlTransport) -> Result<String> {
+pub async fn url_key(client: &LinearClient) -> Result<String> {
     let request = GraphQlRequest::without_variables(GetViewer::build(()));
     let result: GetViewer = client.execute(&request).await.map_err(Error::from)?;
     Ok(result.viewer.organization.url_key)

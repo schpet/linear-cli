@@ -2,6 +2,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::initiative::{InitiativeAddProject, InitiativeRemoveProject};
+use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -10,7 +11,6 @@ use crate::graphql::operations::initiative_projects::{
     InitiativeToProjectCreateInput, LinksVariables, RemoveProjectFromInitiative,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{self, InitiativeReference, ProjectReference};
 
 pub fn add(ctx: &Ctx, args: &InitiativeAddProject) -> Result<()> {
@@ -108,7 +108,7 @@ impl<'a> Pair<'a> {
         })
     }
 
-    async fn link(&self, client: &GraphQlTransport) -> Result<Link> {
+    async fn link(&self, client: &LinearClient) -> Result<Link> {
         let (original, reference) = &self.initiative;
         let initiative_id =
             super::resolve(client, reference, original, super::Archived::Exclude).await?;

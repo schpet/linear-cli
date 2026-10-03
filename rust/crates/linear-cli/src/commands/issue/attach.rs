@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use crate::cli::issue::IssueAttach;
+use crate::client::LinearClient;
 use crate::commands::upload::{self, UploadedFile};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -11,7 +12,6 @@ use crate::graphql::operations::upload::{
     AttachmentCreate, AttachmentCreateInput, AttachmentCreateVariables, CreatedAttachment,
     GetIssueId, GetIssueIdVariables,
 };
-use crate::graphql::transport::GraphQlTransport;
 use cynic::{MutationBuilder, QueryBuilder};
 pub fn run(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
     attach_file(ctx, args).context("Failed to attach file")
@@ -87,8 +87,8 @@ fn lookup_request(identifier: &str) -> GraphQlRequest<GetIssueIdVariables> {
         id: identifier.to_owned(),
     }))
 }
-async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<String, Error> {
-    let data: GetIssueId = transport
+async fn lookup(client: &LinearClient, identifier: &str) -> Result<String, Error> {
+    let data: GetIssueId = client
         .execute(&lookup_request(identifier))
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
@@ -116,13 +116,13 @@ fn attach_request(
     }))
 }
 async fn attach(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     issue_uuid: &str,
     file: &UploadedFile,
     title: Option<&str>,
     comment: Option<&str>,
 ) -> Result<CreatedAttachment, Error> {
-    let data: AttachmentCreate = transport
+    let data: AttachmentCreate = client
         .execute(&attach_request(issue_uuid, file, title, comment))
         .await
         .map_err(Error::from)?;

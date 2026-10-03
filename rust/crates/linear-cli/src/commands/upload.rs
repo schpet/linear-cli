@@ -1,8 +1,8 @@
 //! File uploads: validation, MIME types, the signed upload and the resulting links.
+use crate::client::LinearClient;
 use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::upload::{FileUpload, FileUploadVariables, UploadFileHeader};
-use crate::graphql::transport::GraphQlTransport;
 use cynic::MutationBuilder;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::path::Path;
@@ -181,14 +181,11 @@ pub struct UploadedFile {
     pub asset_url: String,
 }
 pub async fn upload(
-    transport: &GraphQlTransport,
+    client: &LinearClient,
     path: &Path,
     file: PreparedFile,
 ) -> Result<UploadedFile, Error> {
-    let response: FileUpload = transport
-        .execute(&request(&file))
-        .await
-        .map_err(Error::from)?;
+    let response: FileUpload = client.execute(&request(&file)).await.map_err(Error::from)?;
     if !response.file_upload.success {
         return Err(Error::new("Failed to get upload URL from Linear"));
     }
@@ -201,7 +198,7 @@ pub async fn upload(
         Error::new(format!("Failed to read upload file: {}", path.display())).with_source(error)
     })?;
     let headers = signed_headers(file.content_type, &target.headers)?;
-    transport
+    client
         .put_signed(&target.upload_url, headers, bytes)
         .await?;
     Ok(UploadedFile {

@@ -4,8 +4,8 @@
 //! Only files hosted by Linear (or by the configured API endpoint's host) are
 //! fetched: downloading arbitrary image URLs would reveal the reader's IP
 //! address to whoever wrote the Markdown.
+use crate::client::LinearClient;
 use crate::error::{Error, Result};
-use crate::graphql::transport::GraphQlTransport;
 use pulldown_cmark::{Event, LinkType, Options, Parser, Tag, TagEnd};
 use reqwest::Url;
 use sha2::{Digest, Sha256};
@@ -217,7 +217,7 @@ fn source(content: &str, range: Range<usize>) -> &str {
 /// already cached, and returns each downloaded URL's local path. A failed
 /// download is reported through `report` and its URL is left out.
 pub async fn download(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     root: &Path,
     bodies: &[&str],
     mut report: impl FnMut(String) -> Result<()>,
@@ -239,7 +239,7 @@ pub async fn download(
     Ok(paths)
 }
 
-async fn fetch_cached(client: &GraphQlTransport, root: &Path, asset: &Asset) -> Result<String> {
+async fn fetch_cached(client: &LinearClient, root: &Path, asset: &Asset) -> Result<String> {
     let path = cache_path(root, asset);
     let directory = path.parent().expect("a cache path is inside its directory");
     std::fs::create_dir_all(directory).map_err(io_error)?;

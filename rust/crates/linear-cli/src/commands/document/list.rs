@@ -1,4 +1,5 @@
 //! `document list`: one page of documents as a table or JSON.
+use crate::client::LinearClient;
 use std::time::SystemTime;
 
 use cynic::QueryBuilder;
@@ -16,7 +17,6 @@ use crate::graphql::{
     envelope::GraphQlRequest,
     operations::documents::*,
     pagination::{self, Page, PageInfo},
-    transport::GraphQlTransport,
 };
 use crate::platform::style;
 
@@ -59,7 +59,7 @@ fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
 }
 
 async fn fetch(
-    client: &GraphQlTransport,
+    client: &LinearClient,
     filter: Option<DocumentFilter>,
     limit: Limit,
 ) -> Result<Vec<ListedDocument>> {

@@ -4,6 +4,7 @@ use std::time::SystemTime;
 use cynic::QueryBuilder;
 
 use crate::cli::team::TeamList;
+use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
@@ -12,7 +13,6 @@ use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::teams::{self, GetTeams, GetTeamsVariables};
 use crate::graphql::pagination::{self, Page};
-use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 
 pub fn run(ctx: &Ctx, args: &TeamList) -> Result<()> {
@@ -36,7 +36,7 @@ fn list(ctx: &Ctx, args: &TeamList) -> Result<()> {
 }
 
 /// Every team that is not archived, sorted by name.
-async fn fetch(client: &GraphQlTransport) -> Result<Vec<teams::Team>> {
+async fn fetch(client: &LinearClient) -> Result<Vec<teams::Team>> {
     let teams = pagination::collect(None, |after, first| {
         let request = GraphQlRequest::with_variables(GetTeams::build(GetTeamsVariables {
             filter: None,
