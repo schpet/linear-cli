@@ -20,8 +20,8 @@ use crate::graphql::operations::cycle::{
 use crate::graphql::pagination::Pages;
 use crate::graphql::scalars::WholeNumber;
 use crate::refs::{
-    CycleSelector, LinearUrlKind, LinearUrlRef, expect_url_kind, prepare_team_lookup,
-    resolve_team_with_transport,
+    CycleNumber, CycleNumberProblem, CycleSelector, LinearUrlKind, LinearUrlRef, expect_url_kind,
+    prepare_team_lookup, resolve_team_with_transport,
 };
 
 pub fn run(ctx: &Ctx, args: &CycleView) -> Result<()> {
@@ -157,7 +157,7 @@ fn select(
         }) => {
             return cycles
                 .iter()
-                .find(|cycle| u64::from(cycle.number.0) == *number)
+                .find(|cycle| cycle.number.0 == number.get())
                 .map(|cycle| cycle.id.inner().to_owned())
                 .ok_or_else(|| Error::not_found("Cycle", &format!("#{number} in team {key}")));
         }
@@ -214,9 +214,8 @@ fn select(
     if offset(reference) {
         let magnitude = reference
             .get(1..)
-            .and_then(|digits| digits.parse::<u64>().ok());
-        let magnitude = magnitude
-            .and_then(|value| i64::try_from(value).ok())
+            .and_then(|digits| digits.parse::<u32>().ok())
+            .map(i64::from)
             .ok_or_else(|| Error::new(format!("Cycle offset {reference} is out of range")))?;
         let active = active.ok_or_else(|| {
             Error::new(format!(
@@ -236,17 +235,31 @@ fn select(
             .map(|cycle| cycle.id.inner().to_owned())
             .ok_or_else(|| Error::not_found("Cycle", &format!("{reference} (cycle {target})")));
     }
+    let number = reference.parse::<CycleNumber>();
     for cycle in cycles {
         if cycle
             .name
             .as_deref()
             .is_some_and(|name| name.to_lowercase() == keyword)
-            || cycle.number.to_string() == reference
+            || number
+                .as_ref()
+                .is_ok_and(|number| cycle.number.0 == number.get())
         {
             return Ok(cycle.id.inner().to_owned());
         }
     }
-    Err(Error::not_found("Cycle", reference))
+    // A digits-only reference that names no cycle was meant as a number, so
+    // say why it cannot be one rather than reporting it as an unknown name.
+    let error = match number {
+        Ok(_) => return Err(Error::not_found("Cycle", reference)),
+        Err(error) => error,
+    };
+    match error.problem() {
+        CycleNumberProblem::NotDigits => Err(Error::not_found("Cycle", reference)),
+        CycleNumberProblem::Zero
+        | CycleNumberProblem::LeadingZero
+        | CycleNumberProblem::TooLarge => Err(Error::new(error.to_string())),
+    }
 }
 
 #[derive(Serialize)]

@@ -1,5 +1,7 @@
 use reqwest::Url;
 
+use super::cycle::CycleNumber;
+
 const TEAM_SUBPAGES: &[&str] = &[
     "overview",
     "all",
@@ -13,7 +15,6 @@ const TEAM_SUBPAGES: &[&str] = &[
     "settings",
 ];
 const PROJECT_SUBPAGES: &[&str] = &["overview", "issues", "updates", "activity"];
-const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum SlugKind {
@@ -57,7 +58,7 @@ impl LinearUrlKind {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CycleSelector {
-    Number(u64),
+    Number(CycleNumber),
     Active,
     Next,
 }
@@ -204,14 +205,10 @@ fn cycle_path(workspace: String, team_key: String, rest: &[String]) -> LinearUrl
     let cycle = match segment.to_lowercase().as_str() {
         "active" => CycleSelector::Active,
         "upcoming" => CycleSelector::Next,
-        _ => {
-            let valid_number = segment.starts_with(|ch: char| ('1'..='9').contains(&ch))
-                && segment.bytes().all(|b| b.is_ascii_digit());
-            match valid_number.then(|| segment.parse::<u64>().ok()).flatten() {
-                Some(number) if number <= MAX_SAFE_INTEGER => CycleSelector::Number(number),
-                _ => return unsupported(format!("\"{segment}\" is not a cycle number")),
-            }
-        }
+        _ => match segment.parse::<CycleNumber>() {
+            Ok(number) => CycleSelector::Number(number),
+            Err(error) => return unsupported(error.to_string()),
+        },
     };
     LinearUrlParse::Known(LinearUrlRef::Cycle {
         workspace,

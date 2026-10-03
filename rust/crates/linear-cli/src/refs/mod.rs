@@ -1,4 +1,5 @@
 //! Linear URL classification, local workspace checks and typed team lookup.
+mod cycle;
 mod project;
 mod team;
 mod url;
@@ -6,6 +7,7 @@ mod uuid;
 pub mod workflow_states;
 mod workspace;
 
+pub use cycle::{CycleNumber, CycleNumberProblem};
 pub use project::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
 pub use team::{
     PreparedTeamLookup, ResolvedTeam, fetch_all_teams, fetch_all_teams_with_transport, find_team,

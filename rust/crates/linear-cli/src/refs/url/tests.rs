@@ -31,14 +31,20 @@ fn typed_url_kinds_and_boundaries() {
         matches!(parse_linear_url("https://linear.app/acme/team/ß/projects%2Fall"), LinearUrlParse::Known(LinearUrlRef::Team { team_key, .. }) if team_key == "SS")
     );
     assert!(
-        matches!(parse_linear_url("https://linear.app/acme/team/eng/cycle/9007199254740992"), LinearUrlParse::Unsupported(reason) if reason == "\"9007199254740992\" is not a cycle number")
+        matches!(parse_linear_url("https://linear.app/acme/team/eng/cycle/4294967296"), LinearUrlParse::Unsupported(reason) if reason == "\"4294967296\" is not a cycle number: the largest cycle number is 4294967295")
+    );
+    assert!(
+        matches!(parse_linear_url("https://linear.app/acme/team/eng/cycle/0"), LinearUrlParse::Unsupported(reason) if reason == "\"0\" is not a cycle number: cycle numbers start at 1")
+    );
+    assert!(
+        matches!(parse_linear_url("https://linear.app/acme/team/eng/cycle/007"), LinearUrlParse::Unsupported(reason) if reason == "\"007\" is not a cycle number: it has a leading zero")
     );
     assert!(matches!(
-        parse_linear_url("https://linear.app/acme/team/eng/cycle/9007199254740991"),
+        parse_linear_url("https://linear.app/acme/team/eng/cycle/4294967295"),
         LinearUrlParse::Known(LinearUrlRef::Cycle {
-            cycle: CycleSelector::Number(9_007_199_254_740_991),
+            cycle: CycleSelector::Number(number),
             ..
-        })
+        }) if number.get() == u32::MAX
     ));
     assert!(
         matches!(parse_linear_url("https://linear.app/acme/team/eng/cycle/Constructor"), LinearUrlParse::Unsupported(reason) if reason == "\"Constructor\" is not a cycle number")

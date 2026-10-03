@@ -37,7 +37,7 @@ fn cycle_url(team_key: &str) -> LinearUrlRef {
     LinearUrlRef::Cycle {
         workspace: "example".to_owned(),
         team_key: team_key.to_owned(),
-        cycle: CycleSelector::Number(5),
+        cycle: CycleSelector::Number("5".parse().expect("valid cycle number")),
     }
 }
 

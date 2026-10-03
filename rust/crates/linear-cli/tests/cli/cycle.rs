@@ -161,3 +161,38 @@ fn view_unknown_cycle_fails_without_fetching_details() {
         .failure()
         .stderr_has("42");
 }
+
+#[test]
+fn view_rejects_a_cycle_url_number_outside_u32_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "cycle",
+            "view",
+            "https://linear.app/acme/team/eng/cycle/4294967296",
+        ])
+        .failure()
+        .stderr_has("the largest cycle number is 4294967295");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn view_explains_numbers_that_cannot_be_cycle_numbers() {
+    for (reference, reason) in [
+        ("0", "cycle numbers start at 1"),
+        ("4294967296", "the largest cycle number is 4294967295"),
+    ] {
+        let api = MockLinear::start();
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+            .on("GetTeamCyclesForLookup", lookup(Value::Null));
+        Cli::for_api(&api)
+            .run(&["cycle", "view", reference, "--team", "ENG"])
+            .failure()
+            .stderr_has(&format!("\"{reference}\" is not a cycle number: {reason}"));
+        assert!(
+            api.requests()
+                .iter()
+                .all(|request| request.operation.as_deref() != Some("GetCycleDetails"))
+        );
+    }
+}
