@@ -1,8 +1,6 @@
 //! `auth migrate`: move plaintext keys from the credentials file to the
 //! system keyring.
 use crate::auth::CredentialFormat;
-use crate::auth::keyring::native_backend;
-use crate::auth::mutation::KeyringBackend;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 
@@ -15,13 +13,14 @@ fn migrate(ctx: &Ctx) -> Result<()> {
     if credentials.format() != CredentialFormat::Inline {
         return ctx.print("Credentials are already using the system keyring.\n");
     }
-    let backend = native_backend(&ctx.config().child_env);
-    let migrated = ctx.spin(true, async {
-        if !backend.available().await {
-            return Err(no_keyring());
-        }
-        credentials.migrate(&backend).await
-    })?;
+    let keyring = ctx.credentials()?.keyring();
+    if !keyring.available() {
+        return Err(no_keyring());
+    }
+    let migrated = {
+        let _spinner = ctx.spinner(true, "");
+        credentials.migrate(keyring)?
+    };
     let mut output = format!(
         "Migrated {} workspace(s) to system keyring:\n",
         migrated.len()

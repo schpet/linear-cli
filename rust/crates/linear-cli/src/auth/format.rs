@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::auth::keyring::KeyringReader;
+use crate::auth::keyring::{Keyring, LookupFailureCategory, LookupResult};
 use crate::config::{ConfigSecret, ConfigTier};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -39,15 +39,6 @@ impl fmt::Display for CredentialFormatError {
     }
 }
 impl StdError for CredentialFormatError {}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum LookupFailureCategory {
-    Unavailable,
-    Permission,
-    Other,
-    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-    UnsupportedPlatform,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CredentialWarning {
@@ -192,13 +183,6 @@ pub fn parse_credentials(tier: ConfigTier) -> Result<CredentialManifest, Credent
     })
 }
 
-#[derive(Clone, Debug)]
-pub enum LookupResult {
-    Hit(ConfigSecret),
-    Miss,
-    Failed(LookupFailureCategory),
-}
-
 /// Stored credentials. Keyring-backed keys are looked up lazily, at most once
 /// per workspace, so a command reads only the entry it uses.
 pub struct CredentialStore {
@@ -206,7 +190,7 @@ pub struct CredentialStore {
     workspaces: Vec<String>,
     default: Option<String>,
     inline_keys: BTreeMap<String, ConfigSecret>,
-    keyring: Box<dyn KeyringReader>,
+    keyring: Box<dyn Keyring>,
     lookups: BTreeMap<String, OnceCell<LookupResult>>,
     warnings: RefCell<Vec<CredentialWarning>>,
 }
@@ -220,7 +204,7 @@ impl fmt::Debug for CredentialStore {
     }
 }
 impl CredentialStore {
-    pub fn new(manifest: CredentialManifest, keyring: Box<dyn KeyringReader>) -> Self {
+    pub fn new(manifest: CredentialManifest, keyring: Box<dyn Keyring>) -> Self {
         let lookups = match manifest.format {
             CredentialFormat::Metadata => manifest
                 .workspaces
@@ -260,7 +244,7 @@ impl CredentialStore {
         }
         let cell = self.lookups.get(workspace)?;
         let result = cell.get_or_init(|| {
-            let result = self.keyring.lookup(workspace);
+            let result = self.keyring.get(workspace);
             let warning = match &result {
                 LookupResult::Hit(_) => None,
                 LookupResult::Miss => Some(CredentialWarning::LookupMiss {
@@ -278,6 +262,11 @@ impl CredentialStore {
             LookupResult::Hit(secret) => Some(secret),
             LookupResult::Miss | LookupResult::Failed(_) => None,
         }
+    }
+
+    /// The keyring keys are read from, for storing and deleting them too.
+    pub fn keyring(&self) -> &dyn Keyring {
+        self.keyring.as_ref()
     }
 
     /// Warnings gathered so far (an invalid default, keyring misses), each returned once.

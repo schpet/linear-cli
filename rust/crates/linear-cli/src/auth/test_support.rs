@@ -1,10 +1,11 @@
-//! Credential stores built from TOML text with a canned keyring.
+//! Credential stores built from TOML text with a canned, read-only keyring.
 use std::path::PathBuf;
 
 use super::format::CredentialFormatError;
-use crate::auth::keyring::KeyringReader;
-use crate::auth::{CredentialManifest, CredentialStore, LookupResult, parse_credentials};
+use crate::auth::keyring::{Keyring, LookupResult};
+use crate::auth::{CredentialManifest, CredentialStore, parse_credentials};
 use crate::config::{ConfigSecret, RawConfigFile, parse_config_tier};
+use crate::error::Result;
 
 /// A credentials file parsed from `text`.
 pub(crate) fn manifest(text: &str) -> Result<CredentialManifest, CredentialFormatError> {
@@ -25,7 +26,7 @@ pub(crate) fn store(
 }
 
 /// A keyring that answers each listed workspace and misses the rest.
-pub(crate) fn keyring(replies: &[(&str, LookupResult)]) -> Box<dyn KeyringReader> {
+pub(crate) fn keyring(replies: &[(&str, LookupResult)]) -> Box<dyn Keyring> {
     let replies = replies
         .iter()
         .map(|(workspace, result)| ((*workspace).to_owned(), result.clone()))
@@ -39,11 +40,17 @@ pub(crate) fn hit(key: &str) -> LookupResult {
 
 struct CannedKeyring(Vec<(String, LookupResult)>);
 
-impl KeyringReader for CannedKeyring {
-    fn lookup(&self, workspace: &str) -> LookupResult {
+impl Keyring for CannedKeyring {
+    fn get(&self, workspace: &str) -> LookupResult {
         self.0
             .iter()
             .find(|(name, _)| name == workspace)
             .map_or(LookupResult::Miss, |(_, result)| result.clone())
+    }
+    fn set(&self, _: &str, _: &ConfigSecret) -> Result<()> {
+        unreachable!("a canned keyring is only read")
+    }
+    fn delete(&self, _: &str) -> Result<()> {
+        unreachable!("a canned keyring is only read")
     }
 }

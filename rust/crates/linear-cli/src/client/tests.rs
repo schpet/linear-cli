@@ -14,10 +14,10 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::{Map, Value, json};
 
 use self::server::{Reply, Server};
-use super::config::{EndpointUrlError, USER_AGENT_VALUE};
+use super::config::{ApiKeyError, EndpointUrlError, USER_AGENT_VALUE};
 use super::error::NetworkPhase;
 use super::{
-    ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, ClientBuildError, ClientConfig, Deadline, EndpointUrl,
+    ApiKey, CONTENT_TYPE_VALUE, ClientBuildError, ClientConfig, Deadline, EndpointUrl,
     HttpBodyShape, LinearClient, RawHttpResponse, RequestError, ResponseCap, classify_typed,
 };
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
@@ -42,7 +42,7 @@ fn config(deadline: Duration, cap: usize) -> ClientConfig {
 fn client_for(endpoint: &str, config: ClientConfig) -> LinearClient {
     LinearClient::new(
         EndpointUrl::parse(endpoint).expect("endpoint"),
-        ApiKey::new(FAKE_KEY.to_owned()).expect("fake key"),
+        ApiKey::new(FAKE_KEY).expect("fake key"),
         config,
     )
     .expect("client")
@@ -130,22 +130,26 @@ fn endpoint_url_keeps_path_and_query_but_displays_only_the_origin() {
 
 #[test]
 fn api_key_accepts_visible_ascii_with_spaces_and_redacts_itself() {
-    let key = ApiKey::new("lin_api_abc DEF!~".to_owned()).expect("spaces allowed");
+    let key = ApiKey::new("lin_api_abc DEF!~").expect("spaces allowed");
     assert_eq!(format!("{key:?}"), "ApiKey(<redacted>)");
     assert_eq!(key.to_string(), "<redacted>");
+    assert_eq!(ApiKey::new("").expect_err("empty"), ApiKeyError::Empty);
     assert_eq!(
-        ApiKey::new(String::new()).expect_err("empty"),
+        ApiKey::new(" \t\r\n ").expect_err("only whitespace"),
         ApiKeyError::Empty
     );
+    ApiKey::new(" \t\r\nlin_api_fake\n ").expect("surrounding whitespace is trimmed");
     for (text, index) in [
         ("lin_api\r\nX-Injected: 1", 7),
         ("lin_api\tx", 7),
+        // Indexes count from the first byte after trimmed whitespace.
+        (" \tab\tc", 2),
         ("\u{1b}[31m", 0),
         ("lin_api_é", 8),
         ("lin_api\u{7f}", 7),
     ] {
         assert_eq!(
-            ApiKey::new(text.to_owned()).expect_err("rejected"),
+            ApiKey::new(text).expect_err("rejected"),
             ApiKeyError::InvalidByte { index },
             "{text:?}"
         );
@@ -158,7 +162,7 @@ fn ca_bundle_must_be_a_readable_pem_file_with_certificates() {
     let build = |path: PathBuf| {
         LinearClient::new(
             EndpointUrl::parse("https://uploads.linear.app/x").expect("endpoint"),
-            ApiKey::new(FAKE_KEY.to_owned()).expect("fake key"),
+            ApiKey::new(FAKE_KEY).expect("fake key"),
             ClientConfig {
                 ca_bundle: Some(path),
                 ..ClientConfig::default()
@@ -205,7 +209,7 @@ async fn network_failures_never_expose_the_path_query_or_api_key() {
     // Nothing listens on port 1, so the connection is refused.
     let endpoint = EndpointUrl::parse("http://127.0.0.1:1/graphql?signature=SIGNED-SECRET-TOKEN")
         .expect("endpoint");
-    let key = ApiKey::new("lin_api_SECRET_KEY_VALUE".to_owned()).expect("key");
+    let key = ApiKey::new("lin_api_SECRET_KEY_VALUE").expect("key");
     let client =
         LinearClient::new(endpoint, key, config(Duration::from_secs(5), 1024)).expect("client");
     assert!(!format!("{client:?}").contains("SECRET"));

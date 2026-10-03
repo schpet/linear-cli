@@ -3,8 +3,8 @@
 use futures_util::future::join_all;
 use reqwest::StatusCode;
 
-use crate::auth::{self, CredentialStore};
-use crate::client::{LinearClient, RequestError};
+use crate::auth::CredentialStore;
+use crate::client::{ApiKey, LinearClient, RequestError};
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
@@ -72,7 +72,7 @@ fn clients(ctx: &Ctx, store: &CredentialStore) -> Result<Vec<Check>> {
             let Some(secret) = store.key(workspace) else {
                 return Ok(Check::Skip("missing credentials"));
             };
-            let Ok(key) = auth::header::to_api_key(secret) else {
+            let Ok(key) = ApiKey::new(secret.expose()) else {
                 return Ok(Check::Skip("invalid API key"));
             };
             let client = LinearClient::new(endpoint.clone(), key, config.clone())?;

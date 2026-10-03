@@ -3,7 +3,7 @@ use std::fs::OpenOptions;
 use std::io::{self, Read};
 use std::path::Path;
 
-use crate::auth::keyring::KeyringReader;
+use crate::auth::keyring::Keyring;
 use crate::auth::{
     CredentialFormatErrorKind, CredentialManifest, CredentialStore, parse_credentials,
 };
@@ -12,7 +12,7 @@ use crate::error::{Error, Result};
 
 /// Reads and parses the credentials file at `path`. A missing file (or no
 /// known path) is an empty store; keyring entries are read later, on demand.
-pub fn load(path: Option<&Path>, keyring: Box<dyn KeyringReader>) -> Result<CredentialStore> {
+pub fn load(path: Option<&Path>, keyring: Box<dyn Keyring>) -> Result<CredentialStore> {
     let manifest = match path {
         Some(path) => match read(path).map_err(|error| invalid(path, error))? {
             Some(bytes) => {
@@ -85,8 +85,9 @@ fn read(path: &Path) -> std::result::Result<Option<Vec<u8>>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auth::CredentialWarning;
+    use crate::auth::keyring::{LookupFailureCategory, LookupResult};
     use crate::auth::test_support::keyring;
-    use crate::auth::{CredentialWarning, LookupFailureCategory, LookupResult};
 
     /// Reads `path` with a keyring that cannot be reached.
     fn read(path: &Path) -> Result<CredentialStore> {

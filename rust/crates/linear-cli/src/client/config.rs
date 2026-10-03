@@ -145,9 +145,12 @@ impl fmt::Display for ApiKeyError {
 impl StdError for ApiKeyError {}
 
 impl ApiKey {
-    /// Accepts non-empty visible ASCII including spaces; rejects everything
-    /// else so the value can never split or inject a header.
-    pub fn new(text: String) -> Result<Self, ApiKeyError> {
+    /// Trims surrounding whitespace, which is never part of a key (keyring
+    /// tools and files often end it with a newline). What remains must be
+    /// non-empty visible ASCII, spaces allowed, so the value can never split
+    /// or inject a header.
+    pub fn new(text: &str) -> Result<Self, ApiKeyError> {
+        let text = text.trim_matches([' ', '\t', '\r', '\n']);
         if text.is_empty() {
             return Err(ApiKeyError::Empty);
         }
@@ -155,8 +158,7 @@ impl ApiKey {
             return Err(ApiKeyError::InvalidByte { index });
         }
         #[allow(clippy::expect_used, reason = "every byte was checked above")]
-        let mut value =
-            HeaderValue::from_str(&text).expect("visible ASCII is a valid header value");
+        let mut value = HeaderValue::from_str(text).expect("visible ASCII is a valid header value");
         value.set_sensitive(true);
         Ok(Self { value })
     }

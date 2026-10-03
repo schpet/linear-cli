@@ -1,98 +1,102 @@
-//! Keyring readers used when a key is needed, and the backends `auth`
-//! commands use to store and delete keys.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+//! The system keyring, which holds each workspace's API key when the
+//! credentials file lists workspaces without keys.
+//!
+//! Entries are named by service `linear-cli` and the workspace as account
+//! (on Windows, target `linear-cli:<workspace>`), so keys stored by earlier
+//! releases stay readable.
+#[cfg(any(target_os = "linux", target_os = "macos", all(test, unix)))]
 mod process;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-mod process_spec;
-
-use crate::auth::LookupResult;
-use crate::config::ChildEnvOverlay;
-
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-pub use process::{ProcessKeyringReader, ProcessMutationBackend};
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-pub use process_spec::ReaderFlavor;
-
-pub trait KeyringReader: Sync {
-    fn lookup(&self, workspace: &str) -> LookupResult;
-}
-
+#[cfg(any(target_os = "linux", all(test, unix)))]
+mod secret_tool;
+#[cfg(any(target_os = "macos", all(test, unix)))]
+mod security;
 #[cfg(windows)]
 mod windows;
-#[cfg(windows)]
-mod windows_spec;
 
-/// The keyring reader for the current platform.
-pub struct NativeKeyringReader;
-impl KeyringReader for NativeKeyringReader {
-    fn lookup(&self, workspace: &str) -> LookupResult {
-        #[cfg(target_os = "linux")]
-        {
-            ProcessKeyringReader::new(ReaderFlavor::SecretTool).lookup(workspace)
-        }
-        #[cfg(target_os = "macos")]
-        {
-            ProcessKeyringReader::new(ReaderFlavor::MacSecurity).lookup(workspace)
-        }
-        #[cfg(windows)]
-        {
-            windows::lookup_windows(windows::credential(workspace))
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-        {
-            let _ = workspace;
-            LookupResult::Failed(crate::auth::LookupFailureCategory::UnsupportedPlatform)
-        }
+use crate::config::{ChildEnvOverlay, ConfigSecret};
+use crate::error::Result;
+
+/// A workspace's entry in the keyring.
+#[derive(Clone, Debug)]
+pub enum LookupResult {
+    Hit(ConfigSecret),
+    Miss,
+    Failed(LookupFailureCategory),
+}
+
+/// Why a keyring entry could not be read. Never carries the keyring's
+/// output, which may include the secret.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LookupFailureCategory {
+    /// There is no keyring to ask: the tool is missing, no keyring session
+    /// exists, or the platform has none.
+    Unavailable,
+    /// The keyring tool could not be run.
+    #[cfg(any(target_os = "linux", target_os = "macos", all(test, unix)))]
+    Permission,
+    Other,
+}
+
+/// Reads, stores and deletes API keys by workspace.
+pub trait Keyring {
+    /// The key stored for `workspace`. A missing or empty entry is a miss.
+    fn get(&self, workspace: &str) -> LookupResult;
+    /// Stores `secret` for `workspace`, replacing any existing entry.
+    fn set(&self, workspace: &str, secret: &ConfigSecret) -> Result<()>;
+    /// Deletes `workspace`'s entry; deleting a missing entry succeeds.
+    fn delete(&self, workspace: &str) -> Result<()>;
+    /// Whether a keyring is there to use, checked before asking for a key
+    /// so a missing keyring is reported before any other work.
+    fn available(&self) -> bool {
+        true
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-pub type NativeMutationBackend = ProcessMutationBackend;
-#[cfg(windows)]
-pub type NativeMutationBackend = windows::WindowsMutationBackend;
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-pub type NativeMutationBackend = UnsupportedMutationBackend;
-
-/// The keyring backend for the current platform. Tool subprocesses see the
-/// `.env` overlay.
-pub fn native_backend(overlay: &ChildEnvOverlay) -> NativeMutationBackend {
+/// The keyring for this platform. Keyring tools run with the `.env`
+/// overlay, like every other subprocess.
+pub fn native(overlay: &ChildEnvOverlay) -> Box<dyn Keyring> {
     #[cfg(target_os = "linux")]
     {
-        ProcessMutationBackend::new(ReaderFlavor::SecretTool, overlay.clone())
+        Box::new(secret_tool::SecretTool::new(overlay.clone()))
     }
     #[cfg(target_os = "macos")]
     {
-        ProcessMutationBackend::new(ReaderFlavor::MacSecurity, overlay.clone())
+        Box::new(security::Security::new(overlay.clone()))
     }
     #[cfg(windows)]
     {
         let _ = overlay;
-        windows::WindowsMutationBackend
+        Box::new(windows::CredentialManager)
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     {
         let _ = overlay;
-        UnsupportedMutationBackend
+        Box::new(Unsupported)
     }
 }
 
 /// No system keyring on this platform.
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-pub struct UnsupportedMutationBackend;
+struct Unsupported;
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-impl crate::auth::mutation::KeyringBackend for UnsupportedMutationBackend {
-    async fn available(&self) -> bool {
+impl Keyring for Unsupported {
+    fn get(&self, _: &str) -> LookupResult {
+        LookupResult::Failed(LookupFailureCategory::Unavailable)
+    }
+    fn set(&self, _: &str, _: &ConfigSecret) -> Result<()> {
+        Err(unsupported())
+    }
+    fn delete(&self, _: &str) -> Result<()> {
+        Err(unsupported())
+    }
+    fn available(&self) -> bool {
         false
     }
-    async fn store(&self, _: &str, _: &crate::config::ConfigSecret) -> crate::error::Result<()> {
-        Err(crate::error::Error::new(
-            "System keyring is unsupported on this platform",
-        ))
-    }
-    async fn delete(&self, _: &str) -> crate::error::Result<()> {
-        Err(crate::error::Error::new(
-            "System keyring is unsupported on this platform",
-        ))
-    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+fn unsupported() -> crate::error::Error {
+    crate::error::Error::new("System keyring is unsupported on this platform")
+        .with_hint("Pass --plaintext to store the key in the credentials file.")
 }

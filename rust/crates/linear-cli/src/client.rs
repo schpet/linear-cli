@@ -28,9 +28,7 @@ use cynic::Operation;
 
 use crate::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};
 
-pub use config::{
-    ApiKey, ApiKeyError, ClientBuildError, ClientConfig, Deadline, EndpointUrl, ResponseCap,
-};
+pub use config::{ApiKey, ClientBuildError, ClientConfig, Deadline, EndpointUrl, ResponseCap};
 pub use error::{HttpBodyShape, RawHttpResponse, RequestError};
 
 use config::build_client;

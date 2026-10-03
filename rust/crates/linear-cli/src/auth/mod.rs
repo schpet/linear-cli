@@ -1,18 +1,20 @@
-//! Pure credential formats and selection. Backends and process inputs live elsewhere.
+//! Stored credentials: the credentials file and its two formats, the system
+//! keyring that holds keys for the keyring format, choosing which key a
+//! command uses, and changing what is stored.
 pub mod file;
 mod format;
-pub mod header;
 pub mod keyring;
+pub mod mutation;
 mod path;
 mod resolve;
 
 pub use format::{
     CredentialFormat, CredentialFormatErrorKind, CredentialManifest, CredentialStore,
-    CredentialWarning, LookupFailureCategory, LookupResult, parse_credentials,
+    CredentialWarning, parse_credentials,
 };
+pub use keyring::LookupFailureCategory;
 pub use path::credentials_path;
 pub use resolve::{ApiKeyInput, CredentialSelection, CredentialSelectionInputs, resolve};
-pub mod mutation;
 
 #[cfg(test)]
 pub(crate) mod test_support;

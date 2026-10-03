@@ -6,12 +6,12 @@ use std::io::{self, IsTerminal};
 use std::num::NonZeroU16;
 use std::path::{Path, PathBuf};
 
-use crate::auth::keyring::NativeKeyringReader;
+use crate::auth::keyring;
 use crate::auth::{
     self, ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialStore,
     CredentialWarning, LookupFailureCategory,
 };
-use crate::client::LinearClient;
+use crate::client::{ApiKey, LinearClient};
 use crate::config::{ConfigOptions, ConfigSecret, NetworkEnv, StartupConfig};
 use crate::error::{Error, Result};
 use crate::graphql::operations::user::GetViewer;
@@ -137,7 +137,10 @@ impl Ctx {
         if let Some(store) = self.credentials.get() {
             return Ok(store);
         }
-        let store = auth::file::load(self.credentials_path(), Box::new(NativeKeyringReader))?;
+        let store = auth::file::load(
+            self.credentials_path(),
+            keyring::native(&self.config.child_env),
+        )?;
         Ok(self.credentials.get_or_init(|| store))
     }
 
@@ -397,7 +400,7 @@ pub fn connect(
     secret: &ConfigSecret,
     network_env: &NetworkEnv,
 ) -> Result<LinearClient> {
-    let key = auth::header::to_api_key(secret).map_err(|error| {
+    let key = ApiKey::new(secret.expose()).map_err(|error| {
         Error::new("API key cannot be used as an HTTP header").with_source(error)
     })?;
     Ok(LinearClient::new(
@@ -420,11 +423,10 @@ fn credential_warning(warning: &CredentialWarning) -> String {
             category,
         } => {
             let reason = match category {
-                LookupFailureCategory::Unavailable => "keyring tool unavailable",
+                LookupFailureCategory::Unavailable => "system keyring unavailable",
+                #[cfg(any(target_os = "linux", target_os = "macos", all(test, unix)))]
                 LookupFailureCategory::Permission => "permission denied",
                 LookupFailureCategory::Other => "lookup failed",
-                #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-                LookupFailureCategory::UnsupportedPlatform => "unsupported platform",
             };
             format!("Warning: Failed to read keyring for workspace \"{workspace}\": {reason}")
         }

@@ -1,7 +1,5 @@
-//! Keyring access through the platform's command-line tool: `secret-tool` on
-//! Linux and `/usr/bin/security` on macOS. Going through `security` keeps
-//! existing keychain items readable without a new access prompt, because
-//! their access lists already trust that tool.
+//! Running a keyring command-line tool (`secret-tool`, `security`) with a
+//! deadline.
 use std::ffi::OsString;
 use std::io;
 use std::process::{Output, Stdio};
@@ -10,10 +8,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
-use super::process_spec::UnquotableValue;
-use super::{KeyringReader, ReaderFlavor};
-use crate::auth::mutation::KeyringBackend;
-use crate::auth::{LookupFailureCategory, LookupResult};
+use super::{LookupFailureCategory, LookupResult};
 use crate::config::{ChildEnvOverlay, ConfigSecret};
 use crate::error::Error;
 
@@ -25,17 +20,118 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// writes the tool's output.
 const PIPE_GRACE: Duration = Duration::from_millis(500);
 
-/// `security` exits with this status when no matching item exists.
-const MAC_NOT_FOUND: i32 = 44;
-
 #[derive(Debug)]
-enum RunError {
+pub enum RunError {
+    Runtime(io::Error),
     Spawn(io::Error),
     Io(io::Error),
     Timeout,
 }
 
-/// Runs a keyring command to completion, feeding `input` on stdin.
+impl RunError {
+    pub fn category(&self) -> LookupFailureCategory {
+        match self {
+            Self::Spawn(error) if error.kind() == io::ErrorKind::NotFound => {
+                LookupFailureCategory::Unavailable
+            }
+            Self::Spawn(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                LookupFailureCategory::Permission
+            }
+            Self::Runtime(_) | Self::Spawn(_) | Self::Io(_) | Self::Timeout => {
+                LookupFailureCategory::Other
+            }
+        }
+    }
+}
+
+/// A keyring tool: the executable and the environment it runs with.
+pub struct Tool {
+    pub name: &'static str,
+    pub executable: OsString,
+    pub overlay: ChildEnvOverlay,
+    pub timeout: Duration,
+}
+
+impl Tool {
+    pub fn new(name: &'static str, executable: &str, overlay: ChildEnvOverlay) -> Self {
+        Self {
+            name,
+            executable: OsString::from(executable),
+            overlay,
+            timeout: DEFAULT_TIMEOUT,
+        }
+    }
+
+    /// Runs the tool to completion with `args`, feeding `input` on stdin.
+    ///
+    /// Callers may or may not be inside the command's async runtime, so the
+    /// tool runs on a private runtime on its own thread. The child is killed
+    /// if it outlives the timeout.
+    pub fn run(&self, args: &[String], input: Option<&[u8]>) -> Result<Output, RunError> {
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    let runtime = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(RunError::Runtime)?;
+                    let mut command = Command::new(&self.executable);
+                    command.args(args).envs(self.overlay.iter());
+                    runtime.block_on(run(&mut command, input, self.timeout))
+                })
+                .join()
+                .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+        })
+    }
+
+    /// [`Tool::run`] for storing or deleting, with failures as user-facing
+    /// errors.
+    pub fn run_change(
+        &self,
+        args: &[String],
+        input: Option<&[u8]>,
+        install_hint: &str,
+    ) -> Result<Output, Error> {
+        if args.iter().any(|arg| arg.contains('\0')) {
+            return Err(Error::new(
+                "Keyring arguments cannot contain a NUL character",
+            ));
+        }
+        self.run(args, input).map_err(|error| match error {
+            RunError::Spawn(error) => Error::new(format!(
+                "Could not run {}: {error}",
+                self.executable.to_string_lossy()
+            ))
+            .with_hint(install_hint)
+            .with_source(error),
+            RunError::Runtime(error) | RunError::Io(error) => {
+                Error::new(format!("{} failed: {error}", self.name)).with_source(error)
+            }
+            RunError::Timeout => Error::new(format!(
+                "{} did not finish within {} seconds",
+                self.name,
+                self.timeout.as_secs()
+            )),
+        })
+    }
+
+    /// Fails unless the tool exited with one of `accepted`.
+    pub fn check(&self, output: &Output, action: &str, accepted: &[i32]) -> Result<(), Error> {
+        let code = output.status.code();
+        if code.is_some_and(|code| accepted.contains(&code)) {
+            return Ok(());
+        }
+        let status = code.map_or_else(|| output.status.to_string(), |code| format!("exit {code}"));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(Error::new(format!(
+            "{} {action} failed ({status}): {}",
+            self.name,
+            stderr.trim()
+        )))
+    }
+}
+
+/// Runs `command` to completion, feeding `input` on stdin.
 ///
 /// The child is killed if it outlives `timeout` or the caller is dropped.
 async fn run(
@@ -118,230 +214,17 @@ async fn read_into(pipe: Option<impl AsyncRead + Unpin>, bytes: &mut Vec<u8>) ->
     }
 }
 
-/// Why a keyring lookup failed. Never carries the tool's output, which may
-/// include the secret.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ProcessLookupFailure {
-    Runtime(io::ErrorKind),
-    Spawn(io::ErrorKind),
-    Io(io::ErrorKind),
-    Timeout,
-    InvalidUtf8,
-    ExitFailure,
-}
-
-impl ProcessLookupFailure {
-    fn category(self) -> LookupFailureCategory {
-        match self {
-            Self::Spawn(io::ErrorKind::NotFound) => LookupFailureCategory::Unavailable,
-            Self::Spawn(io::ErrorKind::PermissionDenied) => LookupFailureCategory::Permission,
-            Self::Runtime(_)
-            | Self::Spawn(_)
-            | Self::Io(_)
-            | Self::Timeout
-            | Self::InvalidUtf8
-            | Self::ExitFailure => LookupFailureCategory::Other,
-        }
+/// The key a successful lookup printed. Surrounding whitespace (such as
+/// `security -w`'s trailing newline) is dropped, and nothing left is a miss.
+pub fn printed_key(stdout: Vec<u8>) -> LookupResult {
+    let Ok(stdout) = String::from_utf8(stdout) else {
+        return LookupResult::Failed(LookupFailureCategory::Other);
+    };
+    match stdout.trim() {
+        "" => LookupResult::Miss,
+        key => LookupResult::Hit(ConfigSecret::new(key.to_owned())),
     }
 }
 
-/// Reads API keys with the platform's keyring tool.
-pub struct ProcessKeyringReader {
-    flavor: ReaderFlavor,
-    executable: OsString,
-    timeout: Duration,
-}
-
-impl ProcessKeyringReader {
-    pub fn new(flavor: ReaderFlavor) -> Self {
-        Self::with_executable(flavor, OsString::from(flavor.executable()))
-    }
-
-    /// Runs `executable` instead of the platform tool, with the same
-    /// arguments.
-    pub fn with_executable(flavor: ReaderFlavor, executable: OsString) -> Self {
-        Self {
-            flavor,
-            executable,
-            timeout: DEFAULT_TIMEOUT,
-        }
-    }
-
-    #[cfg(test)]
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
-    /// `Ok(None)` when no key is stored for the workspace.
-    pub fn lookup_detailed(
-        &self,
-        workspace: &str,
-    ) -> Result<Option<ConfigSecret>, ProcessLookupFailure> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|error| ProcessLookupFailure::Runtime(error.kind()))?;
-        let mut command = Command::new(&self.executable);
-        command.args(self.flavor.lookup_arguments(workspace));
-        let output = runtime
-            .block_on(run(&mut command, None, self.timeout))
-            .map_err(|error| match error {
-                RunError::Spawn(error) => ProcessLookupFailure::Spawn(error.kind()),
-                RunError::Io(error) => ProcessLookupFailure::Io(error.kind()),
-                RunError::Timeout => ProcessLookupFailure::Timeout,
-            })?;
-        if output.status.success() {
-            let stdout =
-                String::from_utf8(output.stdout).map_err(|_| ProcessLookupFailure::InvalidUtf8)?;
-            let key = match self.flavor {
-                // `security -w` prints the password followed by a newline.
-                ReaderFlavor::MacSecurity => stdout.trim().to_owned(),
-                ReaderFlavor::SecretTool => stdout,
-            };
-            return Ok((!key.is_empty()).then(|| ConfigSecret::new(key)));
-        }
-        let missing = match self.flavor {
-            ReaderFlavor::MacSecurity => output.status.code() == Some(MAC_NOT_FOUND),
-            // secret-tool exits 1 without a message when nothing matches.
-            ReaderFlavor::SecretTool => {
-                output.status.code() == Some(1)
-                    && String::from_utf8(output.stderr).is_ok_and(|stderr| stderr.trim().is_empty())
-            }
-        };
-        if missing {
-            Ok(None)
-        } else {
-            Err(ProcessLookupFailure::ExitFailure)
-        }
-    }
-}
-
-impl KeyringReader for ProcessKeyringReader {
-    fn lookup(&self, workspace: &str) -> LookupResult {
-        match self.lookup_detailed(workspace) {
-            Ok(Some(key)) => LookupResult::Hit(key),
-            Ok(None) => LookupResult::Miss,
-            Err(error) => LookupResult::Failed(error.category()),
-        }
-    }
-}
-
-/// Stores and deletes API keys with the platform's keyring tool. The child
-/// sees the `.env` overlay, like every other subprocess.
-pub struct ProcessMutationBackend {
-    flavor: ReaderFlavor,
-    executable: OsString,
-    overlay: ChildEnvOverlay,
-}
-
-impl ProcessMutationBackend {
-    pub fn new(flavor: ReaderFlavor, overlay: ChildEnvOverlay) -> Self {
-        Self::with_executable(flavor, OsString::from(flavor.executable()), overlay)
-    }
-
-    /// Runs `executable` instead of the platform tool, with the same
-    /// arguments and input.
-    pub fn with_executable(
-        flavor: ReaderFlavor,
-        executable: OsString,
-        overlay: ChildEnvOverlay,
-    ) -> Self {
-        Self {
-            flavor,
-            executable,
-            overlay,
-        }
-    }
-
-    fn tool_name(&self) -> &'static str {
-        match self.flavor {
-            ReaderFlavor::SecretTool => "secret-tool",
-            ReaderFlavor::MacSecurity => "security",
-        }
-    }
-
-    async fn run(&self, args: &[String], input: Option<&[u8]>) -> Result<Output, Error> {
-        if args.iter().any(|arg| arg.contains('\0')) {
-            return Err(Error::new(
-                "Keyring arguments cannot contain a NUL character",
-            ));
-        }
-        let mut command = Command::new(&self.executable);
-        command.args(args).envs(self.overlay.iter());
-        run(&mut command, input, DEFAULT_TIMEOUT)
-            .await
-            .map_err(|error| match error {
-                RunError::Spawn(error) => {
-                    let message =
-                        format!("Could not run {}", self.executable.to_string_lossy());
-                    let hint = match self.flavor {
-                        ReaderFlavor::SecretTool => {
-                            "Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set LINEAR_API_KEY."
-                        }
-                        ReaderFlavor::MacSecurity => "Set LINEAR_API_KEY instead.",
-                    };
-                    Error::new(format!("{message}: {error}"))
-                        .with_hint(hint)
-                        .with_source(error)
-                }
-                RunError::Io(error) => {
-                    Error::new(format!("{} failed: {error}", self.tool_name())).with_source(error)
-                }
-                RunError::Timeout => Error::new(format!(
-                    "{} did not finish within {} seconds",
-                    self.tool_name(),
-                    DEFAULT_TIMEOUT.as_secs()
-                )),
-            })
-    }
-
-    /// Fails unless the tool exited with one of `accepted`.
-    fn check(&self, output: &Output, action: &str, accepted: &[i32]) -> Result<(), Error> {
-        let code = output.status.code();
-        if code.is_some_and(|code| accepted.contains(&code)) {
-            return Ok(());
-        }
-        let status = code.map_or_else(|| output.status.to_string(), |code| format!("exit {code}"));
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(Error::new(format!(
-            "{} {action} failed ({status}): {}",
-            self.tool_name(),
-            stderr.trim()
-        )))
-    }
-}
-
-impl KeyringBackend for ProcessMutationBackend {
-    async fn available(&self) -> bool {
-        match self.flavor {
-            ReaderFlavor::SecretTool => self.run(&[], None).await.is_ok(),
-            ReaderFlavor::MacSecurity => true,
-        }
-    }
-
-    async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<(), Error> {
-        let command = self
-            .flavor
-            .store_command(workspace, secret)
-            .map_err(|UnquotableValue| {
-                Error::new("The API key or workspace name has characters the keychain tool cannot take")
-                    .with_hint("Linear API keys and workspace names use only letters, digits, '_', '-' and '.'.")
-            })?;
-        let output = self.run(&command.arguments, Some(&command.input)).await?;
-        self.check(&output, self.flavor.store_action(), &[0])
-    }
-
-    async fn delete(&self, workspace: &str) -> Result<(), Error> {
-        let args = self.flavor.delete_arguments(workspace);
-        let output = self.run(&args, None).await?;
-        let accepted: &[i32] = match self.flavor {
-            ReaderFlavor::SecretTool => &[0],
-            ReaderFlavor::MacSecurity => &[0, MAC_NOT_FOUND],
-        };
-        self.check(&output, self.flavor.delete_action(), accepted)
-    }
-}
-
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests;

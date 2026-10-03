@@ -2,24 +2,15 @@
 //! file in one of its two formats.
 use std::collections::BTreeMap;
 use std::fs::OpenOptions;
-use std::future::Future;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::auth::keyring::Keyring;
 use crate::auth::{CredentialFormat, CredentialStore};
 use crate::config::ConfigSecret;
 use crate::error::{Error, Result, ResultExt};
-
-/// Stores and deletes API keys in the system keyring.
-pub trait KeyringBackend {
-    /// Whether the keyring can be used at all.
-    fn available(&self) -> impl Future<Output = bool>;
-    fn store(&self, workspace: &str, secret: &ConfigSecret) -> impl Future<Output = Result<()>>;
-    /// Deleting a workspace with no entry succeeds.
-    fn delete(&self, workspace: &str) -> impl Future<Output = Result<()>>;
-}
 
 /// The credentials file, edited in memory and written back whole after each
 /// change.
@@ -89,13 +80,13 @@ impl Credentials {
     /// Adds or replaces `workspace`'s key. A plaintext key added to a
     /// keyring-backed file turns it into a plaintext file: the other keys are
     /// read from `store`'s keyring and written to the file.
-    pub async fn add(
+    pub fn add(
         &mut self,
         workspace: &str,
         secret: ConfigSecret,
         plaintext: bool,
         store: &CredentialStore,
-        keyring: &impl KeyringBackend,
+        keyring: &dyn Keyring,
     ) -> Result<()> {
         if self.stores_plaintext(plaintext) {
             if self.format == CredentialFormat::Metadata {
@@ -114,7 +105,7 @@ impl Credentials {
             }
             self.keys.insert(workspace.to_owned(), secret);
         } else {
-            keyring.store(workspace, &secret).await.context(format!(
+            keyring.set(workspace, &secret).context(format!(
                 "Failed to store API key in system keyring for workspace \"{workspace}\""
             ))?;
         }
@@ -129,9 +120,9 @@ impl Credentials {
 
     /// Removes `workspace`, deleting its keyring entry first. The next
     /// workspace becomes the default when the default is removed.
-    pub async fn remove(&mut self, workspace: &str, keyring: &impl KeyringBackend) -> Result<()> {
+    pub fn remove(&mut self, workspace: &str, keyring: &dyn Keyring) -> Result<()> {
         if self.format == CredentialFormat::Metadata {
-            keyring.delete(workspace).await.context(format!(
+            keyring.delete(workspace).context(format!(
                 "Failed to remove API key from system keyring for workspace \"{workspace}\""
             ))?;
         }
@@ -146,7 +137,7 @@ impl Credentials {
     /// Moves every plaintext key to the keyring and returns the migrated
     /// workspaces. If one store fails, the entries this call wrote are
     /// deleted again and the file is left as it was.
-    pub async fn migrate(&mut self, keyring: &impl KeyringBackend) -> Result<Vec<String>> {
+    pub fn migrate(&mut self, keyring: &dyn Keyring) -> Result<Vec<String>> {
         if self.format != CredentialFormat::Inline {
             return Ok(Vec::new());
         }
@@ -156,12 +147,12 @@ impl Credentials {
                 .keys
                 .get(name)
                 .expect("a plaintext credentials file has a key for every workspace");
-            if let Err(error) = keyring.store(name, key).await {
+            if let Err(error) = keyring.set(name, key) {
                 let mut error = error.context(format!(
                     "Failed to store API key in system keyring for workspace \"{name}\""
                 ));
                 for written in &migrated {
-                    if let Err(cleanup) = keyring.delete(written).await {
+                    if let Err(cleanup) = keyring.delete(written) {
                         error.push_message(&format!(
                             "; could not remove the new keyring entry for \"{written}\": {cleanup}"
                         ));

@@ -3,8 +3,8 @@ use std::io::Read;
 
 use reqwest::StatusCode;
 
-use crate::auth::keyring::native_backend;
-use crate::auth::mutation::{Credentials, KeyringBackend};
+use crate::auth::keyring::Keyring;
+use crate::auth::mutation::Credentials;
 use crate::auth::{ApiKeyInput, CredentialFormat};
 use crate::cli::auth::AuthLogin;
 use crate::client::{ApiKey, LinearClient, RequestError};
@@ -24,9 +24,9 @@ pub fn run(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
 fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     let mut credentials = super::credentials(ctx)?;
     let store = ctx.credentials()?;
-    let backend = native_backend(&ctx.config().child_env);
+    let keyring = store.keyring();
     let plaintext = credentials.stores_plaintext(args.plaintext);
-    if !plaintext && !ctx.block_on(backend.available()) {
+    if !plaintext && !keyring.available() {
         return Err(Error::new("No system keyring found").with_hint(
             "Pass --plaintext to store the key in the credentials file, or set LINEAR_API_KEY.",
         ));
@@ -37,7 +37,7 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     })?;
     let client = LinearClient::new(
         ctx.options().endpoint().value().clone(),
-        ApiKey::new(key.expose().to_owned()).map_err(|error| {
+        ApiKey::new(key.expose()).map_err(|error| {
             Error::new("API key cannot be used as an HTTP header").with_source(error)
         })?,
         ctx.config().network_env.client_config(),
@@ -49,10 +49,10 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     let organization = &viewer.organization;
     let existed = credentials.has_workspace(&organization.url_key);
     let was_keyring = credentials.format() == CredentialFormat::Metadata;
-    ctx.spin(
-        true,
-        credentials.add(&organization.url_key, key, args.plaintext, store, &backend),
-    )?;
+    {
+        let _spinner = ctx.spinner(true, "");
+        credentials.add(&organization.url_key, key, args.plaintext, store, keyring)?;
+    }
 
     let color = ctx.color();
     let mut output = if existed {
@@ -86,7 +86,7 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     ctx.print(output)?;
 
     if plaintext && !args.plaintext {
-        offer_migration(ctx, &mut credentials, &backend)?;
+        offer_migration(ctx, &mut credentials, keyring)?;
     }
     if matches!(ApiKeyInput::from_options(ctx.options()), ApiKeyInput::Raw { value, .. } if !value.expose().is_empty())
     {
@@ -162,12 +162,8 @@ fn authentication_error(error: &ResponseGraphQlError) -> bool {
 
 /// Offers to move plaintext keys to the keyring. Only asked on a terminal;
 /// otherwise the command is suggested.
-fn offer_migration(
-    ctx: &Ctx,
-    credentials: &mut Credentials,
-    backend: &impl KeyringBackend,
-) -> Result<()> {
-    if !ctx.block_on(backend.available()) {
+fn offer_migration(ctx: &Ctx, credentials: &mut Credentials, keyring: &dyn Keyring) -> Result<()> {
+    if !keyring.available() {
         return Ok(());
     }
     let color = ctx.color();
@@ -188,7 +184,10 @@ fn offer_migration(
     if !migrate {
         return Ok(());
     }
-    let migrated = ctx.spin(true, credentials.migrate(backend))?;
+    let migrated = {
+        let _spinner = ctx.spinner(true, "");
+        credentials.migrate(keyring)?
+    };
     ctx.print(format!(
         "Migrated {} workspace(s) to system keyring.\n",
         migrated.len()

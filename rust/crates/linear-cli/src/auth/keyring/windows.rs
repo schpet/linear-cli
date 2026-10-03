@@ -1,16 +1,24 @@
-//! Windows Credential Manager access through the `keyring` crate.
-use super::windows_spec::{WindowsCredentialSpec, WindowsReadFailure, classify_windows_lookup};
-use crate::{
-    auth::{LookupFailureCategory, LookupResult, mutation::KeyringBackend},
-    config::ConfigSecret,
-    error::{Error, Result},
-};
-use keyring::{credential::CredentialApi, windows::WinCredential};
+//! Windows Credential Manager through the `keyring` crate: generic
+//! credentials with target `linear-cli:<workspace>` and user `<workspace>`,
+//! built directly with `WinCredential` so no other attributes are read or
+//! written. Secrets are stored as UTF-16, the platform's string encoding.
+use keyring::credential::CredentialApi;
+use keyring::windows::WinCredential;
 
-/// Stores generic credentials with target `linear-cli:<workspace>` and user
-/// `<workspace>`, built directly with `WinCredential` so no other attributes
-/// are read or written.
-pub struct WindowsMutationBackend;
+use super::{Keyring, LookupFailureCategory, LookupResult};
+use crate::config::ConfigSecret;
+use crate::error::{Error, Result};
+
+pub struct CredentialManager;
+
+fn credential(workspace: &str) -> WinCredential {
+    WinCredential {
+        username: workspace.to_owned(),
+        target_name: format!("linear-cli:{workspace}"),
+        target_alias: String::new(),
+        comment: String::new(),
+    }
+}
 
 fn failure(error: keyring::Error) -> Error {
     match error {
@@ -21,39 +29,30 @@ fn failure(error: keyring::Error) -> Error {
     }
 }
 
-impl KeyringBackend for WindowsMutationBackend {
-    async fn available(&self) -> bool {
-        true
+impl Keyring for CredentialManager {
+    fn get(&self, workspace: &str) -> LookupResult {
+        match credential(workspace).get_password() {
+            Ok(secret) if secret.is_empty() => LookupResult::Miss,
+            Ok(secret) => LookupResult::Hit(ConfigSecret::new(secret)),
+            Err(keyring::Error::NoEntry) => LookupResult::Miss,
+            Err(keyring::Error::NoStorageAccess(_)) => {
+                LookupResult::Failed(LookupFailureCategory::Unavailable)
+            }
+            Err(_) => LookupResult::Failed(LookupFailureCategory::Other),
+        }
     }
-    async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<()> {
-        credential(workspace)?
+
+    /// The `keyring` crate checks the names' lengths and rejects NULs.
+    fn set(&self, workspace: &str, secret: &ConfigSecret) -> Result<()> {
+        credential(workspace)
             .set_password(secret.expose())
             .map_err(failure)
     }
-    async fn delete(&self, workspace: &str) -> Result<()> {
-        match credential(workspace)?.delete_credential() {
+
+    fn delete(&self, workspace: &str) -> Result<()> {
+        match credential(workspace).delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
             Err(error) => Err(failure(error)),
         }
     }
-}
-
-pub fn lookup_windows(credential: Result<WinCredential>) -> LookupResult {
-    let Ok(credential) = credential else {
-        return LookupResult::Failed(LookupFailureCategory::Other);
-    };
-    classify_windows_lookup(credential.get_secret().map_err(|error| match error {
-        keyring::Error::NoEntry => WindowsReadFailure::NoEntry,
-        _ => WindowsReadFailure::NativeFailure,
-    }))
-}
-
-pub fn credential(workspace: &str) -> Result<WinCredential> {
-    let spec = WindowsCredentialSpec::new(workspace)?;
-    Ok(WinCredential {
-        username: spec.username,
-        target_name: spec.target_name,
-        target_alias: spec.target_alias,
-        comment: spec.comment,
-    })
 }

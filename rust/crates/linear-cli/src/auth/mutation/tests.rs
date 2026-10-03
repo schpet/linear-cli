@@ -3,8 +3,9 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use super::*;
+use crate::auth::CredentialManifest;
+use crate::auth::keyring::LookupResult;
 use crate::auth::test_support::{hit, manifest, store};
-use crate::auth::{CredentialManifest, LookupResult};
 
 /// A credentials file in a fresh temporary directory.
 struct File {
@@ -58,11 +59,11 @@ struct FakeKeyring {
     fail_delete: Option<&'static str>,
 }
 
-impl KeyringBackend for FakeKeyring {
-    async fn available(&self) -> bool {
-        true
+impl Keyring for FakeKeyring {
+    fn get(&self, _: &str) -> LookupResult {
+        unreachable!("keys are read through the credential store")
     }
-    async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<()> {
+    fn set(&self, workspace: &str, secret: &ConfigSecret) -> Result<()> {
         self.calls.borrow_mut().push(format!("store {workspace}"));
         if self.fail_store == Some(workspace) {
             return Err(Error::new("store refused"));
@@ -72,7 +73,7 @@ impl KeyringBackend for FakeKeyring {
             .insert(workspace.to_owned(), secret.expose().to_owned());
         Ok(())
     }
-    async fn delete(&self, workspace: &str) -> Result<()> {
+    fn delete(&self, workspace: &str) -> Result<()> {
         self.calls.borrow_mut().push(format!("delete {workspace}"));
         if self.fail_delete == Some(workspace) {
             return Err(Error::new("delete refused"));
@@ -85,15 +86,14 @@ impl KeyringBackend for FakeKeyring {
 const INLINE: &str = "default = \"beta\"\nacme = \"key-acme\"\nbeta = \"key-beta\"\n";
 const KEYRING: &str = "default = \"beta\"\nworkspaces = [\"acme\", \"beta\"]\n";
 
-#[tokio::test(flavor = "current_thread")]
-async fn first_login_stores_the_key_in_the_keyring_and_lists_the_workspace() {
+#[test]
+fn first_login_stores_the_key_in_the_keyring_and_lists_the_workspace() {
     let file = File::new(None);
     let store = file.store(&[]);
     let keyring = FakeKeyring::default();
     let mut credentials = file.credentials(&store);
     credentials
         .add("acme", secret("key-acme"), false, &store, &keyring)
-        .await
         .expect("should succeed");
     assert_eq!(file.read(), "default = \"acme\"\nworkspaces = [\"acme\"]\n");
     assert_eq!(
@@ -116,8 +116,8 @@ async fn first_login_stores_the_key_in_the_keyring_and_lists_the_workspace() {
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn plaintext_files_stay_plaintext_and_are_sorted_with_quoted_names() {
+#[test]
+fn plaintext_files_stay_plaintext_and_are_sorted_with_quoted_names() {
     let file = File::new(Some("z = \"key-z\"\n"));
     let store = file.store(&[]);
     let keyring = FakeKeyring::default();
@@ -126,7 +126,6 @@ async fn plaintext_files_stay_plaintext_and_are_sorted_with_quoted_names() {
     for (name, key) in [("10", "key-10"), ("2", "key-2"), ("中", "key-unicode")] {
         credentials
             .add(name, secret(key), false, &store, &keyring)
-            .await
             .expect("should succeed");
     }
     assert_eq!(
@@ -137,13 +136,12 @@ async fn plaintext_files_stay_plaintext_and_are_sorted_with_quoted_names() {
     for reserved in ["default", "workspaces"] {
         credentials
             .add(reserved, secret("key"), false, &store, &keyring)
-            .await
             .expect_err("should fail");
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn written_files_read_back_the_same() {
+#[test]
+fn written_files_read_back_the_same() {
     for contents in [INLINE, KEYRING] {
         let file = File::new(Some(contents));
         let store = file.store(&[]);
@@ -157,15 +155,14 @@ async fn written_files_read_back_the_same() {
     }
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn plaintext_key_added_to_a_keyring_file_moves_every_key_into_the_file() {
+#[test]
+fn plaintext_key_added_to_a_keyring_file_moves_every_key_into_the_file() {
     let file = File::new(Some(KEYRING));
     let store = file.store(&[("acme", "key-acme"), ("beta", "key-beta")]);
     let keyring = FakeKeyring::default();
     let mut credentials = file.credentials(&store);
     credentials
         .add("gamma", secret("key-gamma"), true, &store, &keyring)
-        .await
         .expect("should succeed");
     assert_eq!(credentials.format(), CredentialFormat::Inline);
     assert_eq!(
@@ -175,8 +172,8 @@ async fn plaintext_key_added_to_a_keyring_file_moves_every_key_into_the_file() {
     assert!(keyring.calls.borrow().is_empty());
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn plaintext_conversion_fails_without_writing_when_a_keyring_key_is_unreadable() {
+#[test]
+fn plaintext_conversion_fails_without_writing_when_a_keyring_key_is_unreadable() {
     let file = File::new(Some(KEYRING));
     let store = file.store(&[("acme", "key-acme")]);
     let mut credentials = file.credentials(&store);
@@ -188,14 +185,13 @@ async fn plaintext_conversion_fails_without_writing_when_a_keyring_key_is_unread
             &store,
             &FakeKeyring::default(),
         )
-        .await
         .expect_err("should fail");
     assert!(error.to_string().contains("\"beta\""), "{error}");
     assert_eq!(file.read(), KEYRING);
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn keyring_failure_on_add_leaves_the_file_alone() {
+#[test]
+fn keyring_failure_on_add_leaves_the_file_alone() {
     let file = File::new(Some(KEYRING));
     let store = file.store(&[]);
     let keyring = FakeKeyring {
@@ -205,7 +201,6 @@ async fn keyring_failure_on_add_leaves_the_file_alone() {
     let error = file
         .credentials(&store)
         .add("gamma", secret("key-gamma"), false, &store, &keyring)
-        .await
         .expect_err("should fail");
     assert!(
         error
@@ -216,15 +211,14 @@ async fn keyring_failure_on_add_leaves_the_file_alone() {
     assert_eq!(file.read(), KEYRING);
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn removing_the_default_picks_the_next_workspace() {
+#[test]
+fn removing_the_default_picks_the_next_workspace() {
     let file = File::new(Some(KEYRING));
     let store = file.store(&[]);
     let keyring = FakeKeyring::default();
     let mut credentials = file.credentials(&store);
     credentials
         .remove("beta", &keyring)
-        .await
         .expect("should succeed");
     assert_eq!(*keyring.calls.borrow(), ["delete beta"]);
     assert_eq!(file.read(), "default = \"acme\"\nworkspaces = [\"acme\"]\n");
@@ -234,19 +228,17 @@ async fn removing_the_default_picks_the_next_workspace() {
     let mut credentials = file.credentials(&store);
     credentials
         .remove("acme", &keyring)
-        .await
         .expect("should succeed");
     assert_eq!(file.read(), "default = \"beta\"\nbeta = \"key-beta\"\n");
     credentials
         .remove("beta", &keyring)
-        .await
         .expect("should succeed");
     assert_eq!(file.read(), "");
     assert_eq!(*keyring.calls.borrow(), ["delete beta"]);
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn keyring_failure_on_remove_leaves_the_file_alone() {
+#[test]
+fn keyring_failure_on_remove_leaves_the_file_alone() {
     let file = File::new(Some(KEYRING));
     let store = file.store(&[]);
     let keyring = FakeKeyring {
@@ -255,18 +247,17 @@ async fn keyring_failure_on_remove_leaves_the_file_alone() {
     };
     file.credentials(&store)
         .remove("acme", &keyring)
-        .await
         .expect_err("should fail");
     assert_eq!(file.read(), KEYRING);
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn migrate_moves_plaintext_keys_into_the_keyring() {
+#[test]
+fn migrate_moves_plaintext_keys_into_the_keyring() {
     let file = File::new(Some(INLINE));
     let store = file.store(&[]);
     let keyring = FakeKeyring::default();
     let mut credentials = file.credentials(&store);
-    let migrated = credentials.migrate(&keyring).await.expect("should succeed");
+    let migrated = credentials.migrate(&keyring).expect("should succeed");
     assert_eq!(migrated, ["acme", "beta"]);
     assert_eq!(file.read(), KEYRING);
     assert_eq!(
@@ -289,8 +280,8 @@ async fn migrate_moves_plaintext_keys_into_the_keyring() {
     );
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn failed_migration_removes_the_entries_it_wrote() {
+#[test]
+fn failed_migration_removes_the_entries_it_wrote() {
     let file = File::new(Some(INLINE));
     let store = file.store(&[]);
     let keyring = FakeKeyring {
@@ -300,7 +291,6 @@ async fn failed_migration_removes_the_entries_it_wrote() {
     let error = file
         .credentials(&store)
         .migrate(&keyring)
-        .await
         .expect_err("should fail");
     assert!(error.to_string().contains("\"beta\""), "{error}");
     assert_eq!(

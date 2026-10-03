@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use super::*;
+use crate::auth::CredentialStore;
+use crate::auth::keyring::LookupResult;
 use crate::auth::test_support::{hit, manifest, store as canned_store};
-use crate::auth::{CredentialStore, LookupResult};
 use crate::config::{
     ConfigInputs, OptionInputs, OsFamily, RawConfigFile, SelectedEnv, parse_config_tier,
 };
