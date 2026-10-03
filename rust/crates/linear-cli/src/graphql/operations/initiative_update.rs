@@ -14,21 +14,11 @@ pub struct GetInitiativeForUpdate {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Initiative")]
 pub struct CurrentInitiative {
-    pub id: cynic::Id,
-    pub slug_id: String,
     pub name: String,
     pub description: Option<String>,
     pub status: Option<InitiativeStatus>,
     pub target_date: Option<TimelessDate>,
     pub color: Option<String>,
-    pub icon: Option<String>,
-    pub owner: Option<CurrentOwner>,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct CurrentOwner {
-    pub id: cynic::Id,
-    pub display_name: String,
 }
 #[derive(cynic::InputObject, Clone, Debug, Default, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "InitiativeUpdateInput")]
@@ -72,8 +62,6 @@ pub struct UpdatedPayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Initiative")]
 pub struct UpdatedInitiative {
-    pub id: cynic::Id,
-    pub slug_id: String,
     pub name: String,
     pub url: String,
 }

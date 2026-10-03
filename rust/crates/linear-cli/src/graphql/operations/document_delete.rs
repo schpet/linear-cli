@@ -14,7 +14,6 @@ pub struct GetDocumentForDelete {
 #[cynic(schema = "linear", graphql_type = "Document")]
 pub struct DocumentDetails {
     pub id: cynic::Id,
-    pub slug_id: String,
     pub title: String,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]

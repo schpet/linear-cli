@@ -387,7 +387,7 @@ impl Backend for NetworkBackend {
         let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
-        let data: OptionalParent = match self.transport.execute(&req).await {
+        let data: ops::GetParentIssueData = match self.transport.execute(&req).await {
             Ok(data) => data,
             Err(crate::graphql::transport::TransportFailure::Response(error)) => {
                 return Err(Error::new(
@@ -435,7 +435,6 @@ impl Backend for NetworkBackend {
             .issue
             .ok_or_else(|| Error::new("Issue creation failed - no issue returned"))?;
         Ok(Created {
-            id: issue.id.into_inner(),
             identifier: issue.identifier,
             url: issue.url,
             team_key: issue.team.key,
@@ -465,11 +464,6 @@ impl Backend for NetworkBackend {
             url: issue.url,
         })
     }
-}
-#[derive(serde::Deserialize)]
-struct OptionalParent {
-    #[serde(default)]
-    issue: Option<ops::ParentIssue>,
 }
 // An issue that may be null or missing in the response.
 #[derive(serde::Deserialize)]

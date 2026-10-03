@@ -1,5 +1,5 @@
 //! Selections for issue comment update; no issue resolver or extra user fields.
-use crate::graphql::{scalars::DateTime, schema};
+use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct GetCommentVariables {
@@ -51,15 +51,5 @@ pub struct UpdatedPayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Comment")]
 pub struct UpdatedComment {
-    pub id: cynic::Id,
-    pub body: String,
-    pub updated_at: DateTime,
     pub url: String,
-    pub user: Option<UpdatedUser>,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct UpdatedUser {
-    pub name: String,
-    pub display_name: String,
 }

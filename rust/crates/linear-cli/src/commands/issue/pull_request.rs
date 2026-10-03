@@ -29,7 +29,7 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         .transpose()?;
     let identifier = super::require(ctx, args.issue_id.as_deref())?;
     let client = ctx.client()?;
-    let details = ctx.spin(true, super::describe::fetch(client, &identifier))?;
+    let details = ctx.spin(true, super::details::fetch(client, identifier.clone()))?;
     let argv = self::args(
         &identifier,
         &details.title,

@@ -69,7 +69,7 @@ pub struct BulkArchiveIssue {
 )]
 pub struct DeleteIssue {
     #[arguments(id: $id)]
-    pub issue_delete: DeletePayload,
+    pub issue_delete: SuccessPayload,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
@@ -85,16 +85,4 @@ pub struct BulkDeleteIssue {
 #[cynic(schema = "linear", graphql_type = "IssueArchivePayload")]
 pub struct SuccessPayload {
     pub success: bool,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "IssueArchivePayload")]
-pub struct DeletePayload {
-    pub success: bool,
-    pub entity: Option<DeletedEntity>,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Issue")]
-pub struct DeletedEntity {
-    pub identifier: String,
-    pub title: String,
 }

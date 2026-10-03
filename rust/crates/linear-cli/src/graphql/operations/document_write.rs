@@ -97,19 +97,14 @@ pub struct UpdateDocumentPayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Document")]
 pub struct CreatedDocument {
-    pub id: cynic::Id,
-    pub slug_id: String,
     pub title: String,
     pub url: String,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Document")]
 pub struct UpdatedDocument {
-    pub id: cynic::Id,
-    pub slug_id: String,
     pub title: String,
     pub url: String,
-    pub updated_at: DateTime,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
@@ -124,7 +119,6 @@ pub struct GetDocumentForEdit {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Document")]
 pub struct DocumentForEdit {
-    pub id: cynic::Id,
     pub title: String,
     pub content: Option<String>,
 }
@@ -145,7 +139,6 @@ pub struct DocumentInlineCommentGuard {
     variables = "DocumentGuardVariables"
 )]
 pub struct DocumentGuard {
-    pub id: cynic::Id,
     #[arguments(first: 50, after: $after, orderBy: createdAt)]
     pub comments: DocumentGuardComments,
 }

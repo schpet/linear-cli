@@ -1,9 +1,5 @@
 //! Typed project create/update and membership operations.
-use crate::graphql::{
-    edit::Edit,
-    scalars::{DateTime, TimelessDate},
-    schema,
-};
+use crate::graphql::{edit::Edit, scalars::TimelessDate, schema};
 use serde::Serialize;
 
 #[derive(cynic::InputObject, Clone, Debug, Default, PartialEq, Eq)]
@@ -113,12 +109,8 @@ pub struct UpdatedProjectPayload {
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "Project")]
 pub struct UpdatedProject {
-    pub id: cynic::Id,
-    pub slug_id: String,
     pub name: String,
-    pub description: Option<String>,
     pub url: String,
-    pub updated_at: DateTime,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "Query")]
@@ -290,7 +282,6 @@ pub struct GetProjectInitiativeLinksForUpdate {
     variables = "PageVariables"
 )]
 pub struct ProjectLinks {
-    pub id: cynic::Id,
     pub name: String,
     pub url: String,
     #[arguments(first:250,after:$after)]

@@ -79,7 +79,7 @@ pub(crate) fn work_on(
     from_ref: Option<&str>,
 ) -> Result<()> {
     let client = ctx.client()?;
-    let details = ctx.spin(true, super::describe::fetch(client, identifier))?;
+    let details = ctx.spin(true, super::details::fetch(client, identifier.to_owned()))?;
     let mut runner = NativeProcessRunner;
     let cwd = ctx.cwd();
     let env = &ctx.config().child_env;

@@ -87,7 +87,6 @@ pub struct AttachmentPayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Attachment")]
 pub struct CreatedAttachment {
-    pub id: cynic::Id,
     pub url: String,
     pub title: String,
 }

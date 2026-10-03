@@ -55,7 +55,6 @@ pub struct CreatePayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct CreatedIssue {
-    pub id: cynic::Id,
     pub identifier: String,
     pub url: String,
     pub team: CreatedTeam,

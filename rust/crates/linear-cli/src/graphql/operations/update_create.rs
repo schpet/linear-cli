@@ -2,7 +2,7 @@
 use crate::graphql::operations::{
     initiatives::InitiativeUpdateHealthType, projects::ProjectUpdateHealthType,
 };
-use crate::graphql::{scalars::DateTime, schema};
+use crate::graphql::schema;
 
 #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
 #[cynic(
@@ -47,18 +47,14 @@ pub struct ProjectPayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectUpdate")]
 pub struct ProjectUpdate {
-    pub id: cynic::Id,
-    pub body: String,
     pub health: Option<ProjectUpdateHealthType>,
     pub url: String,
-    pub created_at: DateTime,
     pub project: Option<ProjectParent>,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Project")]
 pub struct ProjectParent {
     pub name: String,
-    pub slug_id: String,
 }
 
 #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,16 +100,12 @@ pub struct InitiativePayload {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "InitiativeUpdate")]
 pub struct InitiativeUpdate {
-    pub id: cynic::Id,
-    pub body: String,
     pub health: Option<InitiativeUpdateHealthType>,
     pub url: String,
-    pub created_at: DateTime,
     pub initiative: Option<InitiativeParent>,
 }
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Initiative")]
 pub struct InitiativeParent {
     pub name: String,
-    pub slug_id: String,
 }
