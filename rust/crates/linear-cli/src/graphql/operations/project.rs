@@ -447,6 +447,7 @@ pub struct PickerStatus {
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
 pub struct PickerTeams {
     pub nodes: Vec<TeamKey>,
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::InputObject, Clone, Debug, Default, PartialEq, Eq)]

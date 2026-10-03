@@ -19,6 +19,7 @@ use crate::graphql::operations::project::{
 use crate::graphql::pagination::{self, Page, PageInfo, Pages};
 use crate::platform::collation;
 use crate::platform::prompt::Choice;
+use crate::platform::style;
 use crate::refs::{self, project::ProjectReference};
 
 const PAGE_SIZE: i32 = 250;
@@ -45,6 +46,17 @@ fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
         fetch_details(client, &id, reference.input()).await
     })?;
     if args.json {
+        let cut = truncated(&project);
+        if !cut.is_empty() {
+            let message = format!(
+                "Only the first {PAGE_SIZE} {} are included.",
+                cut.join(", ")
+            );
+            ctx.eprint(format!(
+                "{}\n",
+                style::warning(&message, ctx.terminal().stderr_color())
+            ))?;
+        }
         return ctx.print(json::render(&project));
     }
     ctx.show_markdown(
@@ -154,13 +166,15 @@ fn picker_choices(projects: &[PickerProject]) -> Vec<Choice<String>> {
         .into_iter()
         .map(|project| {
             let mut parts = vec![project.name.clone(), project.status.name.clone()];
-            let teams = project
-                .teams
-                .nodes
-                .iter()
-                .map(|team| team.key.as_str())
-                .collect::<Vec<_>>()
-                .join(", ");
+            let teams = joined(
+                project
+                    .teams
+                    .nodes
+                    .iter()
+                    .map(|team| team.key.clone())
+                    .collect(),
+                &project.teams.page_info,
+            );
             if !teams.is_empty() {
                 parts.push(teams);
             }
@@ -203,11 +217,32 @@ fn display_name(user: Option<&crate::graphql::operations::user::UserRef>) -> Opt
         }
     })
 }
-fn note(info: &PageInfo) -> &'static str {
+/// The nested lists Linear cut off at `PAGE_SIZE` items. (Issues are
+/// fetched in full.)
+fn truncated(project: &ProjectDetails) -> Vec<&'static str> {
+    [
+        ("teams", &project.teams.page_info),
+        ("labels", &project.labels.page_info),
+        ("members", &project.members.page_info),
+        ("initiatives", &project.initiatives.page_info),
+        ("milestones", &project.project_milestones.page_info),
+        ("links", &project.external_links.page_info),
+        ("documents", &project.documents.page_info),
+        ("attachments", &project.attachments.page_info),
+        ("relations", &project.relations.page_info),
+        ("inverse relations", &project.inverse_relations.page_info),
+    ]
+    .into_iter()
+    .filter(|(_, info)| info.has_next_page)
+    .map(|(name, _)| name)
+    .collect()
+}
+
+fn note(info: &PageInfo) -> String {
     if info.has_next_page {
-        "\n_…and more (showing the first 250)._\n"
+        format!("\n_…and more (showing the first {PAGE_SIZE})._\n")
     } else {
-        ""
+        String::new()
     }
 }
 fn joined(values: Vec<String>, info: &PageInfo) -> String {
@@ -368,7 +403,7 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
                 out.push_str(&format!("  {}\n", description.replace('\n', "\n  ")));
             }
         }
-        out.push_str(note(&project.project_milestones.page_info));
+        out.push_str(&note(&project.project_milestones.page_info));
         out = out.trim_end().to_owned();
     }
     if !project.external_links.nodes.is_empty() {
@@ -376,7 +411,7 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
         for link in sorted_by(&project.external_links.nodes, |item| item.sort_order.get()) {
             out.push_str(&format!("- **{}**: {}\n", link.label, link.url));
         }
-        out.push_str(note(&project.external_links.page_info));
+        out.push_str(&note(&project.external_links.page_info));
         out = out.trim_end().to_owned();
     }
     if !project.documents.nodes.is_empty() {
@@ -384,7 +419,7 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
         for doc in sorted_by(&project.documents.nodes, |item| item.sort_order.get()) {
             out.push_str(&format!("- **{}**: {}\n", doc.title, doc.url));
         }
-        out.push_str(note(&project.documents.page_info));
+        out.push_str(&note(&project.documents.page_info));
         out = out.trim_end().to_owned();
     }
     if !project.attachments.nodes.is_empty() {
@@ -405,7 +440,7 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
                 out.push_str(&format!("  _{subtitle}_\n"));
             }
         }
-        out.push_str(note(&project.attachments.page_info));
+        out.push_str(&note(&project.attachments.page_info));
         out = out.trim_end().to_owned();
     }
     if !project.relations.nodes.is_empty() || !project.inverse_relations.nodes.is_empty() {
@@ -416,8 +451,8 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
         for relation in &project.inverse_relations.nodes {
             out.push_str(&incoming(relation));
         }
-        out.push_str(note(&project.relations.page_info));
-        out.push_str(note(&project.inverse_relations.page_info));
+        out.push_str(&note(&project.relations.page_info));
+        out.push_str(&note(&project.inverse_relations.page_info));
         out = out.trim_end().to_owned();
     }
     if let Some(update) = &project.last_update {

@@ -186,6 +186,20 @@ fn view_json_by_id_returns_the_project() {
 }
 
 #[test]
+fn view_json_warns_when_a_nested_list_was_cut_off() {
+    let mut project = details();
+    project["labels"] = json!({
+        "nodes": [], "pageInfo": { "hasNextPage": true, "endCursor": "more" }
+    });
+    let api = MockLinear::start();
+    api.on("GetProjectDetails", json!({ "project": project }));
+    Cli::for_api(&api)
+        .run(&["project", "view", ID, "--json"])
+        .success()
+        .stderr_has("Only the first 250 labels are included.");
+}
+
+#[test]
 fn view_resolves_urls_by_slug_and_shows_details() {
     let api = MockLinear::start();
     api.on("GetProjectIdBySlugId", ids(ID))
