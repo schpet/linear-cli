@@ -202,6 +202,9 @@ pub async fn prompt<B: Backend, U: Ui>(
         Some(team) => team,
         None => {
             let teams = backend.teams().await?;
+            if teams.is_empty() {
+                return Err(crate::refs::team::none_accessible());
+            }
             let options = teams
                 .into_iter()
                 .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))

@@ -592,3 +592,27 @@ fn near_miss_choices_distinguish_duplicate_labels_and_the_decline_label() {
     );
     ui.done();
 }
+
+#[tokio::test]
+async fn no_accessible_teams_returns_an_error_without_opening_a_team_picker() {
+    let linear = Linear::default();
+    let mut config = settings(AssignSelf::Never, true);
+    config.default_team = None;
+    let mut ui = Script::answering(&["Title"]);
+    let Err(error) = prompt(&linear, &mut ui, &config, &Fields::default()).await else {
+        panic!("no accessible team must prevent issue creation");
+    };
+    assert_eq!(
+        error.message(),
+        "This workspace has no teams you can access"
+    );
+    assert_eq!(
+        error.hint(),
+        Some("Ask a workspace admin to add you to a team, or check the API key's workspace.")
+    );
+    assert_eq!(ui.shown, ["What's the title of your issue?"]);
+    assert!(ui.menus.is_empty());
+    assert!(!linear.called("projects"));
+    assert!(!linear.called("viewer"));
+    ui.done();
+}
