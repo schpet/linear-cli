@@ -1,5 +1,5 @@
 [package]
-name = "linear-cli"
+name = "linear"
 version.workspace = true
 edition.workspace = true
 publish = false
@@ -62,6 +62,6 @@ keyring = { version = "3.6.3", default-features = false, features = ["windows-na
 
 [package.metadata.dist]
 dist = true
-# Paths are relative to this manifest. Dependency notices live in per-crate
-# subdirectories of licenses/ so their LICENSE files do not collide.
-include = ["../../LICENSE", "../../licenses"]
+# Ship the dependency license notices (one subdirectory per crate) next to
+# the README, CHANGELOG and LICENSE that dist includes on its own.
+include = ["../../licenses"]

@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            optional: false
+          - os: macos-latest
+            optional: false
+          - os: windows-latest
+            optional: true
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml pins the version and components.
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked --workspace --no-fail-fast
+      - name: Set up Secret Service
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+          eval "$(dbus-launch --sh-syntax)"
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
+          echo "test-password" | gnome-keyring-daemon --unlock --components=secrets
+      - name: System keyring round trip
+        run: cargo test --locked --workspace --lib -- --ignored system_keyring_round_trip
+      - name: Generate skill docs
+        if: runner.os == 'Linux'
+        run: cargo run --locked --example skill_docs
+      - name: Check dependency license notices are current
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m unittest discover -s scripts/tests
+          cargo metadata --format-version 1 --locked > "$RUNNER_TEMP/metadata.json"
+          rm -rf licenses/dependencies
+          python3 scripts/generate-license-inventory.py --repository . --metadata "$RUNNER_TEMP/metadata.json" --output licenses/dependencies
+          if [ -n "$(git status --porcelain licenses)" ]; then
+            git status --short licenses
+            echo "licenses/dependencies is out of date; run 'just licenses'" >&2
+            exit 1
+          fi

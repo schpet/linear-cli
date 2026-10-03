@@ -100,3 +100,6 @@ fn unsupported() -> crate::error::Error {
     crate::error::Error::new("System keyring is unsupported on this platform")
         .with_hint("Pass --plaintext to store the key in the credentials file.")
 }
+
+#[cfg(test)]
+mod tests;

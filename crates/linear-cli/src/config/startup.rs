@@ -48,10 +48,14 @@ impl ChildEnvOverlay {
     }
 
     /// No `.env` values.
-    #[cfg(all(test, unix))]
+    #[cfg(test)]
     pub(crate) fn empty() -> Self {
         Self {
-            os: OsFamily::Unix,
+            os: if cfg!(windows) {
+                OsFamily::Windows
+            } else {
+                OsFamily::Unix
+            },
             values: BTreeMap::new(),
         }
     }
