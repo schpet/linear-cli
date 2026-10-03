@@ -7,6 +7,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::project::ProjectList;
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
@@ -18,8 +19,8 @@ use crate::graphql::operations::projects::{
     GetProjects, GetProjectsVariables, Project, ProjectFilter, ProjectStatusFilter,
     ProjectStatusType, TeamCollectionFilter,
 };
-use crate::graphql::operations::teams::{PageInfo, StringComparator, TeamFilter};
-use crate::graphql::pagination::{self, EmptyCursorPolicy, Page};
+use crate::graphql::operations::teams::{StringComparator, TeamFilter};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
@@ -57,12 +58,13 @@ fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
         return ctx.open_in_linear(&projects_path(team_key.as_deref()), args.app);
     }
     let status = args.status.as_deref();
-    let (projects, page_info) = ctx.spin(!args.json, async {
+    let mut projects = ctx.spin(!args.json, async {
         let team_key = team_key.await?;
         fetch(client, filter(team_key.as_deref(), status)).await
     })?;
+    args.limit.apply(&mut projects);
     if args.json {
-        ctx.print(render_json(&projects, &page_info))
+        ctx.print(render_json(&projects))
     } else if projects.is_empty() {
         ctx.print("No projects found.\n")
     } else {
@@ -105,27 +107,22 @@ pub(super) fn filter(team_key: Option<&str>, status: Option<&str>) -> Option<Pro
 }
 
 /// Every matching project, in Linear's manual order.
-async fn fetch(
-    client: &GraphQlTransport,
-    filter: Option<ProjectFilter>,
-) -> Result<(Vec<Project>, PageInfo)> {
-    let pages = pagination::paginate_with_policy(EmptyCursorPolicy::Allow, |after| {
+async fn fetch(client: &GraphQlTransport, filter: Option<ProjectFilter>) -> Result<Vec<Project>> {
+    let mut projects = pagination::collect(None, |after, first| {
         let request = GraphQlRequest::with_variables(GetProjects::build(GetProjectsVariables {
             filter: filter.clone(),
-            first: Some(100),
+            first: Some(first),
             after,
         }));
         async move {
             let data: GetProjects = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.projects.nodes,
-                page_info: data.projects.page_info.into(),
+                page_info: data.projects.page_info,
             })
         }
     })
-    .await
-    .map_err(|error| super::pagination_error("projects", error))?;
-    let mut projects = pages.nodes;
+    .await?;
     projects.sort_by(|left, right| {
         left.sort_order
             .get()
@@ -133,18 +130,7 @@ async fn fetch(
             .then_with(|| collation::compare(&left.name, &right.name))
             .then_with(|| collation::compare(left.id.inner(), right.id.inner()))
     });
-    let page_info = PageInfo {
-        has_next_page: pages.page_info.has_next_page,
-        end_cursor: pages.page_info.end_cursor,
-    };
-    Ok((projects, page_info))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: Vec<JsonProject<'a>>,
-    page_info: &'a PageInfo,
+    Ok(projects)
 }
 
 #[derive(Serialize)]
@@ -172,8 +158,8 @@ struct JsonProject<'a> {
     teams: &'a crate::graphql::operations::projects::ProjectTeams,
 }
 
-fn render_json(projects: &[Project], page_info: &PageInfo) -> Vec<u8> {
-    let nodes = projects
+fn render_json(projects: &[Project]) -> Vec<u8> {
+    let projects: Vec<_> = projects
         .iter()
         .map(|project| JsonProject {
             id: project.id.inner(),
@@ -198,10 +184,7 @@ fn render_json(projects: &[Project], page_info: &PageInfo) -> Vec<u8> {
             teams: &project.teams,
         })
         .collect();
-    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
-        .expect("project JSON always serializes");
-    bytes.push(b'\n');
-    bytes
+    json::render(&projects)
 }
 
 pub(super) fn priority_label(priority: i32) -> String {

@@ -11,8 +11,7 @@ pub mod write;
 
 use crate::cli::project::{ProjectCommand, ProjectCommentCommand};
 use crate::ctx::Ctx;
-use crate::error::{Error, Result};
-use crate::graphql::pagination::PaginationError;
+use crate::error::Result;
 
 pub fn run(ctx: &Ctx, command: &ProjectCommand) -> Result<()> {
     match command {
@@ -25,18 +24,5 @@ pub fn run(ctx: &Ctx, command: &ProjectCommand) -> Result<()> {
             ProjectCommentCommand::Add(args) => comment_add::run(ctx, args),
             ProjectCommentCommand::List(args) => comment_list::run(ctx, args),
         },
-    }
-}
-
-/// The error for a failed walk over the pages of `what` (like "projects").
-fn pagination_error(what: &str, error: PaginationError<Error>) -> Error {
-    match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            Error::new(format!(
-                "Linear reported more {what} but did not return a usable cursor"
-            ))
-            .with_hint("Retry the command; if it keeps happening, report it.")
-        }
     }
 }

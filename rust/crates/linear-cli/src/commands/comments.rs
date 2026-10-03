@@ -1,32 +1,80 @@
-//! Resource-independent comment JSON and thread rendering.
-use crate::commands::relative_time::format_relative_time;
-use crate::error::Error;
-use crate::graphql::operations::comments::{
-    CommentBotActor, CommentExternalUser, CommentNode, CommentParent, CommentUser,
-};
-use crate::graphql::operations::teams::PageInfo;
-use crate::graphql::pagination::PaginationError;
-use crate::platform::style::bold;
-use chrono::{DateTime, Local, Utc};
-use serde::Serialize;
+//! Comment lists, shared by the issue, project, document and initiative
+//! `comment list` commands: fetching every page, and printing threads or JSON.
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-pub fn pagination_error(error: PaginationError<Error>) -> Error {
-    match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            Error::new("Linear reported more comments but did not return a usable cursor")
-                .with_hint("Rerun the command; if it persists, report it.")
-        }
-    }
+use chrono::{DateTime, Local, Utc};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
+use crate::cli::Limit;
+use crate::commands::json;
+use crate::commands::relative_time::format_relative_time;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result};
+use crate::graphql::envelope::{GraphQlRequest, is_not_found};
+use crate::graphql::operations::comments::{
+    CommentBotActor, CommentConnection, CommentExternalUser, CommentNode, CommentParent,
+    CommentUser,
+};
+use crate::graphql::pagination::{self, Page};
+use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::platform::style::bold;
+
+/// What comments are listed for: one query per kind of entity.
+pub trait CommentSource {
+    /// The entity, capitalized, as in "Issue not found".
+    const ENTITY: &'static str;
+    type Variables: Serialize;
+    type Response: DeserializeOwned;
+
+    fn request(id: &str, after: Option<String>) -> GraphQlRequest<Self::Variables>;
+
+    /// The page of comments, or `None` when the entity does not exist.
+    fn comments(response: Self::Response) -> Option<CommentConnection>;
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: Vec<JsonComment<'a>>,
-    page_info: &'a PageInfo,
+/// The comments on entity `id` (which the user called `original`), up to `limit`.
+pub async fn fetch<S: CommentSource>(
+    client: &GraphQlTransport,
+    original: &str,
+    id: &str,
+    limit: Limit,
+) -> Result<Vec<CommentNode>> {
+    let not_found = || Error::not_found(S::ENTITY, original);
+    pagination::collect(limit.max(), |after, _first| {
+        let request = S::request(id, after);
+        async move {
+            let response: S::Response =
+                client
+                    .execute(&request)
+                    .await
+                    .map_err(|failure| match &failure {
+                        TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
+                            not_found()
+                        }
+                        _ => Error::from(failure),
+                    })?;
+            let connection = S::comments(response).ok_or_else(not_found)?;
+            Ok(Page {
+                nodes: connection.nodes,
+                page_info: connection.page_info,
+            })
+        }
+    })
+    .await
+}
+
+/// Prints comments as threads, or as JSON. `noun` names the entity in the
+/// empty message ("issue").
+pub fn print(ctx: &Ctx, comments: &[CommentNode], as_json: bool, noun: &str) -> Result<()> {
+    if as_json {
+        ctx.print(render_json(comments))
+    } else if comments.is_empty() {
+        ctx.print(format!("No comments found for this {noun}\n"))
+    } else {
+        ctx.print(render_text(comments, Utc::now(), ctx.color()))
+    }
 }
 
 #[derive(Serialize)]
@@ -45,8 +93,8 @@ struct JsonComment<'a> {
     parent: &'a Option<CommentParent>,
 }
 
-pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Vec<u8> {
-    let nodes = nodes
+fn render_json(nodes: &[CommentNode]) -> Vec<u8> {
+    let comments: Vec<_> = nodes
         .iter()
         .map(|node| JsonComment {
             id: &node.id,
@@ -62,10 +110,7 @@ pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Vec<u8> {
             parent: &node.parent,
         })
         .collect();
-    let mut output = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
-        .expect("comment JSON always serializes");
-    output.push(b'\n');
-    output
+    json::render(&comments)
 }
 
 fn nonempty(value: &str) -> Option<&str> {
@@ -128,15 +173,7 @@ fn header(node: &CommentNode, verb: &str, now: DateTime<Utc>, color: bool) -> St
     )
 }
 
-pub fn render_text(
-    nodes: &[CommentNode],
-    now: DateTime<Utc>,
-    color: bool,
-    empty_message: &str,
-) -> String {
-    if nodes.is_empty() {
-        return format!("{empty_message}\n");
-    }
+fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String {
     let mut roots: Vec<&CommentNode> = nodes.iter().filter(|node| node.parent.is_none()).collect();
     let root_ids: HashSet<&str> = roots.iter().map(|node| node.id.inner()).collect();
     let mut replies: HashMap<&str, Vec<&CommentNode>> = HashMap::new();

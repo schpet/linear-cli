@@ -98,7 +98,7 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
             &args.label,
         );
         read::apply_dates(&mut filter, args.created_after, args.updated_after);
-        read::mine(client, filter, priority, args.limit.0).await
+        read::mine(client, filter, priority, args.limit.max()).await
     })?;
     let rows = rows.into_iter().map(TableRow::from).collect::<Vec<_>>();
     let table = read::table(&rows, false, false, SystemTime::now());

@@ -1,6 +1,6 @@
 //! The two distinct selections used by `cycle view`.
 
-use super::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
@@ -31,8 +31,10 @@ pub struct GetTeamCyclesForLookup {
 pub struct LookupTeam {
     pub key: String,
     pub cycles_enabled: bool,
+    // Non-null in the schema, but Linear sends null for a team without
+    // cycles; that is reported as such rather than as a decode failure.
     #[arguments(first: 250, after: $after)]
-    pub cycles: LookupConnection,
+    pub cycles: Option<LookupConnection>,
     pub active_cycle: Option<ActiveCycle>,
 }
 

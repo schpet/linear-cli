@@ -9,7 +9,7 @@ use crate::graphql::operations::initiative_projects::{
     AddProjectToInitiative, AddVariables, GetInitiativeProjectLinks, IdVariables,
     InitiativeToProjectCreateInput, LinksVariables, RemoveProjectFromInitiative,
 };
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{self, InitiativeReference, ProjectReference};
 
@@ -114,41 +114,37 @@ impl<'a> Pair<'a> {
             super::resolve(client, reference, original, super::Archived::Exclude).await?;
         let (original, reference) = &self.project;
         let project_id = refs::resolve_project_with_transport(reference, original, client).await?;
-        let names = std::cell::RefCell::new(None);
-        let links = pagination::paginate(|after| {
-            let request =
-                GraphQlRequest::with_variables(GetInitiativeProjectLinks::build(LinksVariables {
-                    initiative_id: initiative_id.clone(),
-                    project_id: project_id.clone(),
-                    after,
-                }));
-            let names = &names;
-            async move {
-                let data: GetInitiativeProjectLinks = client.execute(&request).await?;
-                names.replace(Some((data.initiative.name, data.project.name)));
-                let links = data.project.initiative_to_projects;
-                Ok::<_, Error>(Page {
-                    nodes: links.nodes,
-                    page_info: links.page_info.into(),
-                })
-            }
-        })
-        .await
-        .map_err(|error| match error {
-            PaginationError::Fetch { source, .. } => source,
-            PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-                Error::new("Linear reported more project links but returned no usable cursor")
-                    .with_hint("Retry the command.")
-            }
-        })?;
-        let (initiative, project) = names
-            .into_inner()
-            .expect("a successful walk fetched at least one page");
-        let id = links
+        let data = pagination::collect_within(
+            None,
+            |after, _first| {
+                let request = GraphQlRequest::with_variables(GetInitiativeProjectLinks::build(
+                    LinksVariables {
+                        initiative_id: initiative_id.clone(),
+                        project_id: project_id.clone(),
+                        after,
+                    },
+                ));
+                async move {
+                    Ok(client
+                        .execute::<GetInitiativeProjectLinks, _>(&request)
+                        .await?)
+                }
+            },
+            |data| Page {
+                nodes: std::mem::take(&mut data.project.initiative_to_projects.nodes),
+                page_info: data.project.initiative_to_projects.page_info.clone(),
+            },
+            |data, page| data.project.initiative_to_projects.nodes = page.nodes,
+        )
+        .await?;
+        let id = data
+            .project
+            .initiative_to_projects
             .nodes
             .into_iter()
             .find(|link| link.initiative.id.inner() == initiative_id)
             .map(|link| link.id.into_inner());
+        let (initiative, project) = (data.initiative.name, data.project.name);
         Ok(Link {
             initiative_id,
             initiative,

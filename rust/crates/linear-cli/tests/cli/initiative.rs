@@ -79,7 +79,7 @@ fn list_json_defaults_to_active_initiatives() {
     assert_json(&Value::Array(listed), &nodes);
     assert_eq!(
         api.variables("GetInitiatives"),
-        json!({ "filter": { "status": { "eq": "Active" } }, "includeArchived": false })
+        json!({ "filter": { "status": { "eq": "Active" } }, "includeArchived": false, "first": 100 })
     );
 }
 
@@ -95,7 +95,7 @@ fn list_sorts_by_status_then_name_and_follows_pages() {
         ) }),
     )
     .on(
-        "GetInitiativesPage",
+        "GetInitiatives",
         initiatives(json!([list_node("init-3", "Alpha", "Active")])),
     );
     let listed = Cli::for_api(&api)
@@ -107,13 +107,17 @@ fn list_sorts_by_status_then_name_and_follows_pages() {
         .map(|node| node["name"].as_str().expect("name"))
         .collect();
     assert_eq!(names, ["Alpha", "Beta", "Zeta"]);
+    let variables: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .map(|request| request.variables)
+        .collect();
     assert_eq!(
-        api.variables("GetInitiatives"),
-        json!({ "includeArchived": false })
-    );
-    assert_eq!(
-        api.variables("GetInitiativesPage"),
-        json!({ "includeArchived": false, "after": "cursor-1" })
+        variables,
+        [
+            json!({ "includeArchived": false, "first": 100 }),
+            json!({ "includeArchived": false, "first": 100, "after": "cursor-1" }),
+        ]
     );
 }
 
@@ -153,11 +157,13 @@ fn list_filters_by_owner_status_and_archived() {
         [
             json!({
                 "filter": { "status": { "eq": "Planned" }, "owner": { "id": { "eq": "user-me" } } },
-                "includeArchived": true
+                "includeArchived": true,
+                "first": 100
             }),
             json!({
                 "filter": { "status": { "eq": "Active" }, "owner": { "id": { "eq": "user-alice" } } },
-                "includeArchived": false
+                "includeArchived": false,
+                "first": 100
             })
         ]
     );

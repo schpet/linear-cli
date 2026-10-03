@@ -1,7 +1,5 @@
 use crate::graphql::{
-    edit::Edit,
-    operations::{projects::ProjectFilter, teams::PageInfo},
-    schema,
+    edit::Edit, operations::projects::ProjectFilter, pagination::PageInfo, schema,
 };
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Query")]

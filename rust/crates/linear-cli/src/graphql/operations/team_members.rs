@@ -1,5 +1,4 @@
 //! The typed `GetTeamMembers` selection used by `team members`.
-use serde::Serialize;
 
 use super::organization_members::User;
 use crate::graphql::schema;
@@ -16,7 +15,7 @@ pub struct GetTeamMembersVariables {
     pub after: Option<String>,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
@@ -27,21 +26,20 @@ pub struct GetTeamMembers {
     pub team: Team,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", variables = "GetTeamMembersVariables")]
 pub struct Team {
     #[arguments(includeDisabled: $include_disabled, first: $first, after: $after)]
     pub members: MemberConnection,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "UserConnection",
     variables = "GetTeamMembersVariables"
 )]
-#[serde(rename_all = "camelCase")]
 pub struct MemberConnection {
     pub nodes: Vec<User>,
-    pub page_info: super::teams::PageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }

@@ -4,18 +4,18 @@ use serde::Serialize;
 
 use crate::cli::initiative::InitiativeList;
 use crate::cli::values;
+use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
-    GetInitiatives, GetInitiativesPage, GetInitiativesPageVariables, GetInitiativesVariables,
-    IDComparator, Initiative, InitiativeConnection, InitiativeFilter, InitiativeOwner,
-    InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType, LookupUserNode,
-    NullableUserFilter,
+    GetInitiatives, GetInitiativesVariables, IDComparator, Initiative, InitiativeFilter,
+    InitiativeOwner, InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType,
+    LookupUserNode, NullableUserFilter,
 };
-use crate::graphql::operations::teams::{PageInfo, StringComparator};
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::operations::teams::StringComparator;
+use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 
@@ -32,15 +32,16 @@ fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
     let status = status_filter(args.status, args.all_statuses);
     super::check_owner(args.owner.as_deref())?;
     let client = ctx.client()?;
-    let (initiatives, page_info) = ctx.spin(!args.json, async {
+    let mut initiatives = ctx.spin(!args.json, async {
         let owner = match &args.owner {
             Some(owner) => Some(super::owner_id(client, owner).await?),
             None => None,
         };
         fetch(client, filter(status, owner), args.archived).await
     })?;
+    args.limit.apply(&mut initiatives);
     if args.json {
-        ctx.print(render_json(&initiatives, &page_info))
+        ctx.print(render_json(&initiatives))
     } else if initiatives.is_empty() {
         ctx.print("No initiatives found.\n")
     } else {
@@ -76,65 +77,38 @@ fn filter(status: Option<&str>, owner: Option<String>) -> Option<InitiativeFilte
     (status.is_some() || owner.is_some()).then_some(InitiativeFilter { status, owner })
 }
 
-/// Every matching initiative, sorted by status then name, with the last page's info.
+/// Every matching initiative, sorted by status then name.
 async fn fetch(
     client: &GraphQlTransport,
     filter: Option<InitiativeFilter>,
     archived: bool,
-) -> Result<(Vec<Initiative>, PageInfo)> {
-    let pages = pagination::paginate(|after| {
-        let filter = filter.clone();
+) -> Result<Vec<Initiative>> {
+    let mut initiatives = pagination::collect(None, |after, first| {
+        let request =
+            GraphQlRequest::with_variables(GetInitiatives::build(GetInitiativesVariables {
+                filter: filter.clone(),
+                include_archived: Some(archived),
+                first: Some(first),
+                after,
+            }));
         async move {
-            let connection = match after {
-                None => {
-                    let request = GraphQlRequest::with_variables(GetInitiatives::build(
-                        GetInitiativesVariables {
-                            filter,
-                            include_archived: Some(archived),
-                        },
-                    ));
-                    let data: GetInitiatives = client.execute(&request).await?;
-                    data.initiatives
-                }
-                Some(after) => {
-                    let request = GraphQlRequest::with_variables(GetInitiativesPage::build(
-                        GetInitiativesPageVariables {
-                            filter,
-                            include_archived: Some(archived),
-                            after: Some(after),
-                        },
-                    ));
-                    let data: GetInitiativesPage = client.execute(&request).await?;
-                    data.initiatives
-                }
-            };
-            let connection = connection.unwrap_or_else(|| InitiativeConnection {
-                nodes: Vec::new(),
-                page_info: PageInfo {
-                    has_next_page: false,
-                    end_cursor: None,
+            let data: GetInitiatives = client.execute(&request).await?;
+            Ok(data.initiatives.map_or_else(
+                || Page {
+                    nodes: Vec::new(),
+                    page_info: PageInfo {
+                        has_next_page: false,
+                        end_cursor: None,
+                    },
                 },
-            });
-            Ok::<Page<Initiative>, Error>(Page {
-                nodes: connection.nodes,
-                page_info: connection.page_info.into(),
-            })
+                |connection| Page {
+                    nodes: connection.nodes,
+                    page_info: connection.page_info,
+                },
+            ))
         }
     })
-    .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { page: 1, source } => source,
-        PaginationError::Fetch { page, source } => source.context(format!("page {page}")),
-        PaginationError::MissingCursor { .. } => {
-            Error::new("Linear reported more initiatives but returned no pagination cursor")
-                .with_hint("Retry the command.")
-        }
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated an initiative pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
-    })?;
-    let mut initiatives = pages.nodes;
+    .await?;
     for item in &initiatives {
         if let InitiativeStatus::Unknown(value) = &item.status {
             return Err(Error::new(format!(
@@ -153,18 +127,7 @@ async fn fetch(
             .cmp(&right.status.rank())
             .then_with(|| collation::compare(&left.name, &right.name))
     });
-    let page_info = PageInfo {
-        has_next_page: pages.page_info.has_next_page,
-        end_cursor: pages.page_info.end_cursor,
-    };
-    Ok((initiatives, page_info))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: Vec<JsonInitiative<'a>>,
-    page_info: &'a PageInfo,
+    Ok(initiatives)
 }
 
 #[derive(Serialize)]
@@ -185,8 +148,8 @@ struct JsonInitiative<'a> {
     projects: &'a InitiativeProjects,
 }
 
-fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Vec<u8> {
-    let nodes = initiatives
+fn render_json(initiatives: &[Initiative]) -> Vec<u8> {
+    let initiatives: Vec<_> = initiatives
         .iter()
         .map(|item| JsonInitiative {
             id: &item.id,
@@ -204,10 +167,7 @@ fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Vec<u8> {
             projects: &item.projects,
         })
         .collect();
-    let mut output = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
-        .expect("initiative JSON always serializes");
-    output.push(b'\n');
-    output
+    json::render(&initiatives)
 }
 
 /// The status column's color, matching the status colors in Linear.

@@ -155,13 +155,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         Ok::<_, Error>((project, linked))
     })?;
     if args.json {
-        let mut output = serde_json::to_vec_pretty(&serde_json::json!({
-            "success": true,
-            "project": project,
-        }))
-        .expect("project JSON always serializes");
-        output.push(b'\n');
-        ctx.print(output)?;
+        ctx.print(crate::commands::json::render(&project))?;
     } else {
         ctx.print(format!(
             "✓ Created project: {}\n  Slug: {}\n  URL: {}\n",

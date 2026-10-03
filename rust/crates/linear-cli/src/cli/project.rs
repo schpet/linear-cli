@@ -48,6 +48,8 @@ pub struct ProjectList {
     pub web: bool,
     #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
     pub app: bool,
+    #[arg(long = "limit", help = "Maximum number of projects to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }
@@ -252,6 +254,8 @@ pub struct ProjectCommentAdd {
 pub struct ProjectCommentList {
     #[arg(value_name = "project")]
     pub project: String,
+    #[arg(long = "limit", help = "Maximum number of comments to fetch (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }

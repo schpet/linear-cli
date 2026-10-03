@@ -69,6 +69,8 @@ pub struct TeamList {
         conflicts_with = "json"
     )]
     pub app: bool,
+    #[arg(long = "limit", help = "Maximum number of teams to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }
@@ -85,6 +87,8 @@ pub struct TeamMembers {
     pub team: Option<String>,
     #[arg(long = "all", short = 'a', help = "Include inactive members")]
     pub all: bool,
+    #[arg(long = "limit", help = "Maximum number of members to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(
         long = "json",
         short = 'j',
@@ -97,6 +101,8 @@ pub struct TeamMembers {
 pub struct TeamStates {
     #[arg(value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
+    #[arg(long = "limit", help = "Maximum number of states to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }

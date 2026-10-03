@@ -168,14 +168,14 @@ fn initiative_updates() -> Value {
                 {
                     "id": "update-1", "body": "Shipped the beta", "health": "onTrack",
                     "url": "https://linear.app/acme/initiative/roadmap/updates#update-1",
-                    "createdAt": "2026-03-01T00:00:00.000Z", "user": { "name": "Ada" }
+                    "createdAt": "2026-03-01T00:00:00.000Z", "user": { "name": "Ada", "displayName": "ada" }
                 },
                 {
                     "id": "update-0", "body": "Kickoff", "health": "atRisk",
                     "url": "https://linear.app/acme/initiative/roadmap/updates#update-0",
                     "createdAt": "2026-02-01T00:00:00.000Z", "user": null
                 }
-            ] }
+            ], "pageInfo": { "hasNextPage": false, "endCursor": null } }
         }
     })
 }
@@ -377,7 +377,7 @@ fn both_lists_render_the_same_table() {
     );
     assert_eq!(
         cells(&initiative[1])[1..],
-        ["On Track", "Ada", "Shipped the beta"]
+        ["On Track", "ada", "Shipped the beta"]
     );
     assert_eq!(cells(&initiative[2])[1..], ["At Risk", "-", "Kickoff"]);
     assert_eq!(initiative.len(), 3, "{initiative:?}");

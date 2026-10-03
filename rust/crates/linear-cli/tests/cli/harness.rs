@@ -108,14 +108,12 @@ fn run_helpers_parse_json_and_classify_usage_errors() {
 }
 
 #[test]
-fn json_helpers_ignore_list_wrappers() {
+fn json_helpers_compare_output_with_flattened_fixtures() {
     let entity = json!({ "id": "a", "labels": { "nodes": [{ "id": "l" }] } });
-    for shape in [
-        json!([entity]),
-        json!({ "nodes": [entity], "pageInfo": { "hasNextPage": false } }),
-        json!({ "teams": { "nodes": [entity] } }),
-    ] {
-        assert_eq!(nodes(&shape), std::slice::from_ref(&entity));
-    }
+    assert_eq!(nodes(&json!([entity])), std::slice::from_ref(&entity));
     assert_json(&json!({ "id": "a", "labels": [{ "id": "l" }] }), &entity);
+    let wrapped = std::panic::catch_unwind(|| nodes(&json!({ "nodes": [entity] })));
+    assert!(wrapped.is_err(), "a wrapped list is not a list");
+    let nested = std::panic::catch_unwind(|| assert_json(&entity, &entity));
+    assert!(nested.is_err(), "output may not contain connections");
 }

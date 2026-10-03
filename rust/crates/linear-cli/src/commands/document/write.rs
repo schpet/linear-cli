@@ -9,7 +9,7 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::document_write::*;
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::editor;
 use crate::platform::prompt::{Choice, Prompter, Text};
@@ -230,7 +230,7 @@ async fn for_edit(client: &GraphQlTransport, id: &str) -> Result<DocumentForEdit
 /// Replacing the Markdown can detach or hide inline comments, so content
 /// updates stop while any open comment quotes the document.
 async fn refuse_inline_comments(client: &GraphQlTransport, id: &str) -> Result<()> {
-    let comments = pagination::paginate(|after| {
+    let comments = pagination::collect(None, |after, _first| {
         let request = GraphQlRequest::with_variables(DocumentInlineCommentGuard::build(
             DocumentGuardVariables {
                 id: id.to_owned(),
@@ -247,19 +247,12 @@ async fn refuse_inline_comments(client: &GraphQlTransport, id: &str) -> Result<(
                 .ok_or_else(|| Error::not_found("Document", id))?;
             Ok::<_, Error>(Page {
                 nodes: document.comments.nodes,
-                page_info: document.comments.page_info.into(),
+                page_info: document.comments.page_info,
             })
         }
     })
-    .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            Error::new("Linear reported more document comments but returned no usable cursor")
-                .with_hint("Retry the command.")
-        }
-    })?;
-    let open_quote = comments.nodes.into_iter().find_map(|comment| {
+    .await?;
+    let open_quote = comments.into_iter().find_map(|comment| {
         let open = comment.resolved_at.is_none() && comment.archived_at.is_none();
         comment
             .quoted_text

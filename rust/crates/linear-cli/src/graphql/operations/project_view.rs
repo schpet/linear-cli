@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::projects::{ProjectFilter, ProjectUpdateHealthType};
-use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::schema;
 
@@ -208,9 +208,10 @@ macro_rules! connection {
     ($name:ident, $graphql:literal, $node:ty) => {
         #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
         #[cynic(schema = "linear", graphql_type = $graphql)]
-        #[serde(rename_all = "camelCase")]
+        #[serde(transparent)]
         pub struct $name {
             pub nodes: Vec<$node>,
+            #[serde(skip)]
             pub page_info: PageInfo,
         }
     };

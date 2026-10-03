@@ -4,13 +4,15 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::project_update::ProjectUpdateList;
+use crate::commands::json;
 use crate::commands::status_update::{self, Row, UpdateHealth};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_updates::{
-    ListProjectUpdates, ListProjectUpdatesVariables, UpdateNode, UpdateProject,
+    ListProjectUpdates, ListProjectUpdatesVariables, UpdateNode,
 };
+use crate::graphql::pagination::{self, Page};
 use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
 pub fn run(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
@@ -23,22 +25,38 @@ fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
     let client = ctx.client()?;
     let project = ctx.spin(!args.json, async {
         let id = resolve_project_with_transport(&reference, original, client).await?;
-        let request = GraphQlRequest::with_variables(ListProjectUpdates::build(
-            ListProjectUpdatesVariables {
-                id,
-                first: Some(args.limit),
+        pagination::collect_within(
+            args.limit.max(),
+            |after, first| {
+                let request = GraphQlRequest::with_variables(ListProjectUpdates::build(
+                    ListProjectUpdatesVariables {
+                        id: id.clone(),
+                        first: Some(first),
+                        after,
+                    },
+                ));
+                async move {
+                    let data: ListProjectUpdates = client.execute(&request).await?;
+                    data.project
+                        .ok_or_else(|| Error::not_found("Project", original))
+                }
             },
-        ));
-        let data: ListProjectUpdates = client.execute(&request).await?;
-        data.project
-            .ok_or_else(|| Error::not_found("Project", original))
+            |project| Page {
+                nodes: std::mem::take(&mut project.project_updates.nodes),
+                page_info: project.project_updates.page_info.clone(),
+            },
+            |project, page| project.project_updates.nodes = page.nodes,
+        )
+        .await
     })?;
+    let updates = &project.project_updates.nodes;
     if args.json {
-        return ctx.print(render_json(&project));
+        return ctx.print(render_json(updates));
     }
-    let rows: Vec<_> = project
-        .project_updates
-        .nodes
+    if updates.is_empty() {
+        return ctx.print(format!("No status updates found for {}\n", project.name));
+    }
+    let rows = updates
         .iter()
         .map(|node| Row {
             health: node.health.as_ref().map(UpdateHealth::from),
@@ -47,25 +65,7 @@ fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
             body: &node.body,
         })
         .collect();
-    if rows.is_empty() {
-        return ctx.print(format!("No status updates found for {}\n", project.name));
-    }
     ctx.print(status_update::table(rows, Utc::now()).render_for(ctx))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonProject<'a> {
-    name: &'a str,
-    slug_id: &'a str,
-    project_updates: JsonConnection<'a>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: Vec<JsonUpdate<'a>>,
-    page_info: &'a crate::graphql::operations::teams::PageInfo,
 }
 
 #[derive(Serialize)]
@@ -86,10 +86,8 @@ struct JsonUser<'a> {
     display_name: &'a str,
 }
 
-fn render_json(project: &UpdateProject) -> Vec<u8> {
-    let nodes = project
-        .project_updates
-        .nodes
+fn render_json(updates: &[UpdateNode]) -> Vec<u8> {
+    let updates: Vec<_> = updates
         .iter()
         .map(|node| JsonUpdate {
             id: &node.id,
@@ -103,18 +101,7 @@ fn render_json(project: &UpdateProject) -> Vec<u8> {
             }),
         })
         .collect();
-    let value = JsonProject {
-        name: &project.name,
-        slug_id: &project.slug_id,
-        project_updates: JsonConnection {
-            nodes,
-            page_info: &project.project_updates.page_info,
-        },
-    };
-    let mut output =
-        serde_json::to_vec_pretty(&value).expect("project update JSON always serializes");
-    output.push(b'\n');
-    output
+    json::render(&updates)
 }
 
 fn author(node: &UpdateNode) -> &str {

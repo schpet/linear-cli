@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
@@ -69,12 +70,4 @@ pub struct User {
     pub owner: bool,
     pub is_me: bool,
     pub url: String,
-}
-
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear")]
-#[serde(rename_all = "camelCase")]
-pub struct PageInfo {
-    pub has_next_page: bool,
-    pub end_cursor: Option<String>,
 }

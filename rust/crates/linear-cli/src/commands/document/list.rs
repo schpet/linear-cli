@@ -3,16 +3,19 @@ use std::time::SystemTime;
 
 use cynic::QueryBuilder;
 
+use crate::cli::Limit;
 use crate::cli::document::DocumentList;
 use crate::commands::{
+    json,
     relative_time::format_relative_time,
     table::{Cell, Column, Table},
 };
 use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
+use crate::error::{Result, ResultExt};
 use crate::graphql::{
     envelope::GraphQlRequest,
-    operations::{documents::*, teams::PageInfo},
+    operations::documents::*,
+    pagination::{self, Page, PageInfo},
     transport::GraphQlTransport,
 };
 use crate::platform::style;
@@ -35,9 +38,6 @@ fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
             release: args.release.as_deref(),
         },
     )?;
-    let first = i32::try_from(args.limit.get()).map_err(|error| {
-        Error::new(format!("--limit must be at most {}", i32::MAX)).with_source(error)
-    })?;
     let client = ctx.client()?;
     let documents = ctx.spin(!args.json, async {
         let filter = match &target {
@@ -47,14 +47,11 @@ fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
             }
             None => None,
         };
-        fetch(client, filter, first).await
+        fetch(client, filter, args.limit).await
     })?;
     if args.json {
-        let mut output =
-            serde_json::to_vec_pretty(&documents).expect("document JSON always serializes");
-        output.push(b'\n');
-        ctx.print(output)
-    } else if documents.nodes.is_empty() {
+        ctx.print(json::render(&documents))
+    } else if documents.is_empty() {
         ctx.print("No documents found.\n")
     } else {
         ctx.print(text(&documents, SystemTime::now()).render_for(ctx))
@@ -64,20 +61,33 @@ fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
 async fn fetch(
     client: &GraphQlTransport,
     filter: Option<DocumentFilter>,
-    first: i32,
-) -> Result<DocumentConnection> {
-    let request = GraphQlRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
-        filter,
-        first: Some(first),
-    }));
-    let data: ListDocuments = client.execute(&request).await?;
-    Ok(data.documents.unwrap_or(DocumentConnection {
-        nodes: Vec::new(),
-        page_info: PageInfo {
-            has_next_page: false,
-            end_cursor: None,
-        },
-    }))
+    limit: Limit,
+) -> Result<Vec<ListedDocument>> {
+    pagination::collect(limit.max(), |after, first| {
+        let request =
+            GraphQlRequest::with_variables(ListDocuments::build(ListDocumentsVariables {
+                filter: filter.clone(),
+                first: Some(first),
+                after,
+            }));
+        async move {
+            let data: ListDocuments = client.execute(&request).await?;
+            Ok(data.documents.map_or_else(
+                || Page {
+                    nodes: Vec::new(),
+                    page_info: PageInfo {
+                        has_next_page: false,
+                        end_cursor: None,
+                    },
+                },
+                |connection| Page {
+                    nodes: connection.nodes,
+                    page_info: connection.page_info,
+                },
+            ))
+        }
+    })
+    .await
 }
 
 fn attachment(doc: &ListedDocument) -> String {
@@ -117,14 +127,14 @@ fn attachment(doc: &ListedDocument) -> String {
     }
     "-".to_owned()
 }
-fn text(documents: &DocumentConnection, now: SystemTime) -> Table {
+fn text(documents: &[ListedDocument], now: SystemTime) -> Table {
     let mut table = Table::new([
         Column::fixed("SLUG"),
         Column::flexible("TITLE"),
         Column::flexible("ATTACHMENT"),
         Column::fixed("UPDATED"),
     ]);
-    for doc in &documents.nodes {
+    for doc in documents {
         table.row([
             Cell::from(doc.slug_id.as_str()),
             Cell::from(doc.title.as_str()),

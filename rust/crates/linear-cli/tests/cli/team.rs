@@ -92,7 +92,7 @@ fn list_stops_on_a_repeated_cursor() {
     Cli::for_api(&api)
         .run(&["team", "list", "--json"])
         .failure()
-        .stderr_has("repeated a team pagination cursor");
+        .stderr_has("same pagination cursor");
     assert_eq!(api.requests().len(), 2);
 }
 
@@ -399,7 +399,7 @@ fn delete_fails_before_moving_when_issue_pages_have_no_cursor() {
     Cli::for_api(&api)
         .run(&["team", "delete", "SRC", "--force", "--move-issues", "DEST"])
         .failure()
-        .stderr_has("no pagination cursor");
+        .stderr_has("no cursor");
     assert!(move_variables(&api).is_empty());
     assert!(!api.operations().contains(&"DeleteTeam".to_owned()));
 }

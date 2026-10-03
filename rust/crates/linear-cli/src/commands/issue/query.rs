@@ -2,6 +2,7 @@
 use std::time::SystemTime;
 
 use crate::cli::issue::IssueQuery;
+use crate::commands::json;
 use crate::commands::team_key::configured_team_key;
 use crate::config::OptionSource;
 use crate::ctx::Ctx;
@@ -16,7 +17,7 @@ pub fn run(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
 }
 
 enum Output {
-    Json(String),
+    Json(Vec<u8>),
     Table(crate::commands::table::Table),
 }
 
@@ -133,35 +134,29 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                     client,
                     filter,
                     term.to_owned(),
-                    args.limit.0,
+                    args.limit.max(),
                     args.include_archived,
                     args.search_comments,
                 )
                 .await?;
                 if args.json {
-                    return Ok(Output::Json(json(&data)));
+                    return Ok(Output::Json(json::render(&data)));
                 }
-                data.nodes
-                    .into_iter()
-                    .map(TableRow::from)
-                    .collect::<Vec<_>>()
+                data.into_iter().map(TableRow::from).collect::<Vec<_>>()
             }
             None => {
                 let data = read::query(
                     client,
                     filter,
                     priority,
-                    args.limit.0,
+                    args.limit.max(),
                     args.include_archived,
                 )
                 .await?;
                 if args.json {
-                    return Ok(Output::Json(json(&data)));
+                    return Ok(Output::Json(json::render(&data)));
                 }
-                data.nodes
-                    .into_iter()
-                    .map(TableRow::from)
-                    .collect::<Vec<_>>()
+                data.into_iter().map(TableRow::from).collect::<Vec<_>>()
             }
         };
         Ok::<_, Error>(Output::Table(read::table(
@@ -172,7 +167,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
         )))
     })?;
     match output {
-        Output::Json(json) => ctx.print(format!("{json}\n")),
+        Output::Json(json) => ctx.print(json),
         Output::Table(table) => read::print_table(ctx, &table, !args.no_pager),
     }
 }
@@ -216,8 +211,4 @@ fn explicit_teams(ctx: &Ctx, args: &IssueQuery) -> Result<Scope> {
         keys: Some(teams.into_iter().map(|team| team.key).collect()),
         team_id,
     })
-}
-
-fn json(value: &impl serde::Serialize) -> String {
-    serde_json::to_string_pretty(value).expect("issue JSON always serializes")
 }

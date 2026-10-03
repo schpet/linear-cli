@@ -1,139 +1,148 @@
-//! Forward cursor pagination for built-in connections.
+//! Forward cursor pagination for Linear connections.
 //!
-//! Requests continue with `after = pageInfo.endCursor` while `hasNextPage`,
-//! and fail when `hasNextPage` is true without a cursor. The default rejects
-//! an empty cursor too; opt-in `Allow` sends it like any concrete cursor. A
-//! cursor equal to the one just sent, or to any cursor seen earlier in the
-//! walk, aborts instead of looping. No page count
-//! limit is imposed. A failure on any page discards every page: partial
-//! results never become a completed result.
+//! Requests continue with `after = pageInfo.endCursor` while `hasNextPage` and
+//! the limit is not reached. A next page without a usable cursor (null or
+//! empty), or a cursor Linear already sent, is an error rather than a silent
+//! stop or an endless loop. Any failure discards the pages fetched so far.
 
 use std::collections::HashSet;
-use std::error::Error as StdError;
-use std::fmt;
+use std::num::NonZeroU32;
 
-use crate::graphql::operations::teams;
+use crate::error::{Error, Result};
+use crate::graphql::schema;
 
-/// The forward-pagination fields of one page.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// The most nodes one request asks for.
+pub const PAGE_SIZE: u32 = 100;
+
+/// The forward-pagination fields of a connection.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear")]
 pub struct PageInfo {
     pub has_next_page: bool,
     pub end_cursor: Option<String>,
 }
 
-impl From<teams::PageInfo> for PageInfo {
-    fn from(info: teams::PageInfo) -> Self {
-        Self {
-            has_next_page: info.has_next_page,
-            end_cursor: info.end_cursor,
-        }
-    }
-}
-
-/// One fetched page: its typed nodes and pagination fields.
+/// One fetched page: its nodes and pagination fields.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Page<N> {
     pub nodes: Vec<N>,
     pub page_info: PageInfo,
 }
 
-/// Every node from every page plus the last page's `pageInfo`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Paginated<N> {
-    pub nodes: Vec<N>,
-    pub page_info: PageInfo,
-}
-
-/// Whether a connection may send an empty string as its next-page cursor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EmptyCursorPolicy {
-    /// Match strict built-in connections such as `team list`.
-    Reject,
-    /// Treat `""` as a concrete cursor, while still rejecting repeats/cycles.
-    Allow,
-}
-
-/// Why a walk stopped without a complete result. `page` counts from 1.
+/// Where a walk over a connection stands: the cursor for the next request
+/// and how many more nodes are wanted.
 #[derive(Debug)]
-pub enum PaginationError<E> {
-    /// Fetching this page failed; earlier pages are discarded.
-    Fetch { page: usize, source: E },
-    /// `hasNextPage` was true but `endCursor` was null, or empty under Reject.
-    MissingCursor { page: usize },
-    /// `endCursor` repeated the cursor just requested or one seen earlier.
-    RepeatedCursor { page: usize, cursor: String },
+pub struct Pages {
+    after: Option<String>,
+    seen: HashSet<String>,
+    remaining: Option<u32>,
 }
 
-impl<E: fmt::Display> fmt::Display for PaginationError<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Fetch { page, source } => write!(f, "page {page} failed: {source}"),
-            Self::MissingCursor { page } => write!(
-                f,
-                "page {page} reported more results but returned no pagination cursor"
-            ),
-            Self::RepeatedCursor { page, cursor } => write!(
-                f,
-                "page {page} returned a pagination cursor that was already used ({cursor})"
-            ),
+impl Pages {
+    /// A walk that stops after `limit` nodes, or at the last page without one.
+    pub fn new(limit: Option<NonZeroU32>) -> Self {
+        Self {
+            after: None,
+            seen: HashSet::new(),
+            remaining: limit.map(NonZeroU32::get),
         }
     }
-}
 
-impl<E: StdError + 'static> StdError for PaginationError<E> {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            Self::Fetch { source, .. } => Some(source),
-            Self::MissingCursor { .. } | Self::RepeatedCursor { .. } => None,
-        }
+    /// The `after` variable for the next request; `None` for the first page.
+    pub fn after(&self) -> Option<String> {
+        self.after.clone()
     }
-}
 
-/// Walks every page with the strict policy. `fetch` receives `None` for the
-/// first page (built-ins omit `after`) and `Some(cursor)` afterwards.
-pub async fn paginate<N, E, F, Fut>(fetch: F) -> Result<Paginated<N>, PaginationError<E>>
-where
-    F: FnMut(Option<String>) -> Fut,
-    Fut: Future<Output = Result<Page<N>, E>>,
-{
-    paginate_with_policy(EmptyCursorPolicy::Reject, fetch).await
-}
+    /// The `first` variable for the next request.
+    pub fn first(&self) -> i32 {
+        let size = self.remaining.map_or(PAGE_SIZE, |left| left.min(PAGE_SIZE));
+        i32::try_from(size).expect("page sizes are at most PAGE_SIZE")
+    }
 
-/// Walks every page under an explicit empty-cursor policy. Under Allow, an
-/// empty string is sent as `Some("")`; null still fails, and all seen cursors
-/// (including `""`) are rejected if they recur.
-pub async fn paginate_with_policy<N, E, F, Fut>(
-    policy: EmptyCursorPolicy,
-    mut fetch: F,
-) -> Result<Paginated<N>, PaginationError<E>>
-where
-    F: FnMut(Option<String>) -> Fut,
-    Fut: Future<Output = Result<Page<N>, E>>,
-{
-    let mut nodes = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut cursor: Option<String> = None;
-    let mut page = 1;
-    loop {
-        let fetched = fetch(cursor.clone())
-            .await
-            .map_err(|source| PaginationError::Fetch { page, source })?;
-        nodes.extend(fetched.nodes);
-        let info = fetched.page_info;
+    /// Records a page that returned `received` nodes. `Ok(true)` means the
+    /// walk needs another page.
+    pub fn advance(&mut self, received: usize, info: &PageInfo) -> Result<bool> {
+        if let Some(left) = &mut self.remaining {
+            let received = u32::try_from(received).unwrap_or(u32::MAX);
+            *left = left.saturating_sub(received);
+            if *left == 0 {
+                return Ok(false);
+            }
+        }
         if !info.has_next_page {
-            return Ok(Paginated {
-                nodes,
-                page_info: info,
-            });
+            return Ok(false);
         }
-        let next = match info.end_cursor.as_deref() {
-            Some(next) if policy == EmptyCursorPolicy::Allow || !next.is_empty() => next.to_owned(),
-            Some(_) | None => return Err(PaginationError::MissingCursor { page }),
-        };
-        if cursor.as_deref() == Some(next.as_str()) || !seen.insert(next.clone()) {
-            return Err(PaginationError::RepeatedCursor { page, cursor: next });
+        let cursor = info
+            .end_cursor
+            .as_deref()
+            .filter(|cursor| !cursor.is_empty())
+            .ok_or_else(|| {
+                Error::new("Linear reported more results but sent no cursor to fetch them")
+                    .with_hint("Retry the command.")
+            })?;
+        if !self.seen.insert(cursor.to_owned()) {
+            return Err(Error::new("Linear sent the same pagination cursor twice")
+                .with_hint("Retry the command."));
         }
-        cursor = Some(next);
-        page += 1;
+        self.after = Some(cursor.to_owned());
+        Ok(true)
     }
+}
+
+/// The nodes of every page up to `limit`. `fetch` gets the `after` and
+/// `first` variables for each request.
+pub async fn collect<N, F, Fut>(limit: Option<NonZeroU32>, mut fetch: F) -> Result<Vec<N>>
+where
+    F: FnMut(Option<String>, i32) -> Fut,
+    Fut: Future<Output = Result<Page<N>>>,
+{
+    let mut pages = Pages::new(limit);
+    let mut nodes = Vec::new();
+    loop {
+        let page = fetch(pages.after(), pages.first()).await?;
+        let more = pages.advance(page.nodes.len(), &page.page_info)?;
+        nodes.extend(page.nodes);
+        if !more {
+            break;
+        }
+    }
+    if let Some(limit) = limit {
+        nodes.truncate(usize::try_from(limit.get()).unwrap_or(usize::MAX));
+    }
+    Ok(nodes)
+}
+
+/// [`collect`] for a connection inside a parent record, such as a document's
+/// comments. `fetch` returns the parent holding one page; `take` moves that
+/// page out of it and `put` stores every node, with the last page's info, in
+/// the first page's parent, which is returned.
+pub async fn collect_within<P, N, F, Fut>(
+    limit: Option<NonZeroU32>,
+    mut fetch: F,
+    take: impl Fn(&mut P) -> Page<N>,
+    put: impl FnOnce(&mut P, Page<N>),
+) -> Result<P>
+where
+    F: FnMut(Option<String>, i32) -> Fut,
+    Fut: Future<Output = Result<P>>,
+{
+    let mut pages = Pages::new(limit);
+    let mut parent = None;
+    let mut nodes = Vec::new();
+    let page_info = loop {
+        let mut record = fetch(pages.after(), pages.first()).await?;
+        let page = take(&mut record);
+        let more = pages.advance(page.nodes.len(), &page.page_info)?;
+        nodes.extend(page.nodes);
+        parent.get_or_insert(record);
+        if !more {
+            break page.page_info;
+        }
+    };
+    if let Some(limit) = limit {
+        nodes.truncate(usize::try_from(limit.get()).unwrap_or(usize::MAX));
+    }
+    let mut parent = parent.expect("the walk fetched at least one page");
+    put(&mut parent, Page { nodes, page_info });
+    Ok(parent)
 }

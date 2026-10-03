@@ -1,7 +1,7 @@
-//! One-page status updates for a resolved project.
+//! Status updates of a resolved project, newest first.
 
 use crate::graphql::operations::projects::ProjectUpdateHealthType;
-use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
@@ -9,6 +9,8 @@ use crate::graphql::schema;
 pub struct ListProjectUpdatesVariables {
     pub id: String,
     pub first: Option<i32>,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -31,7 +33,7 @@ pub struct ListProjectUpdates {
 pub struct UpdateProject {
     pub name: String,
     pub slug_id: String,
-    #[arguments(first: $first)]
+    #[arguments(first: $first, after: $after)]
     pub project_updates: UpdateConnection,
 }
 

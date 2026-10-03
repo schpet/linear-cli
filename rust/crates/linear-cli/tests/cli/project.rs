@@ -114,7 +114,10 @@ fn list_json_filters_by_team_and_status() {
     let run = Cli::for_api(&api).run(&[
         "project", "list", "--team", "ENG", "--status", "Started", "--json",
     ]);
-    assert_eq!(run.success().json_nodes(), [list_node("Roadmap")]);
+    assert_json(
+        &Value::Array(run.success().json_nodes()),
+        &json!([list_node("Roadmap")]),
+    );
     assert_eq!(api.variables("ResolveTeam")["reference"], "ENG");
     assert_eq!(
         api.variables("GetProjects"),
@@ -256,7 +259,10 @@ fn create_sends_input_and_prints_json() {
         "# Overview",
         "--json",
     ]);
-    assert_json(&run.success().json(), &created()["projectCreate"]);
+    assert_json(
+        &run.success().json(),
+        &created()["projectCreate"]["project"],
+    );
     assert_eq!(api.variables("ResolveTeam")["reference"], "SRC");
     assert_eq!(
         api.variables("CreateProject"),

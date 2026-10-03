@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use crate::commands::json;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::templates::{
     InheritedTemplate, Template, TemplateCreator, TemplateTeam,
@@ -32,17 +33,11 @@ struct JsonTemplate<'a> {
 
 pub fn render_list(templates: &[Template]) -> Vec<u8> {
     let projected: Vec<_> = templates.iter().map(project).collect();
-    let mut output =
-        serde_json::to_vec_pretty(&projected).expect("template JSON always serializes");
-    output.push(b'\n');
-    output
+    json::render(&projected)
 }
 
 pub fn render_one(template: &Template) -> Vec<u8> {
-    let mut output =
-        serde_json::to_vec_pretty(&project(template)).expect("template JSON always serializes");
-    output.push(b'\n');
-    output
+    json::render(&project(template))
 }
 
 fn project(template: &Template) -> JsonTemplate<'_> {

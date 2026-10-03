@@ -137,28 +137,26 @@ fn full_session_document_parses_and_renders_in_document_order() {
     "title": "Port",
     "url": "https://linear.app/x/issue/ENG-7"
   },
-  "activities": {
-    "nodes": [
-      {
-        "id": "a1",
-        "createdAt": "2026-09-01T00:00:01.000Z",
-        "content": {
-          "type": "thought",
-          "body": "thinking"
-        }
-      },
-      {
-        "id": "a2",
-        "createdAt": "2026-09-01T00:00:02.000Z",
-        "content": {
-          "type": "action",
-          "action": "grep",
-          "parameter": "foo",
-          "result": null
-        }
+  "activities": [
+    {
+      "id": "a1",
+      "createdAt": "2026-09-01T00:00:01.000Z",
+      "content": {
+        "type": "thought",
+        "body": "thinking"
       }
-    ]
-  }
+    },
+    {
+      "id": "a2",
+      "createdAt": "2026-09-01T00:00:02.000Z",
+      "content": {
+        "type": "action",
+        "action": "grep",
+        "parameter": "foo",
+        "result": null
+      }
+    }
+  ]
 }"#
     );
 }

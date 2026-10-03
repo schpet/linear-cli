@@ -28,6 +28,8 @@ pub enum MilestoneCommand {
 pub struct MilestoneList {
     #[arg(long = "project", help = "Project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: String,
+    #[arg(long = "limit", help = "Maximum number of milestones to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }

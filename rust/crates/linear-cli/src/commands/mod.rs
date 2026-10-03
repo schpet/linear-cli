@@ -12,6 +12,7 @@ pub mod document;
 pub mod initiative;
 pub mod initiative_update;
 pub mod issue;
+pub mod json;
 pub mod label;
 pub mod milestone;
 pub mod project;

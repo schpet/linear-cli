@@ -165,6 +165,6 @@ fn list_fails_when_the_cursor_does_not_advance() {
         ),
     );
     let run = Cli::for_api(&api).run(&["user", "list"]);
-    run.failure().stderr_has("did not advance the page cursor");
+    run.failure().stderr_has("same pagination cursor");
     assert!(run.stdout.is_empty());
 }

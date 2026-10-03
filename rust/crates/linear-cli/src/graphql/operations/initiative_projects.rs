@@ -1,6 +1,6 @@
 //! Links between initiatives and projects for `initiative add-project` and `remove-project`.
 use crate::graphql::operations::number::Float;
-use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug)]

@@ -32,7 +32,8 @@ fn list(ctx: &Ctx, args: &TemplateList) -> Result<()> {
         let data: GetTemplates = client.execute(&request()).await?;
         Ok::<_, Error>((data.templates, team_id))
     })?;
-    let templates = select(templates, args.r#type, team_id.as_deref());
+    let mut templates = select(templates, args.r#type, team_id.as_deref());
+    args.limit.apply(&mut templates);
     if args.json {
         ctx.print(template_json::render_list(&templates))
     } else if templates.is_empty() {

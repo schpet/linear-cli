@@ -17,6 +17,8 @@ pub enum UserCommand {
 pub struct UserList {
     #[arg(long = "all", short = 'a', help = "Include inactive members")]
     pub all: bool,
+    #[arg(long = "limit", help = "Maximum number of members to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(
         long = "json",
         short = 'j',

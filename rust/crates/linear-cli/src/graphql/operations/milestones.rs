@@ -3,7 +3,9 @@
 use crate::graphql::scalars::TimelessDate;
 use crate::graphql::schema;
 
-use super::teams::PageInfo;
+use serde::Serialize;
+
+use crate::graphql::pagination::PageInfo;
 
 /// `$first` and `$after` are nullable; both are skipped from the variables
 /// object when `None`, including `after` on the first page.
@@ -49,8 +51,9 @@ pub struct ProjectMilestoneConnection {
     pub page_info: PageInfo,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear")]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectMilestone {
     pub id: cynic::Id,
     pub name: String,
@@ -59,7 +62,7 @@ pub struct ProjectMilestone {
     pub project: MilestoneProjectRef,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear", graphql_type = "Project")]
 pub struct MilestoneProjectRef {
     pub id: cynic::Id,

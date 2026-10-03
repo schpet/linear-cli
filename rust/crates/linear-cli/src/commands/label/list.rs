@@ -1,19 +1,19 @@
 //! `label list`: a team's labels plus workspace labels, or every label, as a
 //! table or JSON.
 use cynic::QueryBuilder;
-use serde::Serialize;
 
 use crate::cli::label::LabelList;
+use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
+use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_labels::{
     GetIssueLabels, GetIssueLabelsVariables, IssueLabel, IssueLabelFilter, NullableTeamFilter,
 };
-use crate::graphql::operations::teams::{PageInfo, StringComparator};
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::operations::teams::StringComparator;
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 use crate::refs::{PreparedTeamLookup, prepare_team_lookup, resolve_team_with_transport};
@@ -49,7 +49,7 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
         }
     };
     let client = ctx.client()?;
-    let (mut labels, page_info) = ctx.spin(!args.json, async {
+    let mut labels = ctx.spin(!args.json, async {
         let filter = match &scope {
             Scope::Workspace => Some(workspace_only_filter()),
             Scope::Team(lookup) => {
@@ -63,8 +63,9 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
     labels.sort_by(|left, right| {
         collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
     });
+    args.limit.apply(&mut labels);
     if args.json {
-        ctx.print(render_json(&labels, &page_info))
+        ctx.print(json::render(&labels))
     } else if labels.is_empty() {
         ctx.print("No labels found.\n")
     } else {
@@ -72,60 +73,27 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
     }
 }
 
-/// Every page of labels matching `filter`, with the last page's info.
+/// Every label matching `filter`.
 async fn fetch(
     client: &GraphQlTransport,
     filter: Option<IssueLabelFilter>,
-) -> Result<(Vec<IssueLabel>, PageInfo)> {
-    let result = pagination::paginate(|after| {
+) -> Result<Vec<IssueLabel>> {
+    pagination::collect(None, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetIssueLabels::build(GetIssueLabelsVariables {
                 filter: filter.clone(),
-                first: Some(100),
+                first: Some(first),
                 after,
             }));
         async move {
             let data: GetIssueLabels = client.execute(&request).await?;
-            Ok::<Page<IssueLabel>, Error>(Page {
+            Ok(Page {
                 nodes: data.issue_labels.nodes,
-                page_info: data.issue_labels.page_info.into(),
+                page_info: data.issue_labels.page_info,
             })
         }
     })
     .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } => {
-            Error::new("Linear reported more labels but returned no pagination cursor")
-                .with_hint("Retry the command.")
-        }
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated a label pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
-    })?;
-    let page_info = PageInfo {
-        has_next_page: result.page_info.has_next_page,
-        end_cursor: result.page_info.end_cursor,
-    };
-    Ok((result.nodes, page_info))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: &'a [IssueLabel],
-    page_info: &'a PageInfo,
-}
-
-fn render_json(labels: &[IssueLabel], page_info: &PageInfo) -> Vec<u8> {
-    let mut output = serde_json::to_vec_pretty(&JsonConnection {
-        nodes: labels,
-        page_info,
-    })
-    .expect("label JSON always serializes");
-    output.push(b'\n');
-    output
 }
 
 fn workspace_only_filter() -> IssueLabelFilter {

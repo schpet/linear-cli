@@ -1,5 +1,6 @@
 //! Native clap grammar. Each command owns its typed arguments.
 use clap::{Command, CommandFactory, Parser, Subcommand, ValueEnum};
+pub use limit::Limit;
 pub mod api;
 pub mod auth;
 pub mod completions;
@@ -10,9 +11,9 @@ pub mod initiative;
 pub mod initiative_update;
 pub mod issue;
 pub mod label;
+mod limit;
 pub mod markdown;
 pub mod milestone;
-mod numeric;
 pub mod project;
 pub mod project_update;
 pub mod schema;

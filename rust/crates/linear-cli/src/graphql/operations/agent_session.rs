@@ -71,6 +71,7 @@ pub struct IssueReference {
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear")]
+#[serde(transparent)]
 pub struct AgentActivityConnection {
     pub nodes: Vec<AgentActivity>,
 }
@@ -270,9 +271,11 @@ pub struct ElicitationContent {
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetIssueAgentSessionsVariables {
     pub issue_id: String,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
@@ -283,24 +286,26 @@ pub struct GetIssueAgentSessions {
     pub issue: SessionIssue,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Issue")]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "GetIssueAgentSessionsVariables"
+)]
 pub struct SessionIssue {
-    #[arguments(first: 100)]
+    #[arguments(first: 100, after: $after)]
     pub comments: SessionComments,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "CommentConnection")]
-#[serde(rename_all = "camelCase")]
 pub struct SessionComments {
     pub nodes: Vec<SessionComment>,
-    pub page_info: crate::graphql::operations::teams::PageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Comment")]
-#[serde(rename_all = "camelCase")]
 pub struct SessionComment {
     pub agent_session: Option<ListSession>,
 }

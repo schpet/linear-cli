@@ -1,5 +1,5 @@
 //! Team delete and the issue moves before it.
-use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

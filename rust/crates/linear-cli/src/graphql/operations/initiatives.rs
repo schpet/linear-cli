@@ -2,7 +2,8 @@
 
 use serde::Serialize;
 
-use crate::graphql::operations::teams::{PageInfo, StringComparator};
+use crate::graphql::operations::teams::StringComparator;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::schema;
 
@@ -11,13 +12,7 @@ pub struct GetInitiativesVariables {
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub filter: Option<InitiativeFilter>,
     pub include_archived: Option<bool>,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
-pub struct GetInitiativesPageVariables {
-    #[cynic(skip_serializing_if = "Option::is_none")]
-    pub filter: Option<InitiativeFilter>,
-    pub include_archived: Option<bool>,
+    pub first: Option<i32>,
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
 }
@@ -54,18 +49,7 @@ pub struct IDComparator {
 pub struct GetInitiatives {
     // The schema declares this non-null, but a null response is handled
     // rather than treated as a decode failure.
-    #[arguments(filter: $filter, includeArchived: $include_archived)]
-    pub initiatives: Option<InitiativeConnection>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(
-    schema = "linear",
-    graphql_type = "Query",
-    variables = "GetInitiativesPageVariables"
-)]
-pub struct GetInitiativesPage {
-    #[arguments(filter: $filter, includeArchived: $include_archived, after: $after)]
+    #[arguments(filter: $filter, includeArchived: $include_archived, first: $first, after: $after)]
     pub initiatives: Option<InitiativeConnection>,
 }
 
@@ -165,6 +149,7 @@ pub struct InitiativeOwner {
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
+#[serde(transparent)]
 pub struct InitiativeProjects {
     pub nodes: Vec<InitiativeProject>,
 }

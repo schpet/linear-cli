@@ -1,6 +1,6 @@
 //! The detail and name-lookup selections used by `milestone view`.
 
-use super::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::schema;
 

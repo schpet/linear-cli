@@ -5,6 +5,7 @@ use crate::commands::relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::error::Error;
 use crate::graphql::operations::number::{Float, WholeNumber};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::{
     bulk_error,
@@ -17,7 +18,7 @@ use crate::refs::{ProjectReference, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
 use cynic::QueryBuilder;
 use serde::{Serialize, de::DeserializeOwned};
-use std::collections::HashSet;
+
 use std::num::NonZeroU32;
 
 pub async fn exchange<T: DeserializeOwned, V: Serialize>(
@@ -465,34 +466,6 @@ pub async fn milestone_id(
     let project = project.ok_or_else(|| validation(format!("Cannot resolve milestone \"{value}\" without --project")).with_hint("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
     crate::commands::milestone::id_by_name(transport, project, value).await
 }
-/// The page size to request: what is still wanted, capped at Linear's maximum of 100.
-fn page_size(limit: Option<NonZeroU32>, fetched: usize, unlimited: i32) -> i32 {
-    match limit {
-        None => unlimited,
-        Some(limit) => {
-            let remaining =
-                u64::from(limit.get()).saturating_sub(u64::try_from(fetched).unwrap_or(u64::MAX));
-            i32::try_from(remaining.min(100)).unwrap_or(100)
-        }
-    }
-}
-fn reached(limit: Option<NonZeroU32>, fetched: usize) -> bool {
-    limit.is_some_and(|limit| usize::try_from(limit.get()).is_ok_and(|limit| fetched >= limit))
-}
-fn truncate_to<T>(rows: &mut Vec<T>, limit: Option<NonZeroU32>) {
-    if let Some(limit) = limit {
-        rows.truncate(usize::try_from(limit.get()).unwrap_or(usize::MAX));
-    }
-}
-fn next_cursor(next: Option<String>, seen: &mut HashSet<String>) -> Result<String, Error> {
-    let next = next.ok_or_else(|| {
-        validation("Linear reported more issues but returned no pagination cursor")
-    })?;
-    if !seen.insert(next.clone()) {
-        return Err(validation("Linear repeated an issue pagination cursor"));
-    }
-    Ok(next)
-}
 pub async fn mine(
     transport: &GraphQlTransport,
     filter: IssueFilter,
@@ -512,31 +485,22 @@ pub(crate) async fn mine_with_requests(
     limit: Option<NonZeroU32>,
     mut request: impl FnMut(GetIssuesForStateVariables) -> GraphQlRequest<GetIssuesForStateVariables>,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
-    let page_size = page_size(limit, 0, 50);
-    let mut after = None;
-    let mut seen = HashSet::new();
-    let mut rows = vec![];
-    loop {
-        let data: GetIssuesForState = exchange(
-            transport,
-            &request(GetIssuesForStateVariables {
-                sort: Some(sort_payload(priority)),
-                filter: filter.clone(),
-                first: Some(page_size),
-                after: after.clone(),
-            }),
-        )
-        .await?;
-        rows.extend(data.issues.nodes);
-        if reached(limit, rows.len()) {
-            break;
+    let mut rows = pagination::collect(limit, |after, first| {
+        let request = request(GetIssuesForStateVariables {
+            sort: Some(sort_payload(priority)),
+            filter: filter.clone(),
+            first: Some(first),
+            after,
+        });
+        async move {
+            let data: GetIssuesForState = exchange(transport, &request).await?;
+            Ok(Page {
+                nodes: data.issues.nodes,
+                page_info: data.issues.page_info,
+            })
         }
-        if !data.issues.page_info.has_next_page {
-            break;
-        }
-        after = Some(next_cursor(data.issues.page_info.end_cursor, &mut seen)?);
-    }
-    truncate_to(&mut rows, limit);
+    })
+    .await?;
     sort_mine(&mut rows);
     Ok(rows)
 }
@@ -546,36 +510,27 @@ pub async fn query(
     priority: bool,
     limit: Option<NonZeroU32>,
     archived: bool,
-) -> Result<GetIssuesForQueryIssues, Error> {
-    let size = page_size(limit, 0, 100);
-    let mut after = None;
-    let mut seen = HashSet::new();
-    let mut rows = vec![];
-    let info = loop {
-        let data: GetIssuesForQuery = exchange(
-            transport,
-            &GraphQlRequest::with_variables(GetIssuesForQuery::build(GetIssuesForQueryVariables {
+) -> Result<Vec<GetIssuesForQueryIssuesNodes>, Error> {
+    let mut rows = pagination::collect(limit, |after, first| {
+        let request =
+            GraphQlRequest::with_variables(GetIssuesForQuery::build(GetIssuesForQueryVariables {
                 sort: Some(sort_payload(priority)),
                 filter: filter.clone(),
-                first: Some(size),
-                after: after.clone(),
+                first: Some(first),
+                after,
                 include_archived: archived.then_some(true),
-            })),
-        )
-        .await?;
-        rows.extend(data.issues.nodes);
-        let info = data.issues.page_info;
-        if reached(limit, rows.len()) || !info.has_next_page {
-            break info;
+            }));
+        async move {
+            let data: GetIssuesForQuery = exchange(transport, &request).await?;
+            Ok(Page {
+                nodes: data.issues.nodes,
+                page_info: data.issues.page_info,
+            })
         }
-        after = Some(next_cursor(info.end_cursor, &mut seen)?);
-    };
-    truncate_to(&mut rows, limit);
-    sort_query(&mut rows);
-    Ok(GetIssuesForQueryIssues {
-        nodes: rows,
-        page_info: info,
     })
+    .await?;
+    sort_query(&mut rows);
+    Ok(rows)
 }
 pub async fn search(
     transport: &GraphQlTransport,
@@ -584,36 +539,26 @@ pub async fn search(
     limit: Option<NonZeroU32>,
     archived: bool,
     comments: bool,
-) -> Result<SearchIssuesSearchIssues, Error> {
-    let mut after = None;
-    let mut seen = HashSet::new();
-    let mut rows = vec![];
-    let (info, total) = loop {
-        let data: SearchIssues = exchange(
-            transport,
-            &GraphQlRequest::with_variables(SearchIssues::build(SearchIssuesVariables {
-                term: term.clone(),
-                filter: filter.clone(),
-                first: Some(page_size(limit, rows.len(), 100)),
-                after: after.clone(),
-                include_archived: archived.then_some(true),
-                include_comments: comments.then_some(true),
-                order_by: None,
-            })),
-        )
-        .await?;
-        rows.extend(data.search_issues.nodes);
-        let info = data.search_issues.page_info;
-        if reached(limit, rows.len()) || !info.has_next_page {
-            break (info, data.search_issues.total_count);
+) -> Result<Vec<SearchIssuesSearchIssuesNodes>, Error> {
+    pagination::collect(limit, |after, first| {
+        let request = GraphQlRequest::with_variables(SearchIssues::build(SearchIssuesVariables {
+            term: term.clone(),
+            filter: filter.clone(),
+            first: Some(first),
+            after,
+            include_archived: archived.then_some(true),
+            include_comments: comments.then_some(true),
+            order_by: None,
+        }));
+        async move {
+            let data: SearchIssues = exchange(transport, &request).await?;
+            Ok(Page {
+                nodes: data.search_issues.nodes,
+                page_info: data.search_issues.page_info,
+            })
         }
-        after = Some(next_cursor(info.end_cursor, &mut seen)?);
-    };
-    Ok(SearchIssuesSearchIssues {
-        nodes: rows,
-        page_info: info,
-        total_count: total,
     })
+    .await
 }
 fn state_rank(value: &str) -> usize {
     [

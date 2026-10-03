@@ -19,6 +19,8 @@ pub enum CycleCommand {
 pub struct CycleList {
     #[arg(long = "team", help = "Team key, name, or ID (defaults to current team)", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
+    #[arg(long = "limit", help = "Maximum number of cycles to show, newest first (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }

@@ -3,7 +3,8 @@
 
 use serde::Serialize;
 
-use crate::graphql::operations::teams::{PageInfo, StringComparator, TeamFilter};
+use crate::graphql::operations::teams::{StringComparator, TeamFilter};
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::schema;
 
@@ -154,6 +155,7 @@ pub struct ProjectLead {
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
+#[serde(transparent)]
 pub struct ProjectTeams {
     pub nodes: Vec<ProjectTeam>,
 }

@@ -5,6 +5,7 @@
 
 use serde::Serialize;
 
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
@@ -44,7 +45,7 @@ pub struct StringComparator {
     pub contains_ignore_case: Option<String>,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
@@ -55,9 +56,8 @@ pub struct GetTeams {
     pub teams: TeamConnection,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear")]
-#[serde(rename_all = "camelCase")]
 pub struct TeamConnection {
     pub nodes: Vec<Team>,
     pub page_info: PageInfo,
@@ -85,13 +85,4 @@ pub struct Team {
 pub struct Organization {
     pub id: cynic::Id,
     pub name: String,
-}
-
-/// The forward-pagination fields of a connection.
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear")]
-#[serde(rename_all = "camelCase")]
-pub struct PageInfo {
-    pub has_next_page: bool,
-    pub end_cursor: Option<String>,
 }

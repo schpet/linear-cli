@@ -1,11 +1,12 @@
 //! `milestone view`: one milestone and its issues, as Markdown or JSON.
-use std::cell::RefCell;
+use std::num::NonZeroU32;
 
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::milestone::MilestoneView;
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -14,7 +15,7 @@ use crate::graphql::operations::milestone_view::{
     DetailMilestone, DetailVariables, GetMilestoneDetails,
 };
 use crate::graphql::operations::number::Float;
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     is_linear_uuid, prepare_project_lookup, reject_linear_url, resolve_project_with_transport,
@@ -67,54 +68,36 @@ async fn fetch(
     id: &str,
     all: bool,
 ) -> Result<DetailMilestone> {
-    let page = |after: Option<String>| async move {
-        let request = GraphQlRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
-            id: id.to_owned(),
-            first: PAGE_SIZE,
-            after,
-        }));
-        let data: GetMilestoneDetails = client.execute(&request).await?;
-        data.project_milestone
-            .ok_or_else(|| Error::not_found("Milestone", original))
+    let limit = if all {
+        None
+    } else {
+        Some(NonZeroU32::new(PAGE_SIZE.unsigned_abs()).expect("the page size is positive"))
     };
-    if !all {
-        return page(None).await;
-    }
-    let first: RefCell<Option<DetailMilestone>> = RefCell::new(None);
-    let result = pagination::paginate(|after| {
-        let pending = page(after);
-        let first = &first;
-        async move {
-            let mut milestone = pending.await?;
-            let page = Page {
-                nodes: std::mem::take(&mut milestone.issues.nodes),
-                page_info: milestone.issues.page_info.clone().into(),
-            };
-            first.borrow_mut().get_or_insert(milestone);
-            Ok::<_, Error>(page)
-        }
-    })
+    pagination::collect_within(
+        limit,
+        |after, _first| {
+            let request =
+                GraphQlRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
+                    id: id.to_owned(),
+                    first: PAGE_SIZE,
+                    after,
+                }));
+            async move {
+                let data: GetMilestoneDetails = client.execute(&request).await?;
+                data.project_milestone
+                    .ok_or_else(|| Error::not_found("Milestone", original))
+            }
+        },
+        |milestone| Page {
+            nodes: std::mem::take(&mut milestone.issues.nodes),
+            page_info: milestone.issues.page_info.clone(),
+        },
+        |milestone, page| {
+            milestone.issues.nodes = page.nodes;
+            milestone.issues.page_info = page.page_info;
+        },
+    )
     .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } => Error::new(
-            "Linear reported more issues but returned no pagination cursor",
-        )
-        .with_hint(format!(
-            "Retry, or use `linear issue query --milestone {id} --json` for the full list."
-        )),
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated an issue pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
-    })?;
-    let mut milestone = first
-        .into_inner()
-        .expect("a successful walk fetched the first page");
-    milestone.issues.nodes = result.nodes;
-    milestone.issues.page_info.has_next_page = result.page_info.has_next_page;
-    milestone.issues.page_info.end_cursor = result.page_info.end_cursor;
-    Ok(milestone)
 }
 
 #[derive(Serialize)]
@@ -128,7 +111,7 @@ struct JsonMilestone<'a> {
     created_at: &'a crate::graphql::scalars::DateTime,
     updated_at: &'a crate::graphql::scalars::DateTime,
     project: JsonProject<'a>,
-    issues: JsonIssues<'a>,
+    issues: Vec<JsonIssue<'a>>,
 }
 
 #[derive(Serialize)]
@@ -138,13 +121,6 @@ struct JsonProject<'a> {
     name: &'a str,
     slug_id: &'a str,
     url: &'a str,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonIssues<'a> {
-    nodes: Vec<JsonIssue<'a>>,
-    page_info: &'a crate::graphql::operations::teams::PageInfo,
 }
 
 #[derive(Serialize)]
@@ -177,27 +153,22 @@ fn render_json(milestone: &DetailMilestone) -> Vec<u8> {
             slug_id: &milestone.project.slug_id,
             url: &milestone.project.url,
         },
-        issues: JsonIssues {
-            nodes: milestone
-                .issues
-                .nodes
-                .iter()
-                .map(|issue| JsonIssue {
-                    id: &issue.id,
-                    identifier: &issue.identifier,
-                    title: &issue.title,
-                    state: JsonState {
-                        name: &issue.state.name,
-                        state_type: &issue.state.state_type,
-                    },
-                })
-                .collect(),
-            page_info: &milestone.issues.page_info,
-        },
+        issues: milestone
+            .issues
+            .nodes
+            .iter()
+            .map(|issue| JsonIssue {
+                id: &issue.id,
+                identifier: &issue.identifier,
+                title: &issue.title,
+                state: JsonState {
+                    name: &issue.state.name,
+                    state_type: &issue.state.state_type,
+                },
+            })
+            .collect(),
     };
-    let mut bytes = serde_json::to_vec_pretty(&output).expect("milestone JSON always serializes");
-    bytes.push(b'\n');
-    bytes
+    json::render(&output)
 }
 
 fn markdown<Tz: TimeZone>(

@@ -4,6 +4,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::initiative::InitiativeView;
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -92,7 +93,7 @@ struct JsonDetail<'a> {
     created_at: &'a str,
     updated_at: &'a str,
     owner: Option<JsonOwner<'a>>,
-    projects: JsonProjects<'a>,
+    projects: Vec<JsonProject<'a>>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,10 +101,6 @@ struct JsonOwner<'a> {
     id: &'a cynic::Id,
     name: &'a str,
     display_name: &'a str,
-}
-#[derive(Serialize)]
-struct JsonProjects<'a> {
-    nodes: Vec<JsonProject<'a>>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -144,27 +141,22 @@ fn render_json(detail: &InitiativeDetails) -> Vec<u8> {
             name: &o.name,
             display_name: &o.display_name,
         }),
-        projects: JsonProjects {
-            nodes: detail
-                .projects
-                .nodes
-                .iter()
-                .map(|p| JsonProject {
-                    id: &p.id,
-                    slug_id: &p.slug_id,
-                    name: &p.name,
-                    status: JsonProjectStatus {
-                        name: &p.status.name,
-                        status_type: p.status.status_type.as_str(),
-                    },
-                })
-                .collect(),
-        },
+        projects: detail
+            .projects
+            .nodes
+            .iter()
+            .map(|p| JsonProject {
+                id: &p.id,
+                slug_id: &p.slug_id,
+                name: &p.name,
+                status: JsonProjectStatus {
+                    name: &p.status.name,
+                    status_type: p.status.status_type.as_str(),
+                },
+            })
+            .collect(),
     };
-    let mut bytes =
-        serde_json::to_vec_pretty(&projection).expect("initiative JSON always serializes");
-    bytes.push(b'\n');
-    bytes
+    json::render(&projection)
 }
 
 fn project_rank(status: &ProjectStatusType) -> u8 {

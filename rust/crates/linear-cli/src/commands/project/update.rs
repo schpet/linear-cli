@@ -1,6 +1,5 @@
 //! `project update`: resolve every reference first, then apply the field
 //! update and the initiative links in order.
-use std::cell::RefCell;
 
 use cynic::{MutationBuilder, QueryBuilder};
 
@@ -321,7 +320,7 @@ fn no_overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result
 }
 
 async fn current_teams(client: &GraphQlTransport, id: &str) -> Result<Vec<ProjectTeam>> {
-    let mut teams = pagination::paginate(|after| {
+    let mut teams = pagination::collect(None, |after, _first| {
         let request =
             GraphQlRequest::with_variables(GetProjectTeamsForUpdate::build(PageVariables {
                 id: id.to_owned(),
@@ -331,19 +330,17 @@ async fn current_teams(client: &GraphQlTransport, id: &str) -> Result<Vec<Projec
             let data: GetProjectTeamsForUpdate = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.project.teams.nodes,
-                page_info: data.project.teams.page_info.into(),
+                page_info: data.project.teams.page_info,
             })
         }
     })
-    .await
-    .map_err(|error| super::pagination_error("teams", error))?
-    .nodes;
+    .await?;
     dedupe(&mut teams, |team| team.id.inner().to_owned());
     Ok(teams)
 }
 
 async fn current_labels(client: &GraphQlTransport, id: &str) -> Result<Vec<ProjectLabel>> {
-    let mut labels = pagination::paginate(|after| {
+    let mut labels = pagination::collect(None, |after, _first| {
         let request =
             GraphQlRequest::with_variables(GetProjectLabelsForUpdate::build(PageVariables {
                 id: id.to_owned(),
@@ -353,13 +350,11 @@ async fn current_labels(client: &GraphQlTransport, id: &str) -> Result<Vec<Proje
             let data: GetProjectLabelsForUpdate = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.project.labels.nodes,
-                page_info: data.project.labels.page_info.into(),
+                page_info: data.project.labels.page_info,
             })
         }
     })
-    .await
-    .map_err(|error| super::pagination_error("labels", error))?
-    .nodes;
+    .await?;
     dedupe(&mut labels, |label| label.id.inner().to_owned());
     Ok(labels)
 }
@@ -369,44 +364,42 @@ async fn current_links(
     client: &GraphQlTransport,
     id: &str,
 ) -> Result<(Vec<InitiativeLink>, Shown)> {
-    let shown = RefCell::new(None);
-    let mut links = pagination::paginate(|after| {
-        let request = GraphQlRequest::with_variables(GetProjectInitiativeLinksForUpdate::build(
-            PageVariables {
-                id: id.to_owned(),
-                after,
-            },
-        ));
-        let shown = &shown;
-        async move {
-            let data: GetProjectInitiativeLinksForUpdate = client.execute(&request).await?;
-            let project = data.project;
-            shown.replace(Some(Shown {
-                name: project.name,
-                url: project.url,
-            }));
-            Ok(Page {
-                nodes: project
-                    .initiative_to_projects
-                    .nodes
-                    .into_iter()
-                    .map(|row| InitiativeLink {
-                        id: row.id.into_inner(),
-                        initiative_id: row.initiative.id.into_inner(),
-                        initiative_name: row.initiative.name,
-                    })
-                    .collect(),
-                page_info: project.initiative_to_projects.page_info.into(),
-            })
-        }
-    })
-    .await
-    .map_err(|error| super::pagination_error("initiative links", error))?
-    .nodes;
+    let project = pagination::collect_within(
+        None,
+        |after, _first| {
+            let request = GraphQlRequest::with_variables(
+                GetProjectInitiativeLinksForUpdate::build(PageVariables {
+                    id: id.to_owned(),
+                    after,
+                }),
+            );
+            async move {
+                let data: GetProjectInitiativeLinksForUpdate = client.execute(&request).await?;
+                Ok(data.project)
+            }
+        },
+        |project| Page {
+            nodes: std::mem::take(&mut project.initiative_to_projects.nodes),
+            page_info: project.initiative_to_projects.page_info.clone(),
+        },
+        |project, page| project.initiative_to_projects.nodes = page.nodes,
+    )
+    .await?;
+    let mut links: Vec<_> = project
+        .initiative_to_projects
+        .nodes
+        .into_iter()
+        .map(|row| InitiativeLink {
+            id: row.id.into_inner(),
+            initiative_id: row.initiative.id.into_inner(),
+            initiative_name: row.initiative.name,
+        })
+        .collect();
     dedupe(&mut links, |link| link.id.clone());
-    let shown = shown
-        .into_inner()
-        .expect("a completed walk fetched at least one page");
+    let shown = Shown {
+        name: project.name,
+        url: project.url,
+    };
     Ok((links, shown))
 }
 

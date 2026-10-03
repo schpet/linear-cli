@@ -10,7 +10,7 @@ use crate::graphql::operations::team_delete::{
     DeleteTeam, GetTeamIssuesForMove, IdVariables, MoveIssue, MoveIssueToTeam, MovePageVariables,
     MoveVariables,
 };
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::Choice;
 use crate::refs::{
@@ -81,11 +81,11 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
 
 /// Every issue of the team.
 async fn team_issues(client: &GraphQlTransport, team: &ResolvedTeam) -> Result<Vec<MoveIssue>> {
-    let result = pagination::paginate(|after| {
+    pagination::collect(None, |after, first| {
         let request =
             GraphQlRequest::with_variables(GetTeamIssuesForMove::build(MovePageVariables {
                 team_id: team.id.clone(),
-                first: 100,
+                first,
                 after,
             }));
         async move {
@@ -96,23 +96,11 @@ async fn team_issues(client: &GraphQlTransport, team: &ResolvedTeam) -> Result<V
                 .issues;
             Ok::<Page<MoveIssue>, Error>(Page {
                 nodes: issues.nodes,
-                page_info: issues.page_info.into(),
+                page_info: issues.page_info,
             })
         }
     })
     .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } => {
-            Error::new("Linear reported more team issues but returned no pagination cursor")
-                .with_hint("Retry the command.")
-        }
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated a team issue pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
-    })?;
-    Ok(result.nodes)
 }
 
 /// Asks which team gets the issues of the team being deleted.

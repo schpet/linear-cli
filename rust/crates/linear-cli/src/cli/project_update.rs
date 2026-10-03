@@ -54,8 +54,8 @@ pub enum Health {
 pub struct ProjectUpdateList {
     #[arg(value_name = "projectId")]
     pub project_id: String,
-    #[arg(long = "json", help = "Output as JSON")]
+    #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
-    #[arg(long = "limit", help = "Limit results", value_name = "limit", value_parser = clap::value_parser!(i32).range(1..), default_value = "10")]
-    pub limit: i32,
+    #[arg(long = "limit", help = "Maximum number of updates to show, newest first (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "10")]
+    pub limit: super::Limit,
 }

@@ -102,12 +102,12 @@ fn public_requests_are_one_direct_read_with_original_limits_and_union_order() {
         assert!(position > previous);
         previous = position;
     }
-    let list = serde_json::to_value(agent_session::list_request("ENG-7")).unwrap();
+    let list = serde_json::to_value(agent_session::list_request("ENG-7", None)).unwrap();
     assert_eq!(list["variables"], json!({"issueId":"ENG-7"}));
     assert_eq!(list["operationName"], "GetIssueAgentSessions");
     assert_eq!(
         list["query"],
-        "query GetIssueAgentSessions($issueId: String!) {\n  issue(id: $issueId) {\n    comments(first: 100) {\n      nodes {\n        agentSession {\n          id\n          status\n          type\n          createdAt\n          startedAt\n          endedAt\n          summary\n          creator {\n            name\n          }\n          appUser {\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n}\n"
+        "query GetIssueAgentSessions($issueId: String!, $after: String) {\n  issue(id: $issueId) {\n    comments(first: 100, after: $after) {\n      nodes {\n        agentSession {\n          id\n          status\n          type\n          createdAt\n          startedAt\n          endedAt\n          summary\n          creator {\n            name\n          }\n          appUser {\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n}\n"
     );
 }
 
@@ -116,13 +116,11 @@ fn view_json_keeps_nulls_fragment_fields_and_hides_typename() {
     let mut value = session().agent_session;
     value.session_type = None;
     value.summary = None;
-    let bytes = agent_session::json(&value).unwrap();
-    assert_eq!(bytes.last(), Some(&b'\n'));
-    let output: Value = serde_json::from_slice(&bytes).unwrap();
+    let output = serde_json::to_value(&value).unwrap();
     assert_eq!(output["type"], Value::Null);
     assert_eq!(output["summary"], Value::Null);
-    assert!(!String::from_utf8(bytes).unwrap().contains("__typename"));
-    let nodes = output["activities"]["nodes"].as_array().unwrap();
+    assert!(!output.to_string().contains("__typename"));
+    let nodes = output["activities"].as_array().unwrap();
     assert_eq!(nodes.len(), 6);
     for (i, kind) in [
         "thought",
@@ -208,16 +206,21 @@ fn unknown_union_never_produces_json_or_partial_markdown() {
             .to_string()
             .contains("FutureContent")
     );
-    assert!(agent_session::json(&value).is_err());
     assert!(agent_session::markdown(&value, Utc::now(), &Utc).is_err());
 }
 
 #[test]
-fn list_filter_keeps_connection_page_info_order_duplicates_and_unfiltered_nulls() {
-    let original = comments().issue.comments;
-    assert_eq!(original.nodes.len(), 8);
-    let plain = agent_session::filter(original.clone(), None);
-    assert_eq!(plain, original);
+fn sessions_keep_comment_order_and_duplicates_and_skip_comments_without_one() {
+    let original = comments().issue.comments.nodes;
+    assert_eq!(original.len(), 8);
+    let all = agent_session::sessions(original.clone(), None);
+    assert_eq!(
+        all.len(),
+        original
+            .iter()
+            .filter(|comment| comment.agent_session.is_some())
+            .count()
+    );
     for (status, word) in [
         (AgentSessionStatus::Pending, "pending"),
         (AgentSessionStatus::Active, "active"),
@@ -227,20 +230,11 @@ fn list_filter_keeps_connection_page_info_order_duplicates_and_unfiltered_nulls(
         (AgentSessionStatus::Stale, "stale"),
     ] {
         let mut duplicated = original.clone();
-        duplicated.nodes.push(original.nodes[1].clone());
-        let filtered = agent_session::filter(duplicated, Some(status));
-        assert_eq!(filtered.page_info, original.page_info);
-        assert_eq!(filtered.nodes.len(), if word == "pending" { 2 } else { 1 });
-        assert_eq!(
-            agent_session::status_name(filtered.nodes[0].agent_session.as_ref().unwrap().status),
-            word
-        );
-        let out: Value = serde_json::from_slice(&agent_session::json(&filtered).unwrap()).unwrap();
-        assert!(out["pageInfo"]["hasNextPage"].as_bool().unwrap());
-        assert_eq!(out["pageInfo"]["endCursor"], "keep-original");
+        duplicated.push(original[1].clone());
+        let filtered = agent_session::sessions(duplicated, Some(status));
+        assert_eq!(filtered.len(), if word == "pending" { 2 } else { 1 });
+        assert_eq!(agent_session::status_name(filtered[0].status), word);
     }
-    let output: Value = serde_json::from_slice(&agent_session::json(&plain).unwrap()).unwrap();
-    assert_eq!(output["nodes"][0]["agentSession"], Value::Null);
 }
 
 #[test]

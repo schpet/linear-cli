@@ -1,22 +1,10 @@
-//! Cursor pagination strictness without any network: pages come from closures.
+//! Cursor pagination without any network: pages come from closures.
 
 use std::collections::VecDeque;
-use std::fmt;
+use std::num::NonZeroU32;
 
-use linear_cli::graphql::pagination::{
-    EmptyCursorPolicy, Page, PageInfo, Paginated, PaginationError, paginate, paginate_with_policy,
-};
-
-#[derive(Debug, PartialEq, Eq)]
-struct FetchFailed(&'static str);
-
-impl fmt::Display for FetchFailed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "fetch failed: {}", self.0)
-    }
-}
-
-impl std::error::Error for FetchFailed {}
+use linear_cli::error::Error;
+use linear_cli::graphql::pagination::{Page, PageInfo, Pages, collect, collect_within};
 
 fn page(nodes: &[&str], has_next_page: bool, end_cursor: Option<&str>) -> Page<String> {
     Page {
@@ -28,257 +16,147 @@ fn page(nodes: &[&str], has_next_page: bool, end_cursor: Option<&str>) -> Page<S
     }
 }
 
-/// Serves scripted pages and records every cursor it was asked for.
-async fn walk_with_policy(
-    policy: EmptyCursorPolicy,
-    script: Vec<Result<Page<String>, FetchFailed>>,
-) -> (
-    Result<Paginated<String>, PaginationError<FetchFailed>>,
-    Vec<Option<String>>,
-) {
+/// Serves scripted pages and records every `(after, first)` it was asked for.
+async fn walk(
+    limit: Option<u32>,
+    script: Vec<Result<Page<String>, Error>>,
+) -> (Result<Vec<String>, Error>, Vec<(Option<String>, i32)>) {
     let mut queue: VecDeque<_> = script.into();
     let mut asked = Vec::new();
-    let result = paginate_with_policy(policy, |after| {
-        asked.push(after);
+    let limit = limit.map(|limit| NonZeroU32::new(limit).expect("positive limit"));
+    let result = collect(limit, |after, first| {
+        asked.push((after, first));
         let next = queue
             .pop_front()
-            .unwrap_or(Err(FetchFailed("script exhausted")));
+            .unwrap_or_else(|| Err(Error::new("script exhausted")));
         async move { next }
     })
     .await;
     (result, asked)
 }
 
-async fn walk(
-    script: Vec<Result<Page<String>, FetchFailed>>,
-) -> (
-    Result<Paginated<String>, PaginationError<FetchFailed>>,
-    Vec<Option<String>>,
-) {
-    walk_with_policy(EmptyCursorPolicy::Reject, script).await
-}
-
 #[tokio::test(flavor = "current_thread")]
-async fn first_page_omits_cursor_and_later_pages_carry_it() {
-    let (result, asked) = walk(vec![
-        Ok(page(&["a", "b"], true, Some("cursor-a"))),
-        Ok(page(&["c"], true, Some("cursor-b"))),
-        Ok(page(&[], false, Some("cursor-c"))),
-    ])
+async fn first_page_omits_the_cursor_and_later_pages_carry_it() {
+    let (result, asked) = walk(
+        None,
+        vec![
+            Ok(page(&["a", "b"], true, Some("cursor-a"))),
+            Ok(page(&["c"], true, Some("cursor-b"))),
+            Ok(page(&[], false, Some("cursor-c"))),
+        ],
+    )
     .await;
-    let paginated = result.expect("three pages");
-    assert_eq!(paginated.nodes, vec!["a", "b", "c"]);
-    assert_eq!(
-        paginated.page_info,
-        PageInfo {
-            has_next_page: false,
-            end_cursor: Some("cursor-c".to_owned()),
-        }
-    );
+    assert_eq!(result.expect("three pages"), ["a", "b", "c"]);
     assert_eq!(
         asked,
-        vec![
-            None,
-            Some("cursor-a".to_owned()),
-            Some("cursor-b".to_owned())
+        [
+            (None, 100),
+            (Some("cursor-a".to_owned()), 100),
+            (Some("cursor-b".to_owned()), 100),
         ]
     );
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn single_page_without_next_keeps_its_page_info() {
-    let (result, asked) = walk(vec![Ok(page(&["only"], false, None))]).await;
-    let paginated = result.expect("one page");
-    assert_eq!(paginated.nodes, vec!["only"]);
-    assert_eq!(paginated.page_info.end_cursor, None);
-    assert_eq!(asked, vec![None]);
+async fn a_limit_shrinks_the_page_size_and_stops_early() {
+    let (result, asked) = walk(
+        Some(3),
+        vec![
+            Ok(page(&["a", "b"], true, Some("cursor-a"))),
+            Ok(page(&["c", "d"], true, Some("cursor-b"))),
+        ],
+    )
+    .await;
+    assert_eq!(result.expect("limited"), ["a", "b", "c"]);
+    assert_eq!(asked, [(None, 3), (Some("cursor-a".to_owned()), 1)]);
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn has_next_page_without_cursor_is_an_error() {
+async fn a_next_page_without_a_usable_cursor_is_an_error() {
     for cursor in [None, Some("")] {
-        let (result, asked) = walk(vec![Ok(page(&["a"], true, cursor))]).await;
-        match result {
-            Err(PaginationError::MissingCursor { page }) => assert_eq!(page, 1),
-            other => panic!("expected MissingCursor, got {other:?}"),
-        }
+        let (result, asked) = walk(None, vec![Ok(page(&["a"], true, cursor))]).await;
+        let error = result.expect_err("no cursor");
+        assert!(error.message().contains("no cursor"), "{error}");
         assert_eq!(asked.len(), 1, "no second fetch is attempted");
     }
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn default_paginate_wrapper_rejects_empty_before_another_fetch() {
-    let mut asked = Vec::new();
-    let result: Result<Paginated<String>, PaginationError<FetchFailed>> = paginate(|after| {
-        asked.push(after);
-        async { Ok(page(&["a"], true, Some(""))) }
-    })
-    .await;
-    assert!(matches!(
-        result,
-        Err(PaginationError::MissingCursor { page: 1 })
-    ));
-    assert_eq!(asked, [None]);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn allow_empty_sends_the_empty_cursor_and_retains_final_page_info() {
-    let (result, asked) = walk_with_policy(
-        EmptyCursorPolicy::Allow,
+async fn a_cursor_seen_before_is_an_error() {
+    let (result, asked) = walk(
+        None,
         vec![
-            Ok(page(&["a"], true, Some(""))),
-            Ok(page(&["b"], false, Some("final"))),
+            Ok(page(&[], true, Some("A"))),
+            Ok(page(&[], true, Some("B"))),
+            Ok(page(&[], true, Some("A"))),
         ],
     )
     .await;
-    let completed = result.expect("empty cursor advances once");
-    assert_eq!(completed.nodes, ["a", "b"]);
-    assert_eq!(completed.page_info.end_cursor.as_deref(), Some("final"));
-    assert_eq!(asked, [None, Some(String::new())]);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn allow_empty_accepts_the_first_empty_cursor_on_a_later_page() {
-    let (result, asked) = walk_with_policy(
-        EmptyCursorPolicy::Allow,
-        vec![
-            Ok(page(&["a"], true, Some("A"))),
-            Ok(page(&["b"], true, Some(""))),
-            Ok(page(&["c"], false, None)),
-        ],
-    )
-    .await;
-    assert_eq!(result.expect("later empty cursor").nodes, ["a", "b", "c"]);
-    assert_eq!(asked, [None, Some("A".to_owned()), Some(String::new())]);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn allow_empty_rejects_immediate_repeat_and_seen_cycles() {
-    for (script, page_number, asked) in [
-        (
-            vec![
-                Ok(page(&["a"], true, Some(""))),
-                Ok(page(&["b"], true, Some(""))),
-            ],
-            2,
-            vec![None, Some(String::new())],
-        ),
-        (
-            vec![
-                Ok(page(&["a"], true, Some(""))),
-                Ok(page(&["b"], true, Some("A"))),
-                Ok(page(&["c"], true, Some(""))),
-            ],
-            3,
-            vec![None, Some(String::new()), Some("A".to_owned())],
-        ),
-    ] {
-        let (result, actual_asked) = walk_with_policy(EmptyCursorPolicy::Allow, script).await;
-        match result {
-            Err(PaginationError::RepeatedCursor { page, cursor }) => {
-                assert_eq!(page, page_number);
-                assert!(cursor.is_empty());
-            }
-            other => panic!("expected repeated empty cursor, got {other:?}"),
-        }
-        assert_eq!(actual_asked, asked);
-    }
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn allow_empty_still_rejects_null_and_nonempty_cycles() {
-    let (missing, asked) =
-        walk_with_policy(EmptyCursorPolicy::Allow, vec![Ok(page(&["a"], true, None))]).await;
-    assert!(matches!(
-        missing,
-        Err(PaginationError::MissingCursor { page: 1 })
-    ));
-    assert_eq!(asked, [None]);
-
-    let (cycle, asked) = walk_with_policy(
-        EmptyCursorPolicy::Allow,
-        vec![
-            Ok(page(&["a"], true, Some("A"))),
-            Ok(page(&["b"], true, Some("B"))),
-            Ok(page(&["c"], true, Some("A"))),
-        ],
-    )
-    .await;
-    assert!(matches!(
-        cycle,
-        Err(PaginationError::RepeatedCursor { page: 3, cursor }) if cursor == "A"
-    ));
-    assert_eq!(asked, [None, Some("A".to_owned()), Some("B".to_owned())]);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn unchanged_cursor_is_rejected() {
-    let (result, asked) = walk(vec![
-        Ok(page(&["a"], true, Some("cursor-a"))),
-        Ok(page(&["b"], true, Some("cursor-a"))),
-    ])
-    .await;
-    match result {
-        Err(PaginationError::RepeatedCursor { page, cursor }) => {
-            assert_eq!(page, 2);
-            assert_eq!(cursor, "cursor-a");
-        }
-        other => panic!("expected RepeatedCursor, got {other:?}"),
-    }
-    assert_eq!(asked.len(), 2);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn previously_seen_cursor_is_rejected() {
-    let (result, asked) = walk(vec![
-        Ok(page(&["a"], true, Some("cursor-a"))),
-        Ok(page(&["b"], true, Some("cursor-b"))),
-        Ok(page(&["c"], true, Some("cursor-a"))),
-    ])
-    .await;
-    match result {
-        Err(PaginationError::RepeatedCursor { page, cursor }) => {
-            assert_eq!(page, 3);
-            assert_eq!(cursor, "cursor-a");
-        }
-        other => panic!("expected RepeatedCursor, got {other:?}"),
-    }
+    let error = result.expect_err("repeated cursor");
+    assert!(
+        error.message().contains("same pagination cursor"),
+        "{error}"
+    );
     assert_eq!(asked.len(), 3);
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn later_page_failure_discards_earlier_pages() {
-    let (result, asked) = walk(vec![
-        Ok(page(&["a"], true, Some("cursor-a"))),
-        Err(FetchFailed("boom")),
-    ])
+async fn a_failed_page_discards_earlier_pages() {
+    let (result, asked) = walk(
+        None,
+        vec![Ok(page(&["a"], true, Some("A"))), Err(Error::new("boom"))],
+    )
     .await;
-    match &result {
-        Err(PaginationError::Fetch { page, source }) => {
-            assert_eq!(*page, 2);
-            assert_eq!(*source, FetchFailed("boom"));
-        }
-        other => panic!("expected Fetch, got {other:?}"),
-    }
-    let error = result.expect_err("fetch failure");
-    assert_eq!(error.to_string(), "page 2 failed: fetch failed: boom");
-    assert!(std::error::Error::source(&error).is_some());
+    assert_eq!(result.expect_err("second page fails").message(), "boom");
     assert_eq!(asked.len(), 2);
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn nested_connections_keep_the_first_parent_and_every_node() {
+    struct Parent {
+        name: &'static str,
+        children: Page<String>,
+    }
+    let mut script = VecDeque::from([
+        Parent {
+            name: "first",
+            children: page(&["a"], true, Some("A")),
+        },
+        Parent {
+            name: "second",
+            children: page(&["b"], false, None),
+        },
+    ]);
+    let parent = collect_within(
+        None,
+        |_after, _first| {
+            let next = script.pop_front().expect("scripted page");
+            async move { Ok(next) }
+        },
+        |parent: &mut Parent| Page {
+            nodes: std::mem::take(&mut parent.children.nodes),
+            page_info: parent.children.page_info.clone(),
+        },
+        |parent, page| parent.children = page,
+    )
+    .await
+    .expect("two pages");
+    assert_eq!(parent.name, "first");
+    assert_eq!(parent.children.nodes, ["a", "b"]);
+    assert!(!parent.children.page_info.has_next_page);
+}
+
 #[test]
-fn error_messages_name_the_page() {
-    let missing: PaginationError<FetchFailed> = PaginationError::MissingCursor { page: 4 };
-    assert_eq!(
-        missing.to_string(),
-        "page 4 reported more results but returned no pagination cursor"
-    );
-    let repeated: PaginationError<FetchFailed> = PaginationError::RepeatedCursor {
-        page: 2,
-        cursor: "x".to_owned(),
-    };
-    assert_eq!(
-        repeated.to_string(),
-        "page 2 returned a pagination cursor that was already used (x)"
-    );
+fn pages_track_the_cursor_and_remaining_limit() {
+    let mut pages = Pages::new(NonZeroU32::new(150));
+    assert_eq!((pages.after(), pages.first()), (None, 100));
+    let more = pages
+        .advance(100, &page(&[], true, Some("A")).page_info)
+        .expect("valid page");
+    assert!(more);
+    assert_eq!((pages.after(), pages.first()), (Some("A".to_owned()), 50));
+    let more = pages
+        .advance(50, &page(&[], true, Some("B")).page_info)
+        .expect("valid page");
+    assert!(!more, "the limit is reached");
 }

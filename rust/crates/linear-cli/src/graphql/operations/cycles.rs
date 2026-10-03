@@ -5,7 +5,7 @@ use serde::Serialize;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
-use super::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetTeamCyclesVariables {
@@ -16,7 +16,7 @@ pub struct GetTeamCyclesVariables {
     pub after: Option<String>,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
@@ -27,7 +27,7 @@ pub struct GetTeamCycles {
     pub team: TeamCycles,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
 #[cynic(
     schema = "linear",
     graphql_type = "Team",
@@ -40,9 +40,8 @@ pub struct TeamCycles {
     pub cycles: CycleConnection,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear")]
-#[serde(rename_all = "camelCase")]
 pub struct CycleConnection {
     pub nodes: Vec<Cycle>,
     pub page_info: PageInfo,

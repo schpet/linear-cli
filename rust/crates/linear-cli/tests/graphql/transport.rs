@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use cynic::QueryBuilder;
 use linear_cli::graphql::envelope::{GraphQlRequest, ResponseError, graphql_message};
 use linear_cli::graphql::operations::teams::{GetTeams, GetTeamsVariables};
-use linear_cli::graphql::pagination::{Page, paginate};
+use linear_cli::graphql::pagination::{Page, collect};
 use linear_cli::graphql::transport::{
     ApiKey, ApiKeyError, CONTENT_TYPE_VALUE, ConfigError, Deadline, EndpointUrl, EndpointUrlError,
     GraphQlTransport, HttpBodyShape, NetworkPhase, RawHttpResponse, ResponseCap,
@@ -1021,28 +1021,23 @@ fn two_team_pages() -> Vec<Step> {
 async fn two_pages_paginate_with_cursor_variables() {
     let server = ScriptedServer::start(two_team_pages());
     let transport = server.transport();
-    let result = paginate(|after| {
+    let teams = collect(None, |after, first| {
         let transport = &transport;
         async move {
-            let request = teams_request(Some(100), after.as_deref());
+            let request = teams_request(Some(first), after.as_deref());
             let data: GetTeams = transport.execute(&request).await?;
-            Ok::<_, TransportFailure>(Page {
+            Ok(Page {
                 nodes: data.teams.nodes,
-                page_info: data.teams.page_info.into(),
+                page_info: data.teams.page_info,
             })
         }
     })
     .await
     .expect("two pages");
-    let names: Vec<&str> = result.nodes.iter().map(|team| team.name.as_str()).collect();
+    let names: Vec<&str> = teams.iter().map(|team| team.name.as_str()).collect();
     assert_eq!(names, ["Engineering", "Design", "Archived"]);
-    assert_eq!(
-        result.nodes[1].description.as_deref(),
-        Some("Product design")
-    );
-    assert!(result.nodes[2].archived_at.is_some());
-    assert!(!result.page_info.has_next_page);
-    assert_eq!(result.page_info.end_cursor.as_deref(), Some("cursor-b"));
+    assert_eq!(teams[1].description.as_deref(), Some("Product design"));
+    assert!(teams[2].archived_at.is_some());
     let report = server.finish();
     report.assert_clean();
     assert_eq!(report.consumed, 2);

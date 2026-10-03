@@ -28,7 +28,7 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     let client = ctx.client()?;
     let fetched = ctx.spin(!args.json, fetch(client, identifier, !args.no_comments))?;
     if args.json {
-        return ctx.print(format!("{}\n", fetched.json()?));
+        return ctx.print(fetched.json());
     }
     let options = ctx.options();
     let download = !args.no_download && options.download_images().is_none_or(|v| *v.value());
@@ -94,12 +94,11 @@ pub enum Fetched {
     With(Issue),
 }
 impl Fetched {
-    pub fn json(&self) -> Result<String, Error> {
+    pub fn json(&self) -> Vec<u8> {
         match self {
-            Self::Without(i) => serde_json::to_string_pretty(i),
-            Self::With(i) => serde_json::to_string_pretty(i),
+            Self::Without(i) => crate::commands::json::render(i),
+            Self::With(i) => crate::commands::json::render(i),
         }
-        .map_err(|e| Error::new("could not serialize issue JSON").with_source(e))
     }
     pub fn into_issue(self) -> Issue {
         match self {

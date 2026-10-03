@@ -5,7 +5,8 @@
 
 use serde::Serialize;
 
-use crate::graphql::operations::teams::{PageInfo, StringComparator};
+use crate::graphql::operations::teams::StringComparator;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
 
 /// Variables for [`GetIssueLabels`]. `first` is the document's nullable

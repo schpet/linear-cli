@@ -1,16 +1,14 @@
 //! `cycle view`: one cycle by number, name, URL or relative offset, and the
 //! cycle lookup shared with issue and document commands.
 
-use std::cell::RefCell;
-use std::collections::HashSet;
 use std::future::Future;
-use std::rc::Rc;
 
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::cli::cycle::CycleView;
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
@@ -21,7 +19,8 @@ use crate::graphql::operations::cycle_view::{
     LookupCycle, LookupVariables,
 };
 use crate::graphql::operations::number::WholeNumber;
-use crate::graphql::transport::{GraphQlTransport, RawHttpResponse};
+use crate::graphql::pagination::Pages;
+use crate::graphql::transport::GraphQlTransport;
 use crate::refs::{
     CycleSelector, LinearUrlKind, LinearUrlRef, expect_url_kind, prepare_team_lookup,
     resolve_team_with_transport,
@@ -62,16 +61,12 @@ fn view(ctx: &Ctx, args: &CycleView) -> Result<()> {
             .ok_or_else(|| Error::not_found("Cycle", reference))
     })?;
     if args.json {
-        ctx.print(json(&cycle))
+        ctx.print(render_json(&cycle))
     } else {
         ctx.show_markdown(&markdown(&cycle, Utc::now(), &chrono::Local), false)
     }
 }
 const SIMPLE_SUGGESTION: &str = "Use a cycle number or name instead.";
-
-fn protocol(message: String) -> Error {
-    Error::new(message)
-}
 
 fn lookup_request(team_id: &str, after: Option<String>) -> GraphQlRequest<LookupVariables> {
     GraphQlRequest::with_variables(GetTeamCyclesForLookup::build(LookupVariables {
@@ -90,19 +85,20 @@ fn validate_first_team(key: &str, enabled: bool, url: Option<&LinearUrlRef>) -> 
     if let Some(LinearUrlRef::Cycle { team_key, .. }) = url
         && team_key.to_uppercase() != key.to_uppercase()
     {
-        return Err(protocol(format!(
+        return Err(Error::new(format!(
             "That cycle URL is for team {team_key}, but this command is working in team {key}."
         ))
         .with_hint(format!("Pass --team {team_key}.")));
     }
     if !enabled {
-        return Err(protocol(format!("Cycles are not enabled for team {key}"))
+        return Err(Error::new(format!("Cycles are not enabled for team {key}"))
             .with_hint("Enable cycles for the team in Linear's settings before filtering or assigning by cycle."));
     }
     Ok(())
 }
 
-/// Fetch every lookup page before choosing a cycle.
+/// Fetches every lookup page before choosing a cycle. The first page's team
+/// is checked (URL team, cycles enabled) before anything else.
 pub async fn resolve_id_with<F, Fut>(
     team_id: &str,
     reference: &str,
@@ -113,87 +109,30 @@ where
     F: FnMut(GraphQlRequest<LookupVariables>) -> Fut,
     Fut: Future<Output = Result<GetTeamCyclesForLookup, Error>>,
 {
-    let first = fetch(lookup_request(team_id, None)).await?;
-    let team = first
-        .team
-        .ok_or_else(|| Error::not_found("Team", team_id))?;
-    validate_first_team(&team.key, team.cycles_enabled, url)?;
-    let key = team.key;
-    let active = team.active_cycle;
-    let mut cycles = team.cycles.nodes;
-    let mut page_info = team.cycles.page_info;
-    let mut seen = HashSet::new();
-    let mut page = 1;
-    while page_info.has_next_page {
-        let cursor = page_info.end_cursor.ok_or_else(|| {
-            protocol(format!(
-                "Linear returned no cycle pagination cursor for team {key} on page {page}"
+    let mut pages = Pages::new(None);
+    let mut first: Option<(String, Option<ActiveCycle>)> = None;
+    let mut cycles = Vec::new();
+    loop {
+        let data = fetch(lookup_request(team_id, pages.after())).await?;
+        let team = data.team.ok_or_else(|| Error::not_found("Team", team_id))?;
+        if first.is_none() {
+            validate_first_team(&team.key, team.cycles_enabled, url)?;
+            first = Some((team.key.clone(), team.active_cycle));
+        }
+        let connection = team.cycles.ok_or_else(|| {
+            Error::new(format!(
+                "Linear returned no cycle list for team {}",
+                team.key
             ))
         })?;
-        if !seen.insert(cursor.clone()) {
-            return Err(protocol(format!(
-                "Linear repeated a cycle pagination cursor for team {key} on page {page}"
-            )));
+        let more = pages.advance(connection.nodes.len(), &connection.page_info)?;
+        cycles.extend(connection.nodes);
+        if !more {
+            break;
         }
-        page += 1;
-        let next = fetch(lookup_request(team_id, Some(cursor))).await?;
-        let next_team = next.team.ok_or_else(|| Error::not_found("Team", team_id))?;
-        cycles.extend(next_team.cycles.nodes);
-        page_info = next_team.cycles.page_info;
     }
+    let (key, active) = first.expect("the walk fetched at least one page");
     select(&cycles, active.as_ref(), &key, reference, url)
-}
-
-/// Classify one completed lookup HTTP response. The raw inspection is limited
-/// to the schema-invalid `cycles: null` shape; all other data uses Cynic.
-pub fn classify_lookup_page(
-    response: RawHttpResponse,
-    page: usize,
-    url: Option<&LinearUrlRef>,
-    first_key: &mut Option<String>,
-) -> Result<GetTeamCyclesForLookup, Error> {
-    if response.status.is_success()
-        && let Ok(value) = serde_json::from_slice::<serde_json::Value>(&response.body)
-    {
-        let errors = value.get("errors").and_then(serde_json::Value::as_array);
-        let has_errors = errors.is_some_and(|entries| !entries.is_empty());
-        if !has_errors {
-            let raw_team = value.pointer("/data/team");
-            let key = raw_team
-                .and_then(|team| team.get("key"))
-                .and_then(serde_json::Value::as_str);
-            if page == 1
-                && let Some(key) = key
-            {
-                *first_key = Some(key.to_owned());
-            }
-            if raw_team
-                .and_then(|team| team.get("cycles"))
-                .is_some_and(serde_json::Value::is_null)
-            {
-                // A null team and invalid metadata remain typed decode/team
-                // errors. On page one, the URL and cycles-enabled checks come first.
-                if page == 1 {
-                    if let (Some(key), Some(enabled)) = (
-                        key,
-                        raw_team
-                            .and_then(|team| team.get("cyclesEnabled"))
-                            .and_then(serde_json::Value::as_bool),
-                    ) {
-                        validate_first_team(key, enabled, url)?;
-                        return Err(protocol(format!(
-                            "Linear returned a null cycle connection for team {key} on page {page}"
-                        )));
-                    }
-                } else if let Some(key) = first_key.as_deref() {
-                    return Err(protocol(format!(
-                        "Linear returned a null cycle connection for team {key} on page {page}"
-                    )));
-                }
-            }
-        }
-    }
-    crate::graphql::transport::classify_typed(response).map_err(Error::from)
 }
 
 pub async fn resolve_id(
@@ -202,19 +141,8 @@ pub async fn resolve_id(
     reference: &str,
     url: Option<&LinearUrlRef>,
 ) -> Result<String, Error> {
-    let mut page = 0;
-    let first_key = Rc::new(RefCell::new(None));
-    resolve_id_with(team_id, reference, url, |request| {
-        page += 1;
-        let current_page = page;
-        let first_key = Rc::clone(&first_key);
-        async move {
-            let response = transport
-                .send_request(&request)
-                .await
-                .map_err(Error::from)?;
-            classify_lookup_page(response, current_page, url, &mut first_key.borrow_mut())
-        }
+    resolve_id_with(team_id, reference, url, |request| async move {
+        Ok(transport.execute(&request).await?)
     })
     .await
 }
@@ -270,7 +198,7 @@ fn select(
             } else {
                 SIMPLE_SUGGESTION.to_owned()
             };
-            return Err(protocol(format!("Team {key} has no active cycle")).with_hint(suggestion));
+            return Err(Error::new(format!("Team {key} has no active cycle")).with_hint(suggestion));
         }
         "next" => {
             return cycles
@@ -278,7 +206,7 @@ fn select(
                 .find(|cycle| cycle.is_next)
                 .map(|cycle| cycle.id.inner().to_owned())
                 .ok_or_else(|| {
-                    protocol(format!("Team {key} has no upcoming cycle"))
+                    Error::new(format!("Team {key} has no upcoming cycle"))
                         .with_hint(SIMPLE_SUGGESTION)
                 });
         }
@@ -288,7 +216,7 @@ fn select(
                 .find(|cycle| cycle.is_previous)
                 .map(|cycle| cycle.id.inner().to_owned())
                 .ok_or_else(|| {
-                    protocol(format!("Team {key} has no previous cycle"))
+                    Error::new(format!("Team {key} has no previous cycle"))
                         .with_hint(SIMPLE_SUGGESTION)
                 });
         }
@@ -300,9 +228,9 @@ fn select(
             .and_then(|digits| digits.parse::<u64>().ok());
         let magnitude = magnitude
             .and_then(|value| i64::try_from(value).ok())
-            .ok_or_else(|| protocol(format!("Cycle offset {reference} is out of range")))?;
+            .ok_or_else(|| Error::new(format!("Cycle offset {reference} is out of range")))?;
         let active = active.ok_or_else(|| {
-            protocol(format!(
+            Error::new(format!(
                 "Cannot resolve relative cycle {reference}: the team has no active cycle"
             ))
             .with_hint("Use 'next', a cycle number, or a cycle name while no cycle is active.")
@@ -348,19 +276,13 @@ struct JsonCycle<'a> {
     created_at: &'a crate::graphql::scalars::DateTime,
     updated_at: &'a crate::graphql::scalars::DateTime,
     team: JsonTeam<'a>,
-    issues: JsonIssues<'a>,
+    issues: Vec<JsonIssue<'a>>,
 }
 #[derive(Serialize)]
 struct JsonTeam<'a> {
     id: &'a cynic::Id,
     key: &'a str,
     name: &'a str,
-}
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonIssues<'a> {
-    nodes: Vec<JsonIssue<'a>>,
-    page_info: &'a crate::graphql::operations::teams::PageInfo,
 }
 #[derive(Serialize)]
 struct JsonIssue<'a> {
@@ -376,7 +298,7 @@ struct JsonState<'a> {
     state_type: &'a str,
 }
 
-fn json(cycle: &DetailCycle) -> Vec<u8> {
+fn render_json(cycle: &DetailCycle) -> Vec<u8> {
     let projected = JsonCycle {
         id: &cycle.id,
         number: cycle.number,
@@ -395,27 +317,22 @@ fn json(cycle: &DetailCycle) -> Vec<u8> {
             key: &cycle.team.key,
             name: &cycle.team.name,
         },
-        issues: JsonIssues {
-            nodes: cycle
-                .issues
-                .nodes
-                .iter()
-                .map(|issue| JsonIssue {
-                    id: &issue.id,
-                    identifier: &issue.identifier,
-                    title: &issue.title,
-                    state: JsonState {
-                        name: &issue.state.name,
-                        state_type: &issue.state.state_type,
-                    },
-                })
-                .collect(),
-            page_info: &cycle.issues.page_info,
-        },
+        issues: cycle
+            .issues
+            .nodes
+            .iter()
+            .map(|issue| JsonIssue {
+                id: &issue.id,
+                identifier: &issue.identifier,
+                title: &issue.title,
+                state: JsonState {
+                    name: &issue.state.name,
+                    state_type: &issue.state.state_type,
+                },
+            })
+            .collect(),
     };
-    let mut bytes = serde_json::to_vec_pretty(&projected).expect("cycle JSON always serializes");
-    bytes.push(b'\n');
-    bytes
+    json::render(&projected)
 }
 
 fn markdown<Tz: TimeZone>(cycle: &DetailCycle, now: DateTime<Utc>, zone: &Tz) -> String {

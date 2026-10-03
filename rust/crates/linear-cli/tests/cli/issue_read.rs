@@ -346,7 +346,7 @@ fn mine_unlimited_follows_pages() {
             "mine",
             "--all-states",
             "--limit",
-            "0",
+            "all",
             "--sort",
             "manual",
         ])
@@ -362,7 +362,7 @@ fn mine_unlimited_follows_pages() {
             "team": { "key": { "eq": "ENG" } },
             "assignee": { "isMe": { "eq": true } }
         },
-        "first": 50
+        "first": 100
     });
     let mut second = base.clone();
     second["after"] = json!("cursor-1");
@@ -491,7 +491,7 @@ fn query_all_teams_unlimited_follows_pages() {
             "--all-states",
             "--json",
             "--limit",
-            "0",
+            "all",
             "--include-archived",
         ])
         .success()

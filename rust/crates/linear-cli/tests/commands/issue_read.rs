@@ -29,12 +29,10 @@ fn issue() -> view::Issue {
         .unwrap()
 }
 #[test]
-fn complete_typed_connections_preserve_json_and_metadata() {
+fn issue_json_flattens_connections_and_keeps_metadata() {
     let query: GetIssuesForQuery = serde_json::from_value(data(QUERY)).unwrap();
-    let json = serde_json::to_value(&query.issues).unwrap();
-    assert!(json.get("nodes").unwrap().is_array());
-    assert!(json.get("pageInfo").unwrap().is_object());
-    assert!(json.get("issues").is_none());
+    let json = serde_json::to_value(&query.issues.nodes).unwrap();
+    assert!(json[0]["labels"].is_array(), "{json}");
     let mut i = issue();
     i.attachments.nodes[0]
         .metadata
@@ -44,7 +42,8 @@ fn complete_typed_connections_preserve_json_and_metadata() {
         .metadata
         .0
         .insert("zero".to_owned(), json!(-0.0));
-    let out = view::Fetched::With(i).json().unwrap();
+    let out = String::from_utf8(view::Fetched::With(i).json()).unwrap();
+    assert!(out.contains("\"comments\": ["));
     assert!(out.contains("\"integer\": 9007199254740993"));
     assert!(out.contains("\"zero\": -0.0"));
     assert!(out.contains("\"quotedText\": null"));
@@ -204,12 +203,11 @@ fn pipe_markdown_hierarchy_comments_and_resolved_summary_match_source() {
     );
 }
 #[test]
-fn source_search_selected_state_has_no_position_and_preserves_total_count() {
+fn search_selected_state_has_no_position() {
     let result: SearchIssues = serde_json::from_value(data(SEARCH)).unwrap();
-    let out = serde_json::to_value(result.search_issues).unwrap();
-    assert!(out["nodes"][0]["state"].get("position").is_none());
-    assert!(out.get("totalCount").is_some());
-    assert!(out["nodes"][0].get("metadata").is_some());
+    let out = serde_json::to_value(result.search_issues.nodes).unwrap();
+    assert!(out[0]["state"].get("position").is_none());
+    assert!(out[0].get("metadata").is_some());
 }
 
 #[test]

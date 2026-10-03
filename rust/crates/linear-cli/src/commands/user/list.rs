@@ -1,18 +1,19 @@
 //! `user list`: every member of the workspace, as text or JSON.
 use chrono::{DateTime, Local, Utc};
 use cynic::QueryBuilder;
-use serde::Serialize;
 
+use crate::cli::Limit;
 use crate::cli::user::UserList;
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
+use crate::error::{Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::organization_members::{
-    GetOrganizationMembers, GetOrganizationMembersVariables, PageInfo, User,
+    GetOrganizationMembers, GetOrganizationMembersVariables, User,
 };
-use crate::graphql::pagination::{self, Page, PaginationError};
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::{collation, style};
 
@@ -22,83 +23,76 @@ pub fn run(ctx: &Ctx, args: &UserList) -> Result<()> {
 
 fn list(ctx: &Ctx, args: &UserList) -> Result<()> {
     let client = ctx.client()?;
-    let (fetched, page_info) = ctx.spin(!args.json, fetch(client, args.all))?;
-    let fetched_any = !fetched.is_empty();
-    let mut members = fetched;
-    members.sort_by(|left, right| {
-        collation::compare(
-            &left.display_name.to_lowercase(),
-            &right.display_name.to_lowercase(),
-        )
-    });
-    if !args.all {
-        members.retain(|member| member.active);
-    }
-    if args.json {
-        ctx.print(render_json(&members, page_info))
-    } else if !fetched_any {
-        ctx.print("No members found in this workspace.\n")
-    } else if members.is_empty() {
-        ctx.print(
-            "No active members found in this workspace. Use --all to include inactive members.\n",
-        )
-    } else {
-        ctx.print(table(&members, Utc::now()).render_for(ctx))
-    }
+    let members = ctx.spin(!args.json, fetch(client, args.all))?;
+    show(
+        ctx,
+        members,
+        &Shown {
+            all: args.all,
+            limit: args.limit,
+            json: args.json,
+            place: "in this workspace",
+        },
+    )
 }
 
-/// Every page of members, with the last page's info.
-async fn fetch(client: &GraphQlTransport, include_disabled: bool) -> Result<(Vec<User>, PageInfo)> {
-    let result = pagination::paginate(|after| {
+/// Every member of the workspace, including disabled users with `include_disabled`.
+async fn fetch(client: &GraphQlTransport, include_disabled: bool) -> Result<Vec<User>> {
+    pagination::collect(None, |after, first| {
         let request = GraphQlRequest::with_variables(GetOrganizationMembers::build(
             GetOrganizationMembersVariables {
                 include_disabled,
-                first: Some(100),
+                first: Some(first),
                 after,
             },
         ));
         async move {
             let data: GetOrganizationMembers = client.execute(&request).await?;
             let users = data.viewer.organization.users;
-            Ok::<Page<User>, Error>(Page {
+            Ok(Page {
                 nodes: users.nodes,
-                page_info: pagination::PageInfo {
-                    has_next_page: users.page_info.has_next_page,
-                    end_cursor: users.page_info.end_cursor,
-                },
+                page_info: users.page_info,
             })
         }
     })
     .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            Error::new("Linear reported more workspace members but did not advance the page cursor")
-                .with_hint("Retry the command.")
-        }
-    })?;
-    let page_info = PageInfo {
-        has_next_page: result.page_info.has_next_page,
-        end_cursor: result.page_info.end_cursor,
-    };
-    Ok((result.nodes, page_info))
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: &'a [User],
-    page_info: PageInfo,
+/// How `user list` and `team members` show members.
+pub struct Shown {
+    /// Include inactive members.
+    pub all: bool,
+    pub limit: Limit,
+    pub json: bool,
+    /// Where the members are, for the empty-list messages.
+    pub place: &'static str,
 }
 
-fn render_json(members: &[User], page_info: PageInfo) -> Vec<u8> {
-    let mut output = serde_json::to_vec_pretty(&JsonConnection {
-        nodes: members,
-        page_info,
-    })
-    .expect("member JSON always serializes");
-    output.push(b'\n');
-    output
+/// Prints members by display name, without inactive ones unless `all`.
+pub fn show(ctx: &Ctx, mut members: Vec<User>, shown: &Shown) -> Result<()> {
+    members.sort_by(|left, right| {
+        collation::compare(
+            &left.display_name.to_lowercase(),
+            &right.display_name.to_lowercase(),
+        )
+    });
+    let fetched_any = !members.is_empty();
+    if !shown.all {
+        members.retain(|member| member.active);
+    }
+    shown.limit.apply(&mut members);
+    let place = shown.place;
+    if shown.json {
+        ctx.print(json::render(&members))
+    } else if !fetched_any {
+        ctx.print(format!("No members found {place}.\n"))
+    } else if members.is_empty() {
+        ctx.print(format!(
+            "No active members found {place}. Use --all to include inactive members.\n"
+        ))
+    } else {
+        ctx.print(table(&members, Utc::now()).render_for(ctx))
+    }
 }
 
 /// Workspace or team members, one row each.

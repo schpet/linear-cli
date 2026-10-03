@@ -1,5 +1,6 @@
 //! Typed document list/view selections in `--json` output order.
-use crate::graphql::operations::{initiatives::IDComparator, number::WholeNumber, teams::PageInfo};
+use crate::graphql::operations::{initiatives::IDComparator, number::WholeNumber};
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::{scalars::DateTime, schema};
 use serde::Serialize;
 
@@ -100,9 +101,10 @@ pub struct DocumentComment {
 
 #[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
 #[cynic(schema = "linear", graphql_type = "CommentConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct DocumentCommentsConnection {
     pub nodes: Vec<DocumentComment>,
+    #[serde(skip)]
     pub page_info: PageInfo,
 }
 
@@ -124,9 +126,8 @@ pub struct ListedDocument {
     pub creator: Option<DocumentCreatorName>,
 }
 
-#[derive(cynic::QueryFragment, Clone, Debug, Serialize)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "DocumentConnection")]
-#[serde(rename_all = "camelCase")]
 pub struct DocumentConnection {
     pub nodes: Vec<ListedDocument>,
     pub page_info: PageInfo,
@@ -183,6 +184,8 @@ pub struct ListDocumentsVariables {
     #[cynic(skip_serializing_if = "Option::is_none")]
     pub filter: Option<DocumentFilter>,
     pub first: Option<i32>,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
 }
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct GetDocumentVariables {
@@ -201,7 +204,7 @@ pub struct GetDocumentCommentsVariables {
     variables = "ListDocumentsVariables"
 )]
 pub struct ListDocuments {
-    #[arguments(filter: $filter, first: $first)]
+    #[arguments(filter: $filter, first: $first, after: $after)]
     pub documents: Option<DocumentConnection>,
 }
 

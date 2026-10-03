@@ -102,8 +102,8 @@ pub struct IssueMine {
     pub milestone: Option<String>,
     #[arg(long = "label", short = 'l', help = "Filter by label name (can be repeated for multiple labels)", value_name = "label", value_parser = super::nonempty_string)]
     pub label: Vec<String>,
-    #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::issue_limit, default_value = "50")]
-    pub limit: super::numeric::IssueLimit,
+    #[arg(long = "limit", help = "Maximum number of issues to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "50")]
+    pub limit: super::Limit,
     #[arg(long = "created-after", help = "Filter issues created after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
     pub created_after: Option<DateTime<Utc>>,
     #[arg(long = "updated-after", help = "Filter issues updated after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
@@ -191,8 +191,8 @@ pub struct IssueQuery {
     pub milestone: Option<String>,
     #[arg(long = "label", short = 'l', help = "Filter by label name (can be repeated for multiple labels)", value_name = "label", value_parser = super::nonempty_string)]
     pub label: Vec<String>,
-    #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::issue_limit, default_value = "50")]
-    pub limit: super::numeric::IssueLimit,
+    #[arg(long = "limit", help = "Maximum number of issues to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "50")]
+    pub limit: super::Limit,
     #[arg(long = "created-after", help = "Filter issues created after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
     pub created_after: Option<DateTime<Utc>>,
     #[arg(long = "updated-after", help = "Filter issues updated after this date (YYYY-MM-DD or RFC 3339)", value_name = "date", value_parser = super::values::date_or_datetime)]
@@ -670,6 +670,8 @@ pub struct IssueCommentUpdate {
 pub struct IssueCommentList {
     #[arg(value_name = "issueId")]
     pub issue_id: Option<String>,
+    #[arg(long = "limit", help = "Maximum number of comments to fetch (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }
@@ -783,6 +785,8 @@ pub enum IssueAgentSessionCommand {
 pub struct IssueAgentSessionList {
     #[arg(value_name = "issueId")]
     pub issue_id: Option<String>,
+    #[arg(long = "limit", help = "Maximum number of sessions to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
     #[arg(

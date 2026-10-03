@@ -1,5 +1,6 @@
 //! Exact name-or-version release lookup with complete pages.
-use crate::graphql::{operations::teams::PageInfo, schema};
+use crate::graphql::pagination::PageInfo;
+use crate::graphql::schema;
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct ResolveReleasesVariables {
     pub input: String,

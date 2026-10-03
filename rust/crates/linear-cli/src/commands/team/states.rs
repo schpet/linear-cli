@@ -3,6 +3,7 @@ use serde::Serialize;
 
 use super::TeamArg;
 use crate::cli::team::TeamStates;
+use crate::commands::json;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -23,6 +24,7 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
         Ok::<_, Error>(response.team.states.nodes)
     })?;
     workflow_states::sort(&mut states);
+    args.limit.apply(&mut states);
     if args.json {
         ctx.print(render_json(&states))
     } else if states.is_empty() {
@@ -30,11 +32,6 @@ fn states(ctx: &Ctx, args: &TeamStates) -> Result<()> {
     } else {
         ctx.print(render_text(&states).render_for(ctx))
     }
-}
-
-#[derive(Serialize)]
-struct JsonConnection<'a> {
-    nodes: Vec<JsonState<'a>>,
 }
 
 #[derive(Serialize)]
@@ -47,7 +44,7 @@ struct JsonState<'a> {
 }
 
 fn render_json(states: &[WorkflowState]) -> Vec<u8> {
-    let nodes = states
+    let states: Vec<_> = states
         .iter()
         .map(|state| JsonState {
             id: state.id.inner(),
@@ -56,10 +53,7 @@ fn render_json(states: &[WorkflowState]) -> Vec<u8> {
             position: &state.position,
         })
         .collect();
-    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes })
-        .expect("workflow state JSON always serializes");
-    bytes.push(b'\n');
-    bytes
+    json::render(&states)
 }
 
 fn render_text(states: &[WorkflowState]) -> Table {

@@ -2,7 +2,7 @@
 //! projection used by `team list`.
 
 use crate::graphql::edit::Edit;
-use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]

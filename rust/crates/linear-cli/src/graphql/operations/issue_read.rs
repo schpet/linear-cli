@@ -255,7 +255,7 @@ pub struct GetIssuesForStateIssuesNodesLabelsNodes {
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueLabelConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GetIssuesForStateIssuesNodesLabels {
     pub nodes: Vec<GetIssuesForStateIssuesNodesLabelsNodes>,
 }
@@ -287,7 +287,7 @@ pub struct GetIssuesForStateIssuesNodesInverseRelationsNodes {
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueRelationConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GetIssuesForStateIssuesNodesInverseRelations {
     pub nodes: Vec<GetIssuesForStateIssuesNodesInverseRelationsNodes>,
 }
@@ -309,27 +309,18 @@ pub struct GetIssuesForStateIssuesNodes {
     pub inverse_relations: GetIssuesForStateIssuesNodesInverseRelations,
     pub updated_at: DateTime,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "PageInfo")]
-#[serde(rename_all = "camelCase")]
-pub struct GetIssuesForStateIssuesPageInfo {
-    pub has_next_page: bool,
-    pub end_cursor: Option<String>,
-}
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueConnection")]
-#[serde(rename_all = "camelCase")]
 pub struct GetIssuesForStateIssues {
     pub nodes: Vec<GetIssuesForStateIssuesNodes>,
-    pub page_info: GetIssuesForStateIssuesPageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
     variables = "GetIssuesForStateVariables"
 )]
-#[serde(rename_all = "camelCase")]
 pub struct GetIssuesForState {
     #[arguments(filter : $filter, sort : $sort, first : $first, after : $after)]
     pub issues: GetIssuesForStateIssues,
@@ -403,20 +394,18 @@ pub struct GetIssuesForQueryIssuesNodes {
     #[arguments(first : 100)]
     pub inverse_relations: GetIssuesForStateIssuesNodesInverseRelations,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueConnection")]
-#[serde(rename_all = "camelCase")]
 pub struct GetIssuesForQueryIssues {
     pub nodes: Vec<GetIssuesForQueryIssuesNodes>,
-    pub page_info: GetIssuesForStateIssuesPageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
     variables = "GetIssuesForQueryVariables"
 )]
-#[serde(rename_all = "camelCase")]
 pub struct GetIssuesForQuery {
     #[arguments(filter : $filter, sort : $sort, first : $first, after : $after, includeArchived : $include_archived)]
     pub issues: GetIssuesForQueryIssues,
@@ -472,21 +461,19 @@ pub struct SearchIssuesSearchIssuesNodes {
     pub inverse_relations: GetIssuesForStateIssuesNodesInverseRelations,
     pub metadata: JsonObject,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueSearchPayload")]
-#[serde(rename_all = "camelCase")]
 pub struct SearchIssuesSearchIssues {
     pub nodes: Vec<SearchIssuesSearchIssuesNodes>,
-    pub page_info: GetIssuesForStateIssuesPageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
     pub total_count: WholeNumber,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
     variables = "SearchIssuesVariables"
 )]
-#[serde(rename_all = "camelCase")]
 pub struct SearchIssues {
     #[arguments(term : $term, filter : $filter, first : $first, after : $after, includeArchived : $include_archived, includeComments : $include_comments, orderBy : $order_by)]
     pub search_issues: SearchIssuesSearchIssues,
@@ -517,20 +504,18 @@ pub struct GetWorkflowStatesInScopeWorkflowStatesNodes {
     pub r#type: String,
     pub team: GetWorkflowStatesInScopeWorkflowStatesNodesTeam,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "WorkflowStateConnection")]
-#[serde(rename_all = "camelCase")]
 pub struct GetWorkflowStatesInScopeWorkflowStates {
     pub nodes: Vec<GetWorkflowStatesInScopeWorkflowStatesNodes>,
-    pub page_info: GetIssuesForStateIssuesPageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
     variables = "GetWorkflowStatesInScopeVariables"
 )]
-#[serde(rename_all = "camelCase")]
 pub struct GetWorkflowStatesInScope {
     #[arguments(filter : $filter, first : $first, after : $after)]
     pub workflow_states: GetWorkflowStatesInScopeWorkflowStates,
@@ -581,7 +566,7 @@ pub struct GetIssueDetailsIssueParent {
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "IssueConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GetIssueDetailsIssueChildren {
     pub nodes: Vec<GetIssueDetailsIssueParent>,
 }
@@ -599,7 +584,7 @@ pub struct GetIssueDetailsIssueAttachmentsNodes {
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "AttachmentConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GetIssueDetailsIssueAttachments {
     pub nodes: Vec<GetIssueDetailsIssueAttachmentsNodes>,
 }
@@ -616,7 +601,7 @@ pub struct GetIssueDetailsIssueDocumentsNodes {
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "DocumentConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GetIssueDetailsIssueDocuments {
     pub nodes: Vec<GetIssueDetailsIssueDocumentsNodes>,
 }
@@ -692,7 +677,7 @@ pub struct GetIssueDetailsWithCommentsIssueCommentsNodes {
 }
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "CommentConnection")]
-#[serde(rename_all = "camelCase")]
+#[serde(transparent)]
 pub struct GetIssueDetailsWithCommentsIssueComments {
     pub nodes: Vec<GetIssueDetailsWithCommentsIssueCommentsNodes>,
 }
@@ -739,19 +724,17 @@ pub struct GetIssueDetailsWithComments {
 pub struct GetProjectIdOptionsByNameVariables {
     pub name: String,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
-#[serde(rename_all = "camelCase")]
 pub struct GetProjectIdOptionsByNameProjects {
     pub nodes: Vec<GetIssuesForQueryIssuesNodesProject>,
 }
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
     variables = "GetProjectIdOptionsByNameVariables"
 )]
-#[serde(rename_all = "camelCase")]
 pub struct GetProjectIdOptionsByName {
     #[arguments(filter : { name : { containsIgnoreCase : $name } })]
     pub projects: GetProjectIdOptionsByNameProjects,

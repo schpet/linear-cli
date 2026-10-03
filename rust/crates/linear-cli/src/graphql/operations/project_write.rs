@@ -253,7 +253,7 @@ pub struct ProjectTeams {
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
 pub struct TeamPage {
     pub nodes: Vec<ProjectTeam>,
-    pub page_info: super::teams::PageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "PageVariables")]
@@ -275,7 +275,7 @@ pub struct ProjectLabelsPage {
 #[cynic(schema = "linear", graphql_type = "ProjectLabelConnection")]
 pub struct LabelPage {
     pub nodes: Vec<ProjectLabel>,
-    pub page_info: super::teams::PageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "PageVariables")]
@@ -300,7 +300,7 @@ pub struct ProjectLinks {
 #[cynic(schema = "linear", graphql_type = "InitiativeToProjectConnection")]
 pub struct LinkPage {
     pub nodes: Vec<LinkRow>,
-    pub page_info: super::teams::PageInfo,
+    pub page_info: crate::graphql::pagination::PageInfo,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "InitiativeToProject")]

@@ -1,5 +1,5 @@
 //! Document create, update and attachment-target operations.
-use crate::graphql::operations::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::{scalars::DateTime, schema};
 #[derive(cynic::InputObject, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "DocumentCreateInput")]

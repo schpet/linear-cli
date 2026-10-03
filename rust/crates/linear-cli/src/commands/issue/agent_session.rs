@@ -1,9 +1,9 @@
 //! `issue agent-session list/view`: agent sessions on an issue's comments.
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
-use serde::Serialize;
 
 use crate::cli::issue::{IssueAgentSessionList, IssueAgentSessionView};
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
@@ -12,8 +12,9 @@ use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::agent_session::{
     AgentActivityContent, AgentActivityType, AgentSession, AgentSessionStatus, AgentSessionType,
     GetAgentSessionDetails, GetAgentSessionDetailsVariables, GetIssueAgentSessions,
-    GetIssueAgentSessionsVariables, SessionComments,
+    GetIssueAgentSessionsVariables, ListSession, SessionComment,
 };
+use crate::graphql::pagination::{self, Page};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::style;
 use crate::refs::reject_linear_url;
@@ -31,7 +32,7 @@ fn print_session(ctx: &Ctx, args: &IssueAgentSessionView) -> Result<()> {
     let client = ctx.client()?;
     let session = ctx.spin(!args.json, fetch_session(client, &args.session_id))?;
     if args.json {
-        return ctx.print(json(&session)?);
+        return ctx.print(json::render(&session));
     }
     ctx.show_markdown(&markdown(&session, Utc::now(), &chrono::Local)?, false)
 }
@@ -39,15 +40,13 @@ fn print_session(ctx: &Ctx, args: &IssueAgentSessionView) -> Result<()> {
 fn print_sessions(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
     let identifier = super::require(ctx, args.issue_id.as_deref())?;
     let client = ctx.client()?;
-    let sessions = ctx.spin(!args.json, fetch_sessions(client, &identifier, args.status))?;
+    let comments = ctx.spin(!args.json, fetch_comments(client, &identifier))?;
+    let mut sessions = sessions(comments, args.status);
+    args.limit.apply(&mut sessions);
     if args.json {
-        return ctx.print(json(&sessions)?);
+        return ctx.print(json::render(&sessions));
     }
-    if sessions
-        .nodes
-        .iter()
-        .all(|comment| comment.agent_session.is_none())
-    {
+    if sessions.is_empty() {
         return ctx.print("No agent sessions found for this issue.\n");
     }
     ctx.print(table(&sessions, Utc::now()).render_for(ctx))
@@ -59,10 +58,14 @@ pub fn view_request(id: &str) -> GraphQlRequest<GetAgentSessionDetailsVariables>
     ))
 }
 
-pub fn list_request(issue_id: &str) -> GraphQlRequest<GetIssueAgentSessionsVariables> {
+pub fn list_request(
+    issue_id: &str,
+    after: Option<String>,
+) -> GraphQlRequest<GetIssueAgentSessionsVariables> {
     GraphQlRequest::with_variables(GetIssueAgentSessions::build(
         GetIssueAgentSessionsVariables {
             issue_id: issue_id.to_owned(),
+            after,
         },
     ))
 }
@@ -76,16 +79,19 @@ async fn fetch_session(transport: &GraphQlTransport, id: &str) -> Result<AgentSe
     Ok(data.agent_session)
 }
 
-async fn fetch_sessions(
-    transport: &GraphQlTransport,
-    id: &str,
-    status: Option<crate::cli::AgentSessionStatus>,
-) -> Result<SessionComments> {
-    let data: GetIssueAgentSessions = transport
-        .execute(&list_request(id))
-        .await
-        .map_err(Error::from)?;
-    Ok(filter(data.issue.comments, status))
+/// Every comment on the issue, for the agent sessions they started.
+async fn fetch_comments(transport: &GraphQlTransport, id: &str) -> Result<Vec<SessionComment>> {
+    pagination::collect(None, |after, _first| {
+        let request = list_request(id, after);
+        async move {
+            let data: GetIssueAgentSessions = transport.execute(&request).await?;
+            Ok(Page {
+                nodes: data.issue.comments.nodes,
+                page_info: data.issue.comments.page_info,
+            })
+        }
+    })
+    .await
 }
 
 pub fn ensure_supported(session: &AgentSession) -> Result<(), Error> {
@@ -95,34 +101,25 @@ pub fn ensure_supported(session: &AgentSession) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn filter(
-    mut comments: SessionComments,
+/// The sessions started from the comments, in comment order, with `status`
+/// only when given.
+pub fn sessions(
+    comments: Vec<SessionComment>,
     status: Option<crate::cli::AgentSessionStatus>,
-) -> SessionComments {
-    if let Some(status) = status {
-        let status = match status {
-            crate::cli::AgentSessionStatus::Pending => AgentSessionStatus::Pending,
-            crate::cli::AgentSessionStatus::Active => AgentSessionStatus::Active,
-            crate::cli::AgentSessionStatus::Complete => AgentSessionStatus::Complete,
-            crate::cli::AgentSessionStatus::AwaitingInput => AgentSessionStatus::AwaitingInput,
-            crate::cli::AgentSessionStatus::Error => AgentSessionStatus::Error,
-            crate::cli::AgentSessionStatus::Stale => AgentSessionStatus::Stale,
-        };
-        comments.nodes.retain(|comment| {
-            comment
-                .agent_session
-                .as_ref()
-                .is_some_and(|session| session.status == status)
-        });
-    }
+) -> Vec<ListSession> {
+    let status = status.map(|status| match status {
+        crate::cli::AgentSessionStatus::Pending => AgentSessionStatus::Pending,
+        crate::cli::AgentSessionStatus::Active => AgentSessionStatus::Active,
+        crate::cli::AgentSessionStatus::Complete => AgentSessionStatus::Complete,
+        crate::cli::AgentSessionStatus::AwaitingInput => AgentSessionStatus::AwaitingInput,
+        crate::cli::AgentSessionStatus::Error => AgentSessionStatus::Error,
+        crate::cli::AgentSessionStatus::Stale => AgentSessionStatus::Stale,
+    });
     comments
-}
-
-pub fn json(value: &impl Serialize) -> Result<Vec<u8>, Error> {
-    let mut bytes = serde_json::to_vec_pretty(value)
-        .map_err(|error| Error::new("could not serialize agent sessions").with_source(error))?;
-    bytes.push(b'\n');
-    Ok(bytes)
+        .into_iter()
+        .filter_map(|comment| comment.agent_session)
+        .filter(|session| status.is_none_or(|status| session.status == status))
+        .collect()
 }
 
 pub fn status_name(status: AgentSessionStatus) -> &'static str {
@@ -268,7 +265,7 @@ pub fn markdown<Tz: TimeZone>(
     Ok(lines.join("\n"))
 }
 
-pub fn table(comments: &SessionComments, now: DateTime<Utc>) -> Table {
+pub fn table(sessions: &[ListSession], now: DateTime<Utc>) -> Table {
     let mut table = Table::new([
         Column::fixed("ID"),
         Column::fixed("STATUS"),
@@ -276,11 +273,7 @@ pub fn table(comments: &SessionComments, now: DateTime<Utc>) -> Table {
         Column::fixed("CREATED"),
         Column::flexible("SUMMARY"),
     ]);
-    for session in comments
-        .nodes
-        .iter()
-        .filter_map(|comment| comment.agent_session.as_ref())
-    {
+    for session in sessions {
         let status = status_name(session.status);
         let status = match session.status {
             AgentSessionStatus::Active => Cell::styled(status, style::green),

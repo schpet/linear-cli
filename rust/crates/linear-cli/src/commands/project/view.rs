@@ -1,11 +1,12 @@
 //! `project view`: one project as Markdown or JSON, or opened in Linear.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 
 use crate::cli::project::ProjectView;
+use crate::commands::json;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -16,8 +17,7 @@ use crate::graphql::operations::project_view::{
     PickerProject, PickerVariables, ProjectDetails, ProjectDetailsVariables,
     ProjectIssuesVariables, ProjectMilestoneStatus, ViewInverseRelation, ViewRelation,
 };
-use crate::graphql::operations::teams::PageInfo;
-use crate::graphql::pagination::{self, Page};
+use crate::graphql::pagination::{self, Page, PageInfo, Pages};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 use crate::platform::prompt::Choice;
@@ -56,10 +56,7 @@ fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
         fetch_details(client, &id, &original).await
     })?;
     if args.json {
-        let mut output =
-            serde_json::to_vec_pretty(&project).expect("project JSON always serializes");
-        output.push(b'\n');
-        return ctx.print(output);
+        return ctx.print(json::render(&project));
     }
     ctx.show_markdown(
         &markdown(&project, Utc::now(), &chrono::Local),
@@ -110,33 +107,26 @@ async fn fetch_details(
     let mut project = data
         .project
         .ok_or_else(|| Error::not_found("Project", original))?;
+    let mut pages = Pages::new(None);
+    let mut received = project.issues.nodes.len();
     let mut page_info = project.issues.page_info.clone();
-    let mut seen = HashSet::new();
-    while page_info.has_next_page {
-        let cursor = page_info
-            .end_cursor
-            .filter(|cursor| seen.insert(cursor.clone()))
-            .ok_or_else(|| {
-                Error::new(format!(
-                    "Linear reported more issues for project {} but did not return a usable cursor",
-                    project.name
-                ))
-                .with_hint("Retry the command; if it keeps happening, report it.")
-            })?;
+    while pages.advance(received, &page_info)? {
         let request =
             GraphQlRequest::with_variables(GetProjectIssuesPage::build(ProjectIssuesVariables {
                 id: project_id.to_owned(),
                 first: PAGE_SIZE,
-                after: cursor,
+                after: pages
+                    .after()
+                    .expect("a walk that needs a page has a cursor"),
             }));
         let data: GetProjectIssuesPage = client.execute(&request).await?;
         let next = data
             .project
             .ok_or_else(|| Error::not_found("Project", original))?;
-        project.issues.nodes.extend(next.issues.nodes);
+        received = next.issues.nodes.len();
         page_info = next.issues.page_info;
+        project.issues.nodes.extend(next.issues.nodes);
     }
-    project.issues.page_info = page_info;
     Ok(project)
 }
 
@@ -145,7 +135,7 @@ async fn fetch_picker(
     team_key: Option<&str>,
 ) -> Result<Vec<PickerProject>> {
     let filter = super::list::filter(team_key, None);
-    let projects = pagination::paginate(|after| {
+    let projects = pagination::collect(None, |after, _first| {
         let request =
             GraphQlRequest::with_variables(GetProjectsForPicker::build(PickerVariables {
                 filter: filter.clone(),
@@ -156,13 +146,11 @@ async fn fetch_picker(
             let data: GetProjectsForPicker = client.execute(&request).await?;
             Ok(Page {
                 nodes: data.projects.nodes,
-                page_info: data.projects.page_info.into(),
+                page_info: data.projects.page_info,
             })
         }
     })
-    .await
-    .map_err(|error| super::pagination_error("projects", error))?
-    .nodes;
+    .await?;
     if projects.is_empty() {
         return Err(match team_key {
             Some(key) => Error::new(format!("Team {key} has no projects")).with_hint(

@@ -1,6 +1,6 @@
 //! Shared typed selections for comment-list connections.
 
-use super::teams::PageInfo;
+use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 

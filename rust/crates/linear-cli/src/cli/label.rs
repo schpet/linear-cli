@@ -33,6 +33,8 @@ pub struct LabelList {
         conflicts_with = "team"
     )]
     pub all: bool,
+    #[arg(long = "limit", help = "Maximum number of labels to show (a number or `all`)", value_name = "limit", value_parser = super::limit::parse, default_value = "all")]
+    pub limit: super::Limit,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
 }

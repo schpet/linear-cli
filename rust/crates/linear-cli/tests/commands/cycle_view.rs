@@ -24,12 +24,12 @@ fn page(
 }
 
 #[tokio::test]
-async fn sends_explicit_null_then_empty_cursor_and_searches_all_pages_in_order() {
+async fn sends_explicit_null_then_the_cursor_and_searches_all_pages_in_order() {
     let pages = Rc::new(RefCell::new(VecDeque::from([
         page(
             vec![node("first-number", json!(5), json!("Other"))],
             true,
-            Some(""),
+            Some("next"),
             true,
         ),
         page(
@@ -61,7 +61,7 @@ async fn sends_explicit_null_then_empty_cursor_and_searches_all_pages_in_order()
     );
     assert_eq!(
         requests[1]["variables"],
-        json!({"teamId":"team-id","after":""})
+        json!({"teamId":"team-id","after":"next"})
     );
     assert!(
         requests[0]["query"]
@@ -99,53 +99,49 @@ async fn repeated_cursor_is_a_protocol_error() {
     .await
     .expect_err("repeated cursor");
     assert!(
-        error
-            .message()
-            .contains("repeated a cycle pagination cursor")
+        error.message().contains("same pagination cursor"),
+        "{error}"
     );
 }
 
-#[test]
-fn null_connection_preserves_page_one_validation_order_and_key() {
-    use linear_cli::commands::cycle::view::classify_lookup_page;
-    use linear_cli::graphql::transport::RawHttpResponse;
+fn null_cycles(key: &str, enabled: bool) -> GetTeamCyclesForLookup {
+    let body = json!({"data":{"team":{
+        "key":key,"cyclesEnabled":enabled,"cycles":null,"activeCycle":null
+    }}});
+    parse_response(body.to_string().as_bytes()).expect("typed lookup page")
+}
+
+#[tokio::test]
+async fn null_cycles_are_reported_after_the_team_checks() {
     use linear_cli::refs::{CycleSelector, LinearUrlRef};
     let url = LinearUrlRef::Cycle {
         workspace: "example".to_owned(),
         team_key: "URL".to_owned(),
         cycle: CycleSelector::Number(5),
     };
-    let response = |enabled: bool| RawHttpResponse {
-        status: reqwest::StatusCode::OK,
-        headers: reqwest::header::HeaderMap::new(),
-        body: json!({"data":{"team":{
-            "key":"WIRE","cyclesEnabled":enabled,"cycles":null,"activeCycle":null
-        }}})
-        .to_string()
-        .into_bytes(),
-    };
-    let mut first_key = None;
-    let mismatch = classify_lookup_page(response(false), 1, Some(&url), &mut first_key)
-        .expect_err("URL mismatch precedes disabled and null connection");
+    let mismatch = resolve_id_with("team-id", "5", Some(&url), |_| {
+        ready(Ok(null_cycles("WIRE", false)))
+    })
+    .await
+    .expect_err("URL mismatch comes first");
     assert_eq!(
         mismatch.message(),
         "That cycle URL is for team URL, but this command is working in team WIRE."
     );
-    assert_eq!(first_key.as_deref(), Some("WIRE"));
-    let disabled = classify_lookup_page(response(false), 1, None, &mut first_key)
-        .expect_err("disabled precedes null connection");
+    let disabled = resolve_id_with("team-id", "5", None, |_| {
+        ready(Ok(null_cycles("WIRE", false)))
+    })
+    .await
+    .expect_err("disabled comes next");
     assert_eq!(disabled.message(), "Cycles are not enabled for team WIRE");
-    let first_null =
-        classify_lookup_page(response(true), 1, None, &mut first_key).expect_err("null first page");
+    let missing = resolve_id_with("team-id", "5", None, |_| {
+        ready(Ok(null_cycles("WIRE", true)))
+    })
+    .await
+    .expect_err("null cycles");
     assert_eq!(
-        first_null.message(),
-        "Linear returned a null cycle connection for team WIRE on page 1"
-    );
-    let later =
-        classify_lookup_page(response(true), 2, None, &mut first_key).expect_err("null later page");
-    assert_eq!(
-        later.message(),
-        "Linear returned a null cycle connection for team WIRE on page 2"
+        missing.message(),
+        "Linear returned no cycle list for team WIRE"
     );
 }
 
@@ -168,24 +164,6 @@ async fn unicode_url_team_case_matches_page_one_wire_key() {
         .await
         .expect("Unicode uppercase match");
     assert_eq!(id, "five");
-
-    use linear_cli::commands::cycle::view::classify_lookup_page;
-    use linear_cli::graphql::transport::RawHttpResponse;
-    let response = RawHttpResponse {
-        status: reqwest::StatusCode::OK,
-        headers: reqwest::header::HeaderMap::new(),
-        body: json!({"data":{"team":{
-            "key":"é","cyclesEnabled":true,"cycles":null,"activeCycle":null
-        }}})
-        .to_string()
-        .into_bytes(),
-    };
-    let error = classify_lookup_page(response, 1, Some(&url), &mut None)
-        .expect_err("null connection after matching Unicode team");
-    assert_eq!(
-        error.message(),
-        "Linear returned a null cycle connection for team é on page 1"
-    );
 }
 
 #[tokio::test]
@@ -201,7 +179,7 @@ async fn missing_and_nonadjacent_repeated_cursors_stop_without_extra_requests() 
     .await
     .expect_err("missing cursor");
     assert_eq!(*calls.borrow(), 1);
-    assert!(missing.message().contains("no cycle pagination cursor"));
+    assert!(missing.message().contains("no cursor"), "{missing}");
 
     let pages = Rc::new(RefCell::new(VecDeque::from([
         page(vec![], true, Some("A"), true),
@@ -221,8 +199,7 @@ async fn missing_and_nonadjacent_repeated_cursors_stop_without_extra_requests() 
     .expect_err("nonadjacent repeated cursor");
     assert_eq!(*calls.borrow(), 3);
     assert!(
-        repeated
-            .message()
-            .contains("repeated a cycle pagination cursor")
+        repeated.message().contains("same pagination cursor"),
+        "{repeated}"
     );
 }
