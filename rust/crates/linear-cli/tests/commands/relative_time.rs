@@ -17,7 +17,7 @@ fn thresholds_use_the_injected_clock() {
         ("2026-09-24T13:00:00Z", "23 hours ago"),
         ("2026-09-24T12:00:00Z", "1 day ago"),
         ("2026-09-19T12:00:00Z", "6 days ago"),
-        ("2026-09-18T12:00:00Z", "9/18/2026"),
+        ("2026-09-18T12:00:00Z", "2026-09-18"),
         ("2026-09-25T17:30:00+05:30", "just now"),
         ("2026-09-25T11:58:01.999999Z", "1 minute ago"),
         ("not a date", "not a date"),
@@ -34,8 +34,8 @@ fn date_only_uses_utc_midnight_and_absolute_date_uses_display_zone() {
         .with_timezone(&Utc);
     let west = FixedOffset::west_opt(7 * 3600).expect("west");
     let east = FixedOffset::east_opt(9 * 3600).expect("east");
-    assert_eq!(format_relative_time("2026-09-18", now, &west), "9/17/2026");
-    assert_eq!(format_relative_time("2026-09-18", now, &east), "9/18/2026");
+    assert_eq!(format_relative_time("2026-09-18", now, &west), "2026-09-17");
+    assert_eq!(format_relative_time("2026-09-18", now, &east), "2026-09-18");
 }
 
 #[test]
@@ -47,5 +47,5 @@ fn units_are_pluralized_and_old_dates_are_shown_as_dates() {
     assert_eq!(ago("2026-01-10T10:00:00Z"), "2 hours ago");
     assert_eq!(ago("2026-01-09T12:00:00Z"), "1 day ago");
     assert_eq!(ago("2026-01-04"), "6 days ago");
-    assert_eq!(ago("2026-01-03T12:00:00Z"), "1/3/2026");
+    assert_eq!(ago("2026-01-03T12:00:00Z"), "2026-01-03");
 }

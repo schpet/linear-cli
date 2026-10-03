@@ -151,8 +151,8 @@ fn thread_roots_resolution_hidden_count_orphans_duplicates_and_cycles_are_distin
             .contains("cycle")
     );
 }
-// These hierarchy/separator fixtures were captured in UTC. Keep every non-date
-// byte exact while expecting the host-local calendar used by the command.
+// These fixtures spell comment dates as UTC month/day/year. Keep every other
+// byte exact while expecting the local YYYY-MM-DD date the command prints.
 fn local_comment_calendar(expected: &str) -> String {
     let dates = issue()
         .comments
@@ -164,7 +164,7 @@ fn local_comment_calendar(expected: &str) -> String {
             let local = parsed.with_timezone(&chrono::Local);
             (
                 utc.format("%-m/%-d/%Y").to_string(),
-                local.format("%-m/%-d/%Y").to_string(),
+                local.format("%Y-%m-%d").to_string(),
             )
         })
         .collect::<Vec<_>>();

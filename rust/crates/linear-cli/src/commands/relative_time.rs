@@ -1,6 +1,7 @@
-//! "5 minutes ago"-style timestamps, with the clock and display zone injected.
+//! How every command shows a timestamp: "5 minutes ago" for the last week,
+//! the local date after that. The clock and display zone are injected.
 
-use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 
 /// Parses a Linear timestamp: RFC 3339, or a bare `YYYY-MM-DD` as UTC midnight.
 pub fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
@@ -17,7 +18,7 @@ pub fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
 }
 
 /// How long ago `then` was: "just now" under a minute (or in the future),
-/// then minutes, hours and days, and the month/day/year in `zone` after a week.
+/// then minutes, hours and days, and the `YYYY-MM-DD` date in `zone` after a week.
 pub fn ago<Tz: TimeZone>(then: DateTime<Utc>, now: DateTime<Utc>, zone: &Tz) -> String {
     let elapsed = now.signed_duration_since(then);
     let count =
@@ -31,8 +32,7 @@ pub fn ago<Tz: TimeZone>(then: DateTime<Utc>, now: DateTime<Utc>, zone: &Tz) -> 
     } else if elapsed.num_days() < 7 {
         count(elapsed.num_days(), "day")
     } else {
-        let local = then.with_timezone(zone);
-        format!("{}/{}/{}", local.month(), local.day(), local.year())
+        then.with_timezone(zone).date_naive().to_string()
     }
 }
 

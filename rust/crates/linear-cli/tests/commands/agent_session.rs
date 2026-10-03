@@ -159,8 +159,8 @@ fn markdown_renders_all_variants_order_and_source_empty_detail_rules() {
         assert!(position > previous);
         previous = position;
     }
-    assert!(text.contains("- **action** (1/2/2020) - run: "));
-    assert!(text.contains("- **thought** (1/2/2020) - line one line two"));
+    assert!(text.contains("- **action** (2020-01-02) - run: "));
+    assert!(text.contains("- **thought** (2020-01-02) - line one line two"));
     assert!(!text.contains("JSON only"));
     assert!(text.contains("**Dismissed by:** Dismiss User"));
     assert!(text.contains("**Creator:** Creator"));
