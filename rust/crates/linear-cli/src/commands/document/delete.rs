@@ -1,9 +1,8 @@
 //! `document delete`: move one document, or many in bulk, to the trash.
 use cynic::{MutationBuilder, QueryBuilder};
-use futures_util::{StreamExt, stream};
 
 use crate::cli::document::DocumentDelete;
-use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Progress};
+use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
@@ -65,35 +64,18 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
         })
         .collect();
     let client = ctx.client()?;
-    let show_progress = ctx.terminal().stderr_tty;
-    let total = targets.len();
-    let results = ctx.block_on(async {
-        let mut rows = stream::iter(targets)
-            .map(|(original, id)| delete_item(client, original, id))
-            .buffered(5);
-        let mut results: Vec<BulkResult> = Vec::with_capacity(total);
-        while let Some(row) = rows.next().await {
-            results.push(row);
-            if show_progress {
-                let progress = Progress {
-                    completed: results.len(),
-                    total,
-                    succeeded: results.iter().filter(|row| row.succeeded()).count(),
-                };
-                ctx.eprint(progress.render())?;
-            }
-        }
-        Ok::<_, Error>(results)
+    let results = bulk::run(ctx, targets, |(original, id)| {
+        delete_item(client, original, id)
     })?;
-    if show_progress {
-        ctx.eprint(bulk::PROGRESS_CLEAR)?;
-    }
-    let (output, failed) = summary(&results);
-    ctx.print(output)?;
-    if failed {
-        return Err(Error::reported());
-    }
-    Ok(())
+    bulk::report(
+        ctx,
+        &results,
+        "document",
+        Verb {
+            present: "delete",
+            past: "deleted",
+        },
+    )
 }
 
 /// One bulk row. Failures, including an unparseable reference, become the
@@ -144,42 +126,4 @@ async fn submit(client: &GraphQlTransport, id: &str) -> Result<()> {
         return Err(Error::new("Linear did not delete the document"));
     }
     Ok(())
-}
-
-fn summary(results: &[BulkResult]) -> (String, bool) {
-    let total = results.len();
-    let succeeded = results.iter().filter(|row| row.succeeded()).count();
-    let failed = total - succeeded;
-    let plural = |count: usize| if count == 1 { "" } else { "s" };
-    let mut output = String::from("\n");
-    if failed == 0 {
-        output.push_str(&format!(
-            "✓ Successfully deleted {succeeded} document{}\n",
-            plural(succeeded)
-        ));
-        return (output, false);
-    }
-    if succeeded == 0 {
-        output.push_str(&format!(
-            "✗ Failed to delete all {total} document{}\n",
-            plural(total)
-        ));
-    } else {
-        output.push_str(&format!(
-            "Completed: {succeeded}/{total} document{} deleted\n  ✓ Succeeded: {succeeded}\n  ✗ Failed: {failed}\n",
-            plural(total)
-        ));
-    }
-    output.push_str("\nFailed operations:\n");
-    for row in results {
-        if let BulkOutcome::Failed(error) = &row.outcome {
-            let name = row
-                .name
-                .as_deref()
-                .filter(|name| !name.is_empty())
-                .map_or_else(String::new, |name| format!(" ({name})"));
-            output.push_str(&format!("  - {}{name}: {error}\n", row.id));
-        }
-    }
-    (output, true)
 }

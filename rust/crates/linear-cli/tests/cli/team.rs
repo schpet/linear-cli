@@ -289,12 +289,16 @@ fn moved(success: bool) -> Value {
     json!({ "issueUpdate": { "success": success } })
 }
 
+/// The variables of every move, sorted: moves run concurrently.
 fn move_variables(api: &MockLinear) -> Vec<Value> {
-    api.requests()
+    let mut variables: Vec<Value> = api
+        .requests()
         .into_iter()
         .filter(|request| request.operation.as_deref() == Some("MoveIssueToTeam"))
         .map(|request| request.variables)
-        .collect()
+        .collect();
+    variables.sort_by_key(Value::to_string);
+    variables
 }
 
 #[test]
@@ -339,7 +343,7 @@ fn delete_moves_every_issue_before_deleting() {
     Cli::for_api(&api)
         .run(&["team", "delete", "SRC", "--force", "--move-issues", "DEST"])
         .success()
-        .stdout_has("Moved 2 issue(s) to DEST")
+        .stdout_has("Successfully moved 2 issues")
         .stdout_has("Deleted team SRC: Source");
     let pages: Vec<Value> = api
         .requests()
@@ -379,9 +383,10 @@ fn delete_keeps_the_team_when_some_issues_fail_to_move() {
     Cli::for_api(&api)
         .run(&["team", "delete", "SRC", "--force", "--move-issues", "DEST"])
         .failure()
-        .stdout_has("Moved 1 of 3 issue(s) to DEST")
-        .stdout_has("SRC-2: Issue is locked")
-        .stdout_has("SRC-3: Linear did not move the issue")
+        // Moves run concurrently, so which issue gets which reply varies.
+        .stdout_has("Completed: 1/3 issues moved")
+        .stdout_has(": Issue is locked")
+        .stdout_has(": Linear did not move the issue")
         .stderr_has("2 issue(s) could not be moved, so team SRC was not deleted");
     assert_eq!(move_variables(&api).len(), 3);
     assert!(!api.operations().contains(&"DeleteTeam".to_owned()));

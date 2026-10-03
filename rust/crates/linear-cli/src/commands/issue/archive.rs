@@ -1,20 +1,18 @@
 //! `issue archive`/`delete`, single or bulk.
 use crate::{
     cli::issue::{IssueArchive, IssueDelete},
-    commands::bulk::{BulkInput, BulkOutcome, BulkResult, Progress},
+    commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb},
     commands::team_key::configured_team_key,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::{
-        bulk_error::{self, ObservedExchangeFailure},
-        envelope::GraphQlRequest,
+        envelope::{GraphQlRequest, is_not_found},
         operations::issue_archive_delete::*,
-        transport::{GraphQlTransport, classify_typed},
+        transport::{GraphQlTransport, TransportFailure},
     },
     refs::{self, IssueReference, WorkspaceScope},
 };
 use cynic::{MutationBuilder, QueryBuilder};
-use std::cell::{Cell, RefCell};
 
 pub fn archive(ctx: &Ctx, args: &IssueArchive) -> Result<()> {
     let request = Request {
@@ -87,7 +85,7 @@ fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
 }
 
 fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
-    let ids = crate::commands::bulk::collect_ids(&request.bulk, &mut std::io::stdin().lock())?;
+    let ids = bulk::collect_ids(&request.bulk, &mut std::io::stdin().lock())?;
     if ids.is_empty() {
         return Err(Error::new(format!(
             "No issue identifiers provided for bulk {}",
@@ -105,27 +103,21 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     }
     let scope = ctx.scope()?;
     let team = configured_team_key(ctx.options());
-    let targets = ids
+    let targets: Vec<_> = ids
         .into_iter()
         .map(|id| Target::prepare(id, team.as_deref(), &scope))
         .collect();
     let client = ctx.client()?;
-    let show_progress = ctx.terminal().stderr_tty;
-    let results = ctx.block_on(execute(client, targets, mode, |progress| {
-        if show_progress {
-            ctx.eprint(progress.render())?;
-        }
-        Ok(())
-    }))?;
-    if show_progress {
-        ctx.eprint(crate::commands::bulk::PROGRESS_CLEAR)?;
-    }
-    let (output, failed) = summary(&results, mode);
-    ctx.print(output)?;
-    if failed {
-        return Err(Error::reported());
-    }
-    Ok(())
+    let results = bulk::run(ctx, targets, |target| run_item(client, target, mode))?;
+    bulk::report(
+        ctx,
+        &results,
+        "issue",
+        Verb {
+            present: mode.verb(),
+            past: mode.past(),
+        },
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -214,26 +206,24 @@ pub fn mutation_request(id: &str, mode: Mode, bulk: bool) -> GraphQlRequest<IdVa
         (Mode::Delete, true) => GraphQlRequest::with_variables(BulkDeleteIssue::build(variables)),
     }
 }
-/// One captured exchange retains ordinary friendly errors, with archive's Client-only translation.
-async fn single_exchange<T: serde::de::DeserializeOwned>(
+/// Whether Linear answered that the issue does not exist.
+fn is_missing(failure: &TransportFailure) -> bool {
+    matches!(failure, TransportFailure::GraphQl { errors, .. } if is_not_found(errors))
+}
+
+/// A request whose "not found" answer means issue `id` does not exist.
+async fn exchange<T: serde::de::DeserializeOwned>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<IdVariables>,
-    archive_not_found: Option<&str>,
+    id: &str,
 ) -> Result<T, Error> {
-    let response = transport.send_request(request).await.map_err(Error::from)?;
-    let observed = bulk_error::observe_source_error(&response, request)
-        .map_err(bulk_error::BulkExchangeFailure::into_error)?;
-    if let Some(error) = observed {
-        if let Some(id) = archive_not_found
-            && error.is_not_found()
-        {
-            return Err(Error::not_found("Issue", id));
+    transport.execute(request).await.map_err(|failure| {
+        if is_missing(&failure) {
+            Error::not_found("Issue", id)
+        } else {
+            Error::from(failure)
         }
-        // Prefer Linear's user-facing message; otherwise keep the full error
-        // message, including its metadata.
-        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
-    }
-    classify_typed(response).map_err(Error::from)
+    })
 }
 pub async fn single_details(
     transport: &GraphQlTransport,
@@ -243,8 +233,7 @@ pub async fn single_details(
     let request = details_request(id, mode, false);
     let details = match mode {
         Mode::Archive => {
-            let data: GetIssueArchiveDetails =
-                single_exchange(transport, &request, Some(id)).await?;
+            let data: GetIssueArchiveDetails = exchange(transport, &request, id).await?;
             data.issue.map(|issue| Details {
                 identifier: issue.identifier,
                 title: issue.title,
@@ -252,7 +241,7 @@ pub async fn single_details(
             })
         }
         Mode::Delete => {
-            let data: GetIssueDeleteDetails = single_exchange(transport, &request, None).await?;
+            let data: GetIssueDeleteDetails = exchange(transport, &request, id).await?;
             data.issue.map(|issue| Details {
                 identifier: issue.identifier,
                 title: issue.title,
@@ -271,11 +260,11 @@ pub async fn submit_single(
     let request = mutation_request(id, mode, false);
     let success = match mode {
         Mode::Archive => {
-            let data: ArchiveIssue = single_exchange(transport, &request, None).await?;
+            let data: ArchiveIssue = exchange(transport, &request, id).await?;
             data.issue_archive.success
         }
         Mode::Delete => {
-            let data: DeleteIssue = single_exchange(transport, &request, None).await?;
+            let data: DeleteIssue = exchange(transport, &request, id).await?;
             data.issue_delete.success
         }
     };
@@ -300,14 +289,11 @@ async fn bulk_resolved(
     };
     let (name, already_archived) = match mode {
         Mode::Archive => {
-            let data: GetIssueDetailsForBulkArchive =
-                match bulk_error::execute_observed(transport, &request).await {
-                    Ok(data) => data,
-                    Err(ObservedExchangeFailure::Ordinary(error)) if error.is_not_found() => {
-                        return Ok(not_found());
-                    }
-                    Err(error) => return Err(error.into_error()),
-                };
+            let data: GetIssueDetailsForBulkArchive = match transport.execute(&request).await {
+                Ok(data) => data,
+                Err(failure) if is_missing(&failure) => return Ok(not_found()),
+                Err(failure) => return Err(failure.into()),
+            };
             let Some(issue) = data.issue else {
                 return Ok(not_found());
             };
@@ -319,8 +305,7 @@ async fn bulk_resolved(
         Mode::Delete => {
             // A failed details lookup only loses the title in the summary; the
             // delete still runs.
-            let data: Result<GetIssueDetailsForBulkDelete, _> =
-                bulk_error::execute_observed(transport, &request).await;
+            let data: Result<GetIssueDetailsForBulkDelete, _> = transport.execute(&request).await;
             let issue = match data {
                 Ok(data) => data.issue,
                 Err(_) => None,
@@ -344,15 +329,11 @@ async fn bulk_resolved(
         let request = mutation_request(id, mode, true);
         match mode {
             Mode::Archive => {
-                let data: BulkArchiveIssue = bulk_error::execute_observed(transport, &request)
-                    .await
-                    .map_err(ObservedExchangeFailure::into_error)?;
+                let data: BulkArchiveIssue = transport.execute(&request).await?;
                 data.issue_archive.success
             }
             Mode::Delete => {
-                let data: BulkDeleteIssue = bulk_error::execute_observed(transport, &request)
-                    .await
-                    .map_err(ObservedExchangeFailure::into_error)?;
+                let data: BulkDeleteIssue = transport.execute(&request).await?;
                 data.issue_delete.success
             }
         }
@@ -389,158 +370,4 @@ pub async fn run_item(transport: &GraphQlTransport, target: Target, mode: Mode) 
         name: None,
         outcome: BulkOutcome::Failed(error.message().to_owned()),
     })
-}
-async fn slot<F>(
-    transport: &GraphQlTransport,
-    target: Option<Target>,
-    mode: Mode,
-    completed: &Cell<usize>,
-    total: usize,
-    succeeded: usize,
-    progress: &RefCell<F>,
-) -> Result<Option<BulkResult>, Error>
-where
-    F: FnMut(Progress) -> Result<(), Error>,
-{
-    let Some(target) = target else {
-        return Ok(None);
-    };
-    let result = run_item(transport, target, mode).await;
-    completed.set(completed.get() + 1);
-    progress.borrow_mut()(Progress {
-        completed: completed.get(),
-        total,
-        succeeded,
-    })?;
-    Ok(Some(result))
-}
-/// Five borrowed futures, ordered rows, and a reply barrier before a sixth operation.
-pub async fn execute<F>(
-    transport: &GraphQlTransport,
-    targets: Vec<Target>,
-    mode: Mode,
-    progress: F,
-) -> Result<Vec<BulkResult>, Error>
-where
-    F: FnMut(Progress) -> Result<(), Error>,
-{
-    let total = targets.len();
-    let mut targets = targets.into_iter();
-    let completed = Cell::new(0);
-    let progress = RefCell::new(progress);
-    let mut results = Vec::with_capacity(total);
-    loop {
-        let Some(first) = targets.next() else {
-            break;
-        };
-        let succeeded = results
-            .iter()
-            .filter(|row: &&BulkResult| row.succeeded())
-            .count();
-        let (a, b, c, d, e) = tokio::join!(
-            slot(
-                transport,
-                Some(first),
-                mode,
-                &completed,
-                total,
-                succeeded,
-                &progress
-            ),
-            slot(
-                transport,
-                targets.next(),
-                mode,
-                &completed,
-                total,
-                succeeded,
-                &progress
-            ),
-            slot(
-                transport,
-                targets.next(),
-                mode,
-                &completed,
-                total,
-                succeeded,
-                &progress
-            ),
-            slot(
-                transport,
-                targets.next(),
-                mode,
-                &completed,
-                total,
-                succeeded,
-                &progress
-            ),
-            slot(
-                transport,
-                targets.next(),
-                mode,
-                &completed,
-                total,
-                succeeded,
-                &progress
-            )
-        );
-        for result in [a, b, c, d, e] {
-            if let Some(row) = result? {
-                results.push(row);
-            }
-        }
-    }
-    assert_eq!(
-        completed.get(),
-        total,
-        "issue bulk completion count must match input"
-    );
-    assert_eq!(results.len(), total, "issue bulk rows must match input");
-    Ok(results)
-}
-pub fn summary(results: &[BulkResult], mode: Mode) -> (Vec<u8>, bool) {
-    let total = results.len();
-    let succeeded = results.iter().filter(|row| row.succeeded()).count();
-    let failed = total - succeeded;
-    let plural = if total == 1 { "" } else { "s" };
-    let mut out = String::from("\n");
-    if failed == 0 {
-        out.push_str(&format!(
-            "✓ Successfully {} {succeeded} issue{}\n",
-            mode.past(),
-            if succeeded == 1 { "" } else { "s" }
-        ));
-    } else if succeeded == 0 {
-        out.push_str(&format!(
-            "✗ Failed to {} all {total} issue{plural}\n",
-            match mode {
-                Mode::Archive => "archive",
-                Mode::Delete => "delete",
-            }
-        ));
-    } else {
-        out.push_str(&format!("Completed: {succeeded}/{total} issue{plural} {}\n  ✓ Succeeded: {succeeded}\n  ✗ Failed: {failed}\n",mode.past()));
-    }
-    if failed > 0 {
-        out.push_str("\nFailed operations:\n");
-        for row in results {
-            if let BulkOutcome::Failed(error) = &row.outcome {
-                let name = row
-                    .name
-                    .as_ref()
-                    .filter(|name| !name.is_empty())
-                    .map_or_else(String::new, |name| format!(" ({name})"));
-                out.push_str(&format!(
-                    "  - {}{name}: {}\n",
-                    row.id,
-                    if error.is_empty() {
-                        "Unknown error"
-                    } else {
-                        error
-                    }
-                ));
-            }
-        }
-    }
-    (out.into_bytes(), failed > 0)
 }

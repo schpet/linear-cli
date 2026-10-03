@@ -669,7 +669,7 @@ fn delete_reports_a_missing_issue() {
     Cli::for_api(&api)
         .run(&["issue", "delete", "ENG-404", "-y"])
         .failure()
-        .stderr_has("Could not find referenced Issue.");
+        .stderr_has("Issue not found: ENG-404");
 }
 
 #[test]

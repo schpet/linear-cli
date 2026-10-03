@@ -2,6 +2,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::cli::team::TeamDelete;
+use crate::commands::bulk::{self, BulkOutcome, BulkResult, Verb};
 use crate::commands::confirm;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -134,8 +135,8 @@ fn choose_target(
         .select("Select a team to move issues to:", choices)
 }
 
-/// Moves every issue to `target`, one at a time. Any failure stops the
-/// delete, after reporting which issues moved and which did not.
+/// Moves every issue to `target`. Any failure stops the delete, after
+/// reporting which issues did not move.
 fn move_issues(
     ctx: &Ctx,
     client: &GraphQlTransport,
@@ -143,39 +144,38 @@ fn move_issues(
     target: &ResolvedTeam,
     issues: &[MoveIssue],
 ) -> Result<()> {
-    let message = format!("Moving {} issue(s) to {}...", issues.len(), target.key);
-    let failures = ctx.spin_with(&message, async {
-        let mut failures = Vec::new();
-        for issue in issues {
-            let request = GraphQlRequest::with_variables(MoveIssueToTeam::build(MoveVariables {
-                id: issue.id.inner().to_owned(),
-                team_id: target.id.clone(),
-            }));
-            let reason = match client.execute::<MoveIssueToTeam, _>(&request).await {
-                Ok(result) if result.issue_update.success => continue,
-                Ok(_) => "Linear did not move the issue".to_owned(),
-                Err(error) => Error::from(error).to_string(),
-            };
-            failures.push((issue.identifier.as_str(), reason));
-        }
-        failures
-    });
-    let moved = issues.len() - failures.len();
-    if failures.is_empty() {
-        return ctx.print(format!("✓ Moved {moved} issue(s) to {}\n", target.key));
-    }
-    let mut report = format!(
-        "Moved {moved} of {} issue(s) to {}. These could not be moved:\n",
+    ctx.print(format!(
+        "Moving {} issue(s) to {}...\n",
         issues.len(),
         target.key
-    );
-    for (identifier, reason) in &failures {
-        report.push_str(&format!("  - {identifier}: {reason}\n"));
+    ))?;
+    let results = bulk::run(ctx, issues.iter().collect(), |issue| async move {
+        let request = GraphQlRequest::with_variables(MoveIssueToTeam::build(MoveVariables {
+            id: issue.id.inner().to_owned(),
+            team_id: target.id.clone(),
+        }));
+        let outcome = match client.execute::<MoveIssueToTeam, _>(&request).await {
+            Ok(result) if result.issue_update.success => BulkOutcome::Succeeded,
+            Ok(_) => BulkOutcome::Failed("Linear did not move the issue".to_owned()),
+            Err(error) => BulkOutcome::Failed(Error::from(error).to_string()),
+        };
+        BulkResult {
+            id: issue.identifier.clone(),
+            name: None,
+            outcome,
+        }
+    })?;
+    let moved = Verb {
+        present: "move",
+        past: "moved",
+    };
+    ctx.print(bulk::summary(&results, "issue", moved).0)?;
+    let failed = results.iter().filter(|row| !row.succeeded()).count();
+    if failed == 0 {
+        return Ok(());
     }
-    ctx.print(report)?;
     Err(Error::new(format!(
-        "{} issue(s) could not be moved, so team {} was not deleted",
-        failures.len(),
+        "{failed} issue(s) could not be moved, so team {} was not deleted",
         team.key
     ))
     .with_hint("Run the command again to retry."))

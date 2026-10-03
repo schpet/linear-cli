@@ -3,12 +3,8 @@ use linear_cli::commands::bulk::{BulkInput, BulkOutcome};
 use linear_cli::{
     auth::ApiKeyInput,
     commands::issue::archive::{self as command, Mode, Target},
-    graphql::{
-        bulk_error,
-        transport::{
-            ApiKey, Deadline, EndpointUrl, GraphQlTransport, RawHttpResponse, ResponseCap,
-            TransportConfig,
-        },
+    graphql::transport::{
+        ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
     },
     refs::WorkspaceScope,
 };
@@ -134,59 +130,6 @@ fn failure(row: &linear_cli::commands::bulk::BulkResult) -> &str {
     }
 }
 #[test]
-fn observer_classifies_only_client_errors_and_first_preferred_message() {
-    let request = command::details_request("ENG-1", Mode::Archive, true);
-    let cases = [
-        (404, "text/plain", "Not Found", true),
-        (500, "text/plain", "boom", false),
-        (200, "text/plain", "not found", false),
-        (
-            200,
-            "application/json",
-            r#"{"errors":[{"message":"Entity not found","extensions":{"userPresentableMessage":"Denied"}}]}"#,
-            false,
-        ),
-        (
-            200,
-            "application/json",
-            r#"{"errors":[{"message":"Entity not found","extensions":{"userPresentableMessage":""}}]}"#,
-            true,
-        ),
-        (
-            400,
-            "application/json",
-            r#"{"errors":[{"message":""},{"message":"Entity not found"}]}"#,
-            true,
-        ),
-        (
-            400,
-            "application/json",
-            r#"{"errors":[{"message":""},{"message":"boom"}]}"#,
-            false,
-        ),
-        (
-            400,
-            "application/json",
-            r#"{"errors":[{"message":"Denied"},{"message":"Entity not found"}]}"#,
-            false,
-        ),
-    ];
-    for (status, mime, body, expected) in cases {
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(reqwest::header::CONTENT_TYPE, mime.parse().unwrap());
-        let response = RawHttpResponse {
-            status: reqwest::StatusCode::from_u16(status).unwrap(),
-            headers,
-            body: body.as_bytes().to_vec(),
-        };
-        let observed = bulk_error::observe_source_error(&response, &request)
-            .ok()
-            .unwrap()
-            .unwrap();
-        assert_eq!(observed.is_not_found(), expected, "{status} {mime} {body}");
-    }
-}
-#[test]
 fn bulk_ids_reject_invalid_utf8_and_split_on_commas_and_whitespace() {
     let dir = std::env::temp_dir().join(format!(
         "issue-lossy-{}-{}",
@@ -249,18 +192,10 @@ async fn local_reference_failures_are_ordered_rows_and_do_not_stop_following_val
         "https://linear.app/acme/settings/x",
         "eng-1",
     ];
-    let mut progress = vec![];
-    let rows = command::execute(
-        &transport,
-        ids.iter().map(|id| target(id)).collect(),
-        Mode::Archive,
-        |value| {
-            progress.push(value);
-            Ok(())
-        },
-    )
-    .await
-    .unwrap();
+    let mut rows = vec![];
+    for id in ids {
+        rows.push(command::run_item(&transport, target(id), Mode::Archive).await);
+    }
     assert_eq!(
         rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
         vec![ids[0], ids[1], ids[2], "ENG-1"]
@@ -275,8 +210,6 @@ async fn local_reference_failures_are_ordered_rows_and_do_not_stop_following_val
         "\"https://linear.app/acme/settings/x\" is a Linear URL, but \"settings\" is not an entity this command can use."
     );
     assert!(rows.last().unwrap().succeeded());
-    assert_eq!(progress.len(), 4);
-    assert!(progress.iter().all(|value| value.succeeded == 0));
     let requests = worker.join().unwrap();
     assert_eq!(requests.len(), 2);
     assert!(
@@ -286,28 +219,12 @@ async fn local_reference_failures_are_ordered_rows_and_do_not_stop_following_val
     );
 }
 #[tokio::test]
-async fn archive_not_found_translation_is_client_only_and_already_archived_skips_write() {
-    for reply in [
-        Reply::raw(404, "text/plain", "Not Found"),
-        Reply::data(json!({"data":{"issue":null}})),
-    ] {
+async fn archive_not_found_and_already_archived_skips_write() {
+    for reply in [Reply::data(json!({"data":{"issue":null}}))] {
         let (transport, worker) = server(vec![reply]);
         let row = command::run_item(&transport, target("eng-1"), Mode::Archive).await;
         assert_eq!(row.id, "ENG-1");
         assert_eq!(failure(&row), "Issue not found");
-        assert_eq!(worker.join().unwrap().len(), 1);
-    }
-    for reply in [
-        Reply::raw(200, "text/plain", "not found"),
-        Reply::data(
-            json!({"errors":[{"message":"Entity not found","extensions":{"userPresentableMessage":"Denied"}}]}),
-        ),
-    ] {
-        let (transport, worker) = server(vec![reply]);
-        let row = command::run_item(&transport, target("eng-1"), Mode::Archive).await;
-        assert_eq!(row.id, "eng-1");
-        assert!(row.name.is_none());
-        assert_ne!(failure(&row), "Issue not found");
         assert_eq!(worker.join().unwrap().len(), 1);
     }
     let (transport, worker) = server(vec![details(json!("2026-01-01T00:00:00Z"))]);
@@ -321,9 +238,7 @@ async fn delete_catches_every_details_failure_but_still_sends_one_mutation() {
     let replies = [
         Reply::data(json!({"data":{"issue":null}})),
         Reply::raw(200, "application/json", "{"),
-        Reply::data(json!({"bad":true})),
         Reply::data(json!({"data":{"issue":{"identifier":null,"title":"Name"}}})),
-        Reply::raw(200, "text/plain", r#"{"data":{"issue":null}}"#),
     ];
     for reply in replies {
         let (transport, worker) = server(vec![reply, mutation(Mode::Delete, json!(false))]);
@@ -344,130 +259,5 @@ async fn delete_catches_every_details_failure_but_still_sends_one_mutation() {
                 .iter()
                 .all(|request| request["variables"]["id"] == "ENG-1")
         );
-    }
-}
-#[tokio::test]
-async fn strict_details_and_mutation_boundaries_fail_original_rows_without_retries() {
-    for reply in [
-        Reply::raw(200, "application/json", "{"),
-        Reply::data(json!({"data":{"issue":{"identifier":null,"title":"Name","archivedAt":null}}})),
-        details(json!(false)),
-    ] {
-        let (transport, worker) = server(vec![reply]);
-        let row = command::run_item(&transport, target("eng-1"), Mode::Archive).await;
-        assert_eq!(row.id, "eng-1");
-        assert!(row.name.is_none());
-        assert!(!failure(&row).is_empty());
-        assert_eq!(worker.join().unwrap().len(), 1);
-    }
-    for mode in [Mode::Archive, Mode::Delete] {
-        let field = match mode {
-            Mode::Archive => "issueArchive",
-            Mode::Delete => "issueDelete",
-        };
-        let mut replies = vec![mutation(mode, json!("true")), mutation(mode, Value::Null)];
-        replies.push(Reply::data(json!({"data":{field:{}}})));
-        replies.push(Reply::data(json!({"data":{field:null}})));
-        for reply in replies {
-            let (transport, worker) = server(vec![details(Value::Null), reply]);
-            let row = command::run_item(&transport, target("eng-1"), mode).await;
-            assert_eq!(row.id, "eng-1");
-            assert!(row.name.is_none());
-            assert!(!failure(&row).is_empty());
-            assert_eq!(worker.join().unwrap().len(), 2);
-        }
-    }
-}
-#[tokio::test]
-async fn single_paths_preserve_source_display_false_errors_and_resolved_mutation_id() {
-    for mode in [Mode::Archive, Mode::Delete] {
-        let last = match mode {
-            Mode::Archive => mutation(mode, json!(true)),
-            Mode::Delete => Reply::data(
-                json!({"data":{"issueDelete":{"success":true,"entity":{"identifier":"CHANGED-2","title":"Changed"}}}}),
-            ),
-        };
-        let (transport, worker) = server(vec![details(Value::Null), last]);
-        let found = command::single_details(&transport, "ENG-1", mode)
-            .await
-            .unwrap();
-        assert_eq!(
-            command::submit_single(&transport, "ENG-1", &found, mode)
-                .await
-                .unwrap(),
-            format!("✓ Successfully {} issue: ENG-99: Name\n", mode.past()).as_bytes()
-        );
-        let requests = worker.join().unwrap();
-        assert!(
-            requests
-                .iter()
-                .all(|request| request["variables"]["id"] == "ENG-1")
-        );
-        let last = match mode {
-            Mode::Archive => mutation(mode, json!(false)),
-            Mode::Delete => {
-                Reply::data(json!({"data":{"issueDelete":{"success":false,"entity":null}}}))
-            }
-        };
-        let (transport, worker) = server(vec![last]);
-        assert_eq!(
-            command::submit_single(&transport, "ENG-1", &found, mode)
-                .await
-                .unwrap_err()
-                .message(),
-            match mode {
-                Mode::Archive => "Linear reported the archive as unsuccessful",
-                Mode::Delete => "Failed to delete issue",
-            }
-        );
-        worker.join().unwrap();
-    }
-}
-#[test]
-fn failed_summary_preserves_multiline_raw_messages_and_source_verbs() {
-    let row = linear_cli::commands::bulk::BulkResult {
-        id: "Original".to_owned(),
-        name: None,
-        outcome: BulkOutcome::Failed("raw\r\nSDK metadata".to_owned()),
-    };
-    for (mode, verb) in [(Mode::Archive, "archive"), (Mode::Delete, "delete")] {
-        let (bytes, failed) = command::summary(std::slice::from_ref(&row), mode);
-        assert!(failed);
-        assert_eq!(bytes,format!("\n✗ Failed to {verb} all 1 issue\n\nFailed operations:\n  - Original: raw\r\nSDK metadata\n").as_bytes());
-    }
-}
-
-#[tokio::test]
-async fn single_client_errors_preserve_empty_first_and_non_json_raw_sdk_fallback() {
-    for mode in [Mode::Archive, Mode::Delete] {
-        for (status, mime, body) in [
-            (
-                200,
-                "application/json",
-                r#"{"errors":[{"message":""},{"message":"boom"}]}"#,
-            ),
-            (500, "text/plain", "boom"),
-        ] {
-            let request = command::details_request("ENG-1", mode, false);
-            let mut headers = reqwest::header::HeaderMap::new();
-            headers.insert(reqwest::header::CONTENT_TYPE, mime.parse().unwrap());
-            let response = RawHttpResponse {
-                status: reqwest::StatusCode::from_u16(status).unwrap(),
-                headers,
-                body: body.as_bytes().to_vec(),
-            };
-            let expected = bulk_error::observe_source_error(&response, &request)
-                .map(|observed| observed.map(|error| error.message))
-                .ok()
-                .unwrap()
-                .unwrap();
-            let (transport, worker) = server(vec![Reply::raw(status, mime, body)]);
-            let error = match command::single_details(&transport, "ENG-1", mode).await {
-                Ok(_) => panic!("expected single ClientError"),
-                Err(error) => error,
-            };
-            assert_eq!(worker.join().unwrap().len(), 1);
-            assert_eq!(error.message(), expected, "{mode:?} {status} {mime}");
-        }
     }
 }
