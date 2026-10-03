@@ -1,67 +1,53 @@
-//! Complete release name/version lookup, insertion-ordered UUID deduplication.
+//! Resolves a release by UUID, exact name or exact version. A release that
+//! matches by both name and version, or shows up on two pages, counts once.
+use std::collections::HashSet;
+use std::future::Future;
+
 use crate::client::LinearClient;
 use crate::error::Error;
-use crate::graphql::{envelope::LegacyRequest, operations::releases::*};
-use cynic::QueryBuilder;
-use std::{
-    collections::{HashMap, HashSet},
-    future::Future,
+use crate::graphql::operations::releases::{
+    ReleaseNode, ResolveReleases, ResolveReleasesVariables,
 };
-pub fn request(input: &str, after: Option<String>) -> LegacyRequest<ResolveReleasesVariables> {
-    LegacyRequest::with_variables(ResolveReleases::build(ResolveReleasesVariables {
-        input: input.to_owned(),
-        after,
-    }))
-}
+use crate::graphql::pagination::{self, Page};
+
 pub async fn resolve(client: &LinearClient, input: &str) -> Result<String, Error> {
-    resolve_with(input, |query| async move {
-        client.execute_legacy(&query).await.map_err(Error::from)
+    resolve_with(input, |variables| async move {
+        Ok(client.query(variables).await?)
     })
     .await
 }
+
 pub async fn resolve_with<F, Fut>(input: &str, mut fetch: F) -> Result<String, Error>
 where
-    F: FnMut(LegacyRequest<ResolveReleasesVariables>) -> Fut,
+    F: FnMut(ResolveReleasesVariables) -> Fut,
     Fut: Future<Output = Result<ResolveReleases, Error>>,
 {
     crate::refs::reject_linear_url(input, "a release name, version, or UUID")?;
     if crate::refs::is_linear_uuid(input) {
         return Ok(input.to_owned());
     }
-    let mut ordered: Vec<ReleaseNode> = Vec::new();
-    let mut indexes = HashMap::new();
-    let mut cursors = HashSet::new();
-    let mut after = None;
-    loop {
-        let data = fetch(request(input, after.clone())).await?;
-        for node in data.releases.nodes {
-            if let Some(index) = indexes.get(node.id.inner()).copied() {
-                *ordered
-                    .get_mut(index)
-                    .ok_or_else(|| Error::new("Release deduplication index missing"))? = node;
-            } else {
-                indexes.insert(node.id.inner().to_owned(), ordered.len());
-                ordered.push(node);
-            }
+    let nodes = pagination::collect(None, |after, first| {
+        let response = fetch(ResolveReleasesVariables {
+            input: input.to_owned(),
+            first,
+            after,
+        });
+        async move {
+            let releases = response.await?.releases;
+            Ok(Page {
+                nodes: releases.nodes,
+                page_info: releases.page_info,
+            })
         }
-        let info = data.releases.page_info;
-        if !info.has_next_page {
-            break;
-        }
-        let cursor = info.end_cursor.ok_or_else(|| {
-            Error::new("Linear reported more releases but returned no pagination cursor")
-        })?;
-        if !cursors.insert(cursor.clone()) {
-            return Err(Error::new("Linear repeated a release pagination cursor"));
-        }
-        after = Some(cursor);
-    }
-    if ordered.is_empty() {
-        return Err(Error::not_found("Release", input)
-            .with_hint("Pass a release UUID, exact release name, or exact version."));
-    }
-    if ordered.len() > 1 {
-        let listing = ordered
+    })
+    .await?;
+    let mut seen = HashSet::new();
+    let mut matches: Vec<ReleaseNode> = nodes
+        .into_iter()
+        .filter(|node| seen.insert(node.id.inner().to_owned()))
+        .collect();
+    if matches.len() > 1 {
+        let listing = matches
             .iter()
             .map(|node| {
                 format!(
@@ -80,7 +66,13 @@ where
         ))
         .with_hint("Pass the release UUID instead."));
     }
-    Ok(ordered.remove(0).id.into_inner())
+    matches
+        .pop()
+        .map(|node| node.id.into_inner())
+        .ok_or_else(|| {
+            Error::not_found("Release", input)
+                .with_hint("Pass a release UUID, exact release name, or exact version.")
+        })
 }
 
 #[cfg(test)]
@@ -109,8 +101,9 @@ mod tests {
     ) -> (Result<String, Error>, Vec<Option<String>>) {
         let mut pages = VecDeque::from(pages);
         let mut cursors = Vec::new();
-        let result = resolve_with(input, |request| {
-            cursors.push(request.variables.expect("variables").after);
+        let result = resolve_with(input, |variables| {
+            assert_eq!(variables.first, 100);
+            cursors.push(variables.after);
             let page = pages.pop_front().expect("another page");
             async move { Ok(page) }
         })
