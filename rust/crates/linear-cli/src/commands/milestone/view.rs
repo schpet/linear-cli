@@ -1,6 +1,4 @@
 //! `milestone view`: one milestone and its issues, as Markdown or JSON.
-use std::num::NonZeroU32;
-
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
@@ -21,7 +19,6 @@ use crate::refs::{
     is_linear_uuid, prepare_project_lookup, reject_linear_url, resolve_project_with_transport,
 };
 
-const PAGE_SIZE: i32 = 50;
 const LIST_PREVIEW: usize = 10;
 
 pub fn run(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
@@ -51,7 +48,7 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
             }
             Some(_) | None => args.milestone.clone(),
         };
-        fetch(client, &args.milestone, &id, args.all).await
+        fetch(client, &args.milestone, &id).await
     })?;
     if args.json {
         ctx.print(render_json(&milestone))
@@ -61,25 +58,15 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
     }
 }
 
-/// The milestone with its first page of issues, or every issue with `all`.
-async fn fetch(
-    client: &GraphQlTransport,
-    original: &str,
-    id: &str,
-    all: bool,
-) -> Result<DetailMilestone> {
-    let limit = if all {
-        None
-    } else {
-        Some(NonZeroU32::new(PAGE_SIZE.unsigned_abs()).expect("the page size is positive"))
-    };
+/// The milestone with every one of its issues.
+async fn fetch(client: &GraphQlTransport, original: &str, id: &str) -> Result<DetailMilestone> {
     pagination::collect_within(
-        limit,
-        |after, _first| {
+        None,
+        |after, first| {
             let request =
                 GraphQlRequest::with_variables(GetMilestoneDetails::build(DetailVariables {
                     id: id.to_owned(),
-                    first: PAGE_SIZE,
+                    first,
                     after,
                 }));
             async move {
@@ -178,7 +165,6 @@ fn markdown<Tz: TimeZone>(
     zone: &Tz,
 ) -> String {
     let issues = &milestone.issues.nodes;
-    let truncated = !all && milestone.issues.page_info.has_next_page;
     let mut lines = vec![
         format!("# {}", milestone.name),
         String::new(),
@@ -227,14 +213,7 @@ fn markdown<Tz: TimeZone>(
         return lines.join("\n");
     }
     lines.extend([String::new(), "## Issues".to_owned(), String::new()]);
-    if truncated {
-        lines.push(format!(
-            "**Issues fetched:** {} (milestone has more — use `--all` for full counts)",
-            issues.len()
-        ));
-    } else {
-        lines.push(format!("**Total Issues:** {}", issues.len()));
-    }
+    lines.push(format!("**Total Issues:** {}", issues.len()));
     for (kind, label) in [
         ("completed", "Completed"),
         ("started", "In Progress"),
@@ -270,19 +249,15 @@ fn markdown<Tz: TimeZone>(
             issue.identifier, issue.title, issue.state.name
         ));
     }
-    if !all {
-        let hidden = issues.len().saturating_sub(LIST_PREVIEW);
-        if truncated {
-            lines.extend([String::new(), format!(
-                "_Showing {} of {}+ issues — the milestone contains more than {PAGE_SIZE}. Re-run with `--all` or use `linear issue query --milestone {} --json` for the full list._",
-                issues.len().min(LIST_PREVIEW), issues.len(), milestone.id.inner()
-            )]);
-        } else if hidden > 0 {
-            lines.extend([String::new(), format!(
-                "_...and {hidden} more issue{}. Re-run with `--all` or use `linear issue query --milestone {} --json` to see them all._",
-                if hidden == 1 { "" } else { "s" }, milestone.id.inner()
-            )]);
-        }
+    let hidden = issues.len().saturating_sub(LIST_PREVIEW);
+    if !all && hidden > 0 {
+        lines.extend([
+            String::new(),
+            format!(
+                "_...and {hidden} more issue{}. Re-run with `--all` to list them._",
+                if hidden == 1 { "" } else { "s" }
+            ),
+        ]);
     }
     lines.join("\n")
 }

@@ -148,7 +148,7 @@ fn view_json_returns_the_milestone() {
     assert_json(&json, &reply["projectMilestone"]);
     assert_eq!(
         api.variables("GetMilestoneDetails"),
-        json!({ "id": MILESTONE_ID, "first": 50 })
+        json!({ "id": MILESTONE_ID, "first": 100 })
     );
 }
 
@@ -168,7 +168,26 @@ fn view_text_shows_name_and_issues() {
 }
 
 #[test]
-fn view_all_follows_issue_pages() {
+fn view_text_previews_ten_issues_unless_all() {
+    let api = MockLinear::start();
+    let reply = details((1..=11).map(issue).collect(), Value::Null, false);
+    api.on("GetMilestoneDetails", reply.clone())
+        .on("GetMilestoneDetails", reply);
+    let preview = Cli::for_api(&api).run(&["milestone", "view", MILESTONE_ID]);
+    preview
+        .success()
+        .stdout_has("Total Issues:** 11")
+        .stdout_has("APP-10")
+        .stdout_has("...and 1 more issue. Re-run with `--all` to list them.");
+    assert!(!preview.stdout.contains("APP-11"), "{preview}");
+    Cli::for_api(&api)
+        .run(&["milestone", "view", MILESTONE_ID, "--all"])
+        .success()
+        .stdout_has("APP-11");
+}
+
+#[test]
+fn view_json_follows_every_issue_page() {
     let api = MockLinear::start();
     api.on(
         "GetMilestoneDetails",
@@ -179,7 +198,7 @@ fn view_all_follows_issue_pages() {
         details(vec![issue(2)], Value::Null, false),
     );
     let json = Cli::for_api(&api)
-        .run(&["milestone", "view", MILESTONE_ID, "--all", "--json"])
+        .run(&["milestone", "view", MILESTONE_ID, "--json"])
         .success()
         .json();
     assert_eq!(nodes(&json["issues"]), [issue(1), issue(2)]);
@@ -187,8 +206,8 @@ fn view_all_follows_issue_pages() {
     assert_eq!(
         variables,
         [
-            json!({ "id": MILESTONE_ID, "first": 50 }),
-            json!({ "id": MILESTONE_ID, "first": 50, "after": "cursor-1" })
+            json!({ "id": MILESTONE_ID, "first": 100 }),
+            json!({ "id": MILESTONE_ID, "first": 100, "after": "cursor-1" })
         ]
     );
 }

@@ -40,7 +40,7 @@ pub struct MilestoneView {
     pub milestone: String,
     #[arg(
         long = "all",
-        help = "Fetch and list every issue attached to the milestone (paginates the Linear API)."
+        help = "List every issue in the milestone instead of the first 10"
     )]
     pub all: bool,
     #[arg(long = "project", help = "Project for resolving a milestone name (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
