@@ -175,7 +175,7 @@ fn progress(completed: usize, total: usize, succeeded: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{BulkOutcome, BulkResult, Verb, summary};
+    use super::{BulkInput, BulkOutcome, BulkResult, Verb, collect_ids, summary};
 
     const ARCHIVE: Verb = Verb {
         present: "archive",
@@ -211,5 +211,43 @@ mod tests {
                 .0
                 .starts_with("\n✗ Failed to archive all 1 issue\n")
         );
+    }
+
+    #[test]
+    fn ids_come_from_argv_file_and_stdin_without_duplicates() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let file = dir.path().join("ids");
+        std::fs::write(&file, "\u{feff}ENG-1,ENG-2\n ENG-1\tENG-3\n").expect("write ids");
+        let argv = vec![" Raw, argv ".to_owned()];
+        let input = BulkInput {
+            argv: Some(&argv),
+            file: Some(&file),
+            stdin: true,
+        };
+        assert_eq!(
+            collect_ids(&input, &mut &b"ENG-4,ENG-2"[..]).expect("ids"),
+            [" Raw, argv ", "ENG-1", "ENG-2", "ENG-3", "ENG-4"]
+        );
+    }
+
+    #[test]
+    fn ids_must_be_utf8() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let file = dir.path().join("ids");
+        std::fs::write(&file, b"ENG-1,\xff").expect("write ids");
+        let from_file = BulkInput {
+            argv: None,
+            file: Some(&file),
+            stdin: false,
+        };
+        let error = collect_ids(&from_file, &mut &b""[..]).expect_err("invalid file");
+        assert!(error.message().starts_with("Bulk file must be valid UTF-8"));
+        let from_stdin = BulkInput {
+            argv: None,
+            file: None,
+            stdin: true,
+        };
+        let error = collect_ids(&from_stdin, &mut &b"\xff"[..]).expect_err("invalid stdin");
+        assert_eq!(error.message(), "Bulk stdin must be valid UTF-8");
     }
 }

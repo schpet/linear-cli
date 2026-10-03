@@ -3,7 +3,6 @@ mod comment_add;
 
 mod project_write_server;
 
-mod issue_archive_delete;
 
 
 mod issue_start_pr;

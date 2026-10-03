@@ -699,3 +699,34 @@ fn delete_bulk_reads_identifiers_from_a_file() {
     deleted.sort_by_key(|id| id.to_string());
     assert_eq!(deleted, [json!("ENG-5"), json!("ENG-6")]);
 }
+
+#[test]
+fn archive_bulk_reports_unusable_references_and_archives_the_rest() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueDetailsForBulkArchive",
+        json!({ "issue": { "identifier": "ENG-1", "title": "t", "archivedAt": null } }),
+    )
+    .on(
+        "BulkArchiveIssue",
+        json!({ "issueArchive": { "success": true } }),
+    );
+    let run = Cli::for_api(&api).run(&[
+        "issue",
+        "archive",
+        "--confirm",
+        "--bulk",
+        "3",
+        "https://linear.app/acme/settings/x",
+        "eng-1",
+    ]);
+    run.failure()
+        .stdout_has("no team is set")
+        .stdout_has("is not an entity this command can use");
+    let ids: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .map(|r| r.variables["id"].clone())
+        .collect();
+    assert_eq!(ids, [json!("ENG-1"), json!("ENG-1")]);
+}
