@@ -1,4 +1,4 @@
-//! Typed selections for issue mine/query/view.
+//! Typed selections for issue list/query/view.
 
 use serde::Serialize;
 
@@ -368,7 +368,7 @@ pub struct GetIssuesForQueryIssuesNodesProjectMilestone {
     pub id: cynic::Id,
     pub name: String,
 }
-/// One issue in `issue mine`, `issue query` and `issue start` lists.
+/// One issue in `issue list`, `issue query` and `issue start` lists.
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 #[serde(rename_all = "camelCase")]

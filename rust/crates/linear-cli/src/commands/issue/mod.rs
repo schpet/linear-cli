@@ -13,8 +13,8 @@ mod details;
 mod filter;
 mod id;
 mod link;
+mod list;
 mod list_view;
-mod mine;
 mod pull_request;
 mod query;
 mod read;
@@ -37,7 +37,7 @@ use crate::refs::{IssueReference, prepare_issue_reference};
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
         IssueCommand::Id(_) => id::run(ctx),
-        IssueCommand::List(args) => mine::run(ctx, args),
+        IssueCommand::List(args) => list::run(ctx, args),
         IssueCommand::Query(args) => query::run(ctx, args),
         IssueCommand::Title(args) => title::run(ctx, args),
         IssueCommand::Url(args) => url::run(ctx, args),
