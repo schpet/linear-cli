@@ -2,7 +2,10 @@
 use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueStart,
-    commands::{issue::read as issue_read, team_key::configured_team_key},
+    commands::{
+        issue::{list_view, read as issue_read},
+        team_key::configured_team_key,
+    },
     config::Vcs,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
@@ -178,7 +181,7 @@ fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
         .map(|issue| {
             let label = format!(
                 "{} {}: {}",
-                issue_read::priority(issue.priority),
+                list_view::priority(issue.priority),
                 issue.identifier,
                 issue.title
             );

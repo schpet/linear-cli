@@ -267,7 +267,7 @@ impl Backend for NetworkBackend {
         Ok(sorted_names(rows))
     }
     async fn milestone(&self, project_id: String, reference: String) -> Result<String, Error> {
-        crate::commands::issue::read::milestone_id(
+        crate::commands::issue::filter::milestone_id(
             &self.client,
             &reference,
             Some(project_id.as_str()).filter(|project| !project.is_empty()),

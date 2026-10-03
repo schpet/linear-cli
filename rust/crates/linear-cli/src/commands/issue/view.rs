@@ -405,7 +405,10 @@ fn documents(issue: &Issue) -> String {
 fn body(issue: &Issue) -> Result<String, Error> {
     let mut parts = vec![
         format!("**State:** {}", issue.state.name),
-        format!("**Priority:** {}", super::read::priority(issue.priority)),
+        format!(
+            "**Priority:** {}",
+            super::list_view::priority(issue.priority)
+        ),
         format!(
             "**Assignee:** {}",
             issue
@@ -422,8 +425,10 @@ fn body(issue: &Issue) -> Result<String, Error> {
         parts.push(format!("**Milestone:** {}", m.name));
     }
     if let Some(c) = &issue.cycle {
-        let (short, _) =
-            super::read::cycle_short(Some(c), issue.team.active_cycle.as_ref().map(|c| c.number));
+        let (short, _) = super::list_view::cycle_short(
+            Some(c),
+            issue.team.active_cycle.as_ref().map(|c| c.number),
+        );
         let label = format!(
             "#{}{}",
             c.number,

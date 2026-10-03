@@ -10,7 +10,7 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue_read::{IssueFilter, ListedIssue};
 use crate::refs::{is_linear_uuid, team::ResolvedTeam};
 
-use super::read;
+use super::{filter, list_view, read};
 
 pub fn run(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     query(ctx, args).context("Failed to query issues")
@@ -74,13 +74,13 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             "Use --team <key, name, or ID> to specify exactly one team when filtering by cycle.",
         ));
     }
-    let state = ctx.block_on(read::state_filter(
+    let state = ctx.block_on(filter::state_filter(
         client,
         &args.state,
         scope.keys.as_deref(),
     ))?;
-    let project = read::resolve_project(ctx, client, args.project.as_deref())?;
-    let cycle = read::resolve_cycle(
+    let project = filter::resolve_project(ctx, client, args.project.as_deref())?;
+    let cycle = filter::resolve_cycle(
         ctx,
         client,
         args.cycle.as_deref(),
@@ -94,16 +94,16 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     let milestone = args
         .milestone
         .as_deref()
-        .map(|milestone| ctx.block_on(read::milestone_id(client, milestone, project.as_deref())))
+        .map(|milestone| ctx.block_on(filter::milestone_id(client, milestone, project.as_deref())))
         .transpose()?;
     let priority = read::priority_sort(ctx, args.sort);
     let show_team = scope.several();
     let show_assignee = args.assignee.is_none() && !args.unassigned;
     let output = ctx.spin(!args.json, async {
         let mut filter = IssueFilter {
-            team: scope.keys.as_deref().map(read::query_team_filter),
+            team: scope.keys.as_deref().map(filter::query_team_filter),
             state,
-            assignee: read::assignee_filter(
+            assignee: filter::assignee_filter(
                 client,
                 args.assignee.as_deref(),
                 args.unassigned,
@@ -112,7 +112,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             .await?,
             ..Default::default()
         };
-        read::entity_filters(
+        filter::entity_filters(
             &mut filter,
             project,
             args.project_label.as_deref(),
@@ -121,7 +121,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             if search.is_some() { None } else { milestone },
             &args.label,
         );
-        read::apply_dates(&mut filter, args.created_after, args.updated_after);
+        filter::apply_dates(&mut filter, args.created_after, args.updated_after);
         // A filter without any condition is sent as no filter at all.
         let empty = serde_json::to_value(&filter)
             .expect("filters always serialize")
@@ -159,7 +159,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
                 data
             }
         };
-        Ok::<_, Error>(Output::Table(read::table(
+        Ok::<_, Error>(Output::Table(list_view::table(
             &rows,
             show_team,
             show_assignee,
@@ -168,7 +168,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     })?;
     match output {
         Output::Json(json) => ctx.print(json),
-        Output::Table(table) => read::print_table(ctx, &table, !args.no_pager),
+        Output::Table(table) => list_view::print_table(ctx, &table, !args.no_pager),
     }
 }
 
@@ -198,7 +198,7 @@ fn default_team(ctx: &Ctx) -> Result<String> {
 fn explicit_teams(ctx: &Ctx, args: &IssueQuery) -> Result<Scope> {
     let mut teams: Vec<ResolvedTeam> = vec![];
     for reference in &args.team {
-        let team = read::resolve_team(ctx, ctx.client()?, reference)?;
+        let team = filter::resolve_team(ctx, ctx.client()?, reference)?;
         if !teams.iter().any(|known| known.id == team.id) {
             teams.push(team);
         }

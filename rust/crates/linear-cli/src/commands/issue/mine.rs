@@ -8,7 +8,7 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue_read::IssueFilter;
 use crate::refs::is_linear_uuid;
 
-use super::read;
+use super::{filter, list_view, read};
 
 /// Linear's "assigned to me" view filter, base64 JSON.
 const ASSIGNED_TO_ME: &str =
@@ -51,7 +51,7 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
     let explicit = args
         .team
         .as_deref()
-        .map(|team| read::resolve_team(ctx, ctx.client()?, team))
+        .map(|team| filter::resolve_team(ctx, ctx.client()?, team))
         .transpose()?;
     let team = match &explicit {
         Some(team) => team.key.clone(),
@@ -63,8 +63,8 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
     }
     let client = ctx.client()?;
     let priority = read::priority_sort(ctx, args.sort);
-    let project = read::resolve_project(ctx, client, args.project.as_deref())?;
-    let cycle = read::resolve_cycle(
+    let project = filter::resolve_project(ctx, client, args.project.as_deref())?;
+    let cycle = filter::resolve_cycle(
         ctx,
         client,
         args.cycle.as_deref(),
@@ -74,21 +74,21 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
     let milestone = args
         .milestone
         .as_deref()
-        .map(|milestone| ctx.block_on(read::milestone_id(client, milestone, project.as_deref())))
+        .map(|milestone| ctx.block_on(filter::milestone_id(client, milestone, project.as_deref())))
         .transpose()?;
     let rows = ctx.spin(true, async {
         let teams = std::slice::from_ref(&team);
         let mut filter = IssueFilter {
-            team: Some(read::team_filter(teams, true)),
+            team: Some(filter::team_filter(teams, true)),
             state: if args.all_states {
                 None
             } else {
-                read::state_filter(client, &args.state, Some(teams)).await?
+                filter::state_filter(client, &args.state, Some(teams)).await?
             },
-            assignee: read::assignee_filter(client, None, false, true).await?,
+            assignee: filter::assignee_filter(client, None, false, true).await?,
             ..Default::default()
         };
-        read::entity_filters(
+        filter::entity_filters(
             &mut filter,
             project,
             args.project_label.as_deref(),
@@ -96,9 +96,9 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
             milestone,
             &args.label,
         );
-        read::apply_dates(&mut filter, args.created_after, args.updated_after);
+        filter::apply_dates(&mut filter, args.created_after, args.updated_after);
         read::mine(client, filter, priority, args.limit.max()).await
     })?;
-    let table = read::table(&rows, false, false, SystemTime::now());
-    read::print_table(ctx, &table, !args.no_pager)
+    let table = list_view::table(&rows, false, false, SystemTime::now());
+    list_view::print_table(ctx, &table, !args.no_pager)
 }

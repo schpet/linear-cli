@@ -104,7 +104,7 @@ async fn additional<B: Backend, U: Ui>(
                 let options = values
                     .into_iter()
                     .map(|(value, label)| {
-                        let glyph = super::read::priority(WholeNumber(value));
+                        let glyph = super::list_view::priority(WholeNumber(value));
                         option(&value.to_string(), &format!("{glyph} {label}"))
                     })
                     .collect::<Vec<_>>();
