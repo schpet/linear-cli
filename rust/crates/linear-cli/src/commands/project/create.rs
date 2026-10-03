@@ -57,12 +57,10 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         Some(original) => Some((original, InitiativeReference::parse(original, &scope)?)),
         None => None,
     };
-    let interactive =
-        ctx.interactive() && (args.interactive || (fields.name.is_none() && args.team.is_empty()));
-    if args.interactive && !interactive {
-        return Err(Error::new("Interactive mode needs a terminal")
-            .with_hint("Pass --name and --team instead of --interactive."));
-    }
+    let optional = ctx.optional_prompts(args.interactive)?;
+    let configured_team = configured_team_key(ctx.options());
+    let missing = fields.name.is_none() || (args.team.is_empty() && configured_team.is_none());
+    let interactive = ctx.interactive() && (missing || optional);
     let mut draft = Draft {
         name: fields.name.clone(),
         description,
@@ -79,13 +77,14 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             &ctx.prompter()?,
             &mut draft,
             fields.description_file.is_some(),
+            optional,
         )?;
     }
     let name = draft
         .name
         .ok_or_else(|| Error::new("Project name is required").with_hint("Pass --name."))?;
     let teams = if draft.teams.is_empty() {
-        vec![configured_team_key(ctx.options()).ok_or_else(|| {
+        vec![configured_team.ok_or_else(|| {
             Error::new("At least one team is required")
                 .with_hint("Pass --team, or run `linear config` to set a default team.")
         })?]
@@ -247,24 +246,30 @@ fn team_choices(
     Ok((choices, start))
 }
 
-/// Asks for every field the flags left out.
+/// Asks for the name and team when they are missing (a configured team
+/// counts), and with `optional` for every other field the flags left out.
 fn prompt(
     ctx: &Ctx,
     prompter: &Prompter<'_>,
     draft: &mut Draft,
     description_file: bool,
+    optional: bool,
 ) -> Result<()> {
     if draft.name.is_none() {
         draft.name = Some(prompter.text(Text::new("Project name:").required())?);
     }
+    let default_team = configured_team_key(ctx.options());
+    if draft.teams.is_empty() && (optional || default_team.is_none()) {
+        let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
+        let (choices, start) = team_choices(teams, default_team)?;
+        draft.teams = vec![prompter.select_from("Team:", choices, start)?];
+    }
+    if !optional {
+        return Ok(());
+    }
     if draft.description.is_none() && !description_file {
         let description = prompter.text(Text::new("Description (optional):"))?;
         draft.description = (!description.is_empty()).then_some(description);
-    }
-    if draft.teams.is_empty() {
-        let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
-        let (choices, start) = team_choices(teams, configured_team_key(ctx.options()))?;
-        draft.teams = vec![prompter.select_from("Team:", choices, start)?];
     }
     if draft.status.is_none() {
         let statuses = ctx.spin(true, common::statuses(ctx.client()?))?;

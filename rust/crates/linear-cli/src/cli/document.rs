@@ -111,7 +111,7 @@ pub struct DocumentCreate {
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub icon: Option<String>,
     /// Also prompt for the optional fields
-    #[arg(long, short, conflicts_with_all = ["project", "issue", "initiative", "team", "cycle", "release"])]
+    #[arg(long, short)]
     pub interactive: bool,
 }
 

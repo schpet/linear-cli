@@ -1,5 +1,5 @@
-//! `team create`: from flags, or from prompts when run in a terminal without
-//! any field flag.
+//! `team create`: from flags, asking for the name when it is missing and,
+//! with `--interactive`, for the other fields too.
 use crate::cli::team::TeamCreate;
 use crate::client::LinearClient;
 use crate::commands::outcome;
@@ -15,16 +15,16 @@ pub fn run(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
 }
 
 fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
-    let no_fields =
-        args.name.is_none() && args.description.is_none() && args.key.is_none() && !args.private;
-    let input = if no_fields && !args.no_interactive && ctx.interactive() {
-        ask(&ctx.prompter()?)?
+    let optional = ctx.optional_prompts(args.interactive)?;
+    let input = if args.name.is_none() || optional {
+        if !ctx.interactive() {
+            return Err(Error::new("Team name is required")
+                .with_hint("Pass --name, or run in a terminal to be asked for it."));
+        }
+        ask(&ctx.prompter()?, args, optional)?
     } else {
         TeamCreateInput {
-            name: args.name.clone().ok_or_else(|| {
-                Error::new("Team name is required")
-                    .with_hint("Pass --name, or run without flags in a terminal to be prompted.")
-            })?,
+            name: args.name.clone().expect("checked above"),
             description: args.description.clone(),
             key: args.key.clone(),
             private: args.private.then_some(true),
@@ -40,21 +40,37 @@ fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
     ))
 }
 
-/// Asks for every field; empty optional answers are left out.
-fn ask(prompter: &Prompter<'_>) -> Result<TeamCreateInput> {
-    let name = prompter.text(Text::new("Team name:").required())?;
-    let description = prompter.text(Text::new("Team description (optional):"))?;
-    let key = prompter.text(Text::new(
-        "Team key (optional, generated from the name if empty):",
-    ))?;
-    let private = prompter.select(
-        "Team visibility:",
-        vec![Choice::new("Public", false), Choice::new("Private", true)],
-    )?;
+/// Asks for the name when it is missing, and with `optional` for every other
+/// field the flags left out; empty optional answers are left out.
+fn ask(prompter: &Prompter<'_>, args: &TeamCreate, optional: bool) -> Result<TeamCreateInput> {
+    let name = match &args.name {
+        Some(name) => name.clone(),
+        None => prompter.text(Text::new("Team name:").required())?,
+    };
+    let description = match &args.description {
+        Some(description) => Some(description.clone()),
+        None if optional => Some(prompter.text(Text::new("Team description (optional):"))?)
+            .filter(|value| !value.is_empty()),
+        None => None,
+    };
+    let key = match &args.key {
+        Some(key) => Some(key.clone()),
+        None if optional => Some(prompter.text(Text::new(
+            "Team key (optional, generated from the name if empty):",
+        ))?)
+        .filter(|value| !value.is_empty()),
+        None => None,
+    };
+    let private = args.private
+        || (optional
+            && prompter.select(
+                "Team visibility:",
+                vec![Choice::new("Public", false), Choice::new("Private", true)],
+            )?);
     Ok(TeamCreateInput {
         name,
-        description: Some(description).filter(|value| !value.is_empty()),
-        key: Some(key).filter(|value| !value.is_empty()),
+        description,
+        key,
         private: private.then_some(true),
     })
 }

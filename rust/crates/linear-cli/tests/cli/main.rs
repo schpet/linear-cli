@@ -22,6 +22,7 @@ mod milestone;
 mod misc;
 mod network;
 mod project;
+mod prompting;
 mod status_update;
 mod team;
 mod template;

@@ -76,6 +76,9 @@ pub struct GlobalArgs {
         display_order = 1000
     )]
     pub workspace: Option<String>,
+    /// Never prompt; fail instead when a required value is missing
+    #[arg(long, global = true, alias = "no-interactive", display_order = 1001)]
+    pub no_input: bool,
 }
 
 #[derive(Debug, Subcommand)]

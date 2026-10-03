@@ -383,9 +383,14 @@ pub struct IssueCreate {
     /// Start the issue after creating it
     #[arg(long)]
     pub start: bool,
-    /// Do not prompt for missing values
-    #[arg(long)]
-    pub no_interactive: bool,
+    /// Ask for every field instead of taking them as flags
+    ///
+    /// Only --parent and --project can be combined with it.
+    #[arg(long, short, conflicts_with_all = [
+        "title", "description", "description_file", "team", "assignee", "state", "priority",
+        "estimate", "label", "due_date", "milestone", "cycle", "template", "start",
+    ])]
+    pub interactive: bool,
 }
 
 #[derive(Debug, Args)]

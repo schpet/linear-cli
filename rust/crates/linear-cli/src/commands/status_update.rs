@@ -33,15 +33,10 @@ enum Reference {
 }
 
 /// Posts a status update: content from the flags, piped stdin, the editor,
-/// or prompts, after the target is found.
+/// or (with `--interactive`) prompts, after the target is found.
 pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<()> {
     let terminal = ctx.interactive();
-    if args.interactive && !terminal {
-        return Err(Error::new("Interactive mode needs a terminal")
-            .with_hint("Pass --body, --body-file, or --health instead of --interactive."));
-    }
-    let interactive = args.interactive
-        || (terminal && args.body.is_none() && args.body_file.is_none() && args.health.is_none());
+    let interactive = ctx.optional_prompts(args.interactive)?;
     let body = match (&args.body, &args.body_file) {
         (Some(body), _) => Some(body.clone()),
         (None, Some(path)) => Some(text_input::read_file(path).map_err(|error| {

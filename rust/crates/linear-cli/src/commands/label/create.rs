@@ -32,21 +32,18 @@ pub fn run(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
 }
 
 fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
-    let interactive = args.interactive || args.name.is_none();
-    if interactive && !ctx.interactive() {
-        return Err(match args.name {
-            None => Error::new("Label name is required")
-                .with_hint("Pass --name, or run in a terminal to be prompted."),
-            Some(_) => Error::new("--interactive needs a terminal"),
-        });
+    let optional = ctx.optional_prompts(args.interactive)?;
+    if args.name.is_none() && !ctx.interactive() {
+        return Err(Error::new("Label name is required")
+            .with_hint("Pass --name, or run in a terminal to be asked for it."));
     }
     let team = args
         .team
         .as_deref()
         .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
-    let fields = if interactive {
-        prompt(ctx, args, team)?
+    let fields = if args.name.is_none() || optional {
+        prompt(ctx, args, team, optional)?
     } else {
         Fields {
             name: args.name.clone().expect("non-interactive runs have a name"),
@@ -80,9 +77,15 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
     ctx.print(render(&created.issue_label_create)?)
 }
 
-/// Asks for every field not given as a flag. The team list is fetched between
-/// the description and team prompts.
-fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<TeamReference>) -> Result<Fields> {
+/// Asks for the name when it is missing, and with `optional` for every
+/// other field not given as a flag. The team list is fetched between the
+/// description and team prompts.
+fn prompt(
+    ctx: &Ctx,
+    args: &LabelCreate,
+    team: Option<TeamReference>,
+    optional: bool,
+) -> Result<Fields> {
     ctx.print("\nCreate a new label\n\n")?;
     let prompter = ctx.prompter()?;
     let name = match &args.name {
@@ -91,19 +94,22 @@ fn prompt(ctx: &Ctx, args: &LabelCreate, team: Option<TeamReference>) -> Result<
     };
     let color = match &args.color {
         Some(color) => color.clone(),
-        None => pick_color(&prompter)?,
+        None if optional => pick_color(&prompter)?,
+        None => color::INDIGO.to_owned(),
     };
     let description = match &args.description {
         Some(description) => Some(description.clone()),
-        None => Some(prompter.text(Text::new("Description (optional):"))?)
+        None if optional => Some(prompter.text(Text::new("Description (optional):"))?)
             .filter(|description| !description.is_empty()),
+        None => None,
     };
     let team = match team {
         Some(lookup) => Team::Reference(lookup),
-        None => {
+        None if optional => {
             let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
             pick_team(&prompter, teams, configured_team_key(ctx.options()))?
         }
+        None => Team::Workspace,
     };
     Ok(Fields {
         name,

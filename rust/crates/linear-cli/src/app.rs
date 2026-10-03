@@ -33,7 +33,10 @@ pub fn main(cli: Cli) -> u8 {
 
 fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     let Cli { global, command } = cli;
-    let workspace = global.workspace;
+    let cli::GlobalArgs {
+        workspace,
+        no_input,
+    } = global;
     let command = match command {
         RootCommand::Completions(action) => return completions_command(&action),
         RootCommand::Markdown(_) => return markdown(),
@@ -60,6 +63,7 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     let ctx = Ctx::new(CtxInit {
         config,
         workspace,
+        no_input,
         cwd,
         terminal,
         credentials_path: credentials_path(os, env("XDG_CONFIG_HOME"), env("HOME"), env("APPDATA")),

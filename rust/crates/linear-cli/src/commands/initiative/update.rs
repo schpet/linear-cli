@@ -34,15 +34,12 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         icon: args.icon.clone(),
     };
     super::common::check_owner(flags.owner.as_deref())?;
+    let interactive = ctx.optional_prompts(args.interactive)?;
     let prompting = flags.is_empty();
-    if prompting && !args.interactive {
+    if prompting && !interactive {
         return Err(Error::new("No changes specified").with_hint(
             "Pass the fields to change, such as --name or --status, or -i to be prompted.",
         ));
-    }
-    if prompting && !ctx.interactive() {
-        return Err(Error::new("Interactive mode needs a terminal")
-            .with_hint("Pass the fields to change, such as --name or --status."));
     }
     let client = ctx.client()?;
     let (id, changes) = if prompting {

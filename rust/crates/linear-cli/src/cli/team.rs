@@ -43,9 +43,9 @@ pub struct TeamCreate {
     /// Make the team private
     #[arg(long)]
     pub private: bool,
-    /// Do not prompt for missing values
-    #[arg(long)]
-    pub no_interactive: bool,
+    /// Also prompt for the optional fields
+    #[arg(long, short)]
+    pub interactive: bool,
 }
 
 #[derive(Debug, Args)]

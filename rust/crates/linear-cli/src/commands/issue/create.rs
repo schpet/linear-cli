@@ -21,11 +21,18 @@ pub fn run(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
 }
 
 fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
-    let fields = Fields::from(args);
+    // `--interactive` asks for every field; clap keeps it apart from the
+    // field flags, so it never overrides a given value.
+    let interactive = ctx.optional_prompts(args.interactive)?;
+    let mut fields = Fields::from(args);
     let description = fields.local()?;
-    let interactive = fields.full_interactive(description.as_deref(), ctx.interactive());
-    if !interactive {
-        fields.require_flag_title()?;
+    if !interactive && fields.needs_title() && ctx.interactive() {
+        fields.title = Some(ctx.prompter()?.text(Text::new("Title:").required())?);
+    }
+    if !interactive && fields.needs_title() {
+        return Err(shared::validation("Title is required").with_hint(
+            "Pass --title, take the title from a template with --template, or run in a terminal to be asked for it.",
+        ));
     }
     let mut ui = Prompts::new(ctx, !interactive);
     let start = create_with(ctx, &mut ui, &fields, description, interactive)?;
@@ -54,7 +61,7 @@ fn create_with(
         ui.output("Creating issue...\n\n")?;
         (prompted.input, prompted.start)
     } else {
-        let fallback = !fields.no_interactive && ctx.interactive();
+        let fallback = ctx.interactive();
         let assembled = ctx.block_on(flag_input(
             &backend,
             ui,
@@ -196,7 +203,6 @@ pub struct Fields {
     pub cycle: Option<String>,
     pub template: Option<String>,
     pub use_default_template: bool,
-    pub no_interactive: bool,
 }
 pub type Input = crate::graphql::operations::issue::IssueCreateInput;
 impl Fields {
@@ -206,30 +212,9 @@ impl Fields {
             self.description_file.as_deref(),
         )
     }
-    /// No field flags were given on a terminal, so every field is asked for.
-    pub fn full_interactive(&self, description: Option<&str>, terminal: bool) -> bool {
-        terminal
-            && !self.no_interactive
-            && self.title.as_deref().is_none_or(str::is_empty)
-            && self.assignee.as_deref().is_none_or(str::is_empty)
-            && self.due_date.is_none()
-            && self.priority.is_none()
-            && self.estimate.is_none()
-            && description.is_none_or(str::is_empty)
-            && self.labels.is_empty()
-            && self.team.as_deref().is_none_or(str::is_empty)
-            && self.state.as_deref().is_none_or(str::is_empty)
-            && self.milestone.as_deref().is_none_or(str::is_empty)
-            && self.cycle.as_deref().is_none_or(str::is_empty)
-            && !self.start
-            && self.template.is_none()
-    }
-    pub fn require_flag_title(&self) -> Result<(), Error> {
-        if self.title.as_deref().is_none_or(str::is_empty) && self.template.is_none() {
-            return Err(shared::validation("Title is required when not using interactive mode")
-                .with_hint("Use --title, pass --template to take the title from a template, or run without any flags (or only --parent/--project) for interactive mode."));
-        }
-        Ok(())
+    /// Neither `--title` nor a template provides the title.
+    fn needs_title(&self) -> bool {
+        self.title.as_deref().is_none_or(str::is_empty) && self.template.is_none()
     }
 }
 // Template resolution intentionally separate from project templates: type ISSUE,
@@ -494,7 +479,6 @@ impl From<&crate::cli::issue::IssueCreate> for Fields {
             cycle: action.cycle.clone(),
             template: action.template.clone(),
             use_default_template: !action.no_use_default_template,
-            no_interactive: action.no_interactive,
         }
     }
 }

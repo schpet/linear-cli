@@ -29,13 +29,10 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
         color: args.color.clone(),
         icon: args.icon.clone(),
     };
-    if args.interactive && !ctx.interactive() {
-        return Err(Error::new("Interactive mode needs a terminal")
-            .with_hint("Pass --name and the other fields instead of --interactive."));
-    }
-    if ctx.interactive() && (fields.name.is_none() || args.interactive) {
+    let optional = ctx.optional_prompts(args.interactive)?;
+    if ctx.interactive() && (fields.name.is_none() || optional) {
         ctx.print("\nCreate a new initiative\n\n")?;
-        prompt(&mut fields, &ctx.prompter()?)?;
+        prompt(&mut fields, &ctx.prompter()?, optional)?;
     }
     let input = validate(fields)?;
     let client = ctx.client()?;
@@ -86,10 +83,14 @@ impl Valid {
     }
 }
 
-/// Asks for each field not given as a flag.
-fn prompt(options: &mut Fields, prompter: &Prompter<'_>) -> Result<()> {
+/// Asks for the name when it is missing, and with `all` for every other
+/// field not given as a flag.
+fn prompt(options: &mut Fields, prompter: &Prompter<'_>, all: bool) -> Result<()> {
     if options.name.as_deref().is_none_or(str::is_empty) {
         options.name = Some(prompter.text(Text::new("Initiative name:").required())?);
+    }
+    if !all {
+        return Ok(());
     }
     if options.description.as_deref().is_none_or(str::is_empty) {
         options.description = optional(prompter.text(Text::new("Description (optional):"))?);

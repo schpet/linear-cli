@@ -54,6 +54,7 @@ impl Terminal {
 pub struct Ctx {
     config: StartupConfig,
     workspace: Option<String>,
+    no_input: bool,
     cwd: PathBuf,
     terminal: Terminal,
     credentials_path: Option<PathBuf>,
@@ -67,6 +68,8 @@ pub struct CtxInit {
     pub config: StartupConfig,
     /// The global `--workspace` flag.
     pub workspace: Option<String>,
+    /// The global `--no-input` flag.
+    pub no_input: bool,
     pub cwd: PathBuf,
     pub terminal: Terminal,
     pub credentials_path: Option<PathBuf>,
@@ -83,6 +86,7 @@ impl Ctx {
         Ok(Self {
             config: init.config,
             workspace: init.workspace,
+            no_input: init.no_input,
             cwd: init.cwd,
             terminal: init.terminal,
             credentials_path: init.credentials_path,
@@ -340,11 +344,42 @@ impl Ctx {
         Ok(viewer.viewer.organization.url_key)
     }
 
-    /// Stdin and stdout are both terminals. This is the one condition under
-    /// which a command asks questions, whether for missing values or for
-    /// confirmation; with output piped or input redirected it never prompts.
+    /// Stdin and stdout are both terminals and `--no-input` is not set. This
+    /// is the one condition under which a command asks questions, whether for
+    /// missing values or for confirmation; with output piped or input
+    /// redirected it never prompts.
     pub fn interactive(&self) -> bool {
-        self.terminal.stdin_tty && self.terminal.stdout_tty
+        !self.no_input && self.terminal.stdin_tty && self.terminal.stdout_tty
+    }
+
+    /// Why [`Ctx::interactive`] is false.
+    fn no_prompts_reason(&self) -> &'static str {
+        if self.no_input {
+            "--no-input is set"
+        } else {
+            "it is not running in a terminal"
+        }
+    }
+
+    /// Whether to also ask for optional fields, which `-i/--interactive`
+    /// requests. The flag contradicts `--no-input` and needs a terminal.
+    pub fn optional_prompts(&self, interactive: bool) -> Result<bool> {
+        if !interactive {
+            return Ok(false);
+        }
+        if self.no_input {
+            return Err(crate::cli::command()
+                .error(
+                    clap::error::ErrorKind::ArgumentConflict,
+                    "the argument '--interactive' cannot be used with '--no-input'",
+                )
+                .into());
+        }
+        if !self.interactive() {
+            return Err(Error::new("--interactive needs a terminal")
+                .with_hint("Pass the values as flags instead."));
+        }
+        Ok(true)
     }
 
     /// Fails unless the command may ask questions (see [`Ctx::interactive`]),
@@ -353,9 +388,10 @@ impl Ctx {
         if self.interactive() {
             Ok(())
         } else {
-            Err(Error::new(
-                "This command needs to ask for confirmation, but it is not running in a terminal",
-            )
+            Err(Error::new(format!(
+                "This command needs to ask for confirmation, but {}",
+                self.no_prompts_reason()
+            ))
             .with_hint(format!("Pass {flag} to proceed without a prompt.")))
         }
     }
@@ -371,8 +407,11 @@ impl Ctx {
     /// error naming the flags to pass instead; this refusal is the backstop.
     pub fn prompter(&self) -> Result<Prompter<'_>> {
         if !self.interactive() {
-            return Err(Error::new("This command needs a terminal to ask questions")
-                .with_hint("Pass the values as flags instead."));
+            return Err(Error::new(format!(
+                "This command needs to ask questions, but {}",
+                self.no_prompts_reason()
+            ))
+            .with_hint("Pass the values as flags instead."));
         }
         Ok(Prompter::new(&self.stdout, self.terminal.stderr_color()))
     }

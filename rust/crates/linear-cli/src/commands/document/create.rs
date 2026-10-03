@@ -18,64 +18,58 @@ pub fn run(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
 }
 
 fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
-    let flags = TargetOptions {
-        project: args.project.as_deref(),
-        issue: args.issue.as_deref(),
-        initiative: args.initiative.as_deref(),
-        team: args.team.as_deref(),
-        cycle: args.cycle.as_deref(),
-        release: args.release.as_deref(),
-    };
-    let no_flags = args.title.is_none()
-        && args.content.is_none()
-        && args.content_file.is_none()
-        && args.icon.is_none()
-        && !flags.any();
-    if args.interactive && !ctx.interactive() {
-        return Err(Error::new("Interactive mode needs a terminal").with_hint(
-            "Pass --title and one of --project, --issue, --initiative, --team, --cycle, or --release instead of --interactive.",
-        ));
-    }
-    let fields = if ctx.interactive() && (args.interactive || no_flags) {
-        prompted(ctx)?
-    } else {
-        let title = args.title.clone().ok_or_else(|| {
-            Error::new("Title is required")
-                .with_hint("Use --title or run with -i for interactive mode.")
-        })?;
-        if !flags.any() {
-            return Err(
-                Error::new("A document attachment target is required").with_hint(
-                    "Pass one of --project, --issue, --initiative, --team, --cycle, or --release.",
-                ),
-            );
-        }
-        let content = match (&args.content, &args.content_file) {
+    let optional = ctx.optional_prompts(args.interactive)?;
+    let mut fields = Fields {
+        title: args.title.clone(),
+        content: match (&args.content, &args.content_file) {
             (Some(content), _) => Some(content.clone()),
             (None, Some(path)) => Some(read_file(path)?),
-            (None, None) if !ctx.stdin_tty() => text_input::read_stdin(std::io::stdin().lock())?,
-            (None, None) if ctx.interactive() => {
-                ctx.print("Opening editor for document content...\n")?;
-                let content = optional_editor(ctx)?;
-                if content.is_none() {
-                    ctx.print("No content entered. Creating document without content.\n")?;
-                }
-                content
-            }
             (None, None) => None,
-        };
-        Fields {
-            title,
-            content,
-            icon: args.icon.clone(),
-            project: args.project.clone(),
-            issue: args.issue.clone(),
-            initiative: args.initiative.clone(),
-            team: args.team.clone(),
-            cycle: args.cycle.clone(),
-            release: args.release.clone(),
-        }
+        },
+        icon: args.icon.clone(),
+        project: args.project.clone(),
+        issue: args.issue.clone(),
+        initiative: args.initiative.clone(),
+        team: args.team.clone(),
+        cycle: args.cycle.clone(),
+        release: args.release.clone(),
     };
+    let given_content = fields.content.is_some();
+    if ctx.interactive() {
+        let default_team = configured_team_key(ctx.options());
+        prompt(
+            ctx,
+            &ctx.prompter()?,
+            &mut fields,
+            optional,
+            default_team.as_deref(),
+        )?;
+    }
+    let title = fields.title.clone().ok_or_else(|| {
+        Error::new("Title is required")
+            .with_hint("Pass --title, or run in a terminal to be asked for it.")
+    })?;
+    if !fields.target().any() {
+        return Err(
+            Error::new("A document attachment target is required").with_hint(
+                "Pass one of --project, --issue, --initiative, --team, --cycle, or --release.",
+            ),
+        );
+    }
+    if !given_content && !optional {
+        fields.content = if !ctx.stdin_tty() {
+            text_input::read_stdin(std::io::stdin().lock())?
+        } else if ctx.interactive() {
+            ctx.print("Opening editor for document content...\n")?;
+            let content = optional_editor(ctx)?;
+            if content.is_none() {
+                ctx.print("No content entered. Creating document without content.\n")?;
+            }
+            content
+        } else {
+            None
+        };
+    }
     let target = target::prepare(ctx, fields.target())?;
     let client = ctx.client()?;
     let mut input = DocumentUpdateInput {
@@ -83,7 +77,6 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         icon: fields.icon,
         ..Default::default()
     };
-    let title = fields.title;
     let created = ctx.spin(true, async {
         attach(client, &mut input, target.as_ref()).await?;
         let data: CreateDocument = client
@@ -122,7 +115,7 @@ fn optional_editor(ctx: &Ctx) -> Result<Option<String>> {
 
 /// A new document's fields, from flags or prompts.
 struct Fields {
-    title: String,
+    title: Option<String>,
     content: Option<String>,
     icon: Option<String>,
     project: Option<String>,
@@ -146,68 +139,33 @@ impl Fields {
     }
 }
 
-fn prompted(ctx: &Ctx) -> Result<Fields> {
-    let default_team = configured_team_key(ctx.options());
-    let editor = editor::configured_name(&ctx.config().child_env);
-    prompt(
-        ctx,
-        &ctx.prompter()?,
-        editor.as_deref(),
-        default_team.as_deref(),
-    )
-}
-
-/// Asks for the title, content, icon and attachment. The content can come
-/// from the editor named `editor`.
+/// Asks for the title and attachment when they are missing, and with
+/// `optional` for the content and icon the flags left out. The content can
+/// come from the configured editor.
 fn prompt(
     ctx: &Ctx,
     prompter: &Prompter<'_>,
-    editor: Option<&str>,
+    fields: &mut Fields,
+    optional: bool,
     default_team: Option<&str>,
-) -> Result<Fields> {
-    let mut fields = Fields {
-        title: prompter.text(Text::new("Document title").required())?,
-        content: None,
-        icon: None,
-        project: None,
-        issue: None,
-        initiative: None,
-        team: None,
-        cycle: None,
-        release: None,
-    };
-    let mut methods = vec![
-        Choice::new("Skip (no content)", Content::Skip),
-        Choice::new("Enter inline", Content::Inline),
-    ];
-    if let Some(label) = editor {
-        methods.push(Choice::new(format!("Open {label}"), Content::Editor));
+) -> Result<()> {
+    if fields.title.is_none() {
+        fields.title = Some(prompter.text(Text::new("Document title").required())?);
     }
-    methods.push(Choice::new("Read from file", Content::File));
-    match prompter.select("How would you like to enter content?", methods)? {
-        Content::Skip => {}
-        Content::Inline => {
-            fields.content =
-                text_input::edited_body(&prompter.text(Text::new("Content (markdown)"))?);
+    if optional {
+        if fields.content.is_none() {
+            let editor = editor::configured_name(&ctx.config().child_env);
+            fields.content = prompt_content(ctx, prompter, editor.as_deref())?;
         }
-        Content::File => {
-            let path = prompter.text(Text::new("File path").required())?;
-            fields.content = Some(read_file(&path)?);
-        }
-        Content::Editor => {
-            let label = editor.expect("the editor option is offered only with an editor");
-            ctx.print(format!("Opening {label}...\n"))?;
-            fields.content = optional_editor(ctx)?;
-            if let Some(content) = &fields.content {
-                ctx.print(format!(
-                    "Content entered ({} characters)\n",
-                    content.chars().count()
-                ))?;
-            }
+        if fields.icon.is_none() {
+            fields.icon = text_input::edited_body(
+                &prompter.text(Text::new("Icon (emoji, leave blank for none)"))?,
+            );
         }
     }
-    fields.icon =
-        text_input::edited_body(&prompter.text(Text::new("Icon (emoji, leave blank for none)"))?);
+    if fields.target().any() {
+        return Ok(());
+    }
     let targets = vec![
         Choice::new("Project", Kind::Project),
         Choice::new("Issue", Kind::Issue),
@@ -239,7 +197,48 @@ fn prompt(
         }
         Kind::Release => fields.release = Some(required("Release (UUID, name, or version)")?),
     }
-    Ok(fields)
+    Ok(())
+}
+
+/// Asks where the content comes from, then for the content. The editor
+/// named `editor` is offered when one is configured.
+fn prompt_content(
+    ctx: &Ctx,
+    prompter: &Prompter<'_>,
+    editor: Option<&str>,
+) -> Result<Option<String>> {
+    let mut methods = vec![
+        Choice::new("Skip (no content)", Content::Skip),
+        Choice::new("Enter inline", Content::Inline),
+    ];
+    if let Some(label) = editor {
+        methods.push(Choice::new(format!("Open {label}"), Content::Editor));
+    }
+    methods.push(Choice::new("Read from file", Content::File));
+    Ok(
+        match prompter.select("How would you like to enter content?", methods)? {
+            Content::Skip => None,
+            Content::Inline => {
+                text_input::edited_body(&prompter.text(Text::new("Content (markdown)"))?)
+            }
+            Content::File => {
+                let path = prompter.text(Text::new("File path").required())?;
+                Some(read_file(&path)?)
+            }
+            Content::Editor => {
+                let label = editor.expect("the editor option is offered only with an editor");
+                ctx.print(format!("Opening {label}...\n"))?;
+                let content = optional_editor(ctx)?;
+                if let Some(content) = &content {
+                    ctx.print(format!(
+                        "Content entered ({} characters)\n",
+                        content.chars().count()
+                    ))?;
+                }
+                content
+            }
+        },
+    )
 }
 
 /// Where prompted content comes from.
