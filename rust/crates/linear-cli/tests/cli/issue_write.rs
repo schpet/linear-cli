@@ -890,3 +890,75 @@ fn create_reports_uncertain_outcomes_without_retrying() {
         );
     }
 }
+
+#[test]
+fn create_reports_a_missing_parent_without_mutating() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"));
+    api.on_raw("GetIssueId", 200, r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#);
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&[
+            "issue",
+            "create",
+            "--no-interactive",
+            "--no-use-default-template",
+            "--title",
+            "Child",
+            "--parent",
+            "ENG-404",
+        ])
+        .failure()
+        .stderr_has("Parent issue not found: ENG-404");
+    assert_eq!(api.operations(), ["ResolveTeam", "GetIssueId"]);
+    assert_eq!(api.variables("GetIssueId"), json!({"id": "ENG-404"}));
+}
+
+#[test]
+fn update_reports_a_missing_parent_without_mutating() {
+    let api = MockLinear::start();
+
+    api.on_raw("GetIssueId", 200, r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#);
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["issue", "update", "ENG-1", "--parent", "ENG-404"])
+        .failure()
+        .stderr_has("Parent issue not found: ENG-404");
+    assert_eq!(api.operations(), ["GetIssueId"]);
+    assert_eq!(api.variables("GetIssueId"), json!({"id": "ENG-404"}));
+}
+
+#[test]
+fn parent_lookup_preserves_unrelated_errors_without_mutating() {
+    for create in [false, true] {
+        let api = MockLinear::start();
+        if create {
+            api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"));
+        }
+        api.on_error("GetIssueId", "Rate limit exceeded");
+        let args = if create {
+            vec![
+                "issue",
+                "create",
+                "--no-interactive",
+                "--no-use-default-template",
+                "--title",
+                "Child",
+                "--parent",
+                "ENG-404",
+            ]
+        } else {
+            vec!["issue", "update", "ENG-1", "--parent", "ENG-404"]
+        };
+        let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&args);
+        run.failure().stderr_has("Rate limit exceeded");
+        assert!(!run.stderr.contains("Parent issue not found"));
+        let expected = if create {
+            vec!["ResolveTeam", "GetIssueId"]
+        } else {
+            vec!["GetIssueId"]
+        };
+        assert_eq!(api.operations(), expected);
+        assert_eq!(api.variables("GetIssueId"), json!({"id": "ENG-404"}));
+    }
+}

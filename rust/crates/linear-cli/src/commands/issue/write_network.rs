@@ -264,7 +264,8 @@ impl Backend for NetworkBackend {
             .query(IdVariables {
                 id: identifier.clone(),
             })
-            .await?;
+            .await
+            .map_err(|failure| failure.or_not_found("Parent issue", &identifier))?;
         let id = data.issue.id.into_inner();
         if id.is_empty() {
             return Err(Error::not_found("Parent issue", &identifier));
