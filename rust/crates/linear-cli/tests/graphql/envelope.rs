@@ -1,6 +1,4 @@
-use linear_cli::graphql::envelope::{
-    ResponseError, graphql_message, is_not_found, parse_response, require_entity, require_success,
-};
+use linear_cli::graphql::envelope::{ResponseError, graphql_message, is_not_found, parse_response};
 use linear_cli::graphql::operations::agent_session::GetAgentSessionDetails;
 use linear_cli::graphql::operations::issue_update::UpdateIssue;
 use serde_json::Value;
@@ -11,8 +9,7 @@ const SUCCESS_BODY: &str = r#"{"data":{"issueUpdate":{"success":true,"issue":{"i
 fn data_only_yields_typed_data() {
     let data: UpdateIssue = parse_response(SUCCESS_BODY.as_bytes()).expect("data");
     assert!(data.issue_update.success);
-    require_success(data.issue_update.success).expect("success");
-    let issue = require_entity(data.issue_update.issue).expect("issue");
+    let issue = data.issue_update.issue.expect("issue");
     assert_eq!(issue.identifier, "ENG-1");
 }
 
@@ -210,22 +207,6 @@ fn well_formed_json_with_the_wrong_shape_is_unexpected_shape_not_malformed() {
             format!("Failed to update issue: {message}")
         );
     }
-}
-
-#[test]
-fn false_success_and_null_entity_are_typed_payload_failures() {
-    let body = r#"{"data":{"issueUpdate":{"success":false,"issue":null}}}"#;
-    let data: UpdateIssue = parse_response(body.as_bytes()).expect("data");
-    let rejected = require_success(data.issue_update.success).expect_err("rejected");
-    assert!(matches!(rejected, ResponseError::MutationRejected));
-    assert_eq!(rejected.to_string(), "operation reported success: false");
-    let missing = require_entity(data.issue_update.issue).expect_err("missing");
-    assert!(matches!(missing, ResponseError::MissingPayloadEntity));
-    let app: linear_cli::error::Error = missing.into();
-    assert_eq!(
-        app.context("Failed to update issue").to_string(),
-        "Failed to update issue: operation succeeded but returned no entity"
-    );
 }
 
 #[test]

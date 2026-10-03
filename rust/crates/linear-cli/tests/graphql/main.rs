@@ -16,3 +16,16 @@ mod union;
 mod wire;
 
 mod source_response;
+
+/// An envelope for an arbitrary GraphQL document.
+fn raw_request(
+    document: &str,
+    variables: Option<serde_json::Map<String, serde_json::Value>>,
+    operation_name: Option<&str>,
+) -> linear_cli::graphql::envelope::GraphQlRequest<serde_json::Map<String, serde_json::Value>> {
+    linear_cli::graphql::envelope::GraphQlRequest {
+        query: document.to_owned(),
+        variables,
+        operation_name: operation_name.map(str::to_owned),
+    }
+}

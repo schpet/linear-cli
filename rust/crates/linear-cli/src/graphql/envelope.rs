@@ -94,10 +94,6 @@ pub enum ResponseError {
     },
     /// Neither `data` nor a non-empty `errors` array was present.
     MissingData,
-    /// A mutation payload reported `success: false`.
-    MutationRejected,
-    /// A mutation payload succeeded but its entity object was `null`.
-    MissingPayloadEntity,
 }
 
 impl fmt::Debug for ResponseError {
@@ -125,8 +121,6 @@ impl fmt::Debug for ResponseError {
                 .field("partial_data", partial_data)
                 .finish(),
             Self::MissingData => f.write_str("MissingData"),
-            Self::MutationRejected => f.write_str("MutationRejected"),
-            Self::MissingPayloadEntity => f.write_str("MissingPayloadEntity"),
         }
     }
 }
@@ -153,8 +147,6 @@ impl fmt::Display for ResponseError {
                 None => write!(f, "GraphQL request failed without an error message"),
             },
             Self::MissingData => write!(f, "response contained neither data nor errors"),
-            Self::MutationRejected => write!(f, "operation reported success: false"),
-            Self::MissingPayloadEntity => write!(f, "operation succeeded but returned no entity"),
         }
     }
 }
@@ -165,10 +157,7 @@ impl StdError for ResponseError {
             Self::MalformedJson(source)
             | Self::UnexpectedShape(source)
             | Self::NotJson { source, .. } => Some(source),
-            Self::GraphQl { .. }
-            | Self::MissingData
-            | Self::MutationRejected
-            | Self::MissingPayloadEntity => None,
+            Self::GraphQl { .. } | Self::MissingData => None,
         }
     }
 }
@@ -182,10 +171,7 @@ impl From<ResponseError> for Error {
             // Valid JSON that contradicts the schema the types were compiled
             // against is a broken contract, not a transport or GraphQL failure.
             ResponseError::UnexpectedShape(source) => Error::new(message).with_source(source),
-            ResponseError::GraphQl { .. }
-            | ResponseError::MissingData
-            | ResponseError::MutationRejected
-            | ResponseError::MissingPayloadEntity => Error::new(message),
+            ResponseError::GraphQl { .. } | ResponseError::MissingData => Error::new(message),
         }
     }
 }
@@ -253,18 +239,4 @@ pub fn is_not_found(errors: &[ResponseGraphQlError]) -> bool {
         let message = message.to_lowercase();
         message.contains("not found") || message.contains("could not find")
     })
-}
-
-/// Turns a payload `success` flag into a typed result.
-pub fn require_success(success: bool) -> Result<(), ResponseError> {
-    if success {
-        Ok(())
-    } else {
-        Err(ResponseError::MutationRejected)
-    }
-}
-
-/// Turns an optional payload entity into a typed result.
-pub fn require_entity<T>(entity: Option<T>) -> Result<T, ResponseError> {
-    entity.ok_or(ResponseError::MissingPayloadEntity)
 }

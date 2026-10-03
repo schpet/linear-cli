@@ -11,7 +11,7 @@ use serde::Serialize;
 use serde::ser::{Error as _, Serializer};
 
 use crate::error::Error;
-use crate::graphql::scalars::{DateTime, JsonObject};
+use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -267,13 +267,6 @@ pub struct ElicitationContent {
 ///
 /// Not selected by any command; checks that `resultData: JSONObject` aligns
 /// with [`JsonObject`].
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "AgentActivityActionContent")]
-#[serde(rename_all = "camelCase")]
-pub struct ActionResultData {
-    pub result_data: Option<JsonObject>,
-}
-
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct GetIssueAgentSessionsVariables {
     pub issue_id: String,

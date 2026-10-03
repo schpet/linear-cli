@@ -103,7 +103,7 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
     .expect("client");
     let response = block_on_network(async move {
         transport
-            .send_raw("query { ok }", None, None)
+            .send_request(&super::raw_request("query { ok }", None, None))
             .await
             .map_err(Error::from)
     })
@@ -121,7 +121,7 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
     let started = Instant::now();
     let error = block_on_network(async move {
         transport
-            .send_raw("query { ok }", None, None)
+            .send_request(&super::raw_request("query { ok }", None, None))
             .await
             .map_err(Error::from)
     })
@@ -213,7 +213,7 @@ fn tls_request(port: u16, ca_bundle: PathBuf) -> Result<RawHttpResponse, Error> 
     .expect("transport");
     block_on_network(async move {
         transport
-            .send_raw("query { ok }", None, None)
+            .send_request(&super::raw_request("query { ok }", None, None))
             .await
             .map_err(Error::from)
     })
@@ -324,7 +324,7 @@ fn real_network_failure_debug_omits_endpoint_query_and_api_key() {
     .expect("client");
     let error = block_on_network(async move {
         transport
-            .send_raw("query { ok }", None, None)
+            .send_request(&super::raw_request("query { ok }", None, None))
             .await
             .map_err(Error::from)
     })

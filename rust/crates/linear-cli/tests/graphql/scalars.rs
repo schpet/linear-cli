@@ -1,6 +1,4 @@
-use linear_cli::graphql::operations::agent_session::{
-    ActionResultData, AgentActivityType, AgentSessionStatus,
-};
+use linear_cli::graphql::operations::agent_session::{AgentActivityType, AgentSessionStatus};
 use linear_cli::graphql::scalars::{DateTime, Duration, Json, JsonObject, TimelessDate, Uuid};
 use serde_json::{Value, from_str, from_value, json, to_value};
 
@@ -26,21 +24,6 @@ fn json_object_scalar_is_an_object_and_rejects_other_shapes() {
     assert!(from_value::<JsonObject>(json!("{\"type\":\"doc\"}")).is_err());
     assert!(from_value::<JsonObject>(json!([1, 2])).is_err());
     assert!(from_value::<JsonObject>(json!(1)).is_err());
-}
-
-#[test]
-fn embedded_result_data_fixture_parses_through_the_schema_checked_fragment() {
-    let parsed: ActionResultData =
-        from_value(json!({"resultData": {"type": "doc", "content": []}})).expect("fragment");
-    let data = parsed.result_data.as_ref().expect("present");
-    assert_eq!(data.0.get("type"), Some(&Value::from("doc")));
-    assert_eq!(
-        serde_json::to_string(&parsed).expect("string"),
-        r#"{"resultData":{"type":"doc","content":[]}}"#
-    );
-    let absent: ActionResultData = from_value(json!({"resultData": null})).expect("null");
-    assert!(absent.result_data.is_none());
-    assert!(from_value::<ActionResultData>(json!({"resultData": "{}"})).is_err());
 }
 
 #[test]

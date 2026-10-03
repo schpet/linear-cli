@@ -29,7 +29,6 @@ use reqwest::tls::Certificate;
 use reqwest::{Client, StatusCode, Url};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde_json::{Map, Value};
 
 use crate::error::Error;
 use crate::graphql::envelope::{
@@ -121,11 +120,6 @@ impl EndpointUrl {
     /// The full request URL.
     pub fn url(&self) -> &Url {
         &self.url
-    }
-
-    /// `scheme://host[:port]`, the only part shown in messages.
-    pub fn origin(&self) -> &str {
-        &self.origin
     }
 }
 
@@ -841,10 +835,6 @@ impl GraphQlTransport {
         })
     }
 
-    pub fn endpoint(&self) -> &EndpointUrl {
-        &self.endpoint
-    }
-
     /// Downloads an image referenced from Markdown.
     pub async fn download_markdown_image(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.download(url, "Failed to download image").await
@@ -908,22 +898,6 @@ impl GraphQlTransport {
             )
         })?;
         Ok((status, String::from_utf8_lossy(&bytes).into_owned()))
-    }
-
-    /// Sends an arbitrary document and returns the response without
-    /// classifying it. `variables` is sent only when present.
-    pub async fn send_raw(
-        &self,
-        document: &str,
-        variables: Option<Map<String, Value>>,
-        operation_name: Option<&str>,
-    ) -> Result<RawHttpResponse, TransportFailure> {
-        let request = GraphQlRequest {
-            query: document.to_owned(),
-            variables,
-            operation_name: operation_name.map(str::to_owned),
-        };
-        self.send_request(&request).await
     }
 
     /// Sends a prepared envelope and returns the exact response.

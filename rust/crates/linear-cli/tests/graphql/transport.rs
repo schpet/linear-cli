@@ -14,14 +14,8 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use cynic::{MutationBuilder, QueryBuilder};
-use linear_cli::graphql::edit::Edit;
-use linear_cli::graphql::envelope::{
-    GraphQlRequest, ResponseError, graphql_message, require_entity, require_success,
-};
-use linear_cli::graphql::operations::issue_update::{
-    IssueUpdateInput, UpdateIssue, UpdateIssueVariables,
-};
+use cynic::QueryBuilder;
+use linear_cli::graphql::envelope::{GraphQlRequest, ResponseError, graphql_message};
 use linear_cli::graphql::operations::teams::{GetTeams, GetTeamsVariables};
 use linear_cli::graphql::pagination::{Page, paginate};
 use linear_cli::graphql::transport::{
@@ -67,16 +61,6 @@ fn teams_request(first: Option<i32>, after: Option<&str>) -> GraphQlRequest<GetT
         filter: None,
         first,
         after: after.map(str::to_owned),
-    }))
-}
-
-fn update_request(title: &str) -> GraphQlRequest<UpdateIssueVariables> {
-    GraphQlRequest::with_variables(UpdateIssue::build(UpdateIssueVariables {
-        id: "issue-1".to_owned(),
-        input: IssueUpdateInput {
-            title: Edit::Set(title.to_owned()),
-            ..IssueUpdateInput::default()
-        },
     }))
 }
 
@@ -276,7 +260,6 @@ fn endpoint_url_keeps_path_and_query_but_displays_only_the_origin() {
         endpoint.url().as_str(),
         "https://api.linear.app/graphql?sig=SECRET"
     );
-    assert_eq!(endpoint.origin(), "https://api.linear.app");
     assert_eq!(endpoint.to_string(), "https://api.linear.app");
     assert_eq!(
         format!("{endpoint:?}"),
@@ -404,7 +387,7 @@ async fn failures_never_expose_query_tokens_or_the_api_key() {
         .expect("transport");
     assert!(!format!("{transport:?}").contains("SECRET"));
     let failure = transport
-        .send_raw("{ viewer { id } }", None, None)
+        .send_request(&super::raw_request("{ viewer { id } }", None, None))
         .await
         .expect_err("connection refused");
     let TransportFailure::Network { origin, phase, .. } = &failure else {
@@ -458,7 +441,11 @@ async fn request_carries_exact_headers_and_envelope_bytes() {
     let mut variables = Map::new();
     variables.insert("after".to_owned(), Value::Null);
     transport
-        .send_raw("query($after: String) { x }", Some(variables), Some("Q"))
+        .send_request(&super::raw_request(
+            "query($after: String) { x }",
+            Some(variables),
+            Some("Q"),
+        ))
         .await
         .expect("empty 200");
     let head = server.stop().request_head;
@@ -500,7 +487,7 @@ async fn declared_oversized_body_is_rejected_before_reading() {
     });
     let transport = transport_for(&server.endpoint(), config(Duration::from_secs(5), 1024));
     let failure = transport
-        .send_raw("{ x }", None, None)
+        .send_request(&super::raw_request("{ x }", None, None))
         .await
         .expect_err("too large");
     match &failure {
@@ -525,7 +512,7 @@ async fn body_exactly_at_the_cap_is_kept_intact() {
     });
     let transport = transport_for(&server.endpoint(), config(Duration::from_secs(5), 1024));
     let response = transport
-        .send_raw("{ x }", None, None)
+        .send_request(&super::raw_request("{ x }", None, None))
         .await
         .expect("at cap");
     assert_eq!(response.status.as_u16(), 502);
@@ -618,7 +605,7 @@ async fn unbounded_chunked_body_stops_at_the_cap() {
     let transport = transport_for(&server.endpoint(), config(Duration::from_secs(5), 2048));
     let started = Instant::now();
     let failure = transport
-        .send_raw("{ x }", None, None)
+        .send_request(&super::raw_request("{ x }", None, None))
         .await
         .expect_err("too large");
     assert!(
@@ -640,7 +627,7 @@ async fn silent_server_hits_the_total_deadline() {
     let transport = transport_for(&server.endpoint(), config(Duration::from_millis(300), 1024));
     let started = Instant::now();
     let failure = transport
-        .send_raw("{ x }", None, None)
+        .send_request(&super::raw_request("{ x }", None, None))
         .await
         .expect_err("timeout");
     let elapsed = started.elapsed();
@@ -669,7 +656,7 @@ async fn stalled_body_hits_the_total_deadline_without_partial_data() {
     let transport = transport_for(&server.endpoint(), config(Duration::from_millis(300), 4096));
     let started = Instant::now();
     let failure = transport
-        .send_raw("{ x }", None, None)
+        .send_request(&super::raw_request("{ x }", None, None))
         .await
         .expect_err("timeout");
     assert!(
@@ -693,7 +680,7 @@ fn cancelled_request_completes_promptly_and_releases_the_connection() {
     let released_while_running = runtime.block_on(async {
         let cancelled = tokio::time::timeout(
             Duration::from_millis(150),
-            transport.send_raw("{ x }", None, None),
+            transport.send_request(&super::raw_request("{ x }", None, None)),
         )
         .await;
         assert!(
@@ -1215,7 +1202,11 @@ async fn graphql_errors_classify_ahead_of_http_status() {
     );
 
     let raw = transport
-        .send_raw("{ viewer { definitelyMissing } }", None, None)
+        .send_request(&super::raw_request(
+            "{ viewer { definitelyMissing } }",
+            None,
+            None,
+        ))
         .await
         .expect("400 validation bytes");
     let failure = classify_typed::<Value>(raw).expect_err("validation errors");
@@ -1368,62 +1359,6 @@ async fn temporary_redirect_replays_the_request_at_the_new_location() {
     assert_eq!(report.requests[1].path, "/moved");
 }
 
-#[tokio::test(flavor = "current_thread")]
-async fn mutation_payload_failures_are_typed() {
-    let issue = |title: &str| {
-        json!({
-            "id": "issue-1",
-            "identifier": "ENG-1",
-            "url": "https://linear.app/acme/issue/ENG-1",
-            "title": title
-        })
-    };
-    let update = |title: &str, success: bool, issue: Value| {
-        Step::json(
-            Some("UpdateIssue"),
-            Some(json!({"id": "issue-1", "input": {"title": title}})),
-            200,
-            json!({"data": {"issueUpdate": {"success": success, "issue": issue}}}),
-        )
-    };
-    let server = ScriptedServer::start(vec![
-        update("Declined title", false, issue("Old title")),
-        update("New title", true, issue("New title")),
-        update("Ghost", true, Value::Null),
-    ]);
-    let transport = server.transport();
-
-    let declined: UpdateIssue = transport
-        .execute(&update_request("Declined title"))
-        .await
-        .expect("success:false is not a transport failure");
-    assert!(matches!(
-        require_success(declined.issue_update.success),
-        Err(ResponseError::MutationRejected)
-    ));
-
-    let accepted: UpdateIssue = transport
-        .execute(&update_request("New title"))
-        .await
-        .expect("success");
-    require_success(accepted.issue_update.success).expect("success");
-    let issue = require_entity(accepted.issue_update.issue).expect("issue");
-    assert_eq!(issue.title, "New title");
-
-    let ghost: UpdateIssue = transport
-        .execute(&update_request("Ghost"))
-        .await
-        .expect("success with null issue is a payload failure, not a transport one");
-    assert!(matches!(
-        require_entity(ghost.issue_update.issue),
-        Err(ResponseError::MissingPayloadEntity)
-    ));
-
-    let report = server.finish();
-    report.assert_clean();
-    assert_eq!(report.consumed, 3);
-}
-
 fn viewer_step() -> Step {
     Step::json(
         None,
@@ -1438,7 +1373,7 @@ async fn raw_document_without_variables_returns_exact_bytes() {
     let server = ScriptedServer::start(vec![viewer_step()]);
     let response = server
         .transport()
-        .send_raw("{ viewer { id } }", None, None)
+        .send_request(&super::raw_request("{ viewer { id } }", None, None))
         .await
         .expect("200");
     assert_eq!(response.status.as_u16(), 200);
@@ -1457,7 +1392,7 @@ async fn extra_request_after_the_final_step_is_unexpected() {
     let server = ScriptedServer::start(vec![viewer_step()]);
     let transport = server.transport();
     transport
-        .send_raw("{ viewer { id } }", None, None)
+        .send_request(&super::raw_request("{ viewer { id } }", None, None))
         .await
         .expect("first");
     let failure = transport
@@ -1482,7 +1417,11 @@ async fn extra_variables_key_is_a_mismatch() {
     variables.insert("unexpected".to_owned(), Value::from(1));
     let raw = server
         .transport()
-        .send_raw("{ viewer { id } }", Some(variables), None)
+        .send_request(&super::raw_request(
+            "{ viewer { id } }",
+            Some(variables),
+            None,
+        ))
         .await
         .expect("500 captured");
     assert_eq!(raw.status.as_u16(), 500);
