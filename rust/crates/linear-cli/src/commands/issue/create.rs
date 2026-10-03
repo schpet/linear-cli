@@ -33,7 +33,7 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
         fields.title = Some(ctx.prompter()?.text(Text::new("Title:").required())?);
     }
     if !interactive && fields.needs_title() {
-        return Err(shared::validation("Title is required").with_hint(
+        return Err(Error::new("Title is required").with_hint(
             "Pass --title, take the title from a template with --template, or run in a terminal to be asked for it.",
         ));
     }
@@ -319,7 +319,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         fields.assignee.clone()
     };
     if fields.start && assignee != Some(UserRef::Me) {
-        return Err(shared::validation(
+        return Err(Error::new(
             "Cannot use --start with an --assignee other than @me",
         ));
     }
@@ -359,7 +359,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
     let milestone = match &fields.milestone {
         Some(value) if crate::refs::is_linear_uuid(value) => Some(value.clone()),
         Some(value) => {
-            let project=project.clone().ok_or_else(||shared::validation("--milestone requires --project to be set")
+            let project=project.clone().ok_or_else(||Error::new("--milestone requires --project to be set")
                 .with_hint("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."))?;
             Some(backend.milestone(project, value.clone()).await?)
         }

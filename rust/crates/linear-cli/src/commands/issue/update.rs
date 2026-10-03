@@ -177,7 +177,7 @@ impl Fields {
         ];
         for (conflict, message, suggestion) in conflicts {
             if conflict {
-                return Err(shared::validation(message).with_hint(suggestion));
+                return Err(Error::new(message).with_hint(suggestion));
             }
         }
         shared::description(
@@ -225,7 +225,7 @@ pub async fn input<B: Backend>(
             .team
             .clone()
             .or_else(|| issue_id.rsplit_once('-').map(|(key, _)| key.to_owned()))
-            .ok_or_else(|| shared::validation("Could not determine team key from issue ID"))?;
+            .ok_or_else(|| Error::new("Could not determine team key from issue ID"))?;
         Some(backend.team(reference).await?)
     } else {
         None
@@ -253,7 +253,7 @@ pub async fn input<B: Backend>(
     let removed = labels(backend, team_key, fields.remove_labels.as_deref()).await?;
     if added.iter().any(|id| removed.contains(id)) {
         return Err(
-            shared::validation("Cannot add and remove the same label in one update")
+            Error::new("Cannot add and remove the same label in one update")
                 .with_hint("Remove the duplicate label from either --add-label or --remove-label."),
         );
     }
@@ -272,7 +272,7 @@ pub async fn input<B: Backend>(
                 Some(id) => Some(id.clone()),
                 None => backend.issue_project(issue_id.to_owned()).await?,
             };
-            let project=project.ok_or_else(||shared::validation("--milestone requires --project to be set (issue has no existing project)")
+            let project=project.ok_or_else(||Error::new("--milestone requires --project to be set (issue has no existing project)")
                 .with_hint("Use --project to specify the project for the milestone, or pass a milestone UUID directly."))?;
             Some(backend.milestone(project, value.clone()).await?)
         }

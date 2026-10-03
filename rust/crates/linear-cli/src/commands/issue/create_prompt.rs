@@ -34,7 +34,7 @@ async fn additional<B: Backend, U: Ui>(
     include_project: bool,
     auto: bool,
 ) -> Result<More, Error> {
-    let default = shared::default_state(states)?;
+    let default = shared::default_state(states);
     let name = default
         .as_ref()
         .and_then(|id| states.iter().find(|s| &s.id == id))
@@ -110,7 +110,7 @@ async fn additional<B: Backend, U: Ui>(
                     .collect::<Vec<_>>();
                 let value = ui.choose("What priority should this issue have?", &options, 0)?;
                 let priority = value.parse::<i32>().map_err(|error| {
-                    shared::validation("selected priority is not an integer").with_source(error)
+                    Error::new("selected priority is not an integer").with_source(error)
                 })?;
                 more.priority = (priority != 0).then_some(priority);
             }
@@ -131,7 +131,7 @@ async fn additional<B: Backend, U: Ui>(
                 more.project = project_menu(ui, &projects)?;
             }
             _ => {
-                return Err(shared::validation(
+                return Err(Error::new(
                     "selected additional field is not a declared menu member",
                 ));
             }
@@ -256,7 +256,7 @@ pub async fn prompt<B: Backend, U: Ui>(
         0,
     )?;
     let mut more = More {
-        state: shared::default_state(&states)?,
+        state: shared::default_state(&states),
         ..Default::default()
     };
     if auto {
@@ -277,9 +277,7 @@ pub async fn prompt<B: Backend, U: Ui>(
         .await?;
         project = more.project.clone().or(project);
     } else if next != "submit" {
-        return Err(shared::validation(
-            "next action is not a declared menu member",
-        ));
+        return Err(Error::new("next action is not a declared menu member"));
     }
     let start = yes_no(
         ui,

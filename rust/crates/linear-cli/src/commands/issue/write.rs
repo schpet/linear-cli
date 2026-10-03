@@ -51,9 +51,6 @@ pub struct CreateSettings {
     pub ask_project: bool,
 }
 
-pub fn validation(message: impl Into<String>) -> Error {
-    Error::new(message)
-}
 /// The description from `--description` or `--description-file`; an empty
 /// `--description` counts as not given.
 pub fn description(
@@ -61,7 +58,7 @@ pub fn description(
     file: Option<&std::path::Path>,
 ) -> Result<Option<String>, Error> {
     if inline.is_some_and(|text| !text.is_empty()) && file.is_some() {
-        return Err(validation(
+        return Err(Error::new(
             "Cannot specify both --description and --description-file",
         ));
     }
@@ -70,7 +67,7 @@ pub fn description(
         Some(path) => crate::commands::text_input::read_file(path)
             .map(Some)
             .map_err(|error| {
-                validation(format!(
+                Error::new(format!(
                     "Failed to read description file: {}",
                     path.display()
                 ))
@@ -79,16 +76,16 @@ pub fn description(
             }),
     }
 }
-pub fn default_state(states: &[State]) -> Result<Option<String>, Error> {
+pub fn default_state(states: &[State]) -> Option<String> {
     let mut lowest: Option<&State> = None;
     for state in states.iter().filter(|state| state.kind == "unstarted") {
         if lowest.is_none_or(|old| state.position < old.position) {
             lowest = Some(state)
         }
     }
-    Ok(lowest
+    lowest
         .or_else(|| states.first())
-        .map(|state| state.id.clone()))
+        .map(|state| state.id.clone())
 }
 pub fn edit<T>(clear: bool, value: Option<T>) -> Edit<T> {
     if clear {
@@ -186,4 +183,29 @@ pub trait Ui {
     fn error(&mut self, text: &str) -> Result<(), Error>;
     fn discover_editor(&mut self) -> Result<Option<String>, Error>;
     fn optional_editor(&mut self) -> Result<Option<String>, Error>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{State, default_state};
+
+    #[test]
+    fn no_workflow_states_means_no_default() {
+        assert_eq!(default_state(&[]), None);
+    }
+
+    #[test]
+    fn without_unstarted_states_the_first_state_is_the_default() {
+        let state = |id: &str, kind: &str, position| State {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            kind: kind.to_owned(),
+            position,
+        };
+        let states = [
+            state("started", "started", 9.0),
+            state("backlog", "backlog", 1.0),
+        ];
+        assert_eq!(default_state(&states).as_deref(), Some("started"));
+    }
 }

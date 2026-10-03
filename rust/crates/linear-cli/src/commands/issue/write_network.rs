@@ -1,6 +1,6 @@
 use super::{
     create::{Input, Templates},
-    write::{self as domain, Backend, Created, Label, Named, Parent, State, Updated},
+    write::{Backend, Created, Label, Named, Parent, State, Updated},
 };
 use crate::cli::values::UserRef;
 use crate::client::LinearClient;
@@ -32,11 +32,9 @@ impl NetworkBackend {
         let team = crate::commands::team_key::configured_team_key(&self.options);
         match refs::prepare_issue_reference(Some(reference), team.as_deref(), &self.scope(&key))? {
             refs::IssueReference::Identifier(id) => Ok(id),
-            refs::IssueReference::Unresolved | refs::IssueReference::Inferred => {
-                Err(domain::validation(format!(
-                    "Could not resolve parent issue identifier: {reference}"
-                )))
-            }
+            refs::IssueReference::Unresolved | refs::IssueReference::Inferred => Err(Error::new(
+                format!("Could not resolve parent issue identifier: {reference}"),
+            )),
         }
     }
 }

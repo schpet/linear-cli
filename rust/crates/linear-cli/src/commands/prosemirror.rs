@@ -109,10 +109,6 @@ enum Mark {
     Other,
 }
 
-fn validation(message: String) -> Error {
-    Error::new(message)
-}
-
 fn as_record(value: &Value) -> Option<&Map<String, Value>> {
     match value {
         Value::Object(object) => Some(object),
@@ -153,7 +149,7 @@ fn optional_array<'a>(
     match object.get(key) {
         None | Some(Value::Null) => Ok(&[]),
         Some(Value::Array(items)) => Ok(items),
-        Some(_) => Err(validation(format!(
+        Some(_) => Err(Error::new(format!(
             "Invalid ProseMirror node at {path}: \"{key}\" must be an array"
         ))),
     }
@@ -164,7 +160,7 @@ fn read_mark(value: &Value, path: &str) -> Result<Mark, Error> {
         Some(Value::String(name)) => Some((object, name)),
         _ => None,
     }) else {
-        return Err(validation(format!(
+        return Err(Error::new(format!(
             "Invalid ProseMirror mark at {path}: expected an object with a string \"type\""
         )));
     };
@@ -186,7 +182,7 @@ fn read_node(value: &Value, path: &str) -> Result<Node, Error> {
         Some(Value::String(name)) => Some((object, name)),
         _ => None,
     }) else {
-        return Err(validation(format!(
+        return Err(Error::new(format!(
             "Invalid ProseMirror node at {path}: expected an object with a string \"type\""
         )));
     };
@@ -196,7 +192,7 @@ fn read_node(value: &Value, path: &str) -> Result<Node, Error> {
         None | Some(Value::Null) => None,
         Some(Value::String(text)) => Some(text.clone()),
         Some(_) => {
-            return Err(validation(format!(
+            return Err(Error::new(format!(
                 "Invalid ProseMirror node at {path}: \"text\" must be a string"
             )));
         }
@@ -227,7 +223,7 @@ fn read_node(value: &Value, path: &str) -> Result<Node, Error> {
 pub fn to_markdown(doc: &Value) -> Result<String, Error> {
     let root = read_node(doc, "doc")?;
     if root.kind != NodeKind::Doc {
-        return Err(validation(format!(
+        return Err(Error::new(format!(
             "Expected a ProseMirror document, got a \"{}\" node",
             root.kind.name()
         )));
