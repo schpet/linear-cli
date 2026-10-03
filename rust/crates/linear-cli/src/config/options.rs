@@ -21,7 +21,8 @@ const DEFAULT_ENDPOINT: &str = "https://api.linear.app/graphql";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OptionKey {
-    TeamId,
+    /// The default team's key, under its historical name `team_id`.
+    TeamKey,
     ApiKey,
     Workspace,
     IssueSort,
@@ -38,7 +39,7 @@ pub enum OptionKey {
 impl OptionKey {
     #[cfg(test)]
     pub const ALL: [Self; 12] = [
-        Self::TeamId,
+        Self::TeamKey,
         Self::ApiKey,
         Self::Workspace,
         Self::IssueSort,
@@ -54,7 +55,7 @@ impl OptionKey {
 
     pub const fn name(self) -> &'static str {
         match self {
-            Self::TeamId => "team_id",
+            Self::TeamKey => "team_id",
             Self::ApiKey => "api_key",
             Self::Workspace => "workspace",
             Self::IssueSort => "issue_sort",
@@ -465,6 +466,13 @@ fn parsed<T: DeserializeOwned>(raw: &Raw<'_>) -> Result<T, OptionErrorReason> {
     raw.parse()
 }
 
+/// A team key, uppercased. An empty value means "no default team", so it
+/// also hides a team set in a lower tier.
+fn team_key(raw: &Raw<'_>) -> Result<Option<String>, OptionErrorReason> {
+    let value = raw.parse::<String>()?;
+    Ok((!value.is_empty()).then(|| value.to_uppercase()))
+}
+
 fn flag(raw: &Raw<'_>) -> Result<bool, OptionErrorReason> {
     raw.parse::<Flag>().map(|Flag(value)| value)
 }
@@ -499,7 +507,7 @@ fn normalized_config_path(path: &Path) -> PathBuf {
 #[derive(Clone)]
 pub struct ConfigOptions {
     cwd: PathBuf,
-    team_id: Option<Resolved<String>>,
+    team_key: Option<Resolved<Option<String>>>,
     api_key: Option<Resolved<ConfigSecret>>,
     workspace: Option<Resolved<String>>,
     issue_sort: Option<Resolved<IssueSort>>,
@@ -565,7 +573,7 @@ impl ConfigOptions {
         }
         Ok(Self {
             cwd: inputs.env.cwd.clone(),
-            team_id: select(&inputs, OptionKey::TeamId, parsed)?,
+            team_key: select(&inputs, OptionKey::TeamKey, team_key)?,
             api_key: select(&inputs, OptionKey::ApiKey, parsed)?,
             workspace: select(&inputs, OptionKey::Workspace, parsed)?,
             issue_sort: select(&inputs, OptionKey::IssueSort, parsed)?,
@@ -581,8 +589,15 @@ impl ConfigOptions {
         })
     }
 
-    pub fn team_id(&self) -> Option<&Resolved<String>> {
-        self.team_id.as_ref()
+    /// The default team's key.
+    pub fn team_key(&self) -> Option<&str> {
+        self.team_key
+            .as_ref()
+            .and_then(|resolved| resolved.value.as_deref())
+    }
+    /// Where the default team (or its explicit absence) was set.
+    pub fn team_key_source(&self) -> Option<&OptionSource> {
+        self.team_key.as_ref().map(Resolved::source)
     }
     pub fn api_key(&self) -> Option<&Resolved<ConfigSecret>> {
         self.api_key.as_ref()
@@ -594,26 +609,47 @@ impl ConfigOptions {
     pub fn sourced_issue_sort(&self) -> Option<&Resolved<IssueSort>> {
         self.issue_sort.as_ref()
     }
-    pub fn issue_create_ask_project(&self) -> Option<&Resolved<bool>> {
-        self.issue_create_ask_project.as_ref()
+    /// Whether `issue create` asks for a project; off by default.
+    pub fn issue_create_ask_project(&self) -> bool {
+        self.issue_create_ask_project
+            .as_ref()
+            .is_some_and(|resolved| resolved.value)
     }
-    pub fn issue_create_assign_self(&self) -> Option<&Resolved<AssignSelf>> {
-        self.issue_create_assign_self.as_ref()
+    pub fn issue_create_assign_self(&self) -> AssignSelf {
+        self.issue_create_assign_self
+            .as_ref()
+            .map_or(AssignSelf::Auto, |resolved| resolved.value)
     }
-    pub fn vcs(&self) -> Option<&Resolved<Vcs>> {
-        self.vcs.as_ref()
+    pub fn vcs(&self) -> Vcs {
+        self.vcs.as_ref().map_or(Vcs::Git, |resolved| resolved.value)
     }
-    pub fn download_images(&self) -> Option<&Resolved<bool>> {
-        self.download_images.as_ref()
+    #[cfg(test)]
+    pub fn vcs_source(&self) -> Option<&OptionSource> {
+        self.vcs.as_ref().map(Resolved::source)
     }
-    pub fn hyperlink_format(&self) -> Option<&Resolved<String>> {
-        self.hyperlink_format.as_ref()
+    /// Whether issue and document views download images; on by default.
+    pub fn download_images(&self) -> bool {
+        self.download_images
+            .as_ref()
+            .is_none_or(|resolved| resolved.value)
     }
-    pub fn attachment_dir(&self) -> Option<&Resolved<String>> {
-        self.attachment_dir.as_ref()
+    pub fn hyperlink_format(&self) -> Option<&str> {
+        self.hyperlink_format
+            .as_ref()
+            .map(|resolved| resolved.value.as_str())
     }
-    pub fn auto_download_attachments(&self) -> Option<&Resolved<bool>> {
-        self.auto_download_attachments.as_ref()
+    /// Where issue attachments are saved, when set to a non-empty path.
+    pub fn attachment_dir(&self) -> Option<&str> {
+        self.attachment_dir
+            .as_ref()
+            .map(|resolved| resolved.value.as_str())
+            .filter(|dir| !dir.is_empty())
+    }
+    /// Whether `issue view` downloads attachments; on by default.
+    pub fn auto_download_attachments(&self) -> bool {
+        self.auto_download_attachments
+            .as_ref()
+            .is_none_or(|resolved| resolved.value)
     }
     #[cfg(test)]
     pub fn sourced_pr_template(&self) -> Option<&Resolved<String>> {

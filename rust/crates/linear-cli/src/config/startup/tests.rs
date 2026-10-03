@@ -270,12 +270,12 @@ fn repo_root_supplies_dotenv_and_config() {
     let ready = load_startup(&process_in("/repo/sub", &[]), &files)
         .result
         .unwrap();
-    assert_eq!(ready.options.team_id().unwrap().value(), "ROOT");
+    assert_eq!(ready.options.team_key(), Some("ROOT"));
     assert_eq!(
-        ready.options.vcs().unwrap().source(),
-        &OptionSource::ProjectConfig {
+        ready.options.vcs_source(),
+        Some(&OptionSource::ProjectConfig {
             path: PathBuf::from("/repo/.config/linear.toml")
-        }
+        })
     );
 }
 
@@ -283,7 +283,7 @@ fn repo_root_supplies_dotenv_and_config() {
 fn outside_a_repository_cwd_dot_config_is_not_a_candidate() {
     let files = MemFiles::default().file("/work/.config/linear.toml", b"vcs = 'jj'\n");
     let ready = load_startup(&process(&[]), &files).result.unwrap();
-    assert!(ready.options.vcs().is_none());
+    assert!(ready.options.vcs_source().is_none());
 }
 
 #[test]

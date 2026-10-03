@@ -2,12 +2,9 @@ use crate::config::ConfigOptions;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 
-/// Resolve the configured team key once, preserving presence-based tier selection.
+/// The default team's key from config, if one is set.
 pub(crate) fn configured_team_key(options: &ConfigOptions) -> Option<String> {
-    match options.team_id() {
-        Some(resolved) if !resolved.value().is_empty() => Some(resolved.value().to_uppercase()),
-        Some(_) | None => None,
-    }
+    options.team_key().map(str::to_owned)
 }
 
 /// The team named by `explicit` (a `--team` flag), else the configured team.

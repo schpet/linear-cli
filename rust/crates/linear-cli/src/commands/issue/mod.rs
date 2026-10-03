@@ -100,7 +100,7 @@ pub(crate) fn infer(ctx: &Ctx) -> Result<Option<String>> {
 }
 
 pub(crate) fn vcs(ctx: &Ctx) -> Vcs {
-    ctx.options().vcs().map_or(Vcs::Git, |value| *value.value())
+    ctx.options().vcs()
 }
 
 pub(crate) fn unresolved(ctx: &Ctx) -> Error {

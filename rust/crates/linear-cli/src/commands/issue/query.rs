@@ -180,9 +180,9 @@ fn default_team(ctx: &Ctx) -> Result<String> {
             "Use --team <key, name, or ID> to specify a team, or --all-teams to query the whole workspace.",
         )
     })?;
-    let implicit = ctx.options().team_id().is_some_and(|value| {
+    let implicit = ctx.options().team_key_source().is_some_and(|source| {
         matches!(
-            value.source(),
+            source,
             OptionSource::Env | OptionSource::GlobalConfig { .. }
         )
     });

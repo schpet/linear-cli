@@ -263,10 +263,7 @@ impl Ctx {
         let columns = pager::stdout_size()
             .and_then(|size| NonZeroU16::new(size.columns))
             .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
-        let file_link = self
-            .options()
-            .hyperlink_format()
-            .map(|value| value.value().as_str());
+        let file_link = self.options().hyperlink_format();
         let options = RenderOptions::for_terminal(columns, self.color(), file_link);
         markdown_terminal::render(markdown, &options)
     }

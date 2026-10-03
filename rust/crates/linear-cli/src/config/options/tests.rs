@@ -68,7 +68,7 @@ pr_template = "  .github/pr.md  "
     let selected = dotenv(&[]);
     let options = snapshot(&inputs, &selected, Some(&config), None).expect("valid options");
     assert_eq!(OptionKey::ALL.len(), 12);
-    assert_eq!(options.team_id().expect("team").value(), "ENG");
+    assert_eq!(options.team_key(), Some("ENG"));
     assert_eq!(
         options.api_key().expect("key").value().expose(),
         "lin_api_fake"
@@ -81,34 +81,22 @@ pr_template = "  .github/pr.md  "
         options.sourced_issue_sort().expect("sort").value(),
         &IssueSort::Manual
     );
-    assert_eq!(
-        options.issue_create_ask_project().expect("ask").value(),
-        &true
-    );
-    assert_eq!(
-        options.issue_create_assign_self().expect("assign").value(),
-        &AssignSelf::Auto
-    );
-    assert_eq!(options.vcs().expect("vcs").value(), &Vcs::Jj);
-    assert_eq!(options.download_images().expect("images").value(), &true);
-    assert_eq!(options.hyperlink_format().expect("format").value(), "osc8");
-    assert_eq!(
-        options.attachment_dir().expect("attachments").value(),
-        "attachments"
-    );
-    assert_eq!(
-        options.auto_download_attachments().expect("auto").value(),
-        &false
-    );
+    assert!(options.issue_create_ask_project());
+    assert_eq!(options.issue_create_assign_self(), AssignSelf::Auto);
+    assert_eq!(options.vcs(), Vcs::Jj);
+    assert!(options.download_images());
+    assert_eq!(options.hyperlink_format(), Some("osc8"));
+    assert_eq!(options.attachment_dir(), Some("attachments"));
+    assert!(!options.auto_download_attachments());
     assert_eq!(
         options.sourced_pr_template().expect("template").value(),
         ".github/pr.md"
     );
     assert_eq!(
-        options.team_id().expect("team").source(),
-        &OptionSource::ProjectConfig {
+        options.team_key_source(),
+        Some(&OptionSource::ProjectConfig {
             path: PathBuf::from("/repo/linear.toml")
-        }
+        })
     );
     assert_eq!(
         options
@@ -133,22 +121,19 @@ fn precedence_and_shadowed_poison_are_strict() {
     let inputs = env(&[("LINEAR_TEAM_ID", "process")]);
     let selected = dotenv(&[("LINEAR_TEAM_ID", "dotenv")]);
     let options = snapshot(&inputs, &selected, Some(&project), Some(&global)).expect("valid");
-    assert_eq!(options.team_id().expect("team").value(), "process");
-    assert_eq!(
-        options.team_id().expect("team").source(),
-        &OptionSource::Env
-    );
+    assert_eq!(options.team_key(), Some("PROCESS"));
+    assert_eq!(options.team_key_source(), Some(&OptionSource::Env));
     let options = snapshot(&env(&[]), &selected, Some(&project), Some(&global)).expect("valid");
-    assert_eq!(options.team_id().expect("team").value(), "dotenv");
+    assert_eq!(options.team_key(), Some("DOTENV"));
     assert_eq!(
-        options.team_id().expect("team").source(),
-        &OptionSource::ProjectEnv {
+        options.team_key_source(),
+        Some(&OptionSource::ProjectEnv {
             path: PathBuf::from("/repo/.env")
-        }
+        })
     );
     let options = snapshot(&env(&[]), &dotenv(&[]), Some(&project), Some(&global))
         .expect("project beats global");
-    assert_eq!(options.team_id().expect("team").value(), "project");
+    assert_eq!(options.team_key(), Some("PROJECT"));
     assert_eq!(
         options.sourced_issue_sort().expect("sort").value(),
         &IssueSort::Priority
@@ -192,24 +177,18 @@ fn every_known_key_is_eagerly_checked_and_unknown_keys_are_inert() {
 fn booleans_and_enums_reject_invalid_strings_without_trimming() {
     for word in ["true", "YES", "y", "ON", "1", "T"] {
         let inputs = env(&[("LINEAR_DOWNLOAD_IMAGES", word)]);
-        assert_eq!(
+        assert!(
             snapshot(&inputs, &dotenv(&[]), None, None)
                 .expect("true word")
                 .download_images()
-                .expect("present")
-                .value(),
-            &true
         );
     }
     for word in ["false", "NO", "n", "OFF", "0", "F"] {
         let inputs = env(&[("LINEAR_DOWNLOAD_IMAGES", word)]);
-        assert_eq!(
-            snapshot(&inputs, &dotenv(&[]), None, None)
+        assert!(
+            !snapshot(&inputs, &dotenv(&[]), None, None)
                 .expect("false word")
                 .download_images()
-                .expect("present")
-                .value(),
-            &false
         );
     }
     for word in ["", " true", "1 ", "maybe"] {
@@ -237,9 +216,10 @@ fn empty_strings_are_present_and_cli_overrides_are_closed() {
         ("LINEAR_ATTACHMENT_DIR", ""),
     ]);
     let options = snapshot(&inputs, &dotenv(&[]), None, None).expect("valid empty strings");
-    assert_eq!(options.team_id().expect("present").value(), "");
+    assert_eq!(options.team_key(), None);
+    assert_eq!(options.team_key_source(), Some(&OptionSource::Env));
     assert_eq!(options.api_key().expect("present").value().expose(), "");
-    assert_eq!(options.attachment_dir().expect("present").value(), "");
+    assert_eq!(options.attachment_dir(), None);
     assert_eq!(options.issue_sort(None), (IssueSort::Priority, None));
     assert_eq!(
         options.issue_sort(Some(IssueSort::Manual)),
@@ -279,10 +259,7 @@ fn template_paths_resolve_against_their_config_file() {
             .path(),
         Path::new("/x")
     );
-    assert_eq!(
-        options.attachment_dir().expect("attachment").value(),
-        "files"
-    );
+    assert_eq!(options.attachment_dir(), Some("files"));
     let relative_global = tier("../cfg/linear/linear.toml", "pr_template = 't.md'");
     let options = snapshot(&env(&[]), &dotenv(&[]), None, Some(&relative_global))
         .expect("relative global path");
@@ -397,10 +374,10 @@ fn dotenv_only_applied_values_count_and_secret_never_formats() {
     ]);
     let options = snapshot(&env(&[]), &selected, None, None).expect("dotenv");
     assert_eq!(
-        options.team_id().expect("team").source(),
-        &OptionSource::ProjectEnv {
+        options.team_key_source(),
+        Some(&OptionSource::ProjectEnv {
             path: PathBuf::from("/repo/.env")
-        }
+        })
     );
     assert!(
         !format!(
@@ -427,13 +404,13 @@ fn windows_dotenv_lookup_is_case_insensitive() {
         diagnostics: Vec::new(),
     };
     let options = snapshot(&inputs, &selected, None, None).expect("Windows case");
-    assert_eq!(options.team_id().expect("team").value(), "ENG");
+    assert_eq!(options.team_key(), Some("ENG"));
     inputs
         .process_env
         .insert("LINEAR_TEAM_ID".to_owned(), "process".to_owned());
     let options = snapshot(&inputs, &selected, None, None)
         .expect("process wins without validating unapplied dotenv duplicate");
-    assert_eq!(options.team_id().expect("team").value(), "process");
+    assert_eq!(options.team_key(), Some("PROCESS"));
 }
 
 #[test]

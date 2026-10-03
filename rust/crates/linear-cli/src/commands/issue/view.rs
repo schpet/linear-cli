@@ -32,11 +32,8 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
         return ctx.print(fetched.json());
     }
     let options = ctx.options();
-    let download = !args.no_download && options.download_images().is_none_or(|v| *v.value());
-    let attachments = download
-        && options
-            .auto_download_attachments()
-            .is_none_or(|v| *v.value());
+    let download = !args.no_download && options.download_images();
+    let attachments = download && options.auto_download_attachments();
     let image_root = &ctx.config().image_cache_root;
     let mut issue = fetched.into_issue();
     if download {
@@ -47,8 +44,7 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     let paths = if attachments {
         let attachment_root = options
             .attachment_dir()
-            .map(|v| v.value().clone())
-            .filter(|dir| !dir.is_empty())
+            .map(str::to_owned)
             .map_or_else(
                 || {
                     image_root
@@ -75,7 +71,7 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     let columns = crate::platform::pager::stdout_size()
         .and_then(|size| std::num::NonZeroU16::new(size.columns))
         .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
-    let file_link = options.hyperlink_format().map(|v| v.value().as_str());
+    let file_link = options.hyperlink_format();
     let render = RenderOptions::for_terminal(columns, ctx.color(), file_link);
     let rendered = terminal(
         &issue,

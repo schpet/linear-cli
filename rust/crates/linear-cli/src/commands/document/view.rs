@@ -28,11 +28,7 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
         return ctx.print(json::render(&document));
     }
     let document = ctx.spin(!args.raw, body(client, &id, original))?;
-    let download = !args.no_download
-        && ctx
-            .options()
-            .download_images()
-            .is_none_or(|value| *value.value());
+    let download = !args.no_download && ctx.options().download_images();
     let content = match document
         .content
         .as_deref()

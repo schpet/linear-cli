@@ -655,7 +655,7 @@ fn id_without_a_configured_team_fails() {
     Cli::new()
         .run(&["team", "id"])
         .failure()
-        .stderr_has("No team id configured")
+        .stderr_has("No default team configured")
         .stderr_has("linear config");
 }
 

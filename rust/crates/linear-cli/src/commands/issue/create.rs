@@ -89,17 +89,12 @@ fn settings(ctx: &Ctx) -> CreateSettings {
     let options = ctx.options();
     CreateSettings {
         default_team: configured_team_key(options),
-        assign_self: match options
-            .issue_create_assign_self()
-            .map_or(ConfigAssignSelf::Auto, |value| *value.value())
-        {
+        assign_self: match options.issue_create_assign_self() {
             ConfigAssignSelf::Always => AssignSelf::Always,
             ConfigAssignSelf::Auto => AssignSelf::Auto,
             ConfigAssignSelf::Never => AssignSelf::Never,
         },
-        ask_project: options
-            .issue_create_ask_project()
-            .is_some_and(|value| *value.value()),
+        ask_project: options.issue_create_ask_project(),
     }
 }
 
