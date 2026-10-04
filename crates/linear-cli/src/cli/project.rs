@@ -255,8 +255,8 @@ pub struct ProjectCommentAdd {
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<PathBuf>,
     /// Reply to this top-level comment (by ID)
-    #[arg(long, short, visible_alias = "reply-to", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
-    pub parent: Option<String>,
+    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
+    pub reply_to: Option<String>,
 }
 
 #[derive(Debug, Args)]

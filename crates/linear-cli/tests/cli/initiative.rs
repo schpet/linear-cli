@@ -969,7 +969,7 @@ fn comment_add_resolves_the_initiative_and_posts_the_body() {
             "Roadmap",
             "--body",
             "Hello",
-            "--parent",
+            "--reply-to",
             "comment-0",
         ])
         .success()
