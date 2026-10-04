@@ -629,3 +629,52 @@ fn create_rejects_a_blank_body_before_any_request() {
     .stderr_has("The update body is empty");
     assert!(api.requests().is_empty());
 }
+
+#[test]
+fn create_without_a_body_is_a_usage_error_before_any_request() {
+    let api = MockLinear::start();
+    for stdin in [&b""[..], b"\n", b"  \n\t\n"] {
+        Cli::for_api(&api)
+            .stdin(stdin)
+            .run(&[
+                "project-update",
+                "create",
+                PROJECT_ID,
+                "--health",
+                "onTrack",
+            ])
+            .usage_error()
+            .stderr_has("No update body given")
+            .stderr_has("--body-file");
+    }
+    Cli::for_api(&api)
+        .run(&["initiative-update", "create", INITIATIVE_ID, "--no-input"])
+        .usage_error()
+        .stderr_has("No update body given");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn create_reads_the_body_from_stdin_with_a_dash() {
+    let api = MockLinear::start();
+    api.on("CreateInitiativeUpdate", initiative_created(Value::Null));
+    Cli::for_api(&api)
+        .stdin(b"\xef\xbb\xbfShipped it\n")
+        .run(&[
+            "initiative-update",
+            "create",
+            INITIATIVE_ID,
+            "--body-file",
+            "-",
+        ])
+        .success();
+    assert_eq!(
+        api.variables("CreateInitiativeUpdate")["input"]["body"],
+        "Shipped it\n"
+    );
+    Cli::for_api(&api)
+        .stdin(b" \n")
+        .run(&["project-update", "create", PROJECT_ID, "--body-file", "-"])
+        .usage_error()
+        .stderr_has("The update body is empty");
+}

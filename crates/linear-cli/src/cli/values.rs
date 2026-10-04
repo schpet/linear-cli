@@ -1,5 +1,6 @@
 //! Flag value types and parsers shared across commands.
 use std::fmt;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, Utc};
@@ -38,6 +39,34 @@ impl fmt::Display for UserRef {
         match self {
             Self::Me => f.write_str("@me"),
             Self::Query(query) => f.write_str(query),
+        }
+    }
+}
+
+/// Where to read a body or description from: a file, or `-` for stdin.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TextSource {
+    Stdin,
+    File(PathBuf),
+}
+
+impl FromStr for TextSource {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, String> {
+        match value {
+            "" => Err("expected a file path, or - for stdin".to_owned()),
+            "-" => Ok(Self::Stdin),
+            path => Ok(Self::File(PathBuf::from(path))),
+        }
+    }
+}
+
+impl fmt::Display for TextSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Stdin => f.write_str("stdin"),
+            Self::File(path) => write!(f, "{}", path.display()),
         }
     }
 }
@@ -191,6 +220,16 @@ mod tests {
         for invalid in ["", "https://linear.app/acme/profiles/ada"] {
             assert!(invalid.parse::<UserRef>().is_err(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn text_sources_read_stdin_for_a_dash() {
+        assert_eq!("-".parse(), Ok(TextSource::Stdin));
+        assert_eq!(
+            "notes.md".parse(),
+            Ok(TextSource::File(PathBuf::from("notes.md")))
+        );
+        assert!("".parse::<TextSource>().is_err());
     }
 
     #[test]

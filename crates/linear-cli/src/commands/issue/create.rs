@@ -241,7 +241,7 @@ pub struct Fields {
     pub priority: Option<Priority>,
     pub estimate: Option<i32>,
     pub description: Option<String>,
-    pub description_file: Option<std::path::PathBuf>,
+    pub description_file: Option<crate::cli::values::TextSource>,
     pub labels: Vec<String>,
     pub team: Option<String>,
     pub project: Option<String>,
@@ -254,10 +254,7 @@ pub struct Fields {
 pub type Input = crate::graphql::operations::issue::IssueCreateInput;
 impl Fields {
     pub fn local(&self) -> Result<Option<String>, Error> {
-        shared::description(
-            self.description.as_deref(),
-            self.description_file.as_deref(),
-        )
+        shared::description(self.description.as_deref(), self.description_file.as_ref())
     }
     /// Neither `--title` nor a template provides the title.
     fn needs_title(&self) -> bool {

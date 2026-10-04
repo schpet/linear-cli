@@ -10,7 +10,7 @@ pub fn run(ctx: &Ctx, args: &DocumentCommentAdd) -> Result<()> {
 
 fn add(ctx: &Ctx, args: &DocumentCommentAdd) -> Result<()> {
     let document = crate::commands::document::common::reference(ctx, &args.document)?;
-    let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
+    let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_ref())?;
     comment_add::check_parent(args.reply_to.as_deref())?;
     if body.is_none() {
         comment_add::require_editor(ctx)?;

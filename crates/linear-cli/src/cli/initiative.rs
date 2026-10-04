@@ -1,11 +1,9 @@
-use std::path::PathBuf;
-
 use chrono::NaiveDate;
 use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::{HexColor, InitiativeStatus, UserRef};
+use super::values::{HexColor, InitiativeStatus, TextSource, UserRef};
 use crate::graphql::scalars::Float;
 
 #[derive(Debug, Args)]
@@ -231,9 +229,9 @@ pub struct InitiativeCommentAdd {
     /// Comment text, in Markdown
     #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
     pub body: Option<String>,
-    /// Read the comment from a Markdown file
+    /// Read the comment from a Markdown file (- for stdin)
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
-    pub body_file: Option<PathBuf>,
+    pub body_file: Option<TextSource>,
     /// Reply to this top-level comment (by ID)
     #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub reply_to: Option<String>,

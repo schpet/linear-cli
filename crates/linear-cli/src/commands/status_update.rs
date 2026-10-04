@@ -39,12 +39,8 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
     let interactive = ctx.optional_prompts(args.interactive)?;
     let body = match (&args.body, &args.body_file) {
         (Some(body), _) => Some(body.clone()),
-        (None, Some(path)) => Some(text_input::read_file(path).map_err(|error| {
-            Error::new(format!(
-                "Failed to read body file {}: {error}",
-                path.display()
-            ))
-            .with_source(error)
+        (None, Some(source)) => Some(text_input::read_source(source).map_err(|error| {
+            Error::new(format!("Failed to read body file {source}: {error}")).with_source(error)
         })?),
         (None, None) if !ctx.stdin_tty() => text_input::read_stdin(std::io::stdin().lock())?,
         (None, None) => None,
@@ -53,6 +49,10 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
         return Err(Error::invalid("The update body is empty").with_hint(
             "Write the update with --body or --body-file, or pass neither to write it in your editor.",
         ));
+    }
+    if body.is_none() && !terminal {
+        return Err(Error::invalid("No update body given")
+            .with_hint("Pass --body or --body-file, or pipe the text on stdin."));
     }
     let (original, reference) = match target {
         Target::Project(original) => (

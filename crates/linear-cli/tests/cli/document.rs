@@ -946,3 +946,26 @@ fn update_edit_on_a_terminal_saves_only_when_confirmed() {
         .stdout_has("Canceled.");
     assert_eq!(api.operations(), ["GetDocumentForEdit"]);
 }
+
+#[test]
+fn update_reads_the_content_from_stdin_with_a_dash() {
+    let api = MockLinear::start();
+    api.on("DocumentInlineCommentGuard", guard(json!([])))
+        .on("UpdateDocument", written("UpdateDocument"));
+    Cli::for_api(&api)
+        .stdin(b"piped body\n")
+        .run(&[
+            "document",
+            "update",
+            SLUG,
+            "--content-file",
+            "-",
+            "--title",
+            "New",
+        ])
+        .success();
+    assert_eq!(
+        api.variables("UpdateDocument"),
+        json!({ "id": SLUG, "input": { "title": "New", "content": "piped body\n" } })
+    );
+}

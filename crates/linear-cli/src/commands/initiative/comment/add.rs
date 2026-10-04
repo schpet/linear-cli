@@ -11,7 +11,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
 
 fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     let original = &args.initiative;
-    let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
+    let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_ref())?;
     let reference = crate::commands::initiative::common::reference(ctx, original)?;
     comment_add::check_parent(args.reply_to.as_deref())?;
     if body.is_none() {

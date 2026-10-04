@@ -2,8 +2,7 @@
 //! the single `AddComment` mutation and its output. Each target command
 //! checks its flags, resolves its target, and only then opens the editor, so
 //! nothing typed is lost to a target that does not exist.
-use std::path::Path;
-
+use crate::cli::values::TextSource;
 use crate::client::LinearClient;
 use crate::commands::{confirm, outcome, text_input};
 use crate::ctx::Ctx;
@@ -29,7 +28,10 @@ fn is_blank(value: &str) -> bool {
 
 /// Turn `--body` / `--body-file` into a body, or `None` so the caller prompts.
 /// Supplied text is returned unchanged; blank supplied input is an error.
-pub fn resolve_body(body: Option<&str>, body_file: Option<&Path>) -> Result<Option<String>, Error> {
+pub fn resolve_body(
+    body: Option<&str>,
+    body_file: Option<&TextSource>,
+) -> Result<Option<String>, Error> {
     match (body, body_file) {
         (Some(_), Some(_)) => Err(Error::invalid("Cannot specify both --body and --body-file")),
         (None, Some(path)) => read_body_file(path).map(Some),
@@ -41,9 +43,9 @@ pub fn resolve_body(body: Option<&str>, body_file: Option<&Path>) -> Result<Opti
 }
 
 /// Invalid UTF-8 is rejected rather than replaced, so a comment never silently changes.
-fn read_body_file(path: &Path) -> Result<String, Error> {
-    let shown = path.display();
-    let content = text_input::read_file(path).map_err(|error| {
+fn read_body_file(source: &TextSource) -> Result<String, Error> {
+    let shown = source;
+    let content = text_input::read_source(source).map_err(|error| {
         if error.kind() == std::io::ErrorKind::InvalidData {
             Error::new("Body file must be valid UTF-8")
                 .with_hint(format!("Re-save {shown} as UTF-8 text, or use --body."))

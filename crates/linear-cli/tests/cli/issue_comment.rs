@@ -560,3 +560,22 @@ fn update_on_a_terminal_edits_the_existing_body() {
         "Old body (edited)"
     );
 }
+
+#[test]
+fn add_reads_the_body_from_stdin_with_a_dash() {
+    let api = MockLinear::start();
+    api.on("AddComment", created());
+    Cli::for_api(&api)
+        .stdin(b"Piped comment\n")
+        .run(&["issue", "comment", "add", "ENG-1", "--body-file", "-"])
+        .success();
+    assert_eq!(
+        api.variables("AddComment")["input"]["body"],
+        "Piped comment\n"
+    );
+    Cli::for_api(&api)
+        .stdin(b"\n")
+        .run(&["issue", "comment", "add", "ENG-1", "--body-file", "-"])
+        .usage_error()
+        .stderr_has("Body file is empty: stdin");
+}

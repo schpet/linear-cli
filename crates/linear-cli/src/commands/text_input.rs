@@ -1,6 +1,21 @@
 //! Reading user-supplied text (bodies, descriptions, document content) from files and stdin.
+use crate::cli::values::TextSource;
 use crate::error::Error;
 use std::{io::Read, path::Path};
+
+/// Reads a whole `--body-file`-style source: the named file, or all of stdin
+/// for `-`. Like [`read_file`], a byte-order mark is dropped and invalid UTF-8
+/// is an `InvalidData` error.
+pub fn read_source(source: &TextSource) -> std::io::Result<String> {
+    match source {
+        TextSource::File(path) => read_file(path),
+        TextSource::Stdin => {
+            let mut text = String::new();
+            std::io::stdin().lock().read_to_string(&mut text)?;
+            Ok(strip_bom(text))
+        }
+    }
+}
 
 /// Reads a whole UTF-8 file, dropping a leading byte-order mark. Invalid UTF-8
 /// surfaces as an `InvalidData` error rather than being replaced.

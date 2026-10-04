@@ -11,7 +11,7 @@ pub fn run(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
 
 fn add(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
     let original = &args.project;
-    let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_deref())?;
+    let body = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_ref())?;
     comment_add::check_parent(args.reply_to.as_deref())?;
     let reference = ProjectReference::parse(original, &ctx.scope()?)?;
     if body.is_none() {

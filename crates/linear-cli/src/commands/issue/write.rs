@@ -55,7 +55,7 @@ pub struct CreateSettings {
 /// `--description` counts as not given.
 pub fn description(
     inline: Option<&str>,
-    file: Option<&std::path::Path>,
+    file: Option<&crate::cli::values::TextSource>,
 ) -> Result<Option<String>, Error> {
     if inline.is_some_and(|text| !text.is_empty()) && file.is_some() {
         return Err(Error::new(
@@ -64,15 +64,12 @@ pub fn description(
     }
     match file {
         None => Ok(inline.map(str::to_owned)),
-        Some(path) => crate::commands::text_input::read_file(path)
+        Some(source) => crate::commands::text_input::read_source(source)
             .map(Some)
             .map_err(|error| {
-                Error::new(format!(
-                    "Failed to read description file: {}",
-                    path.display()
-                ))
-                .with_hint(format!("Error: {error}"))
-                .with_source(error)
+                Error::new(format!("Failed to read description file: {source}"))
+                    .with_hint(format!("Error: {error}"))
+                    .with_source(error)
             }),
     }
 }

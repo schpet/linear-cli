@@ -12,7 +12,7 @@ use crate::graphql::operations::document::*;
 use crate::platform::editor;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
-use super::common::{attach, read_file};
+use super::common::{attach, read_file, read_source};
 use super::target::{self, Kind, TargetOptions};
 
 pub fn run(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
@@ -25,7 +25,7 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         title: args.title.clone(),
         content: match (&args.content, &args.content_file) {
             (Some(content), _) => Some(content.clone()),
-            (None, Some(path)) => Some(read_file(path)?),
+            (None, Some(source)) => Some(read_source(source)?),
             (None, None) => None,
         },
         icon: args.icon.clone(),

@@ -40,7 +40,7 @@ pub struct Fields {
     pub estimate: Option<i32>,
     pub clear_estimate: bool,
     pub description: Option<String>,
-    pub description_file: Option<std::path::PathBuf>,
+    pub description_file: Option<crate::cli::values::TextSource>,
     pub labels: Option<Vec<String>>,
     pub add_labels: Option<Vec<String>>,
     pub remove_labels: Option<Vec<String>>,
@@ -180,10 +180,7 @@ impl Fields {
                 return Err(Error::new(message).with_hint(suggestion));
             }
         }
-        shared::description(
-            self.description.as_deref(),
-            self.description_file.as_deref(),
-        )
+        shared::description(self.description.as_deref(), self.description_file.as_ref())
     }
 }
 async fn labels<B: Backend>(

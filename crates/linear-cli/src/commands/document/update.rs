@@ -9,7 +9,7 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
 use crate::graphql::pagination::{self, Page};
 
-use super::common::{self, attach, read_file};
+use super::common::{self, attach, read_source};
 use super::target::{self, TargetOptions};
 
 pub fn run(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
@@ -32,7 +32,7 @@ fn update(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
     let metadata = args.title.is_some() || args.icon.is_some() || target.is_some();
     let content = match (&args.content, &args.content_file) {
         (Some(content), _) => Some(content.clone()),
-        (None, Some(path)) => Some(read_file(path)?),
+        (None, Some(source)) => Some(read_source(source)?),
         // Piped stdin is the new content when nothing else is being changed.
         (None, None) if !args.edit && !metadata && !ctx.stdin_tty() => {
             text_input::read_stdin(std::io::stdin().lock())?

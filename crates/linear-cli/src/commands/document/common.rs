@@ -1,6 +1,7 @@
 //! Helpers shared by the document commands.
 use std::path::Path;
 
+use crate::cli::values::TextSource;
 use crate::client::{LinearClient, RequestError};
 use crate::commands::text_input;
 use crate::ctx::Ctx;
@@ -43,11 +44,15 @@ pub async fn attach(
 }
 
 pub fn read_file(path: &Path) -> Result<String> {
-    text_input::read_file(path).map_err(|error| {
+    read_source(&TextSource::File(path.to_owned()))
+}
+
+pub fn read_source(source: &TextSource) -> Result<String> {
+    text_input::read_source(source).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            Error::not_found("File", &path.display().to_string())
+            Error::not_found("File", &source.to_string())
         } else {
-            Error::new(format!("Failed to read {}: {error}", path.display())).with_source(error)
+            Error::new(format!("Failed to read {source}: {error}")).with_source(error)
         }
     })
 }

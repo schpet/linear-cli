@@ -1108,3 +1108,19 @@ fn cycle_flags_accept_a_negative_offset_without_an_equals_sign() {
         .usage_error();
     assert!(api.requests().is_empty());
 }
+
+#[test]
+fn create_reads_the_description_from_stdin_with_a_dash() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("CreateIssue", created("ENG-8"));
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .stdin(b"Piped description\n")
+        .run(&["issue", "create", "-t", "Piped", "--description-file", "-"])
+        .success();
+    assert_eq!(
+        input(&api, "CreateIssue")["description"],
+        "Piped description\n"
+    );
+}

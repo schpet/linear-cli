@@ -1,10 +1,10 @@
 //! Inputs and lookups shared by `project create` and `project update`.
-use std::path::Path;
 
 use crate::graphql::operations::common::NameVariables;
 use futures_util::future::try_join_all;
 
 use crate::cli::project::{ProjectFields, Status};
+use crate::cli::values::TextSource;
 use crate::client::LinearClient;
 use crate::commands::project::collections::ResolvedRef;
 use crate::commands::template::scope::{self, TemplateScope};
@@ -54,13 +54,9 @@ pub fn content(fields: &ProjectFields) -> Result<Option<String>> {
     }
 }
 
-fn read(path: &Path, what: &str) -> Result<String> {
-    text_input::read_file(path).map_err(|error| {
-        Error::new(format!(
-            "Failed to read {what} file {}: {error}",
-            path.display()
-        ))
-        .with_source(error)
+fn read(source: &TextSource, what: &str) -> Result<String> {
+    text_input::read_source(source).map_err(|error| {
+        Error::new(format!("Failed to read {what} file {source}: {error}")).with_source(error)
     })
 }
 

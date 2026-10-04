@@ -1,6 +1,5 @@
 //! `issue comment update`: body from a flag, a file or the editor, then one mutation.
-use std::path::Path;
-
+use crate::cli::values::TextSource;
 use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueCommentUpdate,
@@ -17,7 +16,7 @@ pub fn run(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
 
 fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     let id = &args.comment_id;
-    let body = prepare_body(id, args.body.as_deref(), args.body_file.as_deref())?;
+    let body = prepare_body(id, args.body.as_deref(), args.body_file.as_ref())?;
     if body.is_none() {
         comment_add::require_editor(ctx)?;
     }
@@ -43,7 +42,7 @@ fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
 pub fn prepare_body(
     id: &str,
     body: Option<&str>,
-    file: Option<&Path>,
+    file: Option<&TextSource>,
 ) -> Result<Option<String>, Error> {
     reject_comment_url(id)?;
     reject_linear_url(id, "a comment UUID")?;
