@@ -333,11 +333,69 @@ fn create_warns_that_an_unreadable_reply_may_have_created_it() {
 }
 
 #[test]
-fn create_requires_a_name() {
+fn create_without_a_name_off_a_terminal_is_a_usage_error() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["milestone", "create", "--project", PROJECT_ID])
-        .usage_error();
+        .usage_error()
+        .stderr_has("Milestone name is required")
+        .stderr_has("Pass --name");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn create_on_a_terminal_asks_for_the_name_and_confirms() {
+    let api = MockLinear::start();
+    api.on("GetProjectName", json!({ "project": project() }))
+        .on("CreateProjectMilestone", created(Value::Null));
+    Cli::for_api(&api)
+        .run_tty(
+            &["milestone", "create", "--project", PROJECT_ID],
+            &[
+                ("Milestone name:", "Launch\r"),
+                (
+                    "Create milestone \"Launch\" in project \"Mobile App\"? (y/N)",
+                    "y\r",
+                ),
+            ],
+        )
+        .success()
+        .stdout_has("✓ Created milestone Launch");
+    assert_eq!(
+        api.variables("CreateProjectMilestone"),
+        json!({ "input": { "projectId": PROJECT_ID, "name": "Launch" } })
+    );
+}
+
+#[test]
+fn create_interactive_asks_for_the_optional_fields_too() {
+    let api = MockLinear::start();
+    api.on("CreateProjectMilestone", created(json!("2026-10-31")));
+    Cli::for_api(&api)
+        .run_tty(
+            &[
+                "milestone",
+                "create",
+                "--project",
+                PROJECT_ID,
+                "--name",
+                "Launch",
+                "-i",
+                "--yes",
+            ],
+            &[
+                ("Description:", "Ship it\r"),
+                ("Target date (YYYY-MM-DD):", "2026-10-31\r"),
+            ],
+        )
+        .success();
+    assert_eq!(
+        api.variables("CreateProjectMilestone"),
+        json!({ "input": {
+            "projectId": PROJECT_ID, "name": "Launch",
+            "description": "Ship it", "targetDate": "2026-10-31"
+        } })
+    );
 }
 
 #[test]

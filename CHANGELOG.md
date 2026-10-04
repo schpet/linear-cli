@@ -145,6 +145,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - the confirmation after writing a status update or comment in the editor names the project, initiative, or document (`Post this update to project "Mobile"?`) instead of echoing the ID or slug you typed, and says `Post this reply on …` for a reply
 - `--reply-to`/`--parent` on the `comment add` commands must be a comment UUID (anything else is a usage error before any request), and when the comment is written in the editor the comment replied to is looked up first, so nothing is typed for a reply that cannot be posted
 - no-op updates follow one rule: an update command given no fields to change fails with `No changes given` (exit 2), and an editor or `-i` session that changes nothing prints `No changes made.` and succeeds without asking. `issue comment update` no longer asks to save text left unchanged in the editor
+- `milestone create` asks for the milestone name on a terminal when `--name` is not given, as the README described, confirms typed values (skip with `--yes`), and gains `-i` to also ask for the description and target date. Without a terminal a missing `--name` is still a usage error
 
 ## [2.6.0] - 2026-09-02
 

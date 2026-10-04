@@ -253,7 +253,7 @@ linear m view <milestoneId>                     # view milestone (alias)
 linear milestone view <milestoneId> --all       # list every issue, not just the first 10
 linear milestone view <milestoneId> --json      # milestone with every issue, as JSON
 linear milestone create --project <projectId> --name "Q1 Goals" --target-date "2026-03-31"  # create a milestone
-linear m create --project <projectId>           # create a milestone (interactive)
+linear m create --project <projectId>           # create a milestone, asking for its name
 linear milestone update <milestoneId> --name "New Name"  # update milestone name
 linear m update <milestoneId> --target-date "2026-04-15"  # update target date
 linear milestone delete <milestoneId>           # delete a milestone
