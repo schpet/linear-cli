@@ -266,7 +266,8 @@ impl Cli {
         let mut seen = 0;
         for (wait_for, keys) in steps {
             loop {
-                let text = shown();
+                // Prompts wrap at the terminal width, so lines are joined for matching.
+                let text = shown().replace('\n', "");
                 if let Some(at) = text[seen..].find(wait_for) {
                     seen += at + wait_for.len();
                     break;

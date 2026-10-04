@@ -286,15 +286,19 @@ fn update_reports_api_errors() {
         .stderr_has("Comment is locked");
 }
 
+fn comment_for_delete() -> Value {
+    json!({ "comment": { "body": "Looks good\nShip it", "issue": { "identifier": "ENG-7" } } })
+}
+
 #[test]
 fn delete_removes_the_comment() {
     let api = MockLinear::start();
-    api.on(
+    api.on("GetCommentForDelete", comment_for_delete()).on(
         "DeleteComment",
         json!({ "commentDelete": { "success": true } }),
     );
     Cli::for_api(&api)
-        .run(&["issue", "comment", "delete", COMMENT_ID])
+        .run(&["issue", "comment", "delete", COMMENT_ID, "--yes"])
         .success()
         .stdout_has(&format!("✓ Deleted comment {COMMENT_ID}\n"));
     assert_eq!(api.variables("DeleteComment"), json!({ "id": COMMENT_ID }));
@@ -303,13 +307,52 @@ fn delete_removes_the_comment() {
 #[test]
 fn delete_fails_when_the_api_reports_no_success() {
     let api = MockLinear::start();
-    api.on(
+    api.on("GetCommentForDelete", comment_for_delete()).on(
         "DeleteComment",
         json!({ "commentDelete": { "success": false } }),
     );
     Cli::for_api(&api)
-        .run(&["issue", "comment", "delete", COMMENT_ID])
+        .run(&["issue", "comment", "delete", COMMENT_ID, "-y"])
         .failure();
+}
+
+#[test]
+fn delete_needs_yes_without_a_terminal() {
+    let api = MockLinear::start();
+    api.on("GetCommentForDelete", comment_for_delete());
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "delete", COMMENT_ID])
+        .failure()
+        .stderr_has("--yes");
+    assert_eq!(api.operations(), ["GetCommentForDelete"]);
+}
+
+#[test]
+fn delete_names_the_comment_and_defaults_to_no_on_a_terminal() {
+    let api = MockLinear::start();
+    api.on("GetCommentForDelete", comment_for_delete());
+    Cli::for_api(&api)
+        .run_tty(
+            &["issue", "comment", "delete", COMMENT_ID],
+            &[(
+                "delete the comment on ENG-7 (\"Looks good Ship it\")? (y/N)",
+                "\r",
+            )],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["GetCommentForDelete"]);
+}
+
+#[test]
+fn delete_reports_an_unknown_comment_before_asking() {
+    let api = MockLinear::start();
+    api.on_error("GetCommentForDelete", "Entity not found: Comment");
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "delete", COMMENT_ID, "--yes"])
+        .failure()
+        .stderr_has(&format!("Comment not found: {COMMENT_ID}"));
+    assert_eq!(api.operations(), ["GetCommentForDelete"]);
 }
 
 fn comment(id: &str, body: &str, user: &str, parent: Option<&str>) -> Value {

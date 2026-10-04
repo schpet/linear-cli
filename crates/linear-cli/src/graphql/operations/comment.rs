@@ -320,3 +320,29 @@ pub struct GetProjectComments {
     #[arguments(first: $first, after: $after, orderBy: createdAt, filter: { project: { id: { eq: $filter_id } } })]
     pub comments: CommentConnection,
 }
+
+/// What `issue comment delete` shows before asking: where the comment is and
+/// how it starts.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetCommentVariables"
+)]
+pub struct GetCommentForDelete {
+    #[arguments(id: $id)]
+    pub comment: Option<CommentForDelete>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Comment")]
+pub struct CommentForDelete {
+    pub body: String,
+    pub issue: Option<CommentForDeleteIssue>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Issue")]
+pub struct CommentForDeleteIssue {
+    pub identifier: String,
+}

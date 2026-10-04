@@ -227,6 +227,31 @@ fn relations_of(kind: &str, related: &str) -> Value {
 }
 
 #[test]
+fn relation_delete_asks_first_and_defaults_to_no() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", issue_id(ISSUE_1))
+        .on("GetIssueId", issue_id(ISSUE_2))
+        .on("FindIssueRelation", relations_of("blocks", ISSUE_2));
+    Cli::for_api(&api)
+        .run_tty(
+            &["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"],
+            &[("delete the relation ENG-1 blocks ENG-2? (y/N)", "\r")],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert!(!api.operations().contains(&"DeleteIssueRelation".to_owned()));
+    let api = MockLinear::start();
+    api.on("GetIssueId", issue_id(ISSUE_1))
+        .on("GetIssueId", issue_id(ISSUE_2))
+        .on("FindIssueRelation", relations_of("blocks", ISSUE_2));
+    Cli::for_api(&api)
+        .run(&["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"])
+        .failure()
+        .stderr_has("--yes");
+    assert!(!api.operations().contains(&"DeleteIssueRelation".to_owned()));
+}
+
+#[test]
 fn relation_delete_finds_and_deletes_the_matching_relation() {
     let api = MockLinear::start();
     api.on("GetIssueId", issue_id(ISSUE_1))
@@ -237,7 +262,9 @@ fn relation_delete_finds_and_deletes_the_matching_relation() {
             json!({ "issueRelationDelete": { "success": true } }),
         );
     Cli::for_api(&api)
-        .run(&["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"])
+        .run(&[
+            "issue", "relation", "delete", "ENG-1", "blocks", "ENG-2", "--yes",
+        ])
         .success()
         .stdout_has("✓ Deleted relation ENG-1 blocks ENG-2\n");
     assert_eq!(
@@ -257,7 +284,9 @@ fn relation_delete_fails_when_no_relation_matches() {
         .on("GetIssueId", issue_id(ISSUE_2))
         .on("FindIssueRelation", relations_of("related", ISSUE_2));
     Cli::for_api(&api)
-        .run(&["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"])
+        .run(&[
+            "issue", "relation", "delete", "ENG-1", "blocks", "ENG-2", "--yes",
+        ])
         .failure()
         .stderr_has("not found");
 }

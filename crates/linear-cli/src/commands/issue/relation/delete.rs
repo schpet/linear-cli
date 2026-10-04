@@ -1,7 +1,8 @@
-//! `issue relation delete`: remove a relation between two issues.
+//! `issue relation delete`: remove a relation between two issues after
+//! confirmation.
 use crate::cli::issue::{IssueRelationDelete, RelationType};
 use crate::client::LinearClient;
-use crate::commands::outcome;
+use crate::commands::{confirm, outcome};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue::{
@@ -14,25 +15,29 @@ pub fn run(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
 
 fn delete(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
     let (a, b) = super::pair(ctx, &args.issue_id, &args.related_issue_id)?;
+    let label = super::label(args.relation_type, &a, &b);
     let client = ctx.client()?;
-    ctx.spin(true, remove(client, args.relation_type, &a, &b))?;
-    ctx.print(outcome::done(
-        "Deleted",
-        "relation",
-        &super::label(args.relation_type, &a, &b),
-        None,
-    ))
+    let id = ctx.spin(true, find(client, args.relation_type, &a, &b))?;
+    let question = format!("Are you sure you want to delete the relation {label}?");
+    if !confirm::proceed(ctx, args.confirm.yes, &question)? {
+        return Ok(());
+    }
+    let deleted: DeleteIssueRelation = ctx.spin(true, client.mutate(DeleteVariables { id }))?;
+    if !deleted.issue_relation_delete.success {
+        return Err(Error::new("Linear did not delete the relation"));
+    }
+    ctx.print(outcome::done("Deleted", "relation", &label, None))
 }
 
-async fn remove(client: &LinearClient, kind: RelationType, a: &str, b: &str) -> Result<(), Error> {
+/// The ID of the relation of `kind` from `a` to `b`.
+async fn find(client: &LinearClient, kind: RelationType, a: &str, b: &str) -> Result<String> {
     let input = super::lookup_pair(client, kind, a, b).await?;
     let data: FindIssueRelation = client
         .query(RelationsVariables {
             issue_id: input.issue_id.clone(),
         })
         .await?;
-    let relation = data
-        .issue
+    data.issue
         .relations
         .nodes
         .iter()
@@ -40,14 +45,6 @@ async fn remove(client: &LinearClient, kind: RelationType, a: &str, b: &str) -> 
             relation.relation_type == input.relation_type.spelling()
                 && relation.related_issue.id.inner() == input.related_issue_id
         })
-        .ok_or_else(|| Error::not_found("Relation", &super::label(kind, a, b)))?;
-    let deleted: DeleteIssueRelation = client
-        .mutate(DeleteVariables {
-            id: relation.id.inner().to_owned(),
-        })
-        .await?;
-    if !deleted.issue_relation_delete.success {
-        return Err(Error::new("Linear did not delete the relation"));
-    }
-    Ok(())
+        .map(|relation| relation.id.inner().to_owned())
+        .ok_or_else(|| Error::not_found("Relation", &super::label(kind, a, b)))
 }

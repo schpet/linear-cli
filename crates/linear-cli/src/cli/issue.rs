@@ -514,6 +514,8 @@ pub struct IssueCommentDelete {
     /// Comment ID
     #[arg(value_name = "COMMENT")]
     pub comment_id: String,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]
@@ -634,6 +636,8 @@ pub struct IssueRelationDelete {
     /// The other issue
     #[arg(value_name = "RELATED")]
     pub related_issue_id: String,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]
