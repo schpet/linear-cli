@@ -604,3 +604,28 @@ fn create_with_yes_posts_the_edited_update_without_asking() {
     assert!(!run.stdout.contains("(y/N)"), "{run}");
     assert_eq!(api.operations(), ["CreateProjectUpdate"]);
 }
+
+#[test]
+fn create_rejects_a_blank_body_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).file("cwd/empty.md", "\n  \n");
+    cli.run(&[
+        "project-update",
+        "create",
+        PROJECT_ID,
+        "--body-file",
+        "empty.md",
+    ])
+    .usage_error()
+    .stderr_has("The update body is empty");
+    cli.run(&[
+        "initiative-update",
+        "create",
+        INITIATIVE_ID,
+        "--body",
+        "   ",
+    ])
+    .usage_error()
+    .stderr_has("The update body is empty");
+    assert!(api.requests().is_empty());
+}

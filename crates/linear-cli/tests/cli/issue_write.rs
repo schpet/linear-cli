@@ -1021,3 +1021,23 @@ fn create_with_yes_skips_the_question_after_a_typed_title() {
     assert!(!run.stdout.contains("(y/N)"), "{run}");
     assert_eq!(api.operations(), ["ResolveTeam", "CreateIssue"]);
 }
+
+#[test]
+fn empty_field_values_are_usage_errors_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    for args in [
+        &["issue", "update", "ENG-1", "--title", ""][..],
+        &["issue", "update", "ENG-1", "--project="],
+        &["issue", "update", "ENG-1", "--state", ""],
+        &["issue", "update", "ENG-1", "--add-label", ""],
+        &["issue", "create", "--title", ""],
+        &["issue", "create", "-t", "x", "--team", ""],
+        &["issue", "create", "-t", "x", "--label", ""],
+    ] {
+        cli.run(args)
+            .usage_error()
+            .stderr_has("a value is required");
+    }
+    assert!(api.requests().is_empty(), "{:?}", api.operations());
+}

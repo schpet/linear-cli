@@ -210,10 +210,10 @@ pub struct IssueStart {
     #[arg(long, short = 'U', conflicts_with = "all_assignees")]
     pub unassigned: bool,
     /// Git ref to create the branch from
-    #[arg(long, short, value_name = "REF")]
+    #[arg(long, short, value_name = "REF", value_parser = NonEmptyStringValueParser::new())]
     pub from_ref: Option<String>,
     /// Branch name to use instead of the issue's
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub branch: Option<String>,
 }
 
@@ -290,7 +290,7 @@ pub struct IssuePullRequest {
     #[arg(long, value_name = "BRANCH")]
     pub head: Option<String>,
     /// Start the body from this template file; the issue URL is appended
-    #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath)]
+    #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath, value_parser = NonEmptyStringValueParser::new())]
     pub template: Option<String>,
     /// Ignore the pr_template setting
     #[arg(long)]
@@ -322,7 +322,7 @@ pub struct IssueDelete {
 #[derive(Debug, Args)]
 pub struct IssueCreate {
     /// Issue title
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,
     /// Issue description, in Markdown
     #[arg(long, short)]
@@ -331,13 +331,13 @@ pub struct IssueCreate {
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub description_file: Option<PathBuf>,
     /// Team (key, name, or ID); defaults to the configured team
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Assignee: a username, email, name, or @me
     #[arg(long, short, value_name = "USER")]
     pub assignee: Option<UserRef>,
     /// Workflow state, by name or type
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub state: Option<String>,
     /// Priority, by name or number (0 none, 1 urgent to 4 low)
     #[arg(long, short, ignore_case = true)]
@@ -346,23 +346,23 @@ pub struct IssueCreate {
     #[arg(long, value_name = "POINTS", value_parser = super::values::estimate, allow_negative_numbers = true)]
     pub estimate: Option<i32>,
     /// Label; repeat for several labels
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
     /// Due date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub due_date: Option<NaiveDate>,
     /// Parent issue, like ENG-123
-    #[arg(long, value_name = "ISSUE")]
+    #[arg(long, value_name = "ISSUE", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
     /// Project (ID, slug, or name)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
     /// Project milestone (ID, or name with --project)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub milestone: Option<String>,
     /// Cycle: a name, number, `active`, `next`, `previous`, or an offset like
     /// +1 (write --cycle=-1 for a negative offset)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Start from this issue template (name or ID) instead of the team's default
     ///
@@ -370,7 +370,7 @@ pub struct IssueCreate {
     /// fills in anything you do not pass: flags override it, --label adds to
     /// its labels, and --description replaces its body. With a template,
     /// --title is optional.
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub template: Option<String>,
     /// Do not apply the team's default template
     #[arg(long)]
@@ -396,7 +396,7 @@ pub struct IssueUpdate {
     #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
     /// New title
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub title: Option<String>,
     /// New description, in Markdown
     #[arg(long, short)]
@@ -405,7 +405,7 @@ pub struct IssueUpdate {
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub description_file: Option<PathBuf>,
     /// Move the issue to this team (key, name, or ID)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
     /// Assignee: a username, email, name, or @me
     #[arg(long, short, value_name = "USER")]
@@ -414,7 +414,7 @@ pub struct IssueUpdate {
     #[arg(long)]
     pub unassign: bool,
     /// Workflow state, by name or type
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub state: Option<String>,
     /// Priority, by name or number (0 none, 1 urgent to 4 low)
     #[arg(long, short, ignore_case = true)]
@@ -426,13 +426,13 @@ pub struct IssueUpdate {
     #[arg(long)]
     pub clear_estimate: bool,
     /// Set the labels, replacing the current ones; repeatable
-    #[arg(long, short)]
+    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
     pub label: Vec<String>,
     /// Add a label, keeping the others; repeatable
-    #[arg(long, value_name = "LABEL")]
+    #[arg(long, value_name = "LABEL", value_parser = NonEmptyStringValueParser::new())]
     pub add_label: Vec<String>,
     /// Remove a label, keeping the others; repeatable
-    #[arg(long, value_name = "LABEL")]
+    #[arg(long, value_name = "LABEL", value_parser = NonEmptyStringValueParser::new())]
     pub remove_label: Vec<String>,
     /// Due date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
@@ -441,26 +441,26 @@ pub struct IssueUpdate {
     #[arg(long)]
     pub clear_due_date: bool,
     /// Parent issue, like ENG-123
-    #[arg(long, value_name = "ISSUE")]
+    #[arg(long, value_name = "ISSUE", value_parser = NonEmptyStringValueParser::new())]
     pub parent: Option<String>,
     /// Remove the parent
     #[arg(long)]
     pub clear_parent: bool,
     /// Project (ID, slug, or name)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub project: Option<String>,
     /// Remove the issue from its project
     #[arg(long)]
     pub clear_project: bool,
     /// Project milestone (ID, or name within --project or the issue's project)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub milestone: Option<String>,
     /// Remove the issue from its milestone
     #[arg(long)]
     pub clear_milestone: bool,
     /// Cycle: a name, number, `active`, `next`, `previous`, or an offset like
     /// +1 (write --cycle=-1 for a negative offset)
-    #[arg(long)]
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Remove the issue from its cycle
     #[arg(long)]

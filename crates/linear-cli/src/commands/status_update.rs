@@ -49,6 +49,11 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
         (None, None) if !ctx.stdin_tty() => text_input::read_stdin(std::io::stdin().lock())?,
         (None, None) => None,
     };
+    if body.as_deref().is_some_and(|body| body.trim().is_empty()) {
+        return Err(Error::invalid("The update body is empty").with_hint(
+            "Write the update with --body or --body-file, or pass neither to write it in your editor.",
+        ));
+    }
     let (original, reference) = match target {
         Target::Project(original) => (
             original,
