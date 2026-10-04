@@ -2,8 +2,10 @@
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
 use crate::client::LinearClient;
 use crate::error::{Error, Result};
+use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::initiative::{
-    InitiativeNameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
+    GetInitiativeName, InitiativeNameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug,
+    UrlSlugVariables,
 };
 
 /// An initiative argument, checked locally.
@@ -118,4 +120,15 @@ pub async fn resolve(
             Error::not_found("Initiative", &reference.input)
                 .with_hint("Pass an initiative UUID, slug ID, or exact initiative name.")
         })
+}
+
+/// The name of the initiative with UUID `id`, to show in a confirmation.
+pub async fn name(client: &LinearClient, id: &str) -> Result<String> {
+    let data: GetInitiativeName = client
+        .query(IdVariables { id: id.to_owned() })
+        .await
+        .map_err(|failure| failure.or_not_found("Initiative", id))?;
+    data.initiative
+        .map(|initiative| initiative.name)
+        .ok_or_else(|| Error::not_found("Initiative", id))
 }

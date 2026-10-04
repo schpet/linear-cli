@@ -588,12 +588,12 @@ fn comment_add_replies_with_a_body_file() {
             "--body-file",
             "reply.md",
             "--parent",
-            "comment-0",
+            "c0000000-0000-4000-8000-0000000000a1",
         ])
         .success();
     let input = &api.variables("AddComment")["input"];
     assert_eq!(input["projectId"], ID);
-    assert_eq!(input["parentId"], "comment-0");
+    assert_eq!(input["parentId"], "c0000000-0000-4000-8000-0000000000a1");
     assert_eq!(
         input["body"].as_str().map(str::trim_end),
         Some("**Bold** reply")
@@ -949,4 +949,28 @@ fn comment_add_on_a_terminal_resolves_the_project_before_the_editor() {
         .failure()
         .stdout_has("Project not found: Nope");
     assert!(cli.calls("editor").is_empty());
+}
+
+#[test]
+fn comment_add_on_a_terminal_names_the_project_in_the_confirmation() {
+    let api = MockLinear::start();
+    api.on(
+        "GetProjectName",
+        json!({ "project": { "id": ID, "name": "Mobile app" } }),
+    )
+    .on(
+        "AddComment",
+        json!({ "commentCreate": { "success": true, "comment": {
+            "id": "comment-new", "url": "https://linear.app/acme/comment-new"
+        } } }),
+    );
+    Cli::for_api(&api)
+        .stub_bin("editor", "printf 'Hi' > \"$1\"")
+        .env("VISUAL", "editor")
+        .run_tty(
+            &["project", "comment", "add", ID],
+            &[("Post this comment on project \"Mobile app\"? (y/N)", "y\r")],
+        )
+        .success();
+    assert_eq!(api.operations(), ["GetProjectName", "AddComment"]);
 }

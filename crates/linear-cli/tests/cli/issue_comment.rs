@@ -97,7 +97,7 @@ fn add_reads_the_body_file_and_replies_to_a_parent() {
             "--body-file",
             "body.md",
             "--parent",
-            "comment-parent",
+            "c0000000-0000-4000-8000-0000000000a1",
         ])
         .success();
     assert_eq!(
@@ -106,7 +106,7 @@ fn add_reads_the_body_file_and_replies_to_a_parent() {
             "input": {
                 "body": "# Notes\n\nFrom a file\n",
                 "issueId": "ENG-1",
-                "parentId": "comment-parent"
+                "parentId": "c0000000-0000-4000-8000-0000000000a1"
             }
         })
     );
@@ -578,4 +578,59 @@ fn add_reads_the_body_from_stdin_with_a_dash() {
         .run(&["issue", "comment", "add", "ENG-1", "--body-file", "-"])
         .usage_error()
         .stderr_has("Body file is empty: stdin");
+}
+
+const PARENT_ID: &str = "c0000000-0000-4000-8000-0000000000a1";
+
+#[test]
+fn add_refuses_a_reply_to_that_is_not_a_uuid_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "comment",
+            "add",
+            "ENG-1",
+            "--body",
+            "Hi",
+            "--reply-to",
+            "comment-1",
+        ])
+        .usage_error()
+        .stderr_has("Not a comment UUID: comment-1");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn add_on_a_terminal_checks_the_parent_before_the_editor() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
+        .on_error("GetComment", "Entity not found: Comment");
+    let cli = Cli::for_api(&api)
+        .stub_bin("editor", APPENDING_EDITOR)
+        .env("VISUAL", "editor");
+    cli.run_tty(
+        &["issue", "comment", "add", "ENG-1", "--reply-to", PARENT_ID],
+        &[],
+    )
+    .failure()
+    .stdout_has(&format!("Comment not found: {PARENT_ID}"));
+    assert!(cli.calls("editor").is_empty());
+}
+
+#[test]
+fn add_on_a_terminal_asks_to_post_a_reply() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
+        .on("GetComment", json!({ "comment": { "body": "Parent" } }))
+        .on("AddComment", created());
+    Cli::for_api(&api)
+        .stub_bin("editor", APPENDING_EDITOR)
+        .env("VISUAL", "editor")
+        .run_tty(
+            &["issue", "comment", "add", "ENG-1", "-p", PARENT_ID],
+            &[("Post this reply on ENG-1? (y/N)", "y\r")],
+        )
+        .success();
+    assert_eq!(api.variables("AddComment")["input"]["parentId"], PARENT_ID);
 }

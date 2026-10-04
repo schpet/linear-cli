@@ -551,7 +551,7 @@ fn comment_add_replies_on_the_document_content() {
             "--body",
             "Hi",
             "--parent",
-            "comment-root",
+            "c0000000-0000-4000-8000-0000000000a1",
         ])
         .success()
         .stdout_has("comment-new");
@@ -562,7 +562,7 @@ fn comment_add_replies_on_the_document_content() {
     assert_eq!(
         api.variables("AddComment"),
         json!({ "input": {
-            "body": "Hi", "parentId": "comment-root", "documentContentId": "content-1"
+            "body": "Hi", "parentId": "c0000000-0000-4000-8000-0000000000a1", "documentContentId": "content-1"
         } })
     );
 }

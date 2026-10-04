@@ -65,16 +65,42 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
         ),
     };
     let client = ctx.client()?;
-    let id = ctx.spin(true, async {
-        match &reference {
-            Reference::Project(reference) => refs::project::resolve(client, reference).await,
-            Reference::Initiative(reference) => {
-                refs::initiative::resolve(client, reference, refs::initiative::Archived::Exclude)
-                    .await
+    // Content typed on the terminal is confirmed, naming the target.
+    let asks = !args.confirm.yes && (interactive || (body.is_none() && terminal));
+    let (id, shown) = ctx.spin(true, async {
+        let (id, shown) = match &reference {
+            Reference::Project(reference) => {
+                let id = refs::project::resolve(client, reference).await?;
+                let shown = if asks {
+                    Some(format!(
+                        "project \"{}\"",
+                        refs::project::name(client, &id).await?
+                    ))
+                } else {
+                    None
+                };
+                (id, shown)
             }
-        }
+            Reference::Initiative(reference) => {
+                let id = refs::initiative::resolve(
+                    client,
+                    reference,
+                    refs::initiative::Archived::Exclude,
+                )
+                .await?;
+                let shown = if asks {
+                    Some(format!(
+                        "initiative \"{}\"",
+                        refs::initiative::name(client, &id).await?
+                    ))
+                } else {
+                    None
+                };
+                (id, shown)
+            }
+        };
+        Ok::<_, Error>((id, shown))
     })?;
-    // Content typed on the terminal is confirmed before it is posted.
     let (body, health, typed) = if interactive {
         let (body, health) = prompt(ctx, &ctx.prompter()?, body, args.health)?;
         (body, health, true)
@@ -96,7 +122,10 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
         && !confirm::proceed(
             ctx,
             args.confirm.yes,
-            &format!("Post this update to {original}?"),
+            &format!(
+                "Post this update to {}?",
+                shown.as_deref().unwrap_or(original)
+            ),
         )?
     {
         return Ok(());

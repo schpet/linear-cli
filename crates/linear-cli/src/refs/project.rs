@@ -3,7 +3,8 @@
 use crate::client::LinearClient;
 use crate::error::{Error, Result};
 use crate::graphql::operations::project::{
-    GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
+    DeleteProjectVariables, GetProjectIdByName, GetProjectIdBySlugId, GetProjectName,
+    ProjectReferenceVariables, ProjectSlugVariables,
 };
 
 use super::is_linear_uuid;
@@ -117,4 +118,13 @@ pub async fn resolve(client: &LinearClient, reference: &ProjectReference) -> Res
             "Pass a project UUID, slug ID (from `linear project list`), or exact project name.",
         )
     })
+}
+
+/// The name of the project with UUID `id`, to show in a confirmation.
+pub async fn name(client: &LinearClient, id: &str) -> Result<String> {
+    let data: GetProjectName = client
+        .query(DeleteProjectVariables { id: id.to_owned() })
+        .await
+        .map_err(|failure| failure.or_not_found("Project", id))?;
+    Ok(data.project.name)
 }

@@ -2,7 +2,7 @@
 use crate::cli::initiative::InitiativeCommentAdd;
 use crate::commands::comment_add::{self, CommentTarget};
 use crate::ctx::Ctx;
-use crate::error::{Result, ResultExt};
+use crate::error::{Error, Result, ResultExt};
 use crate::refs::{self, initiative::Archived};
 
 pub fn run(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
@@ -18,14 +18,23 @@ fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
         comment_add::require_editor(ctx)?;
     }
     let client = ctx.client()?;
-    let initiative_id = ctx.spin(
-        true,
-        refs::initiative::resolve(client, &reference, Archived::Exclude),
-    )?;
+    let (initiative_id, name) = ctx.spin(true, async {
+        let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
+        if body.is_some() {
+            return Ok::<_, Error>((id, None));
+        }
+        let (name, ()) = tokio::try_join!(
+            refs::initiative::name(client, &id),
+            comment_add::check_parent_exists(client, args.reply_to.as_deref()),
+        )?;
+        Ok((id, Some(name)))
+    })?;
     let body = match body {
         Some(body) => body,
         None => {
-            let question = format!("Post this comment on initiative {original}?");
+            let name = name.expect("the name is looked up for the editor");
+            let question =
+                comment_add::question(&format!("initiative \"{name}\""), args.reply_to.as_deref());
             match comment_add::write_in_editor(ctx, "", args.confirm.yes, &question)? {
                 Some(body) => body,
                 None => return Ok(()),

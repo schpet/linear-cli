@@ -142,6 +142,8 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `issue list --label` and `issue query --label` with a label that does not exist in the queried teams or the workspace fail with `Issue label not found` instead of silently finding no issues, like an unknown `--state` or `--assignee`
 - the label picker of `issue create -i` offers the same labels as `label list --team`: the team's and the workspace's, every page of them, where it showed only the team's first 50
 - `issue archive|delete --bulk`, `document delete --bulk`, and `initiative archive|delete --bulk` look up every listed item before asking, list what they are about to change and which items could not be found (those are skipped and fail the command), and ask about the found ones only; with nothing found they stop without asking
+- the confirmation after writing a status update or comment in the editor names the project, initiative, or document (`Post this update to project "Mobile"?`) instead of echoing the ID or slug you typed, and says `Post this reply on …` for a reply
+- `--reply-to`/`--parent` on the `comment add` commands must be a comment UUID (anything else is a usage error before any request), and when the comment is written in the editor the comment replied to is looked up first, so nothing is typed for a reply that cannot be posted
 
 ## [2.6.0] - 2026-09-02
 

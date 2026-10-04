@@ -23,12 +23,16 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
     let text = match text {
         None if args.attach.is_empty() => {
             comment_add::require_editor(ctx)?;
-            // The issue must exist before anything is typed for it.
-            ctx.spin(
-                true,
-                crate::commands::issue::id::fetch(ctx.client()?, &identifier),
-            )?;
-            let question = format!("Post this comment on {identifier}?");
+            // The issue and the comment replied to must exist before
+            // anything is typed for them.
+            let client = ctx.client()?;
+            ctx.spin(true, async {
+                tokio::try_join!(
+                    crate::commands::issue::id::fetch(client, &identifier),
+                    comment_add::check_parent_exists(client, args.reply_to.as_deref()),
+                )
+            })?;
+            let question = comment_add::question(&identifier, args.reply_to.as_deref());
             match comment_add::write_in_editor(ctx, "", args.confirm.yes, &question)? {
                 Some(body) => Some(body),
                 None => return Ok(()),

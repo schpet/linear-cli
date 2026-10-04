@@ -9,9 +9,9 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::operations::comment::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
-    DocumentCommentTargetVariables, GetDocumentCommentTarget,
+    DocumentCommentTargetVariables, GetComment, GetCommentVariables, GetDocumentCommentTarget,
 };
-use crate::refs::{reject_comment_url, reject_linear_url};
+use crate::refs::{is_linear_uuid, reject_comment_url, reject_linear_url};
 
 /// Linear requires exactly one target even for replies.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -92,14 +92,47 @@ pub fn write_in_editor(
     Ok(Some(body))
 }
 
-/// Checks `--parent` before anything is looked up: a pasted comment link
-/// gets the specific explanation, any other Linear URL the general one.
+/// Checks `--reply-to` before anything is looked up: a pasted comment link
+/// gets the specific explanation, any other Linear URL the general one, and
+/// anything else that is not a UUID is refused.
 pub fn check_parent(parent_id: Option<&str>) -> Result<()> {
     if let Some(parent) = parent_id {
         reject_comment_url(parent)?;
         reject_linear_url(parent, "the UUID of the comment to reply to")?;
+        if !is_linear_uuid(parent) {
+            return Err(Error::invalid(format!("Not a comment UUID: {parent}"))
+                .with_hint("--reply-to takes the UUID of the top-level comment to reply to, as `comment list --json` shows it."));
+        }
     }
     Ok(())
+}
+
+/// Fails unless the comment `--reply-to` names exists, so nothing is
+/// written in the editor for a reply that cannot be posted.
+pub async fn check_parent_exists(client: &LinearClient, parent_id: Option<&str>) -> Result<()> {
+    let Some(parent) = parent_id else {
+        return Ok(());
+    };
+    let data: GetComment = client
+        .query(GetCommentVariables {
+            id: parent.to_owned(),
+        })
+        .await
+        .map_err(|failure| failure.or_not_found("Comment", parent))?;
+    match data.comment {
+        Some(_) => Ok(()),
+        None => Err(Error::not_found("Comment", parent)),
+    }
+}
+
+/// The confirmation after the editor: a comment on `target`, or a reply.
+pub fn question(target: &str, parent_id: Option<&str>) -> String {
+    let what = if parent_id.is_some() {
+        "reply"
+    } else {
+        "comment"
+    };
+    format!("Post this {what} on {target}?")
 }
 
 /// Build the mutation input, with `parent_id` already checked by [`check_parent`].
@@ -156,9 +189,19 @@ pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
     .into_bytes()
 }
 
+/// A document as a comment target: the content record comments attach to,
+/// and the title to name it by.
+pub struct DocumentTarget {
+    pub document_content_id: String,
+    pub title: String,
+}
+
 /// `document(id:)` is non-null, so Linear reports a missing document as a
 /// GraphQL error; only that becomes NotFound.
-pub async fn document_content_id(client: &LinearClient, document: &str) -> Result<String, Error> {
+pub async fn document_target(
+    client: &LinearClient,
+    document: &str,
+) -> Result<DocumentTarget, Error> {
     let data: GetDocumentCommentTarget = client
         .query(DocumentCommentTargetVariables {
             id: document.to_owned(),
@@ -166,13 +209,16 @@ pub async fn document_content_id(client: &LinearClient, document: &str) -> Resul
         .await
         .map_err(|failure| failure.or_not_found("Document", document))?;
     let target = data.document;
-    target.document_content_id.ok_or_else(|| {
-        Error::new(format!(
-                "Document \"{}\" has no content record to comment on",
-                target.title
-            ),
-        )
-        .with_hint("Linear attaches document comments to the document's content; open the document in Linear once so it gets one, then retry.")
+    let Some(document_content_id) = target.document_content_id else {
+        return Err(Error::new(format!(
+            "Document \"{}\" has no content record to comment on",
+            target.title
+        ))
+        .with_hint("Linear attaches document comments to the document's content; open the document in Linear once so it gets one, then retry."));
+    };
+    Ok(DocumentTarget {
+        document_content_id,
+        title: target.title,
     })
 }
 

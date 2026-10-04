@@ -534,9 +534,17 @@ fn editor_cli(api: &MockLinear, script: &str) -> Cli {
         .env("VISUAL", "editor")
 }
 
+fn project_name(api: &MockLinear) {
+    api.on(
+        "GetProjectName",
+        json!({ "project": { "id": PROJECT_ID, "name": "Mobile" } }),
+    );
+}
+
 #[test]
 fn project_create_on_a_terminal_asks_for_health_and_confirms_after_the_editor() {
     let api = MockLinear::start();
+    project_name(&api);
     api.on("CreateProjectUpdate", project_created(json!("atRisk")));
     editor_cli(&api, EDITOR)
         .run_tty(
@@ -544,7 +552,7 @@ fn project_create_on_a_terminal_asks_for_health_and_confirms_after_the_editor() 
             &[
                 // The second choice, At Risk.
                 ("Health:", "\x1b[B\r"),
-                ("Post this update to", "y\r"),
+                ("Post this update to project \"Mobile\"? (y/N)", "y\r"),
             ],
         )
         .success()
@@ -558,6 +566,7 @@ fn project_create_on_a_terminal_asks_for_health_and_confirms_after_the_editor() 
 #[test]
 fn project_create_on_a_terminal_posts_nothing_unless_confirmed() {
     let api = MockLinear::start();
+    project_name(&api);
     editor_cli(&api, EDITOR)
         .run_tty(
             &[
@@ -571,18 +580,22 @@ fn project_create_on_a_terminal_posts_nothing_unless_confirmed() {
         )
         .success()
         .stdout_has("Canceled.");
-    assert!(api.requests().is_empty());
+    assert_eq!(api.operations(), ["GetProjectName"]);
 }
 
 #[test]
 fn initiative_create_cancels_when_the_editor_is_left_empty() {
     let api = MockLinear::start();
+    api.on(
+        "GetInitiativeName",
+        json!({ "initiative": { "id": INITIATIVE_ID, "name": "Roadmap", "slugId": "1a2b3c4d5e6f" } }),
+    );
     editor_cli(&api, ": > \"$1\"")
         .run_tty(&["initiative-update", "create", INITIATIVE_ID], &[])
         .success()
         .stdout_has("No content entered.")
         .stdout_has("Canceled.");
-    assert!(api.requests().is_empty());
+    assert_eq!(api.operations(), ["GetInitiativeName"]);
 }
 
 #[test]

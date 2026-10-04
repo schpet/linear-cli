@@ -29,6 +29,14 @@ pub struct ArchiveDetail {
     pub archived_at: Option<DateTime>,
 }
 
+/// An initiative's name, to name it in a confirmation.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
+pub struct GetInitiativeName {
+    #[arguments(id: $id)]
+    pub initiative: Option<InitiativeName>,
+}
+
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
 pub struct GetInitiativeForDelete {

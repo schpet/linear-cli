@@ -2,7 +2,7 @@
 use crate::cli::project::ProjectCommentAdd;
 use crate::commands::comment_add::{self, CommentTarget};
 use crate::ctx::Ctx;
-use crate::error::{Result, ResultExt};
+use crate::error::{Error, Result, ResultExt};
 use crate::refs::{self, project::ProjectReference};
 
 pub fn run(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
@@ -18,11 +18,23 @@ fn add(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
         comment_add::require_editor(ctx)?;
     }
     let client = ctx.client()?;
-    let project_id = ctx.spin(true, refs::project::resolve(client, &reference))?;
+    let (project_id, name) = ctx.spin(true, async {
+        let id = refs::project::resolve(client, &reference).await?;
+        if body.is_some() {
+            return Ok::<_, Error>((id, None));
+        }
+        let (name, ()) = tokio::try_join!(
+            refs::project::name(client, &id),
+            comment_add::check_parent_exists(client, args.reply_to.as_deref()),
+        )?;
+        Ok((id, Some(name)))
+    })?;
     let body = match body {
         Some(body) => body,
         None => {
-            let question = format!("Post this comment on project {original}?");
+            let name = name.expect("the name is looked up for the editor");
+            let question =
+                comment_add::question(&format!("project \"{name}\""), args.reply_to.as_deref());
             match comment_add::write_in_editor(ctx, "", args.confirm.yes, &question)? {
                 Some(body) => body,
                 None => return Ok(()),

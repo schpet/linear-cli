@@ -1005,13 +1005,13 @@ fn comment_add_resolves_the_initiative_and_posts_the_body() {
             "--body",
             "Hello",
             "--reply-to",
-            "comment-0",
+            "c0000000-0000-4000-8000-0000000000a1",
         ])
         .success()
         .stdout_has("https://linear.app/acme/comment/c0de");
     assert_eq!(
         api.variables("AddComment"),
-        json!({ "input": { "body": "Hello", "initiativeId": ID, "parentId": "comment-0" } })
+        json!({ "input": { "body": "Hello", "initiativeId": ID, "parentId": "c0000000-0000-4000-8000-0000000000a1" } })
     );
     assert_eq!(
         api.variables("ResolveInitiativeBySlug"),
