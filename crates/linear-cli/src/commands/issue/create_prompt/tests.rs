@@ -322,6 +322,7 @@ fn a_near_miss_offers_the_closest_names() {
     let named = |id: &str, name: &str| Named {
         id: id.into(),
         name: name.into(),
+        detail: Some(format!("slug-{id}")),
     };
     let mut ui = Script::default();
     assert_eq!(
@@ -335,20 +336,17 @@ fn a_near_miss_offers_the_closest_names() {
         create::select_option(&mut ui, "Project", "P", &one).expect("one candidate"),
         Some("a".into())
     );
-    assert_eq!(
-        ui.shown,
-        ["Project named P does not exist, but old exists. Is this what you meant?"]
-    );
+    assert_eq!(ui.shown, ["Project \"P\" not found. Use \"old\"?"]);
 
     let several = [named("10", "ten"), named("2", "two"), named("10", "TEN")];
-    for (answer, chosen) in [("two", Some("2")), ("none of the above", None)] {
+    for (answer, chosen) in [("two", Some("2")), ("None of these", None)] {
         let mut ui = Script::answering(&[answer]);
         assert_eq!(
             create::select_option(&mut ui, "Project", "missing", &several).expect("choice"),
             chosen.map(str::to_owned)
         );
         let labels: Vec<_> = ui.menus[0].iter().map(String::as_str).collect();
-        assert_eq!(labels, ["ten", "two", "none of the above"]);
+        assert_eq!(labels, ["ten", "two", "None of these"]);
         ui.done();
     }
 }
@@ -361,16 +359,19 @@ async fn additional_fields_keep_menu_order_defaults_and_typed_values() {
                 id: "label-a".into(),
                 name: "First label".into(),
                 color: "#abcdef".into(),
+                team_key: Some("ENG".into()),
             },
             Label {
                 id: "label-b".into(),
                 name: "Second label".into(),
                 color: "#abcdef".into(),
+                team_key: None,
             },
         ],
         projects: vec![Named {
             id: "release".into(),
             name: "Release".into(),
+            detail: Some("rel123".into()),
         }],
         ..Linear::default()
     };
@@ -517,6 +518,7 @@ async fn project_selection_or_decline_survives_unrelated_additional_fields() {
             projects: vec![Named {
                 id: "release".into(),
                 name: "Release".into(),
+                detail: Some("rel123".into()),
             }],
             ..Linear::default()
         };
@@ -535,6 +537,45 @@ async fn project_selection_or_decline_survives_unrelated_additional_fields() {
         assert!(!ui.menus[2].contains(&"Project".to_owned()));
         assert_eq!(input(created)["projectId"], project);
     }
+}
+
+#[tokio::test]
+async fn pickers_tell_apart_projects_and_labels_that_share_a_name() {
+    let label = |id: &str, team_key: Option<&str>| Label {
+        id: id.into(),
+        name: "Bug".into(),
+        color: "#abcdef".into(),
+        team_key: team_key.map(str::to_owned),
+    };
+    let project = |id: &str, slug: &str| Named {
+        id: id.into(),
+        name: "Mobile".into(),
+        detail: Some(slug.into()),
+    };
+    let linear = Linear {
+        labels: vec![label("team-bug", Some("ENG")), label("workspace-bug", None)],
+        projects: vec![project("old", "old123"), project("new", "new456")],
+        ..Linear::default()
+    };
+    let mut ui = Script::answering(&["Title", "", "Mobile (new456)", "Add more fields", "No"]);
+    ui.checked = [vec!["Labels"], vec!["Bug (workspace)"]].into();
+    let created = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Never, true),
+        &Fields::default(),
+    )
+    .await
+    .expect("issue input");
+    ui.done();
+    assert_eq!(
+        ui.menus[0],
+        ["No project", "Mobile (old123)", "Mobile (new456)"]
+    );
+    assert_eq!(ui.menus[3], ["Bug (ENG)", "Bug (workspace)"]);
+    let input = input(created);
+    assert_eq!(input["projectId"], "new");
+    assert_eq!(input["labelIds"], json!(["workspace-bug"]));
 }
 
 #[tokio::test]
@@ -570,8 +611,8 @@ async fn a_team_picker_returns_the_selected_team_and_start_answer() {
 fn near_miss_choices_distinguish_duplicate_labels_and_the_decline_label() {
     for (names, answer, expected) in [
         (["same", "same"], "#1", Some("second")),
-        (["other", "none of the above"], "#1", Some("second")),
-        (["other", "none of the above"], "#2", None),
+        (["other", "None of these"], "#1", Some("second")),
+        (["other", "None of these"], "#2", None),
     ] {
         let options = names
             .into_iter()
@@ -579,6 +620,7 @@ fn near_miss_choices_distinguish_duplicate_labels_and_the_decline_label() {
             .map(|(name, id)| Named {
                 id: id.into(),
                 name: name.into(),
+                detail: Some(format!("slug-{id}")),
             })
             .collect::<Vec<_>>();
         let mut ui = Script::answering(&[answer]);
@@ -590,10 +632,11 @@ fn near_miss_choices_distinguish_duplicate_labels_and_the_decline_label() {
         );
         ui.done();
     }
-    let mut ui = Script::answering(&["no"]);
+    let mut ui = Script::answering(&["No"]);
     let options = [Named {
         id: "first".into(),
         name: "Only".into(),
+        detail: None,
     }];
     assert_eq!(
         create::select_option(&mut ui, "Project", "missing", &options).expect("decline"),

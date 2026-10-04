@@ -41,12 +41,9 @@ fn project_menu<U: Ui>(
         ))?;
         return Ok(None);
     }
+    let options: Vec<&Named> = projects.iter().collect();
     let rows = std::iter::once(Choice::new("No project", None))
-        .chain(
-            projects
-                .iter()
-                .map(|project| Choice::new(&project.name, Some(project.id.clone()))),
-        )
+        .chain(Named::choices(&options))
         .collect();
     ui.choose("Project:", rows, 0)
 }
@@ -140,10 +137,16 @@ async fn additional<B: Backend, U: Ui>(
                 more.priority = (value != Priority::None).then(|| value.number());
             }
             Field::Labels if !labels.is_empty() => {
-                let options: Vec<_> = labels
-                    .iter()
-                    .map(|l| Choice::new(&l.name, l.id.clone()))
-                    .collect();
+                let options = crate::platform::prompt::distinct_choices(
+                    labels
+                        .iter()
+                        .map(|l| {
+                            let owner =
+                                l.team_key.clone().unwrap_or_else(|| "workspace".to_owned());
+                            (l.name.clone(), Some(owner), l.id.clone())
+                        })
+                        .collect(),
+                );
                 more.labels = ui.checkbox("Labels:", options)?;
             }
             Field::Labels => ui.note(&format!(

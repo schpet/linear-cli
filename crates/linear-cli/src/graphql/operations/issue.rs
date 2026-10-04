@@ -5,7 +5,6 @@ use serde::Serialize;
 use super::common::DeletePayload;
 use super::common::IdVariablesFields;
 use super::project::ProjectFilter;
-use super::project::ProjectRef;
 use super::team::TeamKey;
 use super::team::TeamRef;
 use crate::graphql::edit::Edit;
@@ -743,7 +742,7 @@ pub struct GetProjectsForTeam {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
 pub struct ProjectsPage {
-    pub nodes: Vec<ProjectRef>,
+    pub nodes: Vec<super::project::ProjectChoice>,
     pub page_info: PageInfo,
 }
 

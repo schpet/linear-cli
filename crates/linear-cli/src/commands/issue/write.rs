@@ -12,6 +12,54 @@ use std::future::Future;
 pub struct Named {
     pub id: String,
     pub name: String,
+    /// Tells this apart from others with the same name in a picker, like a
+    /// project's slug ID.
+    pub detail: Option<String>,
+}
+
+/// The question offering `candidates`, near matches for the `kind` (like
+/// `Project`) the user called `original` that did not resolve, and its
+/// choices. `None` without candidates.
+pub fn suggestions(
+    kind: &str,
+    original: &str,
+    candidates: &[&Named],
+) -> Option<(String, Vec<Choice<Option<String>>>)> {
+    match candidates {
+        [] => None,
+        [only] => Some((
+            format!("{kind} \"{original}\" not found. Use \"{}\"?", only.name),
+            vec![
+                Choice::new("Yes", Some(only.id.clone())),
+                Choice::new("No", None),
+            ],
+        )),
+        many => Some((
+            format!("{kind} \"{original}\" not found. Did you mean one of these?"),
+            Named::choices(many)
+                .into_iter()
+                .chain([Choice::new("None of these", None)])
+                .collect(),
+        )),
+    }
+}
+
+impl Named {
+    /// Picker choices for `options`, telling apart those that share a name.
+    pub fn choices(options: &[&Named]) -> Vec<Choice<Option<String>>> {
+        crate::platform::prompt::distinct_choices(
+            options
+                .iter()
+                .map(|option| {
+                    (
+                        option.name.clone(),
+                        option.detail.clone(),
+                        Some(option.id.clone()),
+                    )
+                })
+                .collect(),
+        )
+    }
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct State {
@@ -25,6 +73,8 @@ pub struct Label {
     pub id: String,
     pub name: String,
     pub color: String,
+    /// The team the label belongs to, or `None` for a workspace label.
+    pub team_key: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Parent {

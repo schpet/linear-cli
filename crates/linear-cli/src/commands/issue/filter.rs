@@ -302,7 +302,7 @@ pub(super) fn resolve_project(
     client: &LinearClient,
     value: Option<&str>,
 ) -> Result<Option<String>, Error> {
-    use crate::platform::prompt::Choice;
+    use super::write::Named;
     let Some(value) = value else { return Ok(None) };
     let reference = refs::project::ProjectReference::parse(value, &ctx.scope()?)?;
     if let Some(id) = ctx.block_on(refs::project::find(client, &reference))? {
@@ -312,48 +312,29 @@ pub(super) fn resolve_project(
         ctx.block_on(client.query(GetProjectIdOptionsByNameVariables {
             name: value.to_owned(),
         }))?;
-    let mut rows: Vec<(String, String)> = vec![];
+    let mut rows: Vec<Named> = vec![];
     for row in data.projects.nodes {
-        match rows.iter_mut().find(|(id, _)| id == row.id.inner()) {
-            Some(existing) => existing.1 = row.name,
-            None => rows.push((row.id.into_inner(), row.name)),
+        if !rows.iter().any(|named| named.id == row.id.inner()) {
+            rows.push(Named {
+                id: row.id.into_inner(),
+                name: row.name,
+                detail: Some(row.slug_id),
+            });
         }
     }
-    let names = || {
-        rows.iter()
-            .map(|(_, name)| name.as_str())
-            .collect::<Vec<_>>()
-    };
-    match rows.as_slice() {
-        [] => return Err(Error::not_found("Project", value)),
-        _ if !ctx.interactive() => {
-            return Err(Error::new(format!(
-                "Project \"{value}\" not found. Similar projects: {}",
-                names().join(", ")
-            )));
-        }
-        _ => {}
+    if rows.is_empty() {
+        return Err(Error::not_found("Project", value));
     }
-    let (message, decline) = match rows.as_slice() {
-        [(_, name)] => (
-            format!(
-                "Project named {value} does not exist, but {name} exists. Is this what you meant?"
-            ),
-            "no",
-        ),
-        _ => (
-            format!(
-                "Project with {value} does not exist, but the following exist. Is any of these what you meant?"
-            ),
-            "none of the above",
-        ),
-    };
-    let single = rows.len() == 1;
-    let mut choices: Vec<_> = rows
-        .into_iter()
-        .map(|(id, name)| Choice::new(if single { "yes".to_owned() } else { name }, Some(id)))
-        .collect();
-    choices.push(Choice::new(decline, None));
+    if !ctx.interactive() {
+        let names: Vec<&str> = rows.iter().map(|named| named.name.as_str()).collect();
+        return Err(Error::new(format!(
+            "Project \"{value}\" not found. Similar projects: {}",
+            names.join(", ")
+        )));
+    }
+    let candidates: Vec<&Named> = rows.iter().collect();
+    let (message, choices) =
+        super::write::suggestions("Project", value, &candidates).expect("there are candidates");
     ctx.prompter()?.select(&message, choices)
 }
 

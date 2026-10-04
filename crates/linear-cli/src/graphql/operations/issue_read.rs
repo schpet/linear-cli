@@ -749,7 +749,7 @@ pub struct GetProjectIdOptionsByNameVariables {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
 pub struct GetProjectIdOptionsByNameProjects {
-    pub nodes: Vec<ProjectRef>,
+    pub nodes: Vec<super::project::ProjectChoice>,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug)]

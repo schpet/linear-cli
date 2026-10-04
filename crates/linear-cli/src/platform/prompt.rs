@@ -366,6 +366,26 @@ impl<T> fmt::Display for Choice<T> {
     }
 }
 
+/// Choices from `(label, detail, value)` rows, where a label several rows
+/// share gets its row's detail in parentheses so the rows can be told apart.
+pub fn distinct_choices<T>(rows: Vec<(String, Option<String>, T)>) -> Vec<Choice<T>> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (label, _, _) in &rows {
+        *counts.entry(label.to_lowercase()).or_default() += 1;
+    }
+    rows.into_iter()
+        .map(|(label, detail, value)| {
+            let shared = counts
+                .get(&label.to_lowercase())
+                .is_some_and(|count| *count > 1);
+            match detail {
+                Some(detail) if shared => Choice::new(format!("{label} ({detail})"), value),
+                Some(_) | None => Choice::new(label, value),
+            }
+        })
+        .collect()
+}
+
 /// Whether a label survives the typed filter: every word of the filter
 /// appears in it, ignoring case and the label's own spaces (which a
 /// multi-select cannot type, since space toggles a choice there).

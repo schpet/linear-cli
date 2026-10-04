@@ -465,27 +465,8 @@ pub fn select_option<U: Ui>(
         .iter()
         .filter(|option| seen.insert(option.id.as_str()))
         .collect();
-    let (message, choices) = match candidates.as_slice() {
-        [] => return Ok(None),
-        [only] => (
-            format!(
-                "{kind} named {original} does not exist, but {} exists. Is this what you meant?",
-                only.name
-            ),
-            vec![
-                Choice::new("yes", Some(only.id.clone())),
-                Choice::new("no", None),
-            ],
-        ),
-        many => (
-            format!(
-                "{kind} with {original} does not exist, but the following exist. Is any of these what you meant?"
-            ),
-            many.iter()
-                .map(|option| Choice::new(&option.name, Some(option.id.clone())))
-                .chain([Choice::new("none of the above", None)])
-                .collect(),
-        ),
+    let Some((message, choices)) = shared::suggestions(kind, original, &candidates) else {
+        return Ok(None);
     };
     ui.choose(&message, choices, 0)
 }

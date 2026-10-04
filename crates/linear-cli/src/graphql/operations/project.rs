@@ -931,6 +931,16 @@ pub struct ProjectRef {
     pub name: String,
 }
 
+/// A project offered in a picker: its slug ID tells apart projects that
+/// share a name.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Project")]
+pub struct ProjectChoice {
+    pub id: cynic::Id,
+    pub name: String,
+    pub slug_id: String,
+}
+
 /// A project's name, to name it in a confirmation.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(

@@ -67,6 +67,7 @@ impl Backend for NetworkBackend {
             .map(|team| Named {
                 id: team.id.into_inner(),
                 name: format!("{} ({})", team.name, team.key),
+                detail: None,
             })
             .collect())
     }
@@ -154,6 +155,7 @@ impl Backend for NetworkBackend {
                 .map(|l| Named {
                     id: l.id.into_inner(),
                     name: l.name,
+                    detail: None,
                 })
                 .collect(),
         ))
@@ -169,6 +171,7 @@ impl Backend for NetworkBackend {
                 id: l.id.into_inner(),
                 name: l.name,
                 color: l.color,
+                team_key: l.team.map(|team| team.key),
             })
             .collect())
     }
@@ -192,6 +195,7 @@ impl Backend for NetworkBackend {
             .map(|p| Named {
                 id: p.id.into_inner(),
                 name: p.name,
+                detail: Some(p.slug_id),
             })
             .collect())
     }
@@ -228,6 +232,7 @@ impl Backend for NetworkBackend {
                         .map(|p| Named {
                             id: p.id.into_inner(),
                             name: p.name,
+                            detail: Some(p.slug_id),
                         })
                         .collect(),
                     page_info: data.projects.page_info,

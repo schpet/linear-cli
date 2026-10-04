@@ -158,6 +158,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - an unknown `--state` gets the same error from every command (`Workflow state not found: 'x' in team ENG`), listing the states in workflow order and the state types that also work, where `issue list` and `issue update` worded it differently and ordered it differently
 - a missing value exits 2 everywhere: an issue command with no issue ID that cannot infer one (outside a repository, or on a branch that names none), `project view` with no project off a terminal, and a delete, archive, or other confirmation without `--yes` off a terminal or with `--no-input` exited 1
 - text read from a file or stdin (`--body-file`, `--description-file`, `--content-file`, `-`, or piped stdin) follows one rule on every command: a byte-order mark and trailing whitespace such as the final newline are dropped, and a file left empty is an error for a required body (`Body file is empty: stdin`) and the same as leaving the flag out for an optional field, where `issue create --description-file -` with nothing piped sent an empty description and `--body-file -` kept the final newline that piped stdin dropped
+- pickers tell apart choices that share a name: projects in `issue create -i` and in the "did you mean" suggestions for an unknown `--project` show their slug ID, and labels show their team (or `workspace`). The suggestion question is shorter (`Project "x" not found. Did you mean one of these?`)
 
 ## [2.6.0] - 2026-09-02
 
