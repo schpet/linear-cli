@@ -3,7 +3,11 @@ use crate::cli::issue::IssueRelationList;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::issue::{ListIssueRelations, ListedIssue, RelationsVariables};
+use crate::graphql::operations::issue::{
+    GetIncomingRelationsPage, GetOutgoingRelationsPage, ListIssueRelations, ListedIssue,
+    RelationsPageVariables, RelationsVariables,
+};
+use crate::graphql::pagination::{self, Page, PageInfo};
 
 pub fn run(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
     list(ctx, args).context("Failed to list relations")
@@ -23,7 +27,52 @@ async fn fetch(client: &LinearClient, identifier: &str) -> Result<ListedIssue> {
         })
         .await
         .map_err(|failure| failure.or_not_found("Issue", identifier))?;
-    Ok(data.issue)
+    let mut issue = data.issue;
+    let id = issue.id.inner().to_owned();
+    let variables = |after, first| RelationsPageVariables {
+        issue_id: id.clone(),
+        first,
+        after,
+    };
+    let outgoing = Page {
+        nodes: std::mem::take(&mut issue.relations.nodes),
+        page_info: issue.relations.page_info.clone(),
+    };
+    issue.relations.nodes = pagination::complete(outgoing, |after, first| {
+        let variables = variables(after, first);
+        async move {
+            let data: GetOutgoingRelationsPage = client.query(variables).await?;
+            let relations = data.issue.relations;
+            Ok(Page {
+                nodes: relations.nodes,
+                page_info: relations.page_info,
+            })
+        }
+    })
+    .await?;
+    let incoming = Page {
+        nodes: std::mem::take(&mut issue.inverse_relations.nodes),
+        page_info: issue.inverse_relations.page_info.clone(),
+    };
+    issue.inverse_relations.nodes = pagination::complete(incoming, |after, first| {
+        let variables = variables(after, first);
+        async move {
+            let data: GetIncomingRelationsPage = client.query(variables).await?;
+            let relations = data.issue.inverse_relations;
+            Ok(Page {
+                nodes: relations.nodes,
+                page_info: relations.page_info,
+            })
+        }
+    })
+    .await?;
+    let last = PageInfo {
+        has_next_page: false,
+        end_cursor: None,
+    };
+    issue.relations.page_info = last.clone();
+    issue.inverse_relations.page_info = last;
+    Ok(issue)
 }
 
 fn render(issue: &ListedIssue) -> String {

@@ -345,13 +345,13 @@ fn relation_list_shows_outgoing_and_incoming_relations() {
         "ListIssueRelations",
         json!({
             "issue": {
-                "identifier": "ENG-1", "title": "Main issue",
+                "id": ISSUE_1, "identifier": "ENG-1", "title": "Main issue",
                 "relations": { "nodes": [
                     { "id": "r1", "type": "blocks", "relatedIssue": { "identifier": "ENG-2", "title": "Blocked one" } }
-                ] },
+                ], "pageInfo": last_page() },
                 "inverseRelations": { "nodes": [
                     { "id": "r2", "type": "related", "issue": { "identifier": "ENG-3", "title": "Related one" } }
-                ] }
+                ], "pageInfo": last_page() }
             }
         }),
     );
@@ -365,6 +365,52 @@ fn relation_list_shows_outgoing_and_incoming_relations() {
     assert_eq!(
         api.variables("ListIssueRelations"),
         json!({ "issueId": "ENG-1" })
+    );
+}
+
+fn last_page() -> Value {
+    json!({ "hasNextPage": false, "endCursor": null })
+}
+
+#[test]
+fn relation_list_reads_every_page_of_both_directions() {
+    let api = MockLinear::start();
+    let outgoing = |n: usize| json!({ "id": format!("out-{n}"), "type": "related", "relatedIssue": { "identifier": format!("ENG-{}", n + 100), "title": format!("Out {n}") } });
+    let incoming = |n: usize| json!({ "id": format!("in-{n}"), "type": "blocks", "issue": { "identifier": format!("OPS-{n}"), "title": format!("In {n}") } });
+    api.on(
+        "ListIssueRelations",
+        json!({ "issue": {
+            "id": ISSUE_1, "identifier": "ENG-1", "title": "Main issue",
+            "relations": {
+                "nodes": (0..100).map(outgoing).collect::<Vec<_>>(),
+                "pageInfo": { "hasNextPage": true, "endCursor": "out-cursor" }
+            },
+            "inverseRelations": {
+                "nodes": (0..100).map(incoming).collect::<Vec<_>>(),
+                "pageInfo": { "hasNextPage": true, "endCursor": "in-cursor" }
+            }
+        } }),
+    )
+    .on(
+        "GetOutgoingRelationsPage",
+        json!({ "issue": { "relations": { "nodes": [outgoing(100)], "pageInfo": last_page() } } }),
+    )
+    .on(
+        "GetIncomingRelationsPage",
+        json!({ "issue": { "inverseRelations": { "nodes": [incoming(100)], "pageInfo": last_page() } } }),
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "relation", "list", "ENG-1"])
+        .success()
+        .stdout_has("ENG-1 related ENG-200: Out 100\n")
+        .stdout_has("ENG-1 blocked-by OPS-100: In 100\n");
+    assert_eq!(
+        api.variables("GetOutgoingRelationsPage"),
+        json!({ "issueId": ISSUE_1, "first": 100, "after": "out-cursor" })
+    );
+    assert_eq!(
+        api.variables("GetIncomingRelationsPage"),
+        json!({ "issueId": ISSUE_1, "first": 100, "after": "in-cursor" })
     );
 }
 

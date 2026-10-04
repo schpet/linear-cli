@@ -207,9 +207,12 @@ pub struct ListIssueRelations {
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct ListedIssue {
+    pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
+    #[arguments(first: 100)]
     pub relations: Outgoing,
+    #[arguments(first: 100)]
     pub inverse_relations: Incoming,
 }
 
@@ -217,6 +220,7 @@ pub struct ListedIssue {
 #[cynic(schema = "linear", graphql_type = "IssueRelationConnection")]
 pub struct Outgoing {
     pub nodes: Vec<OutgoingRelation>,
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -232,6 +236,7 @@ pub struct OutgoingRelation {
 #[cynic(schema = "linear", graphql_type = "IssueRelationConnection")]
 pub struct Incoming {
     pub nodes: Vec<IncomingRelation>,
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
@@ -255,6 +260,52 @@ pub struct RelationsPageVariables {
     pub issue_id: String,
     pub first: i32,
     pub after: Option<String>,
+}
+
+/// A later page of the outgoing relations `issue relation list` shows.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "RelationsPageVariables"
+)]
+pub struct GetOutgoingRelationsPage {
+    #[arguments(id: $issue_id)]
+    pub issue: OutgoingRelationsPage,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "RelationsPageVariables"
+)]
+pub struct OutgoingRelationsPage {
+    #[arguments(first: $first, after: $after)]
+    pub relations: Outgoing,
+}
+
+/// A later page of the incoming relations `issue relation list` shows.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "RelationsPageVariables"
+)]
+pub struct GetIncomingRelationsPage {
+    #[arguments(id: $issue_id)]
+    pub issue: IncomingRelationsPage,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "RelationsPageVariables"
+)]
+pub struct IncomingRelationsPage {
+    #[arguments(first: $first, after: $after)]
+    pub inverse_relations: Incoming,
 }
 
 /// A page of an issue's outgoing relations.
