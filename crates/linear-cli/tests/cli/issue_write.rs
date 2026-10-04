@@ -1,7 +1,7 @@
 //! `issue create`, `issue update`, `issue archive` and `issue delete`.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear};
+use crate::support::{Cli, MockLinear, Run};
 use crate::team::{resolve_vars, resolved};
 
 const ENG_ID: &str = "team-eng-id";
@@ -1020,6 +1020,56 @@ fn create_with_yes_skips_the_question_after_a_typed_title() {
     run.success();
     assert!(!run.stdout.contains("(y/N)"), "{run}");
     assert_eq!(api.operations(), ["ResolveTeam", "CreateIssue"]);
+}
+
+/// The `--interactive` wizard for an issue in ENG, answered up to its final
+/// question, which gets `last`.
+fn run_wizard(api: &MockLinear, last: &str) -> Run {
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetWorkflowStates",
+            json!({ "team": { "states": {
+                "nodes": [{ "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 }],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+            } } }),
+        )
+        .on("GetLabelsForTeam", json!({ "team": { "labels": { "nodes": [] } } }));
+    Cli::for_api(api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .env("LINEAR_ISSUE_CREATE_ASSIGN_SELF", "never")
+        .run_tty(
+            &["issue", "create", "-i"],
+            &[
+                ("title of your issue?", "Fix it\r"),
+                ("Description", "\r"),
+                ("What's next?", "\r"),
+                ("Start working on this issue now?", "\r"),
+                ("Create issue \"Fix it\" in ENG? (y/N)", last),
+            ],
+        )
+}
+
+#[test]
+fn the_create_wizard_creates_nothing_unless_confirmed() {
+    let api = MockLinear::start();
+    run_wizard(&api, "\r").success().stdout_has("Canceled.");
+    // States and labels load together, in either order.
+    let mut operations = api.operations();
+    operations.sort();
+    assert_eq!(
+        operations,
+        ["GetLabelsForTeam", "GetWorkflowStates", "ResolveTeam"]
+    );
+}
+
+#[test]
+fn the_create_wizard_creates_the_issue_once_confirmed() {
+    let api = MockLinear::start();
+    api.on("CreateIssue", created("ENG-7"));
+    run_wizard(&api, "y\r")
+        .success()
+        .stdout_has("✓ Created issue ENG-7");
+    assert_eq!(input(&api, "CreateIssue")["title"], "Fix it");
 }
 
 #[test]

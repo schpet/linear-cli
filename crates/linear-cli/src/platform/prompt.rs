@@ -345,10 +345,68 @@ pub fn matches(filter: &str, label: &str) -> bool {
         .all(|word| label.contains(&word.to_lowercase()))
 }
 
-/// Filtering keeps the list's own order: earlier entries score higher.
+/// How closely a label that survives the filter matches it.
+#[derive(Clone, Copy)]
+enum Rank {
+    /// The filter appears only inside a word.
+    MidWord,
+    /// Every filter word starts a word of the label.
+    WordStart,
+    /// The filter starts the label or a key in parentheses: `sc` for
+    /// "Scholie (SCH)".
+    KeyStart,
+    /// The filter is the whole label or a key in parentheses: `sch` or
+    /// `(SCH)` for "Scholie (SCH)".
+    Exact,
+}
+
+fn rank(filter: &str, label: &str) -> Option<Rank> {
+    if !matches(filter, label) {
+        return None;
+    }
+    let filter = filter.trim().to_lowercase();
+    if filter.is_empty() {
+        return Some(Rank::MidWord);
+    }
+    let label = label.trim().to_lowercase();
+    let bare =
+        |word: &str| -> String { word.trim_matches(|c: char| !c.is_alphanumeric()).to_owned() };
+    let keys: Vec<&str> = label
+        .split_whitespace()
+        .filter_map(|word| word.strip_prefix('(')?.strip_suffix(')'))
+        .collect();
+    let key = Some(bare(&filter)).filter(|key| !key.is_empty());
+    let is_key = |key: &str| keys.contains(&key);
+    if label == filter || key.as_deref().is_some_and(is_key) {
+        return Some(Rank::Exact);
+    }
+    let starts_key = |key: &str| keys.iter().any(|candidate| candidate.starts_with(key));
+    if label.starts_with(&filter) || key.as_deref().is_some_and(starts_key) {
+        return Some(Rank::KeyStart);
+    }
+    let words: Vec<String> = label.split_whitespace().map(bare).collect();
+    let word_start = filter
+        .split_whitespace()
+        .map(bare)
+        .all(|part| words.iter().any(|word| word.starts_with(&part)));
+    Some(if word_start {
+        Rank::WordStart
+    } else {
+        Rank::MidWord
+    })
+}
+
+/// Closer matches come first (see [`Rank`]), and equal ones keep the list's
+/// own order.
 fn score<T>(filter: &str, _: &Choice<T>, label: &str, index: usize) -> Option<i64> {
     let index = i64::try_from(index).expect("a select list fits in i64");
-    matches(filter, label).then_some(-index)
+    let tier = match rank(filter, label)? {
+        Rank::MidWord => 0,
+        Rank::WordStart => 1,
+        Rank::KeyStart => 2,
+        Rank::Exact => 3,
+    };
+    Some(tier * (i64::from(u32::MAX) + 1) - index)
 }
 
 /// Shows control characters (from names Linear returned, say) as escapes
@@ -488,6 +546,61 @@ mod tests {
         let second = Choice::new("Design ops", ());
         assert!(score("design", &first, "Design", 0) > score("design", &second, "Design ops", 1));
         assert_eq!(score("ops", &first, "Design", 0), None);
+    }
+
+    /// The labels left by `filter`, in the order the list shows them.
+    fn ranked<'a>(filter: &str, labels: &[&'a str]) -> Vec<&'a str> {
+        let mut scored: Vec<(i64, &str)> = labels
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &label)| {
+                score(filter, &Choice::new(label, ()), label, index).map(|score| (score, label))
+            })
+            .collect();
+        scored.sort_by_key(|&(score, _)| std::cmp::Reverse(score));
+        scored.into_iter().map(|(_, label)| label).collect()
+    }
+
+    #[test]
+    fn keys_and_word_starts_rank_above_mid_word_matches() {
+        let teams = [
+            "Peter Schilling's Team (PST)",
+            "Eschaton (ESC)",
+            "Scholie (SCH)",
+            "Schedules (SCD)",
+        ];
+        assert_eq!(
+            ranked("sch", &teams),
+            [
+                "Scholie (SCH)",
+                "Schedules (SCD)",
+                "Peter Schilling's Team (PST)",
+                "Eschaton (ESC)",
+            ]
+        );
+        assert_eq!(ranked("(SCH)", &teams), ["Scholie (SCH)"]);
+        assert_eq!(ranked("(", &["Ops", "A (B)"]), ["A (B)"]);
+        assert_eq!(
+            ranked("sc", &teams),
+            [
+                "Scholie (SCH)",
+                "Schedules (SCD)",
+                "Peter Schilling's Team (PST)",
+                "Eschaton (ESC)",
+            ]
+        );
+        assert_eq!(
+            ranked("team", &["Steam", "Platform team", "Team"]),
+            ["Team", "Platform team", "Steam"]
+        );
+    }
+
+    #[test]
+    fn an_empty_filter_keeps_list_order() {
+        assert_eq!(
+            ranked("", &["Zeta (Z)", "Alpha (A)"]),
+            ["Zeta (Z)", "Alpha (A)"]
+        );
     }
 
     #[test]

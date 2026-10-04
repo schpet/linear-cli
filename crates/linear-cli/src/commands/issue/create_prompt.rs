@@ -174,6 +174,9 @@ struct More {
 pub struct Interactive {
     pub input: Input,
     pub start: bool,
+    /// The title and team key, for the final confirmation.
+    pub title: String,
+    pub team_key: String,
 }
 /// Asks for a new issue's fields, looking up the team's states, labels and
 /// projects along the way.
@@ -310,8 +313,9 @@ pub async fn prompt<B: Backend, U: Ui>(
     let project = project.or_else(|| parent_data.and_then(|Parent { project_id, .. }| project_id));
     Ok(Interactive {
         start,
+        team_key: team.key,
         input: Input {
-            title: Edit::Set(title),
+            title: Edit::Set(title.clone()),
             assignee_id: Edit::set_or_unchanged(more.assignee),
             due_date: Edit::Unchanged,
             parent_id: Edit::set_or_unchanged(parent_id),
@@ -327,6 +331,7 @@ pub async fn prompt<B: Backend, U: Ui>(
             use_default_template: Edit::Set(fields.use_default_template),
             description: Edit::set_or_unchanged(description),
         },
+        title,
     })
 }
 

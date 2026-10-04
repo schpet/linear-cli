@@ -62,8 +62,8 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     Ok(())
 }
 
-/// Whether to ask before creating: when the title was `typed` at a prompt,
-/// unless `yes` (`--yes`) was given.
+/// Whether to ask before creating: after the `--interactive` wizard, or when
+/// the title was `typed` at a prompt, unless `yes` (`--yes`) was given.
 #[derive(Clone, Copy)]
 struct Confirm {
     typed: bool,
@@ -99,6 +99,13 @@ fn create_with(
         let prompted = ctx.block_on(super::create_prompt::prompt(
             &backend, ui, &settings, fields,
         ))?;
+        let question = format!(
+            "Create issue \"{}\" in {}?",
+            prompted.title, prompted.team_key
+        );
+        if !confirm::proceed(ctx, confirm.yes, &question)? {
+            return Ok(None);
+        }
         ui.output("Creating issue...\n\n")?;
         (prompted.input, prompted.start)
     } else {
