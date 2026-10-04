@@ -271,10 +271,67 @@ fn introspection() -> Value {
     })
 }
 
+/// Queues the replies `linear schema` needs for the introspection result
+/// `full`: the type names and directives, then every type in one batch.
+fn serve_schema(api: &MockLinear, full: &Value) {
+    api.on("SchemaOverview", schema_overview(full));
+    let types = full["__schema"]["types"].as_array().expect("types");
+    let described: serde_json::Map<String, Value> = types
+        .iter()
+        .enumerate()
+        .map(|(i, ty)| (format!("t{i}"), ty.clone()))
+        .collect();
+    api.on("SchemaTypes", Value::Object(described));
+}
+
+/// The type names and directives of the introspection result `full`.
+fn schema_overview(full: &Value) -> Value {
+    let schema = &full["__schema"];
+    let types = schema["types"].as_array().expect("types");
+    json!({
+        "__schema": {
+            "queryType": schema["queryType"],
+            "mutationType": schema["mutationType"],
+            "subscriptionType": schema["subscriptionType"],
+            "types": types.iter().map(|ty| json!({ "name": ty["name"] })).collect::<Vec<_>>(),
+            "directives": schema["directives"],
+        }
+    })
+}
+
+#[test]
+fn schema_looks_up_each_listed_type_by_name() {
+    let api = MockLinear::start();
+    serve_schema(&api, &introspection());
+    Cli::for_api(&api).run(&["schema"]).success();
+    assert_eq!(api.operations(), ["SchemaOverview", "SchemaTypes"]);
+    let request = api.request("SchemaTypes");
+    assert!(
+        request.query.contains("t4: __type(name: $t4)"),
+        "{}",
+        request.query
+    );
+    assert_eq!(
+        request.variables,
+        json!({ "t0": "Query", "t1": "User", "t2": "ID", "t3": "String", "t4": "Boolean" })
+    );
+}
+
+#[test]
+fn schema_fails_when_a_listed_type_is_not_described() {
+    let api = MockLinear::start();
+    api.on("SchemaOverview", schema_overview(&introspection()));
+    api.on("SchemaTypes", json!({}));
+    Cli::for_api(&api)
+        .run(&["schema"])
+        .failure()
+        .stderr_has("Linear listed the type Query but did not describe it");
+}
+
 #[test]
 fn schema_prints_sdl() {
     let api = MockLinear::start();
-    api.on("IntrospectionQuery", introspection());
+    serve_schema(&api, &introspection());
     let run = Cli::for_api(&api).run(&["schema"]);
     run.success()
         .stdout_has("type User")
@@ -292,7 +349,7 @@ fn schema_sorts_types_and_fields_by_name() {
         .find(|ty| ty["name"] == "User")
         .expect("User type");
     user["fields"].as_array_mut().expect("fields").reverse();
-    api.on("IntrospectionQuery", reply);
+    serve_schema(&api, &reply);
     let run = Cli::for_api(&api).run(&["schema"]);
     run.success();
     let query = run.stdout.find("type Query").expect("Query type");
@@ -306,7 +363,7 @@ fn schema_sorts_types_and_fields_by_name() {
 #[test]
 fn schema_json_prints_the_introspection_result() {
     let api = MockLinear::start();
-    api.on("IntrospectionQuery", introspection());
+    serve_schema(&api, &introspection());
     let json = Cli::for_api(&api)
         .run(&["schema", "--json"])
         .success()
@@ -325,7 +382,7 @@ fn schema_json_prints_the_introspection_result() {
 #[test]
 fn schema_writes_to_a_file() {
     let api = MockLinear::start();
-    api.on("IntrospectionQuery", introspection());
+    serve_schema(&api, &introspection());
     let cli = Cli::for_api(&api);
     cli.run(&["schema", "--output", "schema.graphql"]).success();
     assert!(cli.read("cwd/schema.graphql").contains("type User"));
@@ -334,7 +391,7 @@ fn schema_writes_to_a_file() {
 #[test]
 fn schema_reports_graphql_errors() {
     let api = MockLinear::start();
-    api.on_error("IntrospectionQuery", "Introspection is disabled");
+    api.on_error("SchemaOverview", "Introspection is disabled");
     Cli::for_api(&api)
         .run(&["schema"])
         .failure()

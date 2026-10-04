@@ -142,15 +142,24 @@ impl LinearClient {
         self.execute(M::build(variables)).await
     }
 
-    /// Sends a built operation and decodes its data as `T`, which is usually
-    /// the operation's own type; `linear schema` decodes into raw JSON.
+    /// Sends a built operation and decodes its data as `T`, usually the
+    /// operation's own type.
     pub async fn execute<T, F, V>(&self, operation: Operation<F, V>) -> Result<T, RequestError>
     where
         T: DeserializeOwned,
         V: Serialize,
     {
         let request = GraphQlRequest::new(operation).map_err(RequestError::RequestBody)?;
-        let response = self.send_request(&request).await?;
+        self.execute_request(&request).await
+    }
+
+    /// Sends a request body and decodes its data as `T`. For documents built
+    /// at run time, such as `linear schema`'s batched type queries.
+    pub async fn execute_request<T: DeserializeOwned>(
+        &self,
+        request: &GraphQlRequest,
+    ) -> Result<T, RequestError> {
+        let response = self.send_request(request).await?;
         self.classify(response)
     }
 
