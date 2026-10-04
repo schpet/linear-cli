@@ -150,7 +150,7 @@ fn pick_workspace(ctx: &Ctx, workspaces: &[String]) -> Result<String> {
         })
         .collect();
     ctx.prompter()?
-        .select_from("Select workspace:", choices, start)
+        .select_from("Select a workspace:", choices, start)
 }
 
 fn pick_team(ctx: &Ctx, teams: Vec<ResolvedTeam>) -> Result<ResolvedTeam> {

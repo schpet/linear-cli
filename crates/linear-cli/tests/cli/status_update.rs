@@ -543,7 +543,7 @@ fn project_create_on_a_terminal_asks_for_health_and_confirms_after_the_editor() 
             &["project-update", "create", PROJECT_ID],
             &[
                 // The second choice, At Risk.
-                ("Health status", "\x1b[B\r"),
+                ("Health:", "\x1b[B\r"),
                 ("Post this update to", "y\r"),
             ],
         )

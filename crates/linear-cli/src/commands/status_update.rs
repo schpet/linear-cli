@@ -240,7 +240,7 @@ fn prompt(
 /// there is no skip; on track, its default, comes first.
 fn ask_health(prompter: &Prompter<'_>) -> Result<Option<Health>> {
     let health = prompter.select(
-        "Health status",
+        "Health:",
         vec![
             Choice::new("On Track", Health::OnTrack),
             Choice::new("At Risk", Health::AtRisk),

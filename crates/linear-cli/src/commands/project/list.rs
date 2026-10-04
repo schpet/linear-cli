@@ -1,6 +1,7 @@
 //! `project list`: every project of a team (or the workspace), as a table or
 //! JSON, or the projects page opened in Linear.
 
+use std::cmp::Ordering;
 use std::time::SystemTime;
 
 use serde::Serialize;
@@ -120,13 +121,22 @@ async fn fetch(client: &LinearClient, filter: Option<ProjectFilter>) -> Result<V
     })
     .await?;
     projects.sort_by(|left, right| {
-        left.sort_order
-            .get()
-            .total_cmp(&right.sort_order.get())
-            .then_with(|| collation::compare(&left.name, &right.name))
-            .then_with(|| collation::compare(left.id.inner(), right.id.inner()))
+        manual_order(
+            (left.sort_order.get(), &left.name, left.id.inner()),
+            (right.sort_order.get(), &right.name, right.id.inner()),
+        )
     });
     Ok(projects)
+}
+
+/// The order of Linear's project list: the manual `sortOrder` projects are
+/// dragged into, then name and id to break ties. Each side is `(sortOrder,
+/// name, id)`.
+pub(super) fn manual_order(left: (f64, &str, &str), right: (f64, &str, &str)) -> Ordering {
+    left.0
+        .total_cmp(&right.0)
+        .then_with(|| collation::compare(left.1, right.1))
+        .then_with(|| collation::compare(left.2, right.2))
 }
 
 #[derive(Serialize)]

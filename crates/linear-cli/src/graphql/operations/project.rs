@@ -432,6 +432,7 @@ pub struct PickerProject {
     pub id: cynic::Id,
     pub name: String,
     pub slug_id: String,
+    pub sort_order: Float,
     pub status: PickerStatus,
     #[arguments(first: 10)]
     pub teams: PickerTeams,

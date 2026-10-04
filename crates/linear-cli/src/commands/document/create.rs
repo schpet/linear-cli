@@ -197,7 +197,7 @@ fn prompt(
         })
     };
     let required = |message| prompter.text(Text::new(message).required());
-    match prompter.select("Attach document to", targets)? {
+    match prompter.select("Attach the document to:", targets)? {
         Kind::Project => fields.project = Some(required("Project (UUID, slug ID, or name)")?),
         Kind::Issue => fields.issue = Some(required("Issue identifier (e.g., TC-123)")?),
         Kind::Team => fields.team = Some(team("Team key (e.g., ENG)")?),

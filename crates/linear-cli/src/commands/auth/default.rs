@@ -52,5 +52,6 @@ fn pick(ctx: &Ctx, workspaces: &[String], current: Option<&str>) -> Result<Strin
             Choice::new(label, name.clone())
         })
         .collect();
-    ctx.prompter()?.select("Select default workspace", choices)
+    ctx.prompter()?
+        .select("Select the default workspace:", choices)
 }

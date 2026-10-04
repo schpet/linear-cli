@@ -17,7 +17,6 @@ use crate::graphql::operations::project::{
     ProjectIssuesVariables, ProjectMilestoneStatus, ViewInverseRelation, ViewRelation,
 };
 use crate::graphql::pagination::{self, Page, PageInfo, Pages};
-use crate::platform::collation;
 use crate::platform::prompt::Choice;
 use crate::platform::style;
 use crate::refs::{self, project::ProjectReference};
@@ -85,7 +84,7 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
             .with_hint("Pass a project UUID, slug ID, or exact name."));
     }
     ctx.prompter()?
-        .select("Select a project", picker_choices(&projects))
+        .select("Select a project:", picker_choices(&projects))
 }
 
 /// The project with every issue page, so the issue counts are complete.
@@ -157,10 +156,12 @@ async fn fetch_picker(client: &LinearClient, team_key: Option<&str>) -> Result<V
 
 fn picker_choices(projects: &[PickerProject]) -> Vec<Choice<String>> {
     let mut ordered: Vec<_> = projects.iter().collect();
+    // The same order as `project list`.
     ordered.sort_by(|a, b| {
-        collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
-            .then_with(|| collation::compare(&a.slug_id, &b.slug_id))
-            .then_with(|| collation::compare(a.id.inner(), b.id.inner()))
+        super::list::manual_order(
+            (a.sort_order.get(), &a.name, a.id.inner()),
+            (b.sort_order.get(), &b.name, b.id.inner()),
+        )
     });
     ordered
         .into_iter()

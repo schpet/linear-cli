@@ -57,5 +57,5 @@ fn pick(ctx: &Ctx, workspaces: &[String], default: Option<&str>) -> Result<Strin
         })
         .collect();
     ctx.prompter()?
-        .select("Select workspace to remove", choices)
+        .select("Select a workspace to remove:", choices)
 }
