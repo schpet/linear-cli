@@ -426,7 +426,7 @@ fn create_validates_flags_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["initiative", "create"])
-        .failure()
+        .usage_error()
         .stderr_has("--name");
     cli.run(&["initiative", "create", "-n", "X", "-i"])
         .failure()
@@ -508,7 +508,7 @@ fn update_without_changes_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["initiative", "update", ID])
-        .failure()
+        .usage_error()
         .stderr_has("No changes");
     cli.run(&["initiative", "update", ID, "-i"])
         .failure()
@@ -615,7 +615,7 @@ fn archive_requires_a_target() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["initiative", "archive", "--yes"])
-        .failure()
+        .usage_error()
         .stderr_has("--bulk");
     assert!(api.requests().is_empty());
 }

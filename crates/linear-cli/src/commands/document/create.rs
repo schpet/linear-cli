@@ -47,13 +47,13 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
             default_team.as_deref(),
         )?;
     }
-    let title = fields.title.clone().ok_or_else(|| {
-        Error::new("Title is required")
-            .with_hint("Pass --title, or run in a terminal to be asked for it.")
-    })?;
+    let title = fields
+        .title
+        .clone()
+        .ok_or_else(|| ctx.missing_value("Title is required", "--title"))?;
     if !fields.target().any() {
         return Err(
-            Error::new("A document attachment target is required").with_hint(
+            Error::invalid("A document attachment target is required").with_hint(
                 "Pass one of --project, --issue, --initiative, --team, --cycle, or --release.",
             ),
         );

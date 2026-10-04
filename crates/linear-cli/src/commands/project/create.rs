@@ -78,10 +78,10 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     }
     let name = draft
         .name
-        .ok_or_else(|| Error::new("Project name is required").with_hint("Pass --name."))?;
+        .ok_or_else(|| Error::invalid("Project name is required").with_hint("Pass --name."))?;
     let teams = if draft.teams.is_empty() {
         vec![configured_team.ok_or_else(|| {
-            Error::new("At least one team is required")
+            Error::invalid("At least one team is required")
                 .with_hint("Pass --team, or run `linear config` to set a default team.")
         })?]
     } else {

@@ -17,6 +17,6 @@ pub(crate) fn team_or_configured(ctx: &Ctx, explicit: Option<&str>) -> Result<St
 
 /// No `--team` was given and no default team is configured.
 pub(crate) fn no_team() -> Error {
-    Error::new("No team given and no default team configured")
+    Error::invalid("No team given and no default team configured")
         .with_hint("Pass --team <key, name, or ID>, or run `linear config` to set a default team.")
 }

@@ -118,7 +118,7 @@ impl Fields {
     /// Flag conflicts, checked before reading files, inferring an issue or any request.
     pub fn local(&self) -> Result<Option<String>, Error> {
         if self.is_empty() {
-            return Err(Error::new("No changes given").with_hint(
+            return Err(Error::invalid("No changes given").with_hint(
                 "Pass the fields to change, like --title, --state or --assignee. Run `linear issue update --help` for all of them.",
             ));
         }

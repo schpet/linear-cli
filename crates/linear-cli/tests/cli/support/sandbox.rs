@@ -374,7 +374,8 @@ impl Run {
         self
     }
 
-    /// A clap usage error.
+    /// A usage error: from clap, or a value the command rejected after
+    /// parsing, such as a missing required value: status 2.
     #[track_caller]
     pub fn usage_error(&self) -> &Self {
         assert_eq!(self.code, 2, "expected a usage error\n{self}");

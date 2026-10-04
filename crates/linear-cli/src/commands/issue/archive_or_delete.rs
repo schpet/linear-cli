@@ -21,7 +21,7 @@ pub struct Request<'a> {
 
 pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     if !request.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     if request.bulk.requested() {
         return run_bulk(ctx, mode, request);
@@ -29,7 +29,7 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     let identifier = match (mode, request.issue_id) {
         (Mode::Delete, None) => {
             return Err(
-                Error::new("Issue ID required").with_hint("Use --bulk for multiple issues.")
+                Error::invalid("Issue ID required").with_hint("Use --bulk for multiple issues.")
             );
         }
         (Mode::Archive, input) => super::require(ctx, input)?,

@@ -58,13 +58,17 @@ fn interactive_without_a_terminal_fails_before_any_request() {
 fn missing_required_values_without_a_terminal_name_the_flag() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
-    cli.run(&["label", "create"]).failure().stderr_has("--name");
-    cli.run(&["team", "create"]).failure().stderr_has("--name");
+    cli.run(&["label", "create"])
+        .usage_error()
+        .stderr_has("--name");
+    cli.run(&["team", "create"])
+        .usage_error()
+        .stderr_has("--name");
     cli.run(&["issue", "create"])
-        .failure()
+        .usage_error()
         .stderr_has("--title");
     cli.run(&["document", "create", "--team", "ENG"])
-        .failure()
+        .usage_error()
         .stderr_has("--title");
     assert!(api.requests().is_empty());
 }
@@ -76,5 +80,30 @@ fn issue_create_interactive_takes_no_field_flags() {
         .run(&["issue", "create", "-i", "--title", "x"])
         .usage_error()
         .stderr_has("--title");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn missing_values_under_no_input_do_not_suggest_a_terminal() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    let run = cli.run(&["--no-input", "issue", "create"]);
+    run.usage_error().stderr_has("Pass --title");
+    assert!(!run.stderr.contains("terminal"), "{run}");
+    let run = cli.run(&["issue", "create"]);
+    run.usage_error()
+        .stderr_has("or run in a terminal to be asked");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn the_issue_start_picker_without_a_terminal_names_what_it_would_ask() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["--no-input", "issue", "start"])
+        .failure()
+        .stderr_has("needs to ask which issue to start, but --no-input is set")
+        .stderr_has("Pass an issue ID");
     assert!(api.requests().is_empty());
 }

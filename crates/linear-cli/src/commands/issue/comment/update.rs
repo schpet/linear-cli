@@ -21,8 +21,7 @@ fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     let body = prepare_body(id, args.body.as_deref(), args.body_file.as_deref())?;
     let body = body.filter(|body| !needs_prompt(Some(body)));
     if body.is_none() && !ctx.interactive() {
-        return Err(Error::new("No comment body given")
-            .with_hint("Pass --body or --body-file, or run in a terminal to be prompted."));
+        return Err(ctx.missing_value("No comment body given", "--body or --body-file"));
     }
     let client = ctx.client()?;
     let body = match body {
@@ -47,7 +46,7 @@ pub fn prepare_body(
     reject_comment_url(id)?;
     reject_linear_url(id, "a comment UUID")?;
     if body.is_some_and(|value| !value.is_empty()) && file.is_some() {
-        return Err(Error::new("Cannot specify both --body and --body-file"));
+        return Err(Error::invalid("Cannot specify both --body and --body-file"));
     }
     match file {
         Some(path) => crate::commands::text_input::read_file(path)

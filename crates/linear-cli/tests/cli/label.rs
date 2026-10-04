@@ -329,7 +329,7 @@ fn create_without_a_name_needs_a_terminal() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["label", "create", "-c", "#ABCDEF"])
-        .failure()
+        .usage_error()
         .stderr_has("--name");
 }
 

@@ -38,7 +38,7 @@ fn set_default(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
 
 fn pick(ctx: &Ctx, workspaces: &[String], current: Option<&str>) -> Result<String> {
     if !ctx.interactive() {
-        return Err(Error::new("No workspace given")
+        return Err(Error::invalid("No workspace given")
             .with_hint("Name it: `linear auth default <workspace>`."));
     }
     let choices = workspaces

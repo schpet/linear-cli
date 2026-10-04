@@ -240,7 +240,7 @@ fn members_without_a_team_fail_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["team", "members"])
-        .failure()
+        .usage_error()
         .stderr_has("No team given");
     assert!(api.requests().is_empty());
 }
@@ -446,7 +446,7 @@ fn create_without_a_name_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["team", "create", "--no-interactive"])
-        .failure()
+        .usage_error()
         .stderr_has("name");
     assert!(api.requests().is_empty());
 }

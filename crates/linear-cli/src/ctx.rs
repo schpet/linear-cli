@@ -386,14 +386,15 @@ impl Ctx {
         Ok(true)
     }
 
-    /// Fails unless the command may ask questions (see [`Ctx::interactive`]),
-    /// naming `flag` as the way to skip the prompt.
-    pub fn require_tty(&self, flag: &str) -> Result<()> {
+    /// Fails unless the command may ask questions (see [`Ctx::interactive`]).
+    /// `question` completes "This command needs to ask …", and `flag` names
+    /// the way to go on without asking.
+    pub fn require_tty(&self, question: &str, flag: &str) -> Result<()> {
         if self.interactive() {
             Ok(())
         } else {
             Err(Error::new(format!(
-                "This command needs to ask for confirmation, but {}",
+                "This command needs to ask {question}, but {}",
                 self.no_prompts_reason()
             ))
             .with_hint(format!("Pass {flag} to proceed without a prompt.")))
@@ -403,8 +404,20 @@ impl Ctx {
     /// Asks a yes/no question on the terminal, defaulting to no. Without a
     /// terminal it fails, naming `skip_flag` as the way to proceed.
     pub fn confirm(&self, message: &str, skip_flag: &str) -> Result<bool> {
-        self.require_tty(skip_flag)?;
+        self.require_tty("for confirmation", skip_flag)?;
         self.prompter()?.confirm(message, false)
+    }
+
+    /// The usage error for a required value that was not given and cannot be
+    /// asked for. `flags` completes "Pass …"; running in a terminal is
+    /// suggested too, unless `--no-input` is what rules out asking.
+    pub fn missing_value(&self, message: &str, flags: &str) -> Error {
+        let hint = if self.no_input {
+            format!("Pass {flags}.")
+        } else {
+            format!("Pass {flags}, or run in a terminal to be asked.")
+        };
+        Error::invalid(message).with_hint(hint)
     }
 
     /// Questions on the terminal. Commands check for a terminal first, with an

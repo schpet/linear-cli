@@ -149,7 +149,7 @@ fn validate(fields: Fields) -> Result<Valid> {
     let name = fields
         .name
         .filter(|name| !name.is_empty())
-        .ok_or_else(|| Error::new("Initiative name is required. Use --name or -n flag."))?;
+        .ok_or_else(|| Error::invalid("Initiative name is required").with_hint("Pass --name."))?;
     let nonempty = |value: Option<String>| value.filter(|value| !value.is_empty());
     Ok(Valid {
         name,

@@ -18,8 +18,7 @@ fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
     let optional = ctx.optional_prompts(args.interactive)?;
     let input = if args.name.is_none() || optional {
         if !ctx.interactive() {
-            return Err(Error::new("Team name is required")
-                .with_hint("Pass --name, or run in a terminal to be asked for it."));
+            return Err(ctx.missing_value("Team name is required", "--name"));
         }
         ask(&ctx.prompter()?, args, optional)?
     } else {

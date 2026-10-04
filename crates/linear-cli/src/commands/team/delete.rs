@@ -20,7 +20,7 @@ pub fn run(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
 
 fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
     if !args.confirm.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     let scope = ctx.scope()?;
     let source = TeamReference::parse(&args.team, &scope)?;

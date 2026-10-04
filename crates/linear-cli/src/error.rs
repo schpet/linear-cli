@@ -13,6 +13,10 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum ErrorKind {
     /// An ordinary failure: `✗ message`, exit status 1.
     Other,
+    /// Input that parsed but cannot be used, such as a missing required value
+    /// or an empty field: reported like [`ErrorKind::Other`], exit status 2
+    /// like any usage error.
+    Invalid,
     /// A command-line usage error, rendered and given its exit status by clap.
     Usage(clap::Error),
     /// The user cancelled a prompt (Ctrl-C or Esc): exit status 130, no message.
@@ -49,6 +53,11 @@ impl Error {
 
     pub fn new(message: impl Into<String>) -> Self {
         Self::with_kind(ErrorKind::Other, message.into())
+    }
+
+    /// A usage error found after parsing; see [`ErrorKind::Invalid`].
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self::with_kind(ErrorKind::Invalid, message.into())
     }
 
     /// Missing or rejected credentials, with a hint to log in.
@@ -125,6 +134,7 @@ impl Error {
     pub fn exit_code(&self) -> u8 {
         match &self.kind {
             ErrorKind::Other => 1,
+            ErrorKind::Invalid => 2,
             ErrorKind::Usage(error) => u8::try_from(error.exit_code()).unwrap_or(2),
             ErrorKind::Cancelled => 130,
             ErrorKind::Exit(status) => status.get(),

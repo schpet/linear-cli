@@ -40,7 +40,7 @@ impl TeamArg {
             None => configured_team_key(ctx.options())
                 .map(Self::Configured)
                 .ok_or_else(|| {
-                    Error::new("No team given and none is configured").with_hint(
+                    Error::invalid("No team given and none is configured").with_hint(
                         "Pass a team key, name, or ID, or run `linear config` to set a default team.",
                     )
                 }),

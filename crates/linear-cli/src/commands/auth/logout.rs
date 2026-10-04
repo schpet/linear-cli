@@ -23,7 +23,7 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
         (None, [only]) => only.clone(),
         (None, workspaces) => {
             if !ctx.interactive() {
-                return Err(Error::new("No workspace given")
+                return Err(Error::invalid("No workspace given")
                     .with_hint("Name it: `linear auth logout <workspace>`."));
             }
             pick(ctx, workspaces, credentials.default())?

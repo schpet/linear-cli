@@ -377,10 +377,10 @@ fn create_requires_a_name_and_team_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["project", "create", "--team", "SRC"])
-        .failure()
+        .usage_error()
         .stderr_has("--name");
     cli.run(&["project", "create", "--name", "New"])
-        .failure()
+        .usage_error()
         .stderr_has("--team");
     assert!(api.requests().is_empty());
 }
@@ -758,7 +758,7 @@ fn update_without_changes_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["project", "update", ID])
-        .failure()
+        .usage_error()
         .stderr_has("No changes");
     assert!(api.requests().is_empty());
 }
@@ -858,7 +858,7 @@ fn comment_add_without_a_body_needs_a_terminal_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["project", "comment", "add", "Roadmap"])
-        .failure()
+        .usage_error()
         .stderr_has("--body");
     assert!(api.requests().is_empty());
 }

@@ -49,7 +49,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     }
     let search = args.search.as_deref().map(str::trim);
     if search.is_some_and(str::is_empty) {
-        return Err(Error::new("--search term cannot be empty"));
+        return Err(Error::invalid("--search term cannot be empty"));
     }
     let default_team = if args.all_teams || !args.team.is_empty() {
         None

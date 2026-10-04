@@ -31,9 +31,9 @@ fn is_blank(value: &str) -> bool {
 /// Supplied text is returned unchanged; blank supplied input is an error.
 pub fn resolve_body(body: Option<&str>, body_file: Option<&Path>) -> Result<Option<String>, Error> {
     match (body, body_file) {
-        (Some(_), Some(_)) => Err(Error::new("Cannot specify both --body and --body-file")),
+        (Some(_), Some(_)) => Err(Error::invalid("Cannot specify both --body and --body-file")),
         (None, Some(path)) => read_body_file(path).map(Some),
-        (Some(text), None) if is_blank(text) => Err(Error::new("Comment body cannot be empty")
+        (Some(text), None) if is_blank(text) => Err(Error::invalid("Comment body cannot be empty")
             .with_hint("Pass text with --body, or omit it to be prompted.")),
         (Some(text), None) => Ok(Some(text.to_owned())),
         (None, None) => Ok(None),
@@ -63,8 +63,7 @@ fn read_body_file(path: &Path) -> Result<String, Error> {
 /// Asks for the body on the terminal; without one it fails, naming --body.
 pub fn prompt(ctx: &Ctx) -> Result<String> {
     if !ctx.interactive() {
-        return Err(Error::new("No comment body given")
-            .with_hint("Pass --body or --body-file, or run in a terminal to be prompted."));
+        return Err(ctx.missing_value("No comment body given", "--body or --body-file"));
     }
     ctx.prompter()?.text(Text::new("Comment body").required())
 }

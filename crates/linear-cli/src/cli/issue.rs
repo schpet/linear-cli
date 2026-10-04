@@ -199,11 +199,15 @@ pub struct IssueStart {
     /// Issue ID like ENG-123, or a URL; asked for when omitted
     #[arg(value_name = "ISSUE", value_parser = NonEmptyStringValueParser::new())]
     pub issue_id: Option<String>,
+    /// Team to pick from, and the team of a bare issue number (key, name, or
+    /// ID); defaults to the configured team
+    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    pub team: Option<String>,
     /// Offer issues of every assignee in the picker
     #[arg(long, short = 'A')]
     pub all_assignees: bool,
     /// Offer only unassigned issues in the picker
-    #[arg(long, short = 'U')]
+    #[arg(long, short = 'U', conflicts_with = "all_assignees")]
     pub unassigned: bool,
     /// Git ref to create the branch from
     #[arg(long, short, value_name = "REF")]
@@ -382,6 +386,8 @@ pub struct IssueCreate {
         "estimate", "label", "due_date", "milestone", "cycle", "template", "start",
     ])]
     pub interactive: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]

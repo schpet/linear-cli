@@ -319,8 +319,8 @@ fn start_without_an_issue_or_team_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["issue", "start"])
-        .failure()
-        .stderr_has("No team is configured");
+        .usage_error()
+        .stderr_has("No team to pick an issue from");
     assert!(api.requests().is_empty());
 }
 
@@ -509,14 +509,26 @@ fn commits_fails_when_the_jj_probe_fails() {
 }
 
 #[test]
-fn id_reports_a_failed_jj_log() {
+fn id_outside_a_jj_repository_says_so() {
     let cli = Cli::new().env("LINEAR_VCS", "jj").stub_bin(
         "jj",
         "echo 'Error: There is no jj repo in \".\"' >&2; exit 1",
     );
     cli.run(&["issue", "id"])
         .failure()
-        .stderr_has("There is no jj repo");
+        .stderr_has("Not in a jj repository")
+        .stderr_has("Pass an issue ID like ENG-123");
+}
+
+#[test]
+fn id_reports_a_failed_jj_log_inside_a_repository() {
+    let cli = Cli::new()
+        .env("LINEAR_VCS", "jj")
+        .file("cwd/.jj/repo/store", "")
+        .stub_bin("jj", "echo 'Error: concurrent operation' >&2; exit 1");
+    cli.run(&["issue", "id"])
+        .failure()
+        .stderr_has("concurrent operation");
 }
 
 #[test]
@@ -529,12 +541,36 @@ fn id_on_a_detached_git_head_names_no_issue() {
 }
 
 #[test]
-fn id_reports_a_failed_git_branch_lookup() {
+fn id_outside_a_git_repository_says_so() {
     Cli::new()
         .stub_bin("git", "echo 'fatal: not a git repository' >&2; exit 128")
         .run(&["issue", "id"])
         .failure()
-        .stderr_has("fatal: not a git repository");
+        .stderr_has("Not in a git repository")
+        .stderr_has("Pass an issue ID like ENG-123");
+}
+
+#[test]
+fn id_reports_a_failed_git_branch_lookup_inside_a_repository() {
+    Cli::new()
+        .file("cwd/.git/HEAD", "ref: refs/heads/main\n")
+        .stub_bin("git", "echo 'fatal: bad object HEAD' >&2; exit 128")
+        .run(&["issue", "id"])
+        .failure()
+        .stderr_has("fatal: bad object HEAD");
+}
+
+#[test]
+fn start_outside_a_repository_says_so_before_changing_the_state() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli =
+        Cli::for_api(&api).stub_bin("git", "echo 'fatal: not a git repository' >&2; exit 128");
+    cli.run(&["issue", "start", "ENG-7"])
+        .failure()
+        .stderr_has("Not in a git repository")
+        .stderr_has("linear issue update <ID> --state <state>");
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
 }
 
 #[test]
@@ -544,6 +580,7 @@ fn start_with_jj_stops_when_the_change_probe_fails() {
     let cli = Cli::for_api(&api)
         .env("LINEAR_VCS", "jj")
         .env("LINEAR_TEAM_ID", "ENG")
+        .file("cwd/.jj/repo/store", "")
         .stub_bin("jj", "echo 'Error: concurrent operation' >&2; exit 1");
     cli.run(&["issue", "start", "ENG-7"])
         .failure()
@@ -638,7 +675,7 @@ fn start_preserves_unexpected_git_probe_failures() {
     for status in [2, 128] {
         let api = MockLinear::start();
         api.on("GetIssueDetails", details());
-        let cli = Cli::for_api(&api).stub_bin(
+        let cli = Cli::for_api(&api).file("cwd/.git/HEAD", "").stub_bin(
             "git",
             &format!(
                 "case \"$1 $2\" in
@@ -704,4 +741,37 @@ fn describe_preserves_exact_remote_text_when_piped() {
             assert_eq!(api.variables("GetIssueDetails"), json!({"id": "ENG-7"}));
         }
     }
+}
+
+#[test]
+fn start_picks_from_the_team_given_with_team_and_says_when_it_has_nothing() {
+    let api = MockLinear::start();
+    api.on(
+        "ResolveTeam",
+        crate::team::resolved("team-ops-id", "OPS", "Operations"),
+    )
+    .on(
+        "GetIssuesForState",
+        json!({ "issues": { "nodes": [], "pageInfo": { "hasNextPage": false, "endCursor": null } } }),
+    );
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run_tty(&["issue", "start", "--team", "Operations"], &[])
+        .failure()
+        .stdout_has("OPS has no unstarted issues assigned to you")
+        .stdout_has("Pass -A");
+    assert_eq!(
+        api.variables("GetIssuesForState")["filter"]["team"],
+        json!({ "key": { "eq": "OPS" } })
+    );
+}
+
+#[test]
+fn start_rejects_all_assignees_with_unassigned() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["issue", "start", "-A", "-U"])
+        .usage_error();
+    assert!(api.requests().is_empty());
 }

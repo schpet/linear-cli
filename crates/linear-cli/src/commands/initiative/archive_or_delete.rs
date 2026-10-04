@@ -56,13 +56,13 @@ const PERMANENT: &str = "\n⚠️  This action is PERMANENT and cannot be undone
 
 pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     if !request.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     if request.bulk.requested() {
         return run_bulk(ctx, mode, request);
     }
     let original = request.initiative.ok_or_else(|| {
-        Error::new("Initiative ID required").with_hint("Use --bulk for multiple initiatives.")
+        Error::invalid("Initiative ID required").with_hint("Use --bulk for multiple initiatives.")
     })?;
     let reference = super::common::reference(ctx, original)?;
     let client = ctx.client()?;

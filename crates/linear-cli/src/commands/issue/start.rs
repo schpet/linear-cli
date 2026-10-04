@@ -14,8 +14,8 @@ use crate::{
         issue_read::*,
         team::WorkflowState,
     },
-    platform::{process, prompt::Choice},
-    refs::prepare_issue_reference,
+    platform::{process, prompt::Choice, vcs},
+    refs::{self, prepare_issue_reference, team::TeamReference},
 };
 use std::process::Command;
 pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
@@ -23,22 +23,27 @@ pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 }
 
 fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
-    if args.all_assignees && args.unassigned {
-        return Err(Error::new(
-            "Cannot specify both --all-assignees and --unassigned",
-        ));
-    }
-    let team = configured_team_key(ctx.options());
+    let team = match &args.team {
+        Some(team) => {
+            let reference = TeamReference::parse(team, &ctx.scope()?)?;
+            Some(
+                ctx.spin(true, refs::team::resolve(ctx.client()?, &reference))?
+                    .key,
+            )
+        }
+        None => configured_team_key(ctx.options()),
+    };
     // Start never infers the issue from the VCS: without one it offers a picker.
     let identifier = match args.issue_id.as_deref() {
         Some(input) => prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)?
             .ok_or_else(|| Error::new(format!("Not an issue ID: {input}")).with_hint(
-                "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
+                "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team or --team.",
             ))?,
         None => {
             let team = team.ok_or_else(|| {
-                Error::new("No team is configured to pick an issue from")
-                    .with_hint("Pass an issue ID, or run `linear config` to set a team.")
+                Error::invalid("No team to pick an issue from").with_hint(
+                    "Pass an issue ID or --team, or run `linear config` to set a default team.",
+                )
             })?;
             pick(ctx, &team, args)?
         }
@@ -53,7 +58,7 @@ fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 
 /// Asks which of the team's unstarted issues to start.
 fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
-    ctx.require_tty("an issue ID")?;
+    ctx.require_tty("which issue to start", "an issue ID")?;
     let sort = ctx.options().issue_sort(None).0;
     let client = ctx.client()?;
     let issues = ctx.spin(
@@ -66,7 +71,7 @@ fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
         ),
     )?;
     ctx.prompter()?
-        .select("Select an issue to start:", choices(&issues, team)?)
+        .select("Select an issue to start:", choices(&issues, team, args)?)
 }
 
 /// Switches the working copy to the issue (a git branch or a jj change), then
@@ -123,7 +128,10 @@ pub(crate) fn work_on(
 }
 
 fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
-    ctx.require_tty("--branch with a new name")?;
+    ctx.require_tty(
+        "what to do with the existing branch",
+        "--branch with a new name",
+    )?;
     ctx.prompter()?.select(
         &format!("Branch {branch} already exists. What would you like to do?"),
         vec![
@@ -165,9 +173,9 @@ fn filter(team: &str, all: bool, unassigned: bool) -> IssueFilter {
         ..Default::default()
     }
 }
-fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
+fn choices(issues: &[ListedIssue], team: &str, args: &IssueStart) -> Result<Vec<Choice<String>>> {
     if issues.is_empty() {
-        return Err(Error::new(format!("Unstarted issues not found: {team}")));
+        return Err(no_issues(team, args));
     }
     Ok(issues
         .iter()
@@ -182,6 +190,18 @@ fn choices(issues: &[ListedIssue], team: &str) -> Result<Vec<Choice<String>>> {
         })
         .collect())
 }
+/// The error for a picker with nothing to offer, naming the filter it used.
+fn no_issues(team: &str, args: &IssueStart) -> Error {
+    if args.all_assignees {
+        Error::new(format!("{team} has no unstarted issues"))
+    } else if args.unassigned {
+        Error::new(format!("{team} has no unassigned unstarted issues"))
+    } else {
+        Error::new(format!("{team} has no unstarted issues assigned to you"))
+            .with_hint("Pass -A to choose from every assignee's issues, or -U for unassigned ones.")
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ExistingBranch {
     Switch,
@@ -213,17 +233,32 @@ impl<'a> Repo<'a> {
         process::command(program, self.ctx.cwd(), &self.ctx.config().child_env)
     }
 
+    /// `error` from the first git or jj command, replaced by a plain
+    /// explanation when the working directory is in no repository at all.
+    fn outside_repository(&self, error: Error) -> Error {
+        let vcs = super::vcs(self.ctx);
+        if vcs::in_repository(vcs, self.ctx.cwd()) {
+            return error;
+        }
+        vcs::not_in_repository(vcs).with_hint(
+            "`issue start` prepares a branch or change for the issue, so run it from your repository. To only change the issue's state, use `linear issue update <ID> --state <state>`.",
+        )
+    }
+
     fn git_branch_exists(&self, branch: &str) -> Result<bool> {
         let mut command = self.command("git");
         let reference = format!("refs/heads/{branch}");
         command.args(["show-ref", "--verify", "--quiet", &reference]);
-        let output = process::output(&mut command)?;
+        let output =
+            process::output(&mut command).map_err(|error| self.outside_repository(error))?;
         // Missing or invalid local ref names exit 1 with --verify --quiet.
         match output.status.code() {
             Some(0) => Ok(true),
             Some(1) => Ok(false),
-            _ => Err(process::failed(&command, output.status, &output.stderr)
-                .context("Failed to check if branch exists")),
+            _ => Err(self.outside_repository(
+                process::failed(&command, output.status, &output.stderr)
+                    .context("Failed to check if branch exists"),
+            )),
         }
     }
 
@@ -250,7 +285,9 @@ impl<'a> Repo<'a> {
             "-T",
             "if(description, \"occupied\", if(empty, \"empty\", \"occupied\"))",
         ]))
-        .context("Failed to inspect the working-copy change")?;
+        .map_err(|error| {
+            self.outside_repository(error.context("Failed to inspect the working-copy change"))
+        })?;
         match process::text(&probe.stdout).as_str() {
             "empty" => Ok(()),
             "occupied" => {

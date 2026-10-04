@@ -323,7 +323,7 @@ fn create_without_title_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["document", "create", "--content", "Body"])
-        .failure();
+        .usage_error();
     Cli::for_api(&api)
         .run(&["document", "create", "-i"])
         .failure()
@@ -357,7 +357,7 @@ fn create_and_update_accept_one_attachment_target() {
     ])
     .usage_error();
     cli.run(&["document", "create", "-t", "T", "--content", "Body"])
-        .failure()
+        .usage_error()
         .stderr_has("attachment target");
     assert!(api.requests().is_empty());
 }
@@ -594,7 +594,7 @@ fn comment_add_with_a_blank_body_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["document", "comment", "add", SLUG, "--body", "   "])
-        .failure()
+        .usage_error()
         .stderr_has("empty");
     assert!(api.requests().is_empty());
 }
@@ -604,7 +604,7 @@ fn comment_add_without_a_body_or_terminal_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["document", "comment", "add", SLUG])
-        .failure()
+        .usage_error()
         .stderr_has("--body");
     assert!(api.requests().is_empty());
 }

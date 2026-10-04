@@ -80,7 +80,7 @@ fn report(error: &Error, settings: DisplaySettings) {
     let lines = match error.kind() {
         ErrorKind::Cancelled | ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
         ErrorKind::Usage(usage) => usage.render().to_string(),
-        ErrorKind::Other => {
+        ErrorKind::Other | ErrorKind::Invalid => {
             let color = Terminal::detect(settings.no_color).stderr_color();
             let mut lines = format!("{}\n", style::red(&format!("✗ {error}"), color));
             if let Some(hint) = error.hint() {

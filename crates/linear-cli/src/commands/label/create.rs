@@ -34,8 +34,7 @@ pub fn run(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
 fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
     let optional = ctx.optional_prompts(args.interactive)?;
     if args.name.is_none() && !ctx.interactive() {
-        return Err(Error::new("Label name is required")
-            .with_hint("Pass --name, or run in a terminal to be asked for it."));
+        return Err(ctx.missing_value("Label name is required", "--name"));
     }
     let team = args
         .team

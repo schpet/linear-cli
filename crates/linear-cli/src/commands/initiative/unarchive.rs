@@ -16,7 +16,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
 
 fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     if !args.confirm.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     let original = &args.initiative_id;
     let reference = super::common::reference(ctx, original)?;

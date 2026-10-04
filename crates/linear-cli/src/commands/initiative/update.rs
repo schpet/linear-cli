@@ -36,7 +36,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     let interactive = ctx.optional_prompts(args.interactive)?;
     let prompting = flags.is_empty();
     if prompting && !interactive {
-        return Err(Error::new("No changes specified").with_hint(
+        return Err(Error::invalid("No changes specified").with_hint(
             "Pass the fields to change, such as --name or --status, or -i to be prompted.",
         ));
     }

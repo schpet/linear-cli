@@ -31,7 +31,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
         .map(|team| TeamReference::parse(&team, &ctx.scope()?))
         .transpose()?;
     if !args.confirm.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     let client = ctx.client()?;
     let (labels, team_key) = ctx.spin(true, async {

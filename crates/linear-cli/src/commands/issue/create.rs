@@ -7,7 +7,7 @@ use crate::{
         issue::IssueCreate,
         values::{Priority, UserRef},
     },
-    commands::{outcome, team_key::configured_team_key},
+    commands::{confirm, outcome, team_key::configured_team_key},
     config::AssignSelf,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
@@ -17,6 +17,7 @@ use crate::{
         prompt::{Choice, Prompter, Text},
         spinner::Spinner,
     },
+    refs,
 };
 
 pub fn run(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
@@ -29,16 +30,30 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     let interactive = ctx.optional_prompts(args.interactive)?;
     let mut fields = Fields::from(args);
     let description = fields.local()?;
-    if !interactive && fields.needs_title() && ctx.interactive() {
+    // A title typed at the prompt is confirmed before the issue is created.
+    let typed = !interactive && fields.needs_title();
+    if typed {
+        if !ctx.interactive() {
+            return Err(ctx.missing_value(
+                "Title is required",
+                "--title (or a --template that sets one)",
+            ));
+        }
+        // Settle the team first, so a missing one does not throw away the
+        // title once it is typed.
+        if fields.team.is_none() && configured_team_key(ctx.options()).is_none() {
+            fields.team = Some(pick_team(ctx)?);
+        }
         fields.title = Some(ctx.prompter()?.text(Text::new("Title:").required())?);
     }
-    if !interactive && fields.needs_title() {
-        return Err(Error::new("Title is required").with_hint(
-            "Pass --title, take the title from a template with --template, or run in a terminal to be asked for it.",
-        ));
-    }
+    let confirm = Confirm {
+        typed,
+        yes: args.confirm.yes,
+    };
     let mut ui = Prompts::new(ctx, !interactive);
-    let start = create_with(ctx, &mut ui, &fields, description, interactive)?;
+    let Some(start) = create_with(ctx, &mut ui, &fields, description, interactive, confirm)? else {
+        return Ok(());
+    };
     // The spinner stops before `--start` runs version control commands.
     drop(ui);
     if let Some(identifier) = start {
@@ -47,14 +62,37 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     Ok(())
 }
 
-/// Creates the issue; returns the issue to start work on with `--start`.
+/// Whether to ask before creating: when the title was `typed` at a prompt,
+/// unless `yes` (`--yes`) was given.
+#[derive(Clone, Copy)]
+struct Confirm {
+    typed: bool,
+    yes: bool,
+}
+
+/// Asks which team a new issue goes to when none is given or configured.
+fn pick_team(ctx: &Ctx) -> Result<String> {
+    let teams = ctx.spin(true, refs::team::fetch_all(ctx.client()?))?;
+    if teams.is_empty() {
+        return Err(refs::team::none_accessible());
+    }
+    let choices = teams
+        .into_iter()
+        .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team.key))
+        .collect();
+    ctx.prompter()?.select("Team:", choices)
+}
+
+/// Creates the issue; returns the issue to start work on with `--start`, or
+/// `None` when the user declined to create it.
 fn create_with(
     ctx: &Ctx,
     ui: &mut Prompts<'_>,
     fields: &Fields,
     description: Option<String>,
     interactive: bool,
-) -> Result<Option<String>> {
+    confirm: Confirm,
+) -> Result<Option<Option<String>>> {
     let backend = backend(ctx)?;
     let settings = settings(ctx);
     let (input, start) = if interactive {
@@ -74,12 +112,19 @@ fn create_with(
             fallback,
         ))?;
         ui.pause();
+        if confirm.typed {
+            let title = fields.title.as_deref().unwrap_or_default();
+            let question = format!("Create issue \"{title}\" in {}?", assembled.team_display);
+            if !confirm::proceed(ctx, confirm.yes, &question)? {
+                return Ok(None);
+            }
+        }
         ui.output(&flag_header(&assembled.team_display))?;
         (assembled.input, fields.start)
     };
     let issue = ctx.spin(!interactive, backend.create(input))?;
     ctx.print(output(&issue))?;
-    Ok(start.then(|| issue.identifier.clone()))
+    Ok(Some(start.then(|| issue.identifier.clone())))
 }
 
 /// The API backend issue creation and updates resolve names through.

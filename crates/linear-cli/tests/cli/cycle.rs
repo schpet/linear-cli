@@ -80,7 +80,7 @@ fn list_text_uses_the_configured_team() {
 #[test]
 fn list_without_a_team_fails_before_any_request() {
     let api = MockLinear::start();
-    Cli::for_api(&api).run(&["cycle", "list"]).failure();
+    Cli::for_api(&api).run(&["cycle", "list"]).usage_error();
     assert!(api.requests().is_empty());
 }
 

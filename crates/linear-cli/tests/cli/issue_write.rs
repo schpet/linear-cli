@@ -327,10 +327,10 @@ fn create_without_title_or_team_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["issue", "create", "--no-interactive", "-t", "No team"])
-        .failure();
+        .usage_error();
     cli.env("LINEAR_TEAM_ID", "ENG")
         .run(&["issue", "create", "--no-interactive"])
-        .failure();
+        .usage_error();
     assert!(api.requests().is_empty(), "{:?}", api.operations());
 }
 
@@ -536,7 +536,7 @@ fn update_without_changes_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["issue", "update", "ENG-1"])
-        .failure()
+        .usage_error()
         .stderr_has("No changes given");
     assert!(api.requests().is_empty(), "{:?}", api.operations());
 }
@@ -961,4 +961,63 @@ fn parent_lookup_preserves_unrelated_errors_without_mutating() {
         assert_eq!(api.operations(), expected);
         assert_eq!(api.variables("GetIssueId"), json!({"id": "ENG-404"}));
     }
+}
+
+fn all_teams() -> Value {
+    json!({ "teams": {
+        "nodes": [
+            { "id": "team-ops-id", "key": "OPS", "name": "Operations" },
+            { "id": ENG_ID, "key": "ENG", "name": "Engineering" }
+        ],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+    } })
+}
+
+#[test]
+fn create_on_a_terminal_picks_a_team_before_asking_for_the_title() {
+    let api = MockLinear::start();
+    api.on("GetAllTeams", all_teams())
+        .on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("CreateIssue", created("ENG-7"));
+    Cli::for_api(&api)
+        .run_tty(
+            &["issue", "create"],
+            &[
+                ("Engineering (ENG)", "\r"),
+                ("Title:", "Fix it\r"),
+                ("Create issue \"Fix it\" in ENG? (y/N)", "y\r"),
+            ],
+        )
+        .success()
+        .stdout_has("✓ Created issue ENG-7");
+    assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
+    assert_eq!(input(&api, "CreateIssue")["title"], "Fix it");
+}
+
+#[test]
+fn create_on_a_terminal_creates_nothing_unless_confirmed() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"));
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run_tty(
+            &["issue", "create"],
+            &[("Title:", "Fix it\r"), ("(y/N)", "\r")],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["ResolveTeam"]);
+}
+
+#[test]
+fn create_with_yes_skips_the_question_after_a_typed_title() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("CreateIssue", created("ENG-7"));
+    let run = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run_tty(&["issue", "create", "--yes"], &[("Title:", "Fix it\r")]);
+    run.success();
+    assert!(!run.stdout.contains("(y/N)"), "{run}");
+    assert_eq!(api.operations(), ["ResolveTeam", "CreateIssue"]);
 }

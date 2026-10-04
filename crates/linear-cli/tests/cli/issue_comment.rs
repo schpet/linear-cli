@@ -250,7 +250,7 @@ fn update_without_a_body_or_terminal_fails_before_any_request() {
     Cli::for_api(&api)
         .stdin(b"Piped body\n")
         .run(&["issue", "comment", "update", COMMENT_ID])
-        .failure()
+        .usage_error()
         .stderr_has("--body");
     assert!(api.requests().is_empty());
 }

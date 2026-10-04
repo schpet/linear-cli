@@ -15,14 +15,14 @@ pub fn run(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
 
 fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
     if !args.confirm.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     let input = BulkInput::from(&args.bulk);
     if input.requested() {
         return delete_bulk(ctx, args, &input);
     }
     let original = args.document_id.as_deref().ok_or_else(|| {
-        Error::new("Document ID required").with_hint("Use --bulk for multiple documents.")
+        Error::invalid("Document ID required").with_hint("Use --bulk for multiple documents.")
     })?;
     let id = super::common::reference(ctx, original)?;
     let client = ctx.client()?;

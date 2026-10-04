@@ -14,7 +14,7 @@ pub fn run(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
 
 fn remove(ctx: &Ctx, args: &InitiativeRemoveProject) -> Result<()> {
     if !args.confirm.yes {
-        ctx.require_tty("--yes")?;
+        ctx.require_tty("for confirmation", "--yes")?;
     }
     let pair = Pair::parse(ctx, &args.initiative, &args.project)?;
     let client = ctx.client()?;
