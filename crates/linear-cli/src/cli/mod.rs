@@ -162,6 +162,15 @@ pub struct ConfirmArgs {
     pub yes: bool,
 }
 
+/// [`ConfirmArgs`] without the `-f`/`--force` spellings, for commands where
+/// those mean something else.
+#[derive(Debug, Args)]
+pub struct YesArgs {
+    /// Do not ask for confirmation
+    #[arg(long, short = 'y', alias = "confirm")]
+    pub yes: bool,
+}
+
 /// Several targets at once instead of the positional argument.
 #[derive(Debug, Args)]
 pub struct BulkArgs {

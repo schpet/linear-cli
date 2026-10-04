@@ -1,4 +1,5 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
+use crate::commands::confirm;
 use crate::commands::outcome;
 use crate::refs;
 use chrono::NaiveDate;
@@ -30,11 +31,16 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
         icon: args.icon.clone(),
     };
     let optional = ctx.optional_prompts(args.interactive)?;
-    if ctx.interactive() && (fields.name.is_none() || optional) {
+    let typed = ctx.interactive() && (fields.name.is_none() || optional);
+    if typed {
         ctx.print("\nCreate a new initiative\n\n")?;
         prompt(&mut fields, &ctx.prompter()?, optional)?;
     }
     let input = validate(fields)?;
+    let question = format!("Create initiative \"{}\"?", input.name);
+    if typed && !confirm::proceed(ctx, args.confirm.yes, &question)? {
+        return Ok(());
+    }
     let client = ctx.client()?;
     let created = ctx.spin(true, async {
         let owner_id = match &input.owner {

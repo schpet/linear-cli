@@ -3,9 +3,9 @@
 use std::path::Path;
 
 use crate::cli::document::DocumentCreate;
-use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
+use crate::commands::{confirm, outcome};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
@@ -37,7 +37,10 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         release: args.release.clone(),
     };
     let given_content = fields.content.is_some();
+    // Fields typed at prompts or in the editor are confirmed before sending.
+    let mut typed = false;
     if ctx.interactive() {
+        typed = fields.title.is_none() || optional || !fields.target().any();
         let default_team = configured_team_key(ctx.options());
         prompt(
             ctx,
@@ -63,6 +66,7 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
             text_input::read_stdin(std::io::stdin().lock())?
         } else if ctx.interactive() {
             ctx.print("Opening editor for document content...\n")?;
+            typed = true;
             let content = optional_editor(ctx)?;
             if content.is_none() {
                 ctx.print("No content entered. Creating document without content.\n")?;
@@ -73,6 +77,15 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         };
     }
     let target = target::prepare(ctx, fields.target())?;
+    if typed
+        && !confirm::proceed(
+            ctx,
+            args.confirm.yes,
+            &format!("Create document \"{title}\"?"),
+        )?
+    {
+        return Ok(());
+    }
     let client = ctx.client()?;
     let mut input = DocumentUpdateInput {
         content: fields.content,

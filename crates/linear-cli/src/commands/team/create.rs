@@ -2,6 +2,7 @@
 //! with `--interactive`, for the other fields too.
 use crate::cli::team::TeamCreate;
 use crate::client::LinearClient;
+use crate::commands::confirm;
 use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -16,11 +17,17 @@ pub fn run(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
 
 fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
     let optional = ctx.optional_prompts(args.interactive)?;
-    let input = if args.name.is_none() || optional {
+    let typed = args.name.is_none() || optional;
+    let input = if typed {
         if !ctx.interactive() {
             return Err(ctx.missing_value("Team name is required", "--name"));
         }
-        ask(&ctx.prompter()?, args, optional)?
+        let input = ask(&ctx.prompter()?, args, optional)?;
+        let question = format!("Create team \"{}\"?", input.name);
+        if !confirm::proceed(ctx, args.confirm.yes, &question)? {
+            return Ok(());
+        }
+        input
     } else {
         TeamCreateInput {
             name: args.name.clone().expect("checked above"),

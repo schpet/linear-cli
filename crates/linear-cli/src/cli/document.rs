@@ -115,6 +115,8 @@ pub struct DocumentCreate {
     /// Also prompt for the optional fields
     #[arg(long, short)]
     pub interactive: bool,
+    #[command(flatten)]
+    pub confirm: super::YesArgs,
 }
 
 #[derive(Debug, Args)]
@@ -158,6 +160,8 @@ pub struct DocumentUpdate {
     /// Replace the text even if inline comments may lose their anchors
     #[arg(long)]
     pub force: bool,
+    #[command(flatten)]
+    pub confirm: super::YesArgs,
 }
 
 #[derive(Debug, Args)]

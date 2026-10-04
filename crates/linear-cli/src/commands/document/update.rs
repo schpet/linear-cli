@@ -2,8 +2,8 @@
 //! mutation.
 use crate::cli::document::DocumentUpdate;
 use crate::client::LinearClient;
-use crate::commands::outcome;
 use crate::commands::text_input;
+use crate::commands::{confirm, outcome};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
@@ -41,7 +41,7 @@ fn update(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
     };
     let edit = args.edit && content.is_none();
     if content.is_none() && !edit && !metadata {
-        return Err(Error::new("No update fields provided").with_hint(
+        return Err(Error::invalid("No update fields provided").with_hint(
             "Use --title, --content, --content-file, --icon, --edit, or re-point the attachment with --project, --issue, --initiative, --team, --cycle, or --release.",
         ));
     }
@@ -65,6 +65,18 @@ fn update(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
         }
         if input.content.is_none() && !metadata {
             return ctx.print("No changes made; the document is unchanged.\n");
+        }
+        // A terminal user confirms the edit; a script driving the editor
+        // asked for it with --edit.
+        if input.content.is_some()
+            && ctx.interactive()
+            && !confirm::proceed(
+                ctx,
+                args.confirm.yes,
+                &format!("Save the edited text of \"{}\"?", document.title),
+            )?
+        {
+            return Ok(());
         }
     }
     let updated = ctx.spin(true, async {

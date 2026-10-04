@@ -172,6 +172,8 @@ pub struct ProjectCreate {
     /// Print the created project as JSON
     #[arg(long, short)]
     pub json: bool,
+    #[command(flatten)]
+    pub confirm: super::YesArgs,
 }
 
 #[derive(Debug, Args)]

@@ -1,4 +1,5 @@
 //! `initiative update`: fields from flags or prompts, then one mutation.
+use crate::commands::confirm;
 use crate::commands::outcome;
 use crate::refs::{self, initiative::Archived};
 use chrono::NaiveDate;
@@ -51,6 +52,10 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         let changes = prompt(&ctx.prompter()?, &current)?;
         if changes.is_empty() {
             return ctx.print("No changes specified\n");
+        }
+        let question = format!("Save these changes to \"{}\"?", current.name);
+        if !confirm::proceed(ctx, args.confirm.yes, &question)? {
+            return Ok(());
         }
         (id, changes)
     } else {

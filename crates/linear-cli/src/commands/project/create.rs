@@ -6,6 +6,7 @@ use super::common;
 use crate::cli::project::{ProjectCreate, Status};
 use crate::cli::values::{self, Priority, UserRef};
 use crate::client::LinearClient;
+use crate::commands::confirm;
 use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -88,6 +89,10 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         draft.teams
     };
     let teams = common::prepare_teams(&teams, &scope)?;
+    let question = format!("Create project \"{name}\"?");
+    if interactive && !confirm::proceed(ctx, args.confirm.yes, &question)? {
+        return Ok(());
+    }
     let client = ctx.client()?;
     let (project, linked) = ctx.spin(!args.json, async {
         let team_ids: Vec<_> = common::teams(client, &teams)

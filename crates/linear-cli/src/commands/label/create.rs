@@ -1,6 +1,7 @@
 //! `label create`: a workspace or team label, from flags or prompts.
 use crate::cli::label::LabelCreate;
 use crate::commands::color;
+use crate::commands::confirm;
 use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -41,7 +42,8 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
         .as_deref()
         .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
-    let fields = if args.name.is_none() || optional {
+    let typed = args.name.is_none() || optional;
+    let fields = if typed {
         prompt(ctx, args, team, optional)?
     } else {
         Fields {
@@ -54,6 +56,10 @@ fn create(ctx: &Ctx, args: &LabelCreate) -> Result<()> {
             team: team.map_or(Team::Workspace, Team::Reference),
         }
     };
+    let question = format!("Create label \"{}\"?", fields.name);
+    if typed && !confirm::proceed(ctx, args.confirm.yes, &question)? {
+        return Ok(());
+    }
     let client = ctx.client()?;
     let created = ctx.spin(true, async {
         let team_id = match &fields.team {

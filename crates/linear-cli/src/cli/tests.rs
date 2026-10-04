@@ -45,6 +45,14 @@ fn confirmed(cli: &Cli) -> bool {
         Root::Issue(group) => match &group.command {
             issue::IssueCommand::Archive(args) => args.confirm.yes,
             issue::IssueCommand::Delete(args) => args.confirm.yes,
+            issue::IssueCommand::Comment(comment) => match &comment.command {
+                issue::IssueCommentCommand::Delete(args) => args.confirm.yes,
+                other => panic!("not a destructive command: {other:?}"),
+            },
+            issue::IssueCommand::Relation(relation) => match &relation.command {
+                issue::IssueRelationCommand::Delete(args) => args.confirm.yes,
+                other => panic!("not a destructive command: {other:?}"),
+            },
             other => panic!("not a destructive command: {other:?}"),
         },
         Root::Label(group) => match &group.command {
@@ -80,10 +88,12 @@ fn confirmed(cli: &Cli) -> bool {
 
 #[test]
 fn destructive_commands_take_yes_and_every_old_spelling() {
-    let commands: [&[&str]; 12] = [
+    let commands: [&[&str]; 14] = [
         &["auth", "logout", "acme"],
         &["issue", "archive", "ENG-1"],
         &["issue", "delete", "ENG-1"],
+        &["issue", "comment", "delete", "c-1"],
+        &["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"],
         &["label", "delete", "Bug"],
         &["milestone", "delete", "m-1"],
         &["project", "delete", "p-1"],

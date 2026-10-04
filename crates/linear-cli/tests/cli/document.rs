@@ -367,7 +367,7 @@ fn update_without_fields_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["document", "update", SLUG])
-        .failure()
+        .usage_error()
         .stderr_has("No update fields");
     assert!(api.requests().is_empty());
 }
@@ -931,4 +931,18 @@ fn update_edit_with_metadata_preserves_the_inline_comment_guard() {
             );
         }
     }
+}
+
+#[test]
+fn update_edit_on_a_terminal_saves_only_when_confirmed() {
+    let api = MockLinear::start();
+    api.on("GetDocumentForEdit", for_edit("# Old\n"));
+    with_editor(&api, "printf 'Added\\n' >> \"$1\"")
+        .run_tty(
+            &["document", "update", SLUG, "--edit"],
+            &[("Save the edited text of \"Design notes\"? (y/N)", "\r")],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["GetDocumentForEdit"]);
 }

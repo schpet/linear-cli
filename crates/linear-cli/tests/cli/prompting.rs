@@ -107,3 +107,53 @@ fn the_issue_start_picker_without_a_terminal_names_what_it_would_ask() {
         .stderr_has("Pass an issue ID");
     assert!(api.requests().is_empty());
 }
+
+#[test]
+fn values_typed_at_prompts_are_confirmed_before_anything_is_created() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    for (args, prompt, question) in [
+        (
+            &["label", "create"][..],
+            "Label name:",
+            "Create label \"Typed\"?",
+        ),
+        (&["team", "create"], "Team name:", "Create team \"Typed\"?"),
+        (
+            &["initiative", "create"],
+            "Initiative name:",
+            "Create initiative \"Typed\"?",
+        ),
+        (
+            &["project", "create"],
+            "Project name:",
+            "Create project \"Typed\"?",
+        ),
+        (
+            &["document", "create", "--team", "ENG", "--content", "Body"],
+            "Document title",
+            "Create document \"Typed\"?",
+        ),
+    ] {
+        cli.run_tty(args, &[(prompt, "Typed\r"), (question, "\r")])
+            .success()
+            .stdout_has("Canceled.");
+    }
+    assert!(api.requests().is_empty(), "{:?}", api.operations());
+}
+
+#[test]
+fn yes_skips_the_question_after_typed_values() {
+    let api = MockLinear::start();
+    api.on(
+        "CreateTeam",
+        serde_json::json!({ "teamCreate": {
+            "success": true,
+            "team": { "id": "team-1", "key": "TYP", "name": "Typed" }
+        } }),
+    );
+    let run =
+        Cli::for_api(&api).run_tty(&["team", "create", "--yes"], &[("Team name:", "Typed\r")]);
+    run.success().stdout_has("Created team TYP: Typed");
+    assert!(!run.stdout.contains("(y/N)"), "{run}");
+}
