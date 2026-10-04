@@ -129,17 +129,27 @@ fn values_typed_at_prompts_are_confirmed_before_anything_is_created() {
             "Project name:",
             "Create project \"Typed\"?",
         ),
-        (
-            &["document", "create", "--team", "ENG", "--content", "Body"],
-            "Document title",
-            "Create document \"Typed\"?",
-        ),
     ] {
         cli.run_tty(args, &[(prompt, "Typed\r"), (question, "\r")])
             .success()
             .stdout_has("Canceled.");
     }
     assert!(api.requests().is_empty(), "{:?}", api.operations());
+    // A document's attachment is looked up before its content is written.
+    api.on(
+        "ResolveTeam",
+        crate::team::resolved("team-eng", "ENG", "Engineering"),
+    );
+    cli.run_tty(
+        &["document", "create", "--team", "ENG", "--content", "Body"],
+        &[
+            ("Document title", "Typed\r"),
+            ("Create document \"Typed\"?", "\r"),
+        ],
+    )
+    .success()
+    .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["ResolveTeam"]);
 }
 
 #[test]

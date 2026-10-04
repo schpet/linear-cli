@@ -15,6 +15,7 @@ pub mod initiative_update;
 pub mod issue;
 pub mod json;
 pub mod label;
+pub mod lookup_prompt;
 pub mod milestone;
 pub mod outcome;
 pub mod project;

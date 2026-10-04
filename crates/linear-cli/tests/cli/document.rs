@@ -996,3 +996,54 @@ fn delete_bulk_lists_the_documents_before_deleting_and_skips_missing_ones() {
         );
     assert_eq!(api.operations(), ["GetDocumentForDelete", "DeleteDocument"]);
 }
+
+#[test]
+fn create_on_a_terminal_asks_for_the_attachment_again_until_it_is_found() {
+    let api = MockLinear::start();
+    let projects = |nodes: Value| json!({ "projects": { "nodes": nodes } });
+    api.on("GetProjectIdByName", projects(json!([])))
+        .on("GetProjectIdBySlugId", projects(json!([])))
+        .on(
+            "GetProjectIdByName",
+            projects(json!([{ "id": PROJECT_ID }])),
+        );
+    let cli = with_editor(&api, "printf 'Body' > \"$1\"");
+    let run = cli.run_tty(
+        &["document", "create"],
+        &[
+            ("Document title", "Notes\r"),
+            ("Attach the document to:", "\r"),
+            ("Project (UUID, slug ID, or name)", "nope\r"),
+            ("Project not found: nope", ""),
+            ("Attach the document to:", "\r"),
+            ("Project (UUID, slug ID, or name)", "Mobile\r"),
+            ("Create document \"Notes\"? (y/N)", "\r"),
+        ],
+    );
+    assert_eq!(run.code, 0, "{run}");
+    assert_eq!(cli.calls("editor").len(), 1, "{run}");
+    assert_eq!(
+        api.operations(),
+        [
+            "GetProjectIdByName",
+            "GetProjectIdBySlugId",
+            "GetProjectIdByName"
+        ]
+    );
+}
+
+#[test]
+fn create_on_a_terminal_checks_the_attachment_flag_before_the_editor() {
+    let api = MockLinear::start();
+    let projects = json!({ "projects": { "nodes": [] } });
+    api.on("GetProjectIdByName", projects.clone())
+        .on("GetProjectIdBySlugId", projects);
+    let cli = with_editor(&api, "printf 'Body' > \"$1\"");
+    let run = cli.run_tty(
+        &["document", "create", "-t", "Notes", "--project", "nope"],
+        &[],
+    );
+    assert_eq!(run.code, 1, "{run}");
+    assert!(run.stdout.contains("Project not found: nope"), "{run}");
+    assert!(cli.calls("editor").is_empty());
+}

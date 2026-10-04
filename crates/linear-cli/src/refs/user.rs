@@ -25,6 +25,22 @@ pub async fn resolve(client: &LinearClient, user: &UserRef, role: &str) -> Resul
     select(&data.users.nodes, input, role).map(|user| user.id.inner().to_owned())
 }
 
+/// A user given as a flag, looked up together with the other flags, or one
+/// already found at a prompt.
+pub enum UserChoice {
+    Given(UserRef),
+    Found(String),
+}
+
+impl UserChoice {
+    pub async fn id(self, client: &LinearClient, role: &str) -> Result<String> {
+        match self {
+            Self::Given(user) => resolve(client, &user, role).await,
+            Self::Found(id) => Ok(id),
+        }
+    }
+}
+
 /// An exact email match, else an exact display name, else a partial name
 /// match. Each tier must be unique; several matches at the first tier that
 /// has any are ambiguous.

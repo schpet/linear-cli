@@ -974,3 +974,43 @@ fn comment_add_on_a_terminal_names_the_project_in_the_confirmation() {
         .success();
     assert_eq!(api.operations(), ["GetProjectName", "AddComment"]);
 }
+
+#[test]
+fn create_interactive_asks_for_the_lead_again_until_it_is_found() {
+    let api = MockLinear::start();
+    api.on("LookupUser", json!({ "users": { "nodes": [] } }))
+        .on(
+            "LookupUser",
+            json!({ "users": { "nodes": [{
+                "id": "user-ada", "email": "ada@example.com", "displayName": "ada", "name": "Ada Lovelace"
+            }] } }),
+        );
+    let run = Cli::for_api(&api).run_tty(
+        &[
+            "project",
+            "create",
+            "-i",
+            "--name",
+            "Typed",
+            "--team",
+            "ENG",
+            "--description",
+            "Short",
+            "--status",
+            "planned",
+            "--start-date",
+            "2026-01-01",
+            "--target-date",
+            "2026-02-01",
+        ],
+        &[
+            ("Lead", "nobody\r"),
+            ("Lead not found: nobody", ""),
+            ("Lead", "ada\r"),
+            ("Create project \"Typed\"? (y/N)", "\r"),
+        ],
+    );
+    assert_eq!(run.code, 0, "{run}");
+    assert!(run.stdout.contains("Canceled."), "{run}");
+    assert_eq!(api.operations(), ["LookupUser", "LookupUser"]);
+}

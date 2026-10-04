@@ -5,14 +5,14 @@ use std::path::Path;
 use crate::cli::document::DocumentCreate;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
-use crate::commands::{confirm, outcome};
+use crate::commands::{confirm, lookup_prompt, outcome};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
 use crate::platform::editor;
 use crate::platform::prompt::{Choice, Prompter, Text};
 
-use super::common::{attach, read_file, read_source};
+use super::common::{read_file, read_source, set_target};
 use super::target::{self, Kind, TargetOptions};
 
 pub fn run(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
@@ -29,6 +29,8 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
             (None, None) => None,
         },
         icon: args.icon.clone(),
+    };
+    let flags = Attachment {
         project: args.project.clone(),
         issue: args.issue.clone(),
         initiative: args.initiative.clone(),
@@ -40,27 +42,27 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
     // Fields typed at prompts or in the editor are confirmed before sending.
     let mut typed = false;
     if ctx.interactive() {
-        typed = fields.title.is_none() || optional || !fields.target().any();
-        let default_team = configured_team_key(ctx.options());
-        prompt(
-            ctx,
-            &ctx.prompter()?,
-            &mut fields,
-            optional,
-            default_team.as_deref(),
-        )?;
+        typed = fields.title.is_none() || optional || !flags.options().any();
+        prompt(ctx, &ctx.prompter()?, &mut fields, optional)?;
     }
     let title = fields
         .title
         .clone()
         .ok_or_else(|| ctx.missing_value("Title is required", "--title"))?;
-    if !fields.target().any() {
+    // The attachment is found before any content is written for it.
+    let (kind, target_id) = if flags.options().any() {
+        let target = target::prepare(ctx, flags.options())?.expect("a target flag is set");
+        ctx.spin(true, target::resolve(&target, ctx.client()?))?
+    } else if ctx.interactive() {
+        let default_team = configured_team_key(ctx.options());
+        ask_attachment(ctx, &ctx.prompter()?, default_team.as_deref())?
+    } else {
         return Err(
             Error::invalid("A document attachment target is required").with_hint(
                 "Pass one of --project, --issue, --initiative, --team, --cycle, or --release.",
             ),
         );
-    }
+    };
     if !given_content && !optional {
         fields.content = if !ctx.stdin_tty() {
             text_input::read_stdin(std::io::stdin().lock())?
@@ -76,7 +78,6 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
             None
         };
     }
-    let target = target::prepare(ctx, fields.target())?;
     if typed
         && !confirm::proceed(
             ctx,
@@ -92,8 +93,8 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         icon: fields.icon,
         ..Default::default()
     };
+    set_target(&mut input, kind, target_id);
     let created = ctx.spin(true, async {
-        attach(client, &mut input, target.as_ref()).await?;
         let data: CreateDocument = client
             .mutate(CreateDocumentVariables {
                 input: DocumentCreateInput {
@@ -133,6 +134,11 @@ struct Fields {
     title: Option<String>,
     content: Option<String>,
     icon: Option<String>,
+}
+
+/// What to attach the document to, as flags or answers name it.
+#[derive(Default)]
+struct Attachment {
     project: Option<String>,
     issue: Option<String>,
     initiative: Option<String>,
@@ -141,8 +147,8 @@ struct Fields {
     release: Option<String>,
 }
 
-impl Fields {
-    fn target(&self) -> TargetOptions<'_> {
+impl Attachment {
+    fn options(&self) -> TargetOptions<'_> {
         TargetOptions {
             project: self.project.as_deref(),
             issue: self.issue.as_deref(),
@@ -154,16 +160,10 @@ impl Fields {
     }
 }
 
-/// Asks for the title and attachment when they are missing, and with
-/// `optional` for the content and icon the flags left out. The content can
-/// come from the configured editor.
-fn prompt(
-    ctx: &Ctx,
-    prompter: &Prompter<'_>,
-    fields: &mut Fields,
-    optional: bool,
-    default_team: Option<&str>,
-) -> Result<()> {
+/// Asks for the title when it is missing, and with `optional` for the
+/// content and icon the flags left out. The content can come from the
+/// configured editor.
+fn prompt(ctx: &Ctx, prompter: &Prompter<'_>, fields: &mut Fields, optional: bool) -> Result<()> {
     if fields.title.is_none() {
         fields.title = Some(prompter.text(Text::new("Document title").required())?);
     }
@@ -178,9 +178,30 @@ fn prompt(
             );
         }
     }
-    if fields.target().any() {
-        return Ok(());
-    }
+    Ok(())
+}
+
+/// Asks what to attach the document to until the answer names something
+/// that exists.
+fn ask_attachment(
+    ctx: &Ctx,
+    prompter: &Prompter<'_>,
+    default_team: Option<&str>,
+) -> Result<(Kind, String)> {
+    let client = ctx.client()?;
+    let found = lookup_prompt::ask_until_found(
+        ctx,
+        || attachment(prompter, default_team).map(Some),
+        |answer| async move {
+            let target = target::prepare(ctx, answer.options())?.expect("an answer names a target");
+            target::resolve(&target, client).await
+        },
+    )?;
+    Ok(found.expect("an attachment is never left blank"))
+}
+
+/// One round of attachment questions: the kind, then what names it.
+fn attachment(prompter: &Prompter<'_>, default_team: Option<&str>) -> Result<Attachment> {
     let targets = vec![
         Choice::new("Project", Kind::Project),
         Choice::new("Issue", Kind::Issue),
@@ -197,22 +218,23 @@ fn prompt(
         })
     };
     let required = |message| prompter.text(Text::new(message).required());
+    let mut answer = Attachment::default();
     match prompter.select("Attach the document to:", targets)? {
-        Kind::Project => fields.project = Some(required("Project (UUID, slug ID, or name)")?),
-        Kind::Issue => fields.issue = Some(required("Issue identifier (e.g., TC-123)")?),
-        Kind::Team => fields.team = Some(team("Team key (e.g., ENG)")?),
+        Kind::Project => answer.project = Some(required("Project (UUID, slug ID, or name)")?),
+        Kind::Issue => answer.issue = Some(required("Issue identifier (e.g., TC-123)")?),
+        Kind::Team => answer.team = Some(team("Team key (e.g., ENG)")?),
         Kind::Initiative => {
-            fields.initiative = Some(required("Initiative (UUID, slug ID, or name)")?);
+            answer.initiative = Some(required("Initiative (UUID, slug ID, or name)")?);
         }
         Kind::Cycle => {
-            fields.team = Some(team("Team key for the cycle (e.g., ENG)")?);
-            fields.cycle = Some(required(
+            answer.team = Some(team("Team key for the cycle (e.g., ENG)")?);
+            answer.cycle = Some(required(
                 "Cycle (name, number, 'active', 'next', or 'previous')",
             )?);
         }
-        Kind::Release => fields.release = Some(required("Release (UUID, name, or version)")?),
+        Kind::Release => answer.release = Some(required("Release (UUID, name, or version)")?),
     }
-    Ok(())
+    Ok(answer)
 }
 
 /// Asks where the content comes from, then for the content. The editor

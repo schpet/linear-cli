@@ -146,6 +146,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `--reply-to`/`--parent` on the `comment add` commands must be a comment UUID (anything else is a usage error before any request), and when the comment is written in the editor the comment replied to is looked up first, so nothing is typed for a reply that cannot be posted
 - no-op updates follow one rule: an update command given no fields to change fails with `No changes given` (exit 2), and an editor or `-i` session that changes nothing prints `No changes made.` and succeeds without asking. `issue comment update` no longer asks to save text left unchanged in the editor
 - `milestone create` asks for the milestone name on a terminal when `--name` is not given, as the README described, confirms typed values (skip with `--yes`), and gains `-i` to also ask for the description and target date. Without a terminal a missing `--name` is still a usage error
+- a user typed at the lead prompt of `project create -i` or the owner prompt of `initiative create -i`, and the attachment typed for `document create`, are looked up right away; one that is not found is reported and asked for again, instead of failing after the final confirmation. `document create` also looks up an attachment given as a flag before it opens the editor, so typed content is not lost to a wrong `--project`
 
 ## [2.6.0] - 2026-09-02
 

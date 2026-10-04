@@ -31,6 +31,12 @@ pub async fn attach(
         return Ok(());
     };
     let (kind, id) = target::resolve(target, client).await?;
+    set_target(input, kind, id);
+    Ok(())
+}
+
+/// Sets the attachment's ID in the field for its kind.
+pub fn set_target(input: &mut DocumentUpdateInput, kind: Kind, id: String) {
     let field = match kind {
         Kind::Project => &mut input.project_id,
         Kind::Issue => &mut input.issue_id,
@@ -40,7 +46,6 @@ pub async fn attach(
         Kind::Release => &mut input.release_id,
     };
     *field = Some(id);
-    Ok(())
 }
 
 pub fn read_file(path: &Path) -> Result<String> {

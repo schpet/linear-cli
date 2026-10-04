@@ -4,11 +4,11 @@ use chrono::NaiveDate;
 
 use super::common;
 use crate::cli::project::{ProjectCreate, Status};
-use crate::cli::values::{self, Priority, UserRef};
+use crate::cli::values::{self, Priority};
 use crate::client::LinearClient;
-use crate::commands::confirm;
 use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
+use crate::commands::{confirm, lookup_prompt};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::project::ProjectStatusType;
@@ -19,7 +19,7 @@ use crate::graphql::operations::project::{
 use crate::graphql::scalars::TimelessDate;
 use crate::platform::prompt::{Choice, Prompter, Text};
 use crate::platform::style;
-use crate::refs::{self, initiative::InitiativeReference, team::ResolvedTeam};
+use crate::refs::{self, initiative::InitiativeReference, team::ResolvedTeam, user::UserChoice};
 
 pub fn run(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
     create(ctx, args).context("Failed to create project")
@@ -31,7 +31,7 @@ struct Draft {
     description: Option<String>,
     teams: Vec<String>,
     status: Option<StatusChoice>,
-    lead: Option<UserRef>,
+    lead: Option<UserChoice>,
     start_date: Option<NaiveDate>,
     target_date: Option<NaiveDate>,
 }
@@ -63,7 +63,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         description,
         teams: args.team.clone(),
         status: fields.status.map(StatusChoice::Kind),
-        lead: fields.lead.clone(),
+        lead: fields.lead.clone().map(UserChoice::Given),
         start_date: fields.start_date,
         target_date: fields.target_date,
     };
@@ -112,8 +112,8 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
             Some(template) => Some(common::template(client, template, &team_ids).await?),
             None => None,
         };
-        let lead_id = match &draft.lead {
-            Some(lead) => Some(refs::user::resolve(client, lead, "Lead").await?),
+        let lead_id = match draft.lead {
+            Some(lead) => Some(lead.id(client, "Lead").await?),
             None => None,
         };
         let status_id = match draft.status {
@@ -288,10 +288,13 @@ fn prompt(
         }
     }
     if draft.lead.is_none() {
-        draft.lead = prompter.parsed(
-            Text::new("Lead (username, email, or @me - press Enter to skip):"),
-            &str::parse::<UserRef>,
-        )?;
+        draft.lead = lookup_prompt::ask_user(
+            ctx,
+            prompter,
+            "Lead (username, email, or @me - press Enter to skip):",
+            "Lead",
+        )?
+        .map(UserChoice::Found);
     }
     for (field, message) in [
         (

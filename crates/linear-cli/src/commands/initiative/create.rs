@@ -1,11 +1,11 @@
 //! `initiative create`: fields from flags or prompts, then one mutation.
-use crate::commands::confirm;
 use crate::commands::outcome;
-use crate::refs;
+use crate::commands::{confirm, lookup_prompt};
+use crate::refs::user::UserChoice;
 use chrono::NaiveDate;
 
 use crate::cli::initiative::InitiativeCreate;
-use crate::cli::values::{InitiativeStatus, UserRef, date};
+use crate::cli::values::{InitiativeStatus, date};
 use crate::client::LinearClient;
 use crate::commands::color;
 use crate::ctx::Ctx;
@@ -25,7 +25,7 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
         name: args.name.clone(),
         description: args.description.clone(),
         status: args.status,
-        owner: args.owner.clone(),
+        owner: args.owner.clone().map(UserChoice::Given),
         target_date: args.target_date,
         color: args.color.clone().map(String::from),
         icon: args.icon.clone(),
@@ -34,7 +34,7 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
     let typed = ctx.interactive() && (fields.name.is_none() || optional);
     if typed {
         ctx.print("\nCreate a new initiative\n\n")?;
-        prompt(&mut fields, &ctx.prompter()?, optional)?;
+        prompt(ctx, &mut fields, &ctx.prompter()?, optional)?;
     }
     let input = validate(fields)?;
     let question = format!("Create initiative \"{}\"?", input.name);
@@ -43,8 +43,9 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
     }
     let client = ctx.client()?;
     let created = ctx.spin(true, async {
-        let owner_id = match &input.owner {
-            Some(owner) => Some(refs::user::resolve(client, owner, "Owner").await?),
+        let (owner, input) = input.take_owner();
+        let owner_id = match owner {
+            Some(owner) => Some(owner.id(client, "Owner").await?),
             None => None,
         };
         submit(client, input.into_create(owner_id)).await
@@ -53,12 +54,11 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
 }
 
 /// The fields as given on the command line or at the prompts.
-#[derive(Default)]
 struct Fields {
     name: Option<String>,
     description: Option<String>,
     status: Option<InitiativeStatus>,
-    owner: Option<UserRef>,
+    owner: Option<UserChoice>,
     target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
@@ -69,13 +69,17 @@ struct Valid {
     name: String,
     description: Option<String>,
     status: Option<InitiativeStatus>,
-    owner: Option<UserRef>,
+    owner: Option<UserChoice>,
     target_date: Option<NaiveDate>,
     color: Option<String>,
     icon: Option<String>,
 }
 
 impl Valid {
+    fn take_owner(mut self) -> (Option<UserChoice>, Self) {
+        (self.owner.take(), self)
+    }
+
     fn into_create(self, owner_id: Option<String>) -> InitiativeCreateInput {
         InitiativeCreateInput {
             name: self.name,
@@ -91,7 +95,7 @@ impl Valid {
 
 /// Asks for the name when it is missing, and with `all` for every other
 /// field not given as a flag.
-fn prompt(options: &mut Fields, prompter: &Prompter<'_>, all: bool) -> Result<()> {
+fn prompt(ctx: &Ctx, options: &mut Fields, prompter: &Prompter<'_>, all: bool) -> Result<()> {
     if options.name.as_deref().is_none_or(str::is_empty) {
         options.name = Some(prompter.text(Text::new("Initiative name:").required())?);
     }
@@ -113,10 +117,13 @@ fn prompt(options: &mut Fields, prompter: &Prompter<'_>, all: bool) -> Result<()
         options.status = Some(prompter.select("Status:", choices)?);
     }
     if options.owner.is_none() {
-        options.owner = prompter.parsed(
-            Text::new("Owner (username, email, or @me - press Enter to skip):"),
-            &str::parse::<UserRef>,
-        )?;
+        options.owner = lookup_prompt::ask_user(
+            ctx,
+            prompter,
+            "Owner (username, email, or @me - press Enter to skip):",
+            "Owner",
+        )?
+        .map(UserChoice::Found);
     }
     if options.target_date.is_none() {
         options.target_date = prompter.parsed(
