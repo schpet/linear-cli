@@ -137,6 +137,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - an unknown document, project, initiative, or issue passed to `document view` or any `comment` command is reported as `<Type> not found: <reference>` instead of Linear's raw "Could not find referenced …" wording, and `document view` no longer exits with a stack trace for an unknown slug (its not-found branch re-threw instead of reporting, and was unreachable until the not-found detection was fixed)
 - `cycle list` and `milestone list` now paginate instead of taking Linear's default page, so a team with more than 50 cycles or a project with more than 50 milestones is no longer silently truncated
 - `project-update create` and `initiative-update create` without a body (nothing or only whitespace piped on stdin, or `--no-input`) is a usage error instead of posting an empty update
+- `issue start` without an issue ID off a terminal or with `--no-input` is a usage error (exit 2) like other missing values, reported before the team is looked up
 
 ## [2.6.0] - 2026-09-02
 

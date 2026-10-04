@@ -23,6 +23,9 @@ pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 }
 
 fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
+    if args.issue_id.is_none() && !ctx.interactive() {
+        return Err(ctx.missing_value("No issue to start", "an issue ID"));
+    }
     let team = match &args.team {
         Some(team) => {
             let reference = TeamReference::parse(team, &ctx.scope()?)?;
@@ -58,7 +61,6 @@ fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 
 /// Asks which of the team's unstarted issues to start.
 fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
-    ctx.require_tty("which issue to start", "an issue ID")?;
     let sort = ctx.options().issue_sort(None).0;
     let client = ctx.client()?;
     let issues = ctx.spin(

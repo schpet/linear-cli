@@ -102,9 +102,9 @@ fn the_issue_start_picker_without_a_terminal_names_what_it_would_ask() {
     Cli::for_api(&api)
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&["--no-input", "issue", "start"])
-        .failure()
-        .stderr_has("needs to ask which issue to start, but --no-input is set")
-        .stderr_has("Pass an issue ID");
+        .usage_error()
+        .stderr_has("No issue to start")
+        .stderr_has("Pass an issue ID.");
     assert!(api.requests().is_empty());
 }
 

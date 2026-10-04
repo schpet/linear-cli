@@ -315,12 +315,29 @@ fn start_rejects_an_empty_issue_id_without_a_picker() {
 }
 
 #[test]
-fn start_without_an_issue_or_team_fails_before_any_request() {
+fn start_without_an_issue_off_a_terminal_is_a_usage_error_before_any_request() {
     let api = MockLinear::start();
-    Cli::for_api(&api)
-        .run(&["issue", "start"])
+    let cli = Cli::for_api(&api);
+    cli.run(&["issue", "start"])
         .usage_error()
-        .stderr_has("No team to pick an issue from");
+        .stderr_has("No issue to start")
+        .stderr_has("Pass an issue ID, or run in a terminal");
+    cli.run(&["issue", "start", "--team", "ENG", "--no-input"])
+        .usage_error()
+        .stderr_has("No issue to start")
+        .stderr_has("Pass an issue ID.");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn start_without_an_issue_or_team_on_a_terminal_fails_before_any_request() {
+    let api = MockLinear::start();
+    let run = Cli::for_api(&api).run_tty(&["issue", "start"], &[]);
+    assert_eq!(run.code, 2, "{run}");
+    assert!(
+        run.stdout.contains("No team to pick an issue from"),
+        "{run}"
+    );
     assert!(api.requests().is_empty());
 }
 
