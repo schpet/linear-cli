@@ -481,8 +481,10 @@ fn update_rejects_conflicting_flags_before_any_request() {
 fn delete_with_yes_deletes_by_id_or_url() {
     let deleted = json!({ "projectDelete": { "success": true, "entity": { "id": ID, "name": "Mobile App" } } });
     let api = MockLinear::start();
-    api.on("DeleteProject", deleted.clone())
+    api.on("GetProjectName", project_name())
+        .on("DeleteProject", deleted.clone())
         .on("GetProjectIdBySlugId", ids(ID))
+        .on("GetProjectName", project_name())
         .on("DeleteProject", deleted);
     let cli = Cli::for_api(&api);
     cli.run(&["project", "delete", ID, "--yes"])
@@ -508,14 +510,49 @@ fn delete_with_yes_deletes_by_id_or_url() {
     );
 }
 
+fn project_name() -> Value {
+    json!({ "project": { "id": ID, "name": "Mobile App" } })
+}
+
 #[test]
 fn delete_without_confirmation_does_not_delete() {
     let api = MockLinear::start();
+    api.on("GetProjectName", project_name());
     Cli::for_api(&api)
         .run(&["project", "delete", ID])
         .failure()
         .stderr_has("--yes");
-    assert!(!api.operations().contains(&"DeleteProject".to_owned()));
+    assert_eq!(api.operations(), ["GetProjectName"]);
+}
+
+#[test]
+fn delete_asks_with_the_project_name_after_resolving_it() {
+    let api = MockLinear::start();
+    api.on("GetProjectIdByName", ids(ID))
+        .on("GetProjectName", project_name());
+    Cli::for_api(&api)
+        .run_tty(
+            &["project", "delete", "mobile app"],
+            &[("delete project \"Mobile App\"? (y/N)", "\r")],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["GetProjectIdByName", "GetProjectName"]);
+}
+
+#[test]
+fn delete_reports_an_unknown_project_without_asking() {
+    let api = MockLinear::start();
+    api.on("GetProjectIdByName", no_ids())
+        .on("GetProjectIdBySlugId", no_ids());
+    Cli::for_api(&api)
+        .run(&["project", "delete", "Nope"])
+        .failure()
+        .stderr_has("not found");
+    assert_eq!(
+        api.operations(),
+        ["GetProjectIdByName", "GetProjectIdBySlugId"]
+    );
 }
 
 #[test]
@@ -862,7 +899,9 @@ fn comment_list_follows_every_page() {
 #[test]
 fn delete_resolves_names() {
     let api = MockLinear::start();
-    api.on("GetProjectIdByName", ids(ID)).on(
+    api.on("GetProjectIdByName", ids(ID))
+        .on("GetProjectName", project_name())
+        .on(
         "DeleteProject",
         json!({ "projectDelete": { "success": true, "entity": { "id": ID, "name": "Mobile App" } } }),
     );
@@ -882,4 +921,18 @@ fn create_warns_that_an_unreadable_reply_may_have_created_it() {
         .run(&["project", "create", "--name", "New", "--team", "SRC"])
         .failure()
         .stderr_has("project may already exist");
+}
+
+#[test]
+fn an_ambiguous_name_lists_the_uuids_to_pass_instead() {
+    let api = MockLinear::start();
+    api.on(
+        "GetProjectIdByName",
+        json!({ "projects": { "nodes": [{ "id": ID }, { "id": "96e4ebe7-247f-4aa0-a6a4-44ed5c33c6ff" }] } }),
+    );
+    Cli::for_api(&api)
+        .run(&["project", "delete", "Mobile App", "--yes"])
+        .failure()
+        .stderr_has(&format!("  {ID}\n  96e4ebe7-247f-4aa0-a6a4-44ed5c33c6ff"))
+        .stderr_has("Pass one of these UUIDs instead.");
 }

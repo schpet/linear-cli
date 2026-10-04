@@ -929,3 +929,15 @@ pub struct ProjectRef {
     pub id: cynic::Id,
     pub name: String,
 }
+
+/// A project's name, to name it in a confirmation.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "DeleteProjectVariables"
+)]
+pub struct GetProjectName {
+    #[arguments(id: $id)]
+    pub project: ProjectRef,
+}

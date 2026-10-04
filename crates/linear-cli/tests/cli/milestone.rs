@@ -456,14 +456,14 @@ fn update_rejects_a_non_numeric_sort_order_before_any_request() {
 #[test]
 fn delete_with_yes_deletes() {
     let api = MockLinear::start();
-    api.on(
+    api.on("GetMilestoneName", milestone_name()).on(
         "DeleteProjectMilestone",
         json!({ "projectMilestoneDelete": { "success": true } }),
     );
     Cli::for_api(&api)
         .run(&["milestone", "delete", MILESTONE_ID, "--yes"])
         .success()
-        .stdout_has(MILESTONE_ID);
+        .stdout_has("✓ Deleted milestone Beta");
     assert_eq!(
         api.variables("DeleteProjectMilestone"),
         json!({ "id": MILESTONE_ID })
@@ -473,7 +473,43 @@ fn delete_with_yes_deletes() {
 #[test]
 fn delete_without_yes_needs_a_confirmation() {
     let api = MockLinear::start();
+    api.on("GetMilestoneName", milestone_name());
     Cli::for_api(&api)
         .run(&["milestone", "delete", MILESTONE_ID])
-        .failure();
+        .failure()
+        .stderr_has("--yes");
+    assert_eq!(api.operations(), ["GetMilestoneName"]);
+}
+
+fn milestone_name() -> Value {
+    json!({ "projectMilestone": {
+        "name": "Beta", "project": { "id": "project-1", "name": "Mobile" }
+    } })
+}
+
+#[test]
+fn delete_names_the_milestone_and_its_project_on_a_terminal() {
+    let api = MockLinear::start();
+    api.on("GetMilestoneName", milestone_name());
+    Cli::for_api(&api)
+        .run_tty(
+            &["milestone", "delete", MILESTONE_ID],
+            &[(
+                "delete milestone \"Beta\" of project \"Mobile\"? (y/N)",
+                "\r",
+            )],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["GetMilestoneName"]);
+}
+
+#[test]
+fn delete_reports_an_unknown_milestone_without_asking() {
+    let api = MockLinear::start();
+    api.on("GetMilestoneName", json!({ "projectMilestone": null }));
+    Cli::for_api(&api)
+        .run(&["milestone", "delete", MILESTONE_ID])
+        .failure()
+        .stderr_has(&format!("Milestone not found: {MILESTONE_ID}"));
 }

@@ -89,9 +89,7 @@ pub async fn find(client: &LinearClient, reference: &ProjectReference) -> Result
                     &reference.input,
                     matches.iter().map(|project| project.id.inner().to_owned()),
                 )
-                .with_hint(
-                    "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
-                ));
+                .with_hint("Pass one of these UUIDs instead."));
             }
             if let Some(project) = matches.pop() {
                 return Ok(Some(project.id.into_inner()));

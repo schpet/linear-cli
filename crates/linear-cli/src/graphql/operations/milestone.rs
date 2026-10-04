@@ -290,3 +290,22 @@ pub struct ProjectMilestone {
     pub sort_order: crate::graphql::scalars::Float,
     pub project: ProjectRef,
 }
+
+/// A milestone's name and project, to name it in a confirmation.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "DeleteProjectMilestoneVariables"
+)]
+pub struct GetMilestoneName {
+    #[arguments(id: $id)]
+    pub project_milestone: Option<NamedMilestone>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "ProjectMilestone")]
+pub struct NamedMilestone {
+    pub name: String,
+    pub project: ProjectRef,
+}
