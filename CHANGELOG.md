@@ -128,6 +128,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `--cycle -1` and `cycle view -1` work without an `=`; negative offsets were rejected as unknown arguments
 - piped `linear api` output ends with a newline
 - an empty `--title`, `--team`, `--state`, `--project`, `--label`, or similar flag on `issue create`/`issue update` is a usage error instead of being sent (and rejected by Linear) or silently ignored
+- a name, title, reference, or body flag whose value is only whitespace (such as `--title '   '`) is a usage error on every command, the same as an empty one, instead of being sent to Linear
 - commands that read the issue from the current branch, and `issue start`, say "Not in a git repository" (or jj) outside one instead of printing git's or jj's raw error
 - an unknown team names at most ten valid keys and how many more there are, instead of listing every team on one line, and an ambiguous project name says to pass one of the UUIDs it lists
 - a project name that matches more than one project is now rejected with both projects' IDs instead of silently resolving to whichever Linear returned first. Linear does not require project names to be unique, so this affected every command that accepts a project by name — `project view/update/delete`, `project comment`, `project-update`, `milestone`, and `issue create/update/query/mine --project`

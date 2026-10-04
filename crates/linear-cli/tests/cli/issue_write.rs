@@ -1124,3 +1124,20 @@ fn create_reads_the_description_from_stdin_with_a_dash() {
         "Piped description\n"
     );
 }
+
+#[test]
+fn whitespace_only_flag_values_are_usage_errors() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    for args in [
+        &["issue", "create", "--title", "   ", "--team", "ENG"][..],
+        &["issue", "update", "ENG-1", "--title", " \t"],
+        &["issue", "create", "--title", "Real", "--team", "  "],
+        &["project", "create", "--name", " "],
+    ] {
+        cli.run(args)
+            .usage_error()
+            .stderr_has("the value is only whitespace");
+    }
+    assert!(api.requests().is_empty());
+}

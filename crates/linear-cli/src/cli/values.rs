@@ -1,10 +1,12 @@
 //! Flag value types and parsers shared across commands.
+use std::ffi::OsStr;
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use clap::ValueEnum;
+use clap::builder::{NonEmptyStringValueParser, TypedValueParser};
 
 use crate::graphql::scalars::Float;
 use crate::refs::reject_linear_url;
@@ -40,6 +42,32 @@ impl fmt::Display for UserRef {
             Self::Me => f.write_str("@me"),
             Self::Query(query) => f.write_str(query),
         }
+    }
+}
+
+/// Text that must not be empty or only whitespace, such as a title, name, or
+/// reference. An empty value gets clap's "a value is required" error.
+#[derive(Clone, Copy, Debug)]
+pub struct NonBlank;
+
+impl TypedValueParser for NonBlank {
+    type Value = String;
+
+    fn parse_ref(
+        &self,
+        cmd: &clap::Command,
+        arg: Option<&clap::Arg>,
+        value: &OsStr,
+    ) -> Result<String, clap::Error> {
+        NonEmptyStringValueParser::new().parse_ref(cmd, arg, value)?;
+        let not_blank = |text: &str| {
+            if text.trim().is_empty() {
+                Err("the value is only whitespace")
+            } else {
+                Ok(text.to_owned())
+            }
+        };
+        not_blank.parse_ref(cmd, arg, value)
     }
 }
 

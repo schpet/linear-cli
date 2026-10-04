@@ -1,9 +1,8 @@
 use chrono::NaiveDate;
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::{HexColor, InitiativeStatus, TextSource, UserRef};
+use super::values::{HexColor, InitiativeStatus, NonBlank, TextSource, UserRef};
 use crate::graphql::scalars::Float;
 
 #[derive(Debug, Args)]
@@ -70,7 +69,7 @@ pub struct InitiativeList {
 #[derive(Debug, Args)]
 pub struct InitiativeView {
     /// Initiative ID, slug, or name
-    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_name = "INITIATIVE", value_parser = NonBlank)]
     pub initiative_id: String,
     /// Open the initiative in the browser
     #[arg(long, short)]
@@ -89,10 +88,10 @@ pub struct InitiativeView {
 #[derive(Debug, Args)]
 pub struct InitiativeCreate {
     /// Initiative name
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub name: Option<String>,
     /// Initiative description
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub description: Option<String>,
     /// Initiative status [default: planned]
     #[arg(long, short, ignore_case = true)]
@@ -107,7 +106,7 @@ pub struct InitiativeCreate {
     #[arg(long, short)]
     pub color: Option<HexColor>,
     /// Icon name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub icon: Option<String>,
     /// Also prompt for the optional fields
     #[arg(long, short)]
@@ -119,7 +118,7 @@ pub struct InitiativeCreate {
 #[derive(Debug, Args)]
 pub struct InitiativeArchive {
     /// Initiative ID, slug, or name
-    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    #[arg(value_name = "INITIATIVE", value_parser = NonBlank, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -130,13 +129,13 @@ pub struct InitiativeArchive {
 #[derive(Debug, Args)]
 pub struct InitiativeUpdate {
     /// Initiative ID, slug, or name
-    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_name = "INITIATIVE", value_parser = NonBlank)]
     pub initiative_id: String,
     /// New name
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub name: Option<String>,
     /// New description
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub description: Option<String>,
     /// New status
     #[arg(long, ignore_case = true)]
@@ -151,7 +150,7 @@ pub struct InitiativeUpdate {
     #[arg(long)]
     pub color: Option<HexColor>,
     /// New icon name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub icon: Option<String>,
     /// Prompt for the fields to change
     #[arg(long, short)]
@@ -163,7 +162,7 @@ pub struct InitiativeUpdate {
 #[derive(Debug, Args)]
 pub struct InitiativeUnarchive {
     /// Initiative ID, slug, or name
-    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_name = "INITIATIVE", value_parser = NonBlank)]
     pub initiative_id: String,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -172,7 +171,7 @@ pub struct InitiativeUnarchive {
 #[derive(Debug, Args)]
 pub struct InitiativeDelete {
     /// Initiative ID, slug, or name
-    #[arg(value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    #[arg(value_name = "INITIATIVE", value_parser = NonBlank, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -183,10 +182,10 @@ pub struct InitiativeDelete {
 #[derive(Debug, Args)]
 pub struct InitiativeAddProject {
     /// Initiative ID, slug, or name
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub initiative: String,
     /// Project ID, slug, or name
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub project: String,
     /// Position among the initiative's projects
     #[arg(long, value_name = "NUMBER", value_parser = super::values::sort_order, allow_negative_numbers = true)]
@@ -196,10 +195,10 @@ pub struct InitiativeAddProject {
 #[derive(Debug, Args)]
 pub struct InitiativeRemoveProject {
     /// Initiative ID, slug, or name
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub initiative: String,
     /// Project ID, slug, or name
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub project: String,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -224,16 +223,16 @@ pub enum InitiativeCommentCommand {
 #[derive(Debug, Args)]
 pub struct InitiativeCommentAdd {
     /// Initiative ID, slug, or name
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub initiative: String,
     /// Comment text, in Markdown
-    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_name = "TEXT", value_parser = NonBlank)]
     pub body: Option<String>,
     /// Read the comment from a Markdown file (- for stdin)
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<TextSource>,
     /// Reply to this top-level comment (by ID)
-    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonBlank)]
     pub reply_to: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -242,7 +241,7 @@ pub struct InitiativeCommentAdd {
 #[derive(Debug, Args)]
 pub struct InitiativeCommentList {
     /// Initiative ID, slug, or name
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub initiative: String,
     /// Maximum number of comments to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]

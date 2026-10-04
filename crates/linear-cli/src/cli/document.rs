@@ -1,8 +1,7 @@
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::TextSource;
+use super::values::{NonBlank, TextSource};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -35,22 +34,22 @@ pub enum DocumentCommand {
 #[derive(Debug, Args)]
 pub struct DocumentList {
     /// Show this project's documents (ID, slug, or name)
-    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub project: Option<String>,
     /// Show this issue's documents (like ENG-123)
-    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub issue: Option<String>,
     /// Show this initiative's documents (ID, slug, or name)
-    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonBlank)]
     pub initiative: Option<String>,
     /// Show this team's documents (key, name, or ID); with --cycle, the cycle's team
-    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with = "release", value_parser = NonBlank)]
     pub team: Option<String>,
     /// Show this cycle's documents: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
-    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonBlank)]
     pub cycle: Option<String>,
     /// Show this release's documents (ID, name, or version)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub release: Option<String>,
     /// Print JSON
     #[arg(long, short)]
@@ -63,7 +62,7 @@ pub struct DocumentList {
 #[derive(Debug, Args)]
 pub struct DocumentView {
     /// Document ID or slug
-    #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_name = "DOCUMENT", value_parser = NonBlank)]
     pub id: String,
     /// Print the Markdown source instead of rendering it
     #[arg(long)]
@@ -85,34 +84,34 @@ pub struct DocumentView {
 #[derive(Debug, Args)]
 pub struct DocumentCreate {
     /// Document title
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
     /// Document text, in Markdown
-    #[arg(long, short, value_name = "MARKDOWN", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_name = "MARKDOWN", value_parser = NonBlank)]
     pub content: Option<String>,
     /// Read the document from a Markdown file (- for stdin)
     #[arg(long, short = 'f', value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub content_file: Option<TextSource>,
     /// Attach the document to a project (ID, slug, or name)
-    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub project: Option<String>,
     /// Attach the document to an issue (like ENG-123)
-    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub issue: Option<String>,
     /// Attach the document to an initiative (ID, slug, or name)
-    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonBlank)]
     pub initiative: Option<String>,
     /// Attach the document to a team (key, name, or ID); with --cycle, the cycle's team
-    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with = "release", value_parser = NonBlank)]
     pub team: Option<String>,
     /// Attach the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
-    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonBlank)]
     pub cycle: Option<String>,
     /// Attach the document to a release (ID, name, or version)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub release: Option<String>,
     /// Document icon (an emoji)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub icon: Option<String>,
     /// Also prompt for the optional fields
     #[arg(long, short)]
@@ -124,37 +123,37 @@ pub struct DocumentCreate {
 #[derive(Debug, Args)]
 pub struct DocumentUpdate {
     /// Document ID or slug
-    #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_name = "DOCUMENT", value_parser = NonBlank)]
     pub document_id: String,
     /// New title
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
     /// New text, in Markdown
-    #[arg(long, short, value_name = "MARKDOWN", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_name = "MARKDOWN", value_parser = NonBlank)]
     pub content: Option<String>,
     /// Read the new text from a Markdown file (- for stdin)
     #[arg(long, short = 'f', value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub content_file: Option<TextSource>,
     /// New icon (an emoji)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub icon: Option<String>,
     /// Move the document to a project (ID, slug, or name)
-    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub project: Option<String>,
     /// Move the document to an issue (like ENG-123)
-    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub issue: Option<String>,
     /// Move the document to an initiative (ID, slug, or name)
-    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonBlank)]
     pub initiative: Option<String>,
     /// Move the document to a team (key, name, or ID); with --cycle, the cycle's team
-    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with = "release", value_parser = NonBlank)]
     pub team: Option<String>,
     /// Move the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
-    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonBlank)]
     pub cycle: Option<String>,
     /// Move the document to a release (ID, name, or version)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub release: Option<String>,
     /// Edit the current text in $EDITOR
     #[arg(long, short)]
@@ -169,7 +168,7 @@ pub struct DocumentUpdate {
 #[derive(Debug, Args)]
 pub struct DocumentDelete {
     /// Document ID or slug
-    #[arg(value_name = "DOCUMENT", value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    #[arg(value_name = "DOCUMENT", value_parser = NonBlank, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub document_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -196,16 +195,16 @@ pub enum DocumentCommentCommand {
 #[derive(Debug, Args)]
 pub struct DocumentCommentAdd {
     /// Document ID or slug
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub document: String,
     /// Comment text, in Markdown
-    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_name = "TEXT", value_parser = NonBlank)]
     pub body: Option<String>,
     /// Read the comment from a Markdown file (- for stdin)
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<TextSource>,
     /// Reply to this top-level comment (by ID)
-    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonBlank)]
     pub reply_to: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -214,7 +213,7 @@ pub struct DocumentCommentAdd {
 #[derive(Debug, Args)]
 pub struct DocumentCommentList {
     /// Document ID or slug
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub document: String,
     /// Maximum number of comments to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]

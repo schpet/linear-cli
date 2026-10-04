@@ -1,5 +1,6 @@
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
+
+use super::values::NonBlank;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -29,7 +30,7 @@ pub enum AuthCommand {
 #[derive(Debug, Args)]
 pub struct AuthLogin {
     /// API key; asked for, or read from stdin when it is piped
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub key: Option<String>,
     /// Store the API key in the credentials file instead of the system keyring
     #[arg(long)]

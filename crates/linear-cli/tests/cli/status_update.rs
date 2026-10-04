@@ -626,7 +626,7 @@ fn create_rejects_a_blank_body_before_any_request() {
         "   ",
     ])
     .usage_error()
-    .stderr_has("The update body is empty");
+    .stderr_has("only whitespace");
     assert!(api.requests().is_empty());
 }
 

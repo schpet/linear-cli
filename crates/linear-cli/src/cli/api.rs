@@ -1,5 +1,6 @@
 use clap::Args;
-use clap::builder::NonEmptyStringValueParser;
+
+use super::values::NonBlank;
 
 #[derive(Debug, Args)]
 pub struct Api {
@@ -13,7 +14,7 @@ pub struct Api {
     #[arg(long, value_name = "KEY=VALUE", value_parser = super::variable_assignment)]
     pub variable: Vec<super::VariableAssignment>,
     /// Variables as a JSON object; --variable takes precedence
-    #[arg(long, value_name = "JSON", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "JSON", value_parser = NonBlank)]
     pub variables_json: Option<String>,
     /// Follow the cursor of the one connection in the response and print every page
     #[arg(long)]

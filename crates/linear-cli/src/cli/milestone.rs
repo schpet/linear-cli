@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
-use clap::builder::NonEmptyStringValueParser;
 use clap::{ArgGroup, Args, Subcommand};
+
+use super::values::NonBlank;
 
 use crate::graphql::scalars::Float;
 
@@ -29,7 +30,7 @@ pub enum MilestoneCommand {
 #[derive(Debug, Args)]
 pub struct MilestoneList {
     /// Project ID, slug, or name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub project: String,
     /// Maximum number of milestones to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
@@ -47,7 +48,7 @@ pub struct MilestoneView {
     #[arg(long)]
     pub all: bool,
     /// Project (ID, slug, or name) to find the milestone name in
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub project: Option<String>,
     /// Print JSON
     #[arg(long, short)]
@@ -60,13 +61,13 @@ pub struct MilestoneView {
 #[derive(Debug, Args)]
 pub struct MilestoneCreate {
     /// Project ID, slug, or name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub project: String,
     /// Milestone name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub name: String,
     /// Milestone description
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub description: Option<String>,
     /// Target date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
@@ -85,10 +86,10 @@ pub struct MilestoneUpdate {
     /// Milestone ID
     pub id: String,
     /// New name
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub name: Option<String>,
     /// New description
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub description: Option<String>,
     /// New target date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
@@ -97,7 +98,7 @@ pub struct MilestoneUpdate {
     #[arg(long, value_name = "NUMBER", value_parser = super::values::sort_order, allow_negative_numbers = true)]
     pub sort_order: Option<Float>,
     /// Move the milestone to this project (ID, slug, or name)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub project: Option<String>,
 }
 

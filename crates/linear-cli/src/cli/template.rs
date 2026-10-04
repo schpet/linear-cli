@@ -1,5 +1,6 @@
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
+
+use super::values::NonBlank;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -25,7 +26,7 @@ pub struct TemplateList {
     #[arg(long = "type")]
     pub r#type: Option<super::TemplateType>,
     /// Show this team's templates (key, name, or ID) plus workspace templates
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub team: Option<String>,
     /// Maximum number of templates to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]

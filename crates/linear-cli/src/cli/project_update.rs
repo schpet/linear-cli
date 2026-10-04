@@ -1,8 +1,7 @@
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::TextSource;
+use super::values::{NonBlank, TextSource};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -34,7 +33,7 @@ pub struct ProjectUpdateCreate {
 #[derive(Debug, Args)]
 pub struct StatusUpdateArgs {
     /// Update text, in Markdown
-    #[arg(long, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new(), conflicts_with = "body_file")]
+    #[arg(long, value_name = "TEXT", value_parser = NonBlank, conflicts_with = "body_file")]
     pub body: Option<String>,
     /// Read the update from a Markdown file (- for stdin)
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]

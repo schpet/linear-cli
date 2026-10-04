@@ -1,9 +1,8 @@
 use chrono::NaiveDate;
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::{HexColor, TextSource, UserRef};
+use super::values::{HexColor, NonBlank, TextSource, UserRef};
 use crate::graphql::operations::project::ProjectStatusType;
 
 #[derive(Debug, Args)]
@@ -35,7 +34,7 @@ pub enum ProjectCommand {
 #[derive(Debug, Args)]
 pub struct ProjectList {
     /// Show this team's projects (key, name, or ID); defaults to the configured team
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub team: Option<String>,
     /// Show every team's projects
     #[arg(long, conflicts_with = "team")]
@@ -80,7 +79,7 @@ pub struct ProjectView {
 #[derive(Debug, Args)]
 pub struct ProjectFields {
     /// Project name
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub name: Option<String>,
     /// Short summary, up to 255 characters
     #[arg(long, short, conflicts_with = "description_file")]
@@ -141,10 +140,10 @@ pub struct ProjectCreate {
     #[command(flatten)]
     pub fields: ProjectFields,
     /// Team (key, name, or ID); repeat for several teams
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub team: Vec<String>,
     /// Project label; repeat for several labels
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub label: Vec<String>,
     /// Project member: a username, email, name, or @me; repeatable
     #[arg(long, value_name = "USER")]
@@ -156,13 +155,13 @@ pub struct ProjectCreate {
     #[arg(long)]
     pub color: Option<HexColor>,
     /// Add the project to this initiative (ID, slug, or name)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub initiative: Option<String>,
     /// Start from this project template (name or ID)
     ///
     /// Workspace templates and those of the project's teams are searched. The
     /// template fills in anything you do not pass; flags override it.
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub template: Option<String>,
     /// Also prompt for the optional fields
     #[arg(long, short)]
@@ -191,31 +190,31 @@ pub struct ProjectUpdate {
     #[arg(long, conflicts_with = "target_date")]
     pub clear_target_date: bool,
     /// Set the project's teams (key, name, or ID), replacing the current ones; repeatable
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["add_team", "remove_team"])]
+    #[arg(long, short, value_parser = NonBlank, conflicts_with_all = ["add_team", "remove_team"])]
     pub team: Vec<String>,
     /// Add a team to the project; repeatable
-    #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "TEAM", value_parser = NonBlank)]
     pub add_team: Vec<String>,
     /// Remove a team from the project; repeatable
-    #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "TEAM", value_parser = NonBlank)]
     pub remove_team: Vec<String>,
     /// Set the project's labels, replacing the current ones; repeatable
-    #[arg(long, value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["add_label", "remove_label"])]
+    #[arg(long, value_parser = NonBlank, conflicts_with_all = ["add_label", "remove_label"])]
     pub label: Vec<String>,
     /// Add a label to the project; repeatable
-    #[arg(long, value_name = "LABEL", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "LABEL", value_parser = NonBlank)]
     pub add_label: Vec<String>,
     /// Remove a label from the project (the label itself stays); repeatable
-    #[arg(long, value_name = "LABEL", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "LABEL", value_parser = NonBlank)]
     pub remove_label: Vec<String>,
     /// Set the project's initiatives (ID, slug, or name), replacing the current ones; repeatable
-    #[arg(long, value_parser = NonEmptyStringValueParser::new(), conflicts_with_all = ["add_initiative", "remove_initiative"])]
+    #[arg(long, value_parser = NonBlank, conflicts_with_all = ["add_initiative", "remove_initiative"])]
     pub initiative: Vec<String>,
     /// Add the project to an initiative; repeatable
-    #[arg(long, value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "INITIATIVE", value_parser = NonBlank)]
     pub add_initiative: Vec<String>,
     /// Remove the project from an initiative (the initiative itself stays); repeatable
-    #[arg(long, value_name = "INITIATIVE", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "INITIATIVE", value_parser = NonBlank)]
     pub remove_initiative: Vec<String>,
 }
 
@@ -249,13 +248,13 @@ pub struct ProjectCommentAdd {
     /// Project ID, slug, or name
     pub project: String,
     /// Comment text, in Markdown
-    #[arg(long, short, value_name = "TEXT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_name = "TEXT", value_parser = NonBlank)]
     pub body: Option<String>,
     /// Read the comment from a Markdown file (- for stdin)
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<TextSource>,
     /// Reply to this top-level comment (by ID)
-    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonBlank)]
     pub reply_to: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,

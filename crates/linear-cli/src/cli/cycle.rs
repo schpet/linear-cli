@@ -1,5 +1,6 @@
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
+
+use super::values::NonBlank;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -20,7 +21,7 @@ pub enum CycleCommand {
 #[derive(Debug, Args)]
 pub struct CycleList {
     /// Team key, name, or ID; defaults to the configured team
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub team: Option<String>,
     /// Maximum number of cycles to show, newest first (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
@@ -36,7 +37,7 @@ pub struct CycleView {
     #[arg(value_name = "CYCLE", allow_negative_numbers = true)]
     pub cycle_ref: String,
     /// Team key, name, or ID; defaults to the configured team
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_parser = NonBlank)]
     pub team: Option<String>,
     /// Print JSON
     #[arg(long, short)]

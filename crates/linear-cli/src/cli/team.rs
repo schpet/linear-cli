@@ -1,5 +1,6 @@
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Subcommand};
+
+use super::values::NonBlank;
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -32,13 +33,13 @@ pub enum TeamCommand {
 #[derive(Debug, Args)]
 pub struct TeamCreate {
     /// Team name
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub name: Option<String>,
     /// Team description
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub description: Option<String>,
     /// Team key, like ENG; derived from the name when omitted
-    #[arg(long, short, value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, short, value_parser = NonBlank)]
     pub key: Option<String>,
     /// Make the team private
     #[arg(long)]
@@ -53,10 +54,10 @@ pub struct TeamCreate {
 #[derive(Debug, Args)]
 pub struct TeamDelete {
     /// Team key, name, or ID
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub team: String,
     /// Move the team's issues to this team (key, name, or ID) first
-    #[arg(long, value_name = "TEAM", value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "TEAM", value_parser = NonBlank)]
     pub move_issues: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -87,7 +88,7 @@ pub struct TeamAutolinks {}
 #[derive(Debug, Args)]
 pub struct TeamMembers {
     /// Team key, name, or ID; defaults to the configured team
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub team: Option<String>,
     /// Include deactivated members
     #[arg(long, short)]
@@ -103,7 +104,7 @@ pub struct TeamMembers {
 #[derive(Debug, Args)]
 pub struct TeamStates {
     /// Team key, name, or ID; defaults to the configured team
-    #[arg(value_parser = NonEmptyStringValueParser::new())]
+    #[arg(value_parser = NonBlank)]
     pub team: Option<String>,
     /// Maximum number of states to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]

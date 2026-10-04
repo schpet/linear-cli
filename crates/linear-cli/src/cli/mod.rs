@@ -2,8 +2,9 @@
 //! parsed here, at the boundary, so commands receive checked types.
 use std::path::PathBuf;
 
-use clap::builder::NonEmptyStringValueParser;
 use clap::{Args, Command, CommandFactory, Parser, Subcommand, ValueEnum, ValueHint};
+
+use values::NonBlank;
 
 pub(crate) use limit::Limit;
 pub(crate) mod api;
@@ -72,7 +73,7 @@ pub struct GlobalArgs {
         long,
         global = true,
         value_name = "SLUG",
-        value_parser = NonEmptyStringValueParser::new(),
+        value_parser = NonBlank,
         display_order = 1000
     )]
     pub workspace: Option<String>,
@@ -175,7 +176,7 @@ pub struct YesArgs {
 #[derive(Debug, Args)]
 pub struct BulkArgs {
     /// Act on several at once instead of one
-    #[arg(long, value_name = "IDS", num_args = 0.., value_parser = NonEmptyStringValueParser::new())]
+    #[arg(long, value_name = "IDS", num_args = 0.., value_parser = NonBlank)]
     pub bulk: Option<Vec<String>>,
     /// Read the IDs from a file, one per line
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]

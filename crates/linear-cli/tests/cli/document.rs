@@ -595,7 +595,7 @@ fn comment_add_with_a_blank_body_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["document", "comment", "add", SLUG, "--body", "   "])
         .usage_error()
-        .stderr_has("empty");
+        .stderr_has("only whitespace");
     assert!(api.requests().is_empty());
 }
 
