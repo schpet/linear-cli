@@ -249,6 +249,37 @@ pub fn entity_filters(
         }),
     };
 }
+/// Fails on the first `--label` name that matches no label the issues could
+/// carry: a label of one of `keys`' teams or a workspace label, or any label
+/// when `keys` is `None`. Without this an unknown label just finds nothing.
+pub async fn check_labels(
+    client: &LinearClient,
+    names: &[String],
+    keys: Option<&[String]>,
+) -> Result<(), Error> {
+    use crate::graphql::operations::common::NameVariables;
+    use crate::graphql::operations::label::GetLabelByName;
+    for name in names {
+        let data: GetLabelByName = client.query(NameVariables { name: name.clone() }).await?;
+        let usable = data
+            .issue_labels
+            .nodes
+            .iter()
+            .any(|label| match (&label.team, keys) {
+                (None, _) | (Some(_), None) => true,
+                (Some(team), Some(keys)) => keys.contains(&team.key),
+            });
+        if !usable {
+            let list = match keys {
+                Some([key]) => format!("linear label list --team {key}"),
+                _ => "linear label list --all-teams".to_owned(),
+            };
+            return Err(Error::not_found("Issue label", name)
+                .with_hint(format!("Run `{list}` to see the labels.")));
+        }
+    }
+    Ok(())
+}
 pub async fn assignee_filter(
     client: &LinearClient,
     input: Option<&UserRef>,

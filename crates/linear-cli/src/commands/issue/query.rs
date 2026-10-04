@@ -101,6 +101,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     let show_team = scope.several();
     let show_assignee = filters.assignee.is_none() && !filters.unassigned;
     let output = ctx.spin(!args.json, async {
+        filter::check_labels(client, &filters.label, scope.keys.as_deref()).await?;
         let mut filter = IssueFilter {
             team: scope.keys.as_deref().map(filter::query_team_filter),
             state,

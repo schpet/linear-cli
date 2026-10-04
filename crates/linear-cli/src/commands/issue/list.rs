@@ -70,6 +70,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         .transpose()?;
     let rows = ctx.spin(!args.json, async {
         let teams = std::slice::from_ref(&team);
+        filter::check_labels(client, &filters.label, Some(teams)).await?;
         let mut filter = IssueFilter {
             team: Some(filter::team_filter(teams, true)),
             state: if args.all_states {

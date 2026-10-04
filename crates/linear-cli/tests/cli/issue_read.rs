@@ -416,10 +416,19 @@ fn list_json_conflicts_with_opening_the_list() {
     }
 }
 
+fn label_nodes(team: Option<&str>) -> Value {
+    let team = team.map(|key| json!({ "key": key, "name": key }));
+    json!({ "issueLabels": { "nodes": [
+        { "id": "label-1", "name": "Bug", "color": "#ff0000", "team": team }
+    ] } })
+}
+
 #[test]
 fn list_sends_filters() {
     let api = MockLinear::start();
-    api.on("GetIssuesForState", issues(vec![], None));
+    api.on("GetLabelByName", label_nodes(Some("ENG")))
+        .on("GetLabelByName", label_nodes(None))
+        .on("GetIssuesForState", issues(vec![], None));
     let project = "f0000000-0000-4000-8000-000000000002";
     let milestone = "f0000000-0000-4000-8000-000000000003";
     Cli::for_api(&api)
@@ -462,6 +471,37 @@ fn list_sends_filters() {
             },
             "first": 1
         })
+    );
+    let names: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .filter(|request| request.operation.as_deref() == Some("GetLabelByName"))
+        .map(|request| request.variables["name"].clone())
+        .collect();
+    assert_eq!(names, [json!("Bug"), json!("UI")]);
+}
+
+#[test]
+fn list_and_query_reject_a_label_the_issues_cannot_have() {
+    let api = MockLinear::start();
+    api.on("GetLabelByName", json!({ "issueLabels": { "nodes": [] } }))
+        .on("GetLabelByName", label_nodes(Some("OPS")))
+        .on("GetLabelByName", json!({ "issueLabels": { "nodes": [] } }));
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
+    cli.run(&["issue", "list", "--label", "nope"])
+        .failure()
+        .stderr_has("Issue label not found: nope")
+        .stderr_has("linear label list --team ENG");
+    cli.run(&["issue", "list", "--label", "Bug"])
+        .failure()
+        .stderr_has("Issue label not found: Bug");
+    cli.run(&["issue", "query", "--all-teams", "--label", "nope"])
+        .failure()
+        .stderr_has("Issue label not found: nope")
+        .stderr_has("linear label list --all-teams");
+    assert_eq!(
+        api.operations(),
+        ["GetLabelByName", "GetLabelByName", "GetLabelByName"]
     );
 }
 
