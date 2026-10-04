@@ -144,6 +144,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `issue archive|delete --bulk`, `document delete --bulk`, and `initiative archive|delete --bulk` look up every listed item before asking, list what they are about to change and which items could not be found (those are skipped and fail the command), and ask about the found ones only; with nothing found they stop without asking
 - the confirmation after writing a status update or comment in the editor names the project, initiative, or document (`Post this update to project "Mobile"?`) instead of echoing the ID or slug you typed, and says `Post this reply on …` for a reply
 - `--reply-to`/`--parent` on the `comment add` commands must be a comment UUID (anything else is a usage error before any request), and when the comment is written in the editor the comment replied to is looked up first, so nothing is typed for a reply that cannot be posted
+- no-op updates follow one rule: an update command given no fields to change fails with `No changes given` (exit 2), and an editor or `-i` session that changes nothing prints `No changes made.` and succeeds without asking. `issue comment update` no longer asks to save text left unchanged in the editor
 
 ## [2.6.0] - 2026-09-02
 

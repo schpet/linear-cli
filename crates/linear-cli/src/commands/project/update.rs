@@ -91,7 +91,7 @@ fn update(ctx: &Ctx, args: &ProjectUpdate) -> Result<()> {
         || args.clear_start_date
         || args.clear_target_date;
     if !changes_fields && teams.is_keep() && labels.is_keep() && initiatives.is_keep() {
-        return Err(Error::invalid("No changes specified").with_hint(
+        return Err(Error::invalid("No changes given").with_hint(
             "Pass at least one field to change, like --name, --status, --lead, or --add-team.",
         ));
     }

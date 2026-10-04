@@ -544,7 +544,7 @@ fn update_without_changes_fails_before_any_request() {
     let cli = Cli::for_api(&api);
     cli.run(&["initiative", "update", ID])
         .usage_error()
-        .stderr_has("No changes");
+        .stderr_has("No changes given");
     cli.run(&["initiative", "update", ID, "-i"])
         .failure()
         .stderr_has("terminal");
@@ -1098,4 +1098,29 @@ fn comment_list_stops_on_an_empty_cursor() {
         .failure()
         .stderr_has("cursor");
     assert_eq!(api.operations(), ["GetInitiativeComments"]);
+}
+
+#[test]
+fn update_interactively_without_changes_saves_nothing() {
+    let api = MockLinear::start();
+    api.on(
+        "GetInitiativeForUpdate",
+        json!({ "initiative": {
+            "name": "Roadmap", "description": null, "status": "Active",
+            "targetDate": null, "color": null
+        } }),
+    );
+    let run = Cli::for_api(&api).run_tty(
+        &["initiative", "update", ID, "-i"],
+        &[
+            ("Name:", "\r"),
+            ("Description:", "\r"),
+            ("Status:", "\r"),
+            ("Target date", "\r"),
+            ("Color", "\r"),
+        ],
+    );
+    assert_eq!(run.code, 0, "{run}");
+    assert!(run.stdout.contains("No changes made."), "{run}");
+    assert_eq!(api.operations(), ["GetInitiativeForUpdate"]);
 }

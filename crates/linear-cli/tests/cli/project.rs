@@ -759,7 +759,7 @@ fn update_without_changes_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["project", "update", ID])
         .usage_error()
-        .stderr_has("No changes");
+        .stderr_has("No changes given");
     assert!(api.requests().is_empty());
 }
 

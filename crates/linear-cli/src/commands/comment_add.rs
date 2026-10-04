@@ -74,7 +74,7 @@ pub fn require_editor(ctx: &Ctx) -> Result<()> {
 
 /// The body written in the editor, starting from `initial`, once the user
 /// confirms `question` (or passed `yes`). `None` when the editor is left
-/// empty or the user declines; the cancellation is already reported.
+/// empty or unchanged, or the user declines; that is already reported.
 pub fn write_in_editor(
     ctx: &Ctx,
     initial: &str,
@@ -86,6 +86,10 @@ pub fn write_in_editor(
         outcome::canceled(ctx)?;
         return Ok(None);
     };
+    if body == initial.trim() {
+        ctx.print(outcome::NO_CHANGES)?;
+        return Ok(None);
+    }
     if !confirm::proceed(ctx, yes, question)? {
         return Ok(None);
     }

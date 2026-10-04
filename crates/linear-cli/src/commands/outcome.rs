@@ -16,6 +16,11 @@ pub fn done(verb: &str, entity: &str, label: &str, url: Option<&str>) -> String 
     output
 }
 
+/// What an interactive edit that changed nothing prints; nothing is sent
+/// and the command succeeds. Flags that change nothing are a usage error
+/// ("No changes given") instead.
+pub const NO_CHANGES: &str = "No changes made.\n";
+
 /// Reports that the user declined a confirmation; the command then ends
 /// successfully without changing anything.
 pub fn canceled(ctx: &Ctx) -> Result<()> {

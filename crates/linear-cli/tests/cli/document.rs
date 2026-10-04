@@ -368,7 +368,7 @@ fn update_without_fields_fails_before_any_request() {
     Cli::for_api(&api)
         .run(&["document", "update", SLUG])
         .usage_error()
-        .stderr_has("No update fields");
+        .stderr_has("No changes given");
     assert!(api.requests().is_empty());
 }
 
@@ -738,7 +738,7 @@ fn update_edit_without_changes_does_not_update() {
         with_editor(&api, script)
             .run(&["document", "update", SLUG, "--edit", "--force"])
             .success()
-            .stdout_has("No changes");
+            .stdout_has("No changes made.");
         assert_eq!(api.operations(), ["GetDocumentForEdit"]);
     }
 }

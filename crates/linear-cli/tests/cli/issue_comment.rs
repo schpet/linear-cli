@@ -634,3 +634,17 @@ fn add_on_a_terminal_asks_to_post_a_reply() {
         .success();
     assert_eq!(api.variables("AddComment")["input"]["parentId"], PARENT_ID);
 }
+
+#[test]
+fn update_on_a_terminal_with_the_text_unchanged_saves_nothing() {
+    let api = MockLinear::start();
+    api.on("GetComment", json!({ "comment": { "body": "Old body\n" } }));
+    let run = Cli::for_api(&api)
+        .stub_bin("editor", "exit 0")
+        .env("VISUAL", "editor")
+        .run_tty(&["issue", "comment", "update", COMMENT_ID], &[]);
+    assert_eq!(run.code, 0, "{run}");
+    assert!(run.stdout.contains("No changes made."), "{run}");
+    assert!(!run.stdout.contains("(y/N)"), "{run}");
+    assert_eq!(api.operations(), ["GetComment"]);
+}

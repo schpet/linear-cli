@@ -37,7 +37,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
     let interactive = ctx.optional_prompts(args.interactive)?;
     let prompting = flags.is_empty();
     if prompting && !interactive {
-        return Err(Error::invalid("No changes specified").with_hint(
+        return Err(Error::invalid("No changes given").with_hint(
             "Pass the fields to change, such as --name or --status, or -i to be prompted.",
         ));
     }
@@ -51,7 +51,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
         ctx.print(format!("\nUpdating initiative: {}\n\n", current.name))?;
         let changes = prompt(&ctx.prompter()?, &current)?;
         if changes.is_empty() {
-            return ctx.print("No changes specified\n");
+            return ctx.print(outcome::NO_CHANGES);
         }
         let question = format!("Save these changes to \"{}\"?", current.name);
         if !confirm::proceed(ctx, args.confirm.yes, &question)? {
