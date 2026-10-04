@@ -111,16 +111,34 @@ pub async fn resolve(client: &LinearClient, reference: &TeamReference) -> Result
         NONE_ACCESSIBLE.to_owned()
     } else {
         teams.sort_by(|left, right| collation::compare(&left.key, &right.key));
-        format!(
-            "Valid team keys: {}. Run `linear team list` to see all teams.",
-            teams
-                .iter()
-                .map(|team| format!("{} ({})", team.key, team.name))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+        valid_keys_hint(&teams)
     };
     Err(Error::not_found("Team", &reference.input).with_hint(hint))
+}
+
+/// The most teams a not-found hint names before pointing at `team list`.
+const LISTED_TEAMS: usize = 10;
+
+fn valid_keys_hint(teams: &[ResolvedTeam]) -> String {
+    let listed: Vec<String> = teams
+        .iter()
+        .take(LISTED_TEAMS)
+        .map(|team| format!("{} ({})", team.key, team.name))
+        .collect();
+    match teams
+        .len()
+        .checked_sub(LISTED_TEAMS)
+        .filter(|more| *more > 0)
+    {
+        Some(more) => format!(
+            "Valid team keys include {}, and {more} more. Run `linear team list` to see them all.",
+            listed.join(", ")
+        ),
+        None => format!(
+            "Valid team keys: {}. Run `linear team list` to see all teams.",
+            listed.join(", ")
+        ),
+    }
 }
 
 const NONE_ACCESSIBLE: &str = "This workspace has no teams you can access.";
@@ -155,4 +173,38 @@ pub async fn fetch_all(client: &LinearClient) -> Result<Vec<ResolvedTeam>> {
         collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
     });
     Ok(teams)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ResolvedTeam, valid_keys_hint};
+
+    fn teams(count: usize) -> Vec<ResolvedTeam> {
+        (1..=count)
+            .map(|n| ResolvedTeam {
+                id: format!("id-{n}"),
+                key: format!("T{n:02}"),
+                name: format!("Team {n}"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_not_found_hint_names_at_most_ten_teams() {
+        assert_eq!(
+            valid_keys_hint(&teams(2)),
+            "Valid team keys: T01 (Team 1), T02 (Team 2). Run `linear team list` to see all teams."
+        );
+        let many = valid_keys_hint(&teams(77));
+        assert!(
+            many.starts_with("Valid team keys include T01 (Team 1), "),
+            "{many}"
+        );
+        assert!(
+            many.ends_with("T10 (Team 10), and 67 more. Run `linear team list` to see them all."),
+            "{many}"
+        );
+        assert!(!many.contains("T11"), "{many}");
+        assert!(valid_keys_hint(&teams(10)).contains("T10 (Team 10). Run"));
+    }
 }
