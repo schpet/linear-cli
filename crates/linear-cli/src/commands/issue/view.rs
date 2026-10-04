@@ -1,6 +1,7 @@
 //! `issue view`: the issue as Markdown with comment threads, or JSON, or
 //! opened in Linear.
 use crate::client::LinearClient;
+use crate::commands::comments;
 use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::{
     cli::issue::IssueView,
@@ -13,7 +14,6 @@ use crate::{
     },
 };
 use chrono::{DateTime, Utc};
-use unicode_width::UnicodeWidthStr;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -533,42 +533,13 @@ fn date(c: &Comment, now: DateTime<Utc>) -> String {
 /// A thread's ID in brackets (linked to it when `links`), then
 /// `[resolved]` for a resolved thread, each with its display width.
 fn suffix(c: &Comment, links: bool) -> Vec<(String, usize)> {
-    let text = format!("[{}]", c.id.inner());
-    let width = text.width();
-    let id = if links {
-        markdown_terminal::hyperlink(&text, &c.url)
-    } else {
-        text
-    };
-    let mut parts = vec![(id, width)];
+    let mut parts = vec![comments::id_part(c.id.inner(), &c.url, links)];
     if c.resolved_at.is_some() {
         parts.push(("[resolved]".to_owned(), "[resolved]".len()));
     }
     parts
 }
 
-/// Joins `parts` (text with its display width) with spaces into lines that
-/// start with `indent`, starting another line before a part that would
-/// reach past `columns`.
-fn wrap_parts(parts: &[(String, usize)], indent: &str, columns: usize) -> String {
-    let mut out = indent.to_owned();
-    let mut width = indent.width();
-    for (index, (text, part_width)) in parts.iter().enumerate() {
-        if index > 0 {
-            if width + 1 + part_width > columns {
-                out.push('\n');
-                out.push_str(indent);
-                width = indent.width();
-            } else {
-                out.push(' ');
-                width += 1;
-            }
-        }
-        out.push_str(text);
-        width += part_width;
-    }
-    out
-}
 fn summary(hidden: usize) -> String {
     format!(
         "Resolved {} hidden: {hidden}. Use --show-resolved-threads to show them.",
@@ -635,25 +606,9 @@ pub fn terminal(
         }
     }
     let threads = threads(&issue.comments.nodes, show_resolved)?;
-    // `@alice commented 3 days ago [id]`, wrapped to the terminal.
     let header = |c: &Comment, verb: &str, suffix: Vec<(String, usize)>, indent: &str| {
-        let author = format!(
-            "@{}",
-            crate::platform::terminal_text::single_line(author(c))
-        );
-        let date = format!("{verb} {}", date(c, now));
-        let mut parts = vec![
-            (
-                crate::platform::style::heading(&author, options.styled),
-                author.width(),
-            ),
-            (
-                crate::platform::style::underline(&date, options.styled),
-                date.width(),
-            ),
-        ];
-        parts.extend(suffix);
-        wrap_parts(&parts, indent, usize::from(options.columns.get()))
+        let action = format!("{verb} {}", date(c, now));
+        comments::terminal_header(author(c), &action, suffix, indent, options)
     };
     if !threads.roots.is_empty() {
         out.push('\n');
@@ -661,31 +616,16 @@ pub fn terminal(
         out.push('\n');
         for (index, root) in threads.roots.iter().enumerate() {
             if index > 0 {
-                out.push_str("\n\n");
+                out.push('\n');
             }
             out.push_str(&header(root, "commented", suffix(root, links), ""));
             out.push('\n');
             out.push_str(&markdown_terminal::render(&root.body, options));
-            let replies = threads.replies.get(root.id.inner());
-            if replies.is_some_and(|v| !v.is_empty()) {
-                out.push('\n');
-            }
-            for reply in replies.into_iter().flatten() {
+            for reply in threads.replies.get(root.id.inner()).into_iter().flatten() {
                 out.push('\n');
                 out.push_str(&header(reply, "replied", Vec::new(), "  "));
                 out.push('\n');
-                let width = options.columns.get().saturating_sub(2);
-                let reply_options = RenderOptions {
-                    columns: std::num::NonZeroU16::new(width).unwrap_or(std::num::NonZeroU16::MIN),
-                    ..options.clone()
-                };
-                out.push_str(
-                    &markdown_terminal::render(&reply.body, &reply_options)
-                        .split('\n')
-                        .map(|line| format!("  {line}"))
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                );
+                out.push_str(&comments::render_reply(&reply.body, options));
             }
         }
     }

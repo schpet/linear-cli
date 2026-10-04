@@ -2,11 +2,13 @@
 //! `comment list` commands: fetching every page, and printing threads or JSON.
 use crate::graphql::operations::user::UserRef;
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroU16;
 
 use chrono::{DateTime, Local, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use unicode_width::UnicodeWidthStr;
 
 use crate::cli::Limit;
 use crate::client::LinearClient;
@@ -18,8 +20,9 @@ use crate::graphql::operations::comment::{
     CommentBotActor, CommentConnection, CommentExternalUser, CommentNode, CommentParent,
 };
 use crate::graphql::pagination::{self, Page};
-use crate::platform::style::bold;
-use crate::platform::terminal_text::{multiline, single_line};
+use crate::platform::markdown_terminal::{self, RenderOptions};
+use crate::platform::style::{bold, heading, underline};
+use crate::platform::terminal_text::{multiline, single_line, wrap_parts};
 
 /// A comments query for one kind of entity.
 pub trait CommentSource: QueryBuilder<Self::Variables> + DeserializeOwned {
@@ -73,8 +76,11 @@ pub fn print(
         ctx.print(render_json(comments))
     } else if comments.is_empty() {
         ctx.print(format!("No comments found for this {noun}\n"))
+    } else if ctx.stdout_tty() {
+        let rendered = render_terminal(comments, Utc::now(), &ctx.render_options());
+        ctx.page(&rendered, paging)
     } else {
-        ctx.page(&render_text(comments, Utc::now(), ctx.color()), paging)
+        ctx.print(render_text(comments, Utc::now(), ctx.color()))
     }
 }
 
@@ -154,24 +160,48 @@ fn header(node: &CommentNode, verb: &str, now: DateTime<Utc>, color: bool) -> St
     )
 }
 
-fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String {
-    let mut roots: Vec<&CommentNode> = nodes.iter().filter(|node| node.parent.is_none()).collect();
-    let root_ids: HashSet<&str> = roots.iter().map(|node| node.id.inner()).collect();
-    let mut replies: HashMap<&str, Vec<&CommentNode>> = HashMap::new();
-    let mut orphans: Vec<(&CommentNode, &str)> = Vec::new();
-    for node in nodes {
-        if let Some(parent) = &node.parent {
-            if root_ids.contains(parent.id.inner()) {
-                replies.entry(parent.id.inner()).or_default().push(node);
-            } else {
-                orphans.push((node, parent.id.inner()));
+/// Comments grouped for display: threads oldest first, each with its
+/// replies oldest first, then replies whose parent is not in the list.
+struct Threads<'a> {
+    roots: Vec<(&'a CommentNode, Vec<&'a CommentNode>)>,
+    orphans: Vec<(&'a CommentNode, &'a str)>,
+}
+
+impl<'a> Threads<'a> {
+    fn new(nodes: &'a [CommentNode]) -> Self {
+        let mut roots: Vec<&CommentNode> =
+            nodes.iter().filter(|node| node.parent.is_none()).collect();
+        let root_ids: HashSet<&str> = roots.iter().map(|node| node.id.inner()).collect();
+        let mut replies: HashMap<&str, Vec<&CommentNode>> = HashMap::new();
+        let mut orphans: Vec<(&CommentNode, &str)> = Vec::new();
+        for node in nodes {
+            if let Some(parent) = &node.parent {
+                if root_ids.contains(parent.id.inner()) {
+                    replies.entry(parent.id.inner()).or_default().push(node);
+                } else {
+                    orphans.push((node, parent.id.inner()));
+                }
             }
         }
+        // Oldest first, as `issue view` and Linear show a conversation.
+        roots.sort_by_key(|node| node.created_at);
+        orphans.sort_by_key(|(node, _)| node.created_at);
+        let roots = roots
+            .into_iter()
+            .map(|root| {
+                let mut siblings = replies.remove(root.id.inner()).unwrap_or_default();
+                siblings.sort_by_key(|node| node.created_at);
+                (root, siblings)
+            })
+            .collect();
+        Self { roots, orphans }
     }
-    // Oldest first, as `issue view` and Linear show a conversation.
-    roots.sort_by_key(|node| node.created_at);
+}
+
+fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String {
+    let threads = Threads::new(nodes);
     let mut output = String::new();
-    for root in roots {
+    for (root, replies) in threads.roots {
         output.push_str(&header(root, "commented", now, color));
         output.push('\n');
         if let Some(quote) = &root.quoted_text {
@@ -181,12 +211,9 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
         }
         output.push_str(&multiline(&root.body));
         output.push('\n');
-        if let Some(siblings) = replies.get_mut(root.id.inner())
-            && !siblings.is_empty()
-        {
+        if !replies.is_empty() {
             output.push('\n');
-            siblings.sort_by_key(|node| node.created_at);
-            for reply in siblings {
+            for reply in replies {
                 output.push_str(&indent(&header(reply, "replied", now, color)));
                 output.push('\n');
                 if let Some(quote) = &reply.quoted_text {
@@ -199,8 +226,7 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
         }
         output.push('\n');
     }
-    orphans.sort_by_key(|(node, _)| node.created_at);
-    for (reply, parent) in orphans {
+    for (reply, parent) in threads.orphans {
         output.push_str(&indent(&header(
             reply,
             &format!("replied to [{parent}]"),
@@ -216,4 +242,118 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
         output.push_str("\n\n");
     }
     output
+}
+
+/// A comment's ID in brackets, linked to the comment when `links` is on,
+/// with its display width.
+pub fn id_part(id: &str, url: &str, links: bool) -> (String, usize) {
+    let text = format!("[{id}]");
+    let width = text.width();
+    if links {
+        (markdown_terminal::hyperlink(&text, url), width)
+    } else {
+        (text, width)
+    }
+}
+
+/// A comment's header on the terminal, `@alice commented 3 days ago [id]`:
+/// the author, the action, then `suffix`, wrapped to the terminal between
+/// parts with every line starting with `indent`.
+pub fn terminal_header(
+    author: &str,
+    action: &str,
+    suffix: Vec<(String, usize)>,
+    indent: &str,
+    options: &RenderOptions,
+) -> String {
+    let author = format!("@{}", single_line(author));
+    let mut parts = vec![
+        (heading(&author, options.styled), author.width()),
+        (underline(action, options.styled), action.width()),
+    ];
+    parts.extend(suffix);
+    wrap_parts(&parts, indent, usize::from(options.columns.get()))
+}
+
+/// Markdown rendered for the terminal two columns in, as a reply under its
+/// thread.
+pub fn render_reply(markdown: &str, options: &RenderOptions) -> String {
+    let narrower = RenderOptions {
+        columns: NonZeroU16::new(options.columns.get().saturating_sub(2))
+            .unwrap_or(NonZeroU16::MIN),
+        ..options.clone()
+    };
+    markdown_terminal::render(markdown, &narrower)
+        .lines()
+        .map(|line| {
+            if line.is_empty() {
+                "\n".to_owned()
+            } else {
+                format!("  {line}\n")
+            }
+        })
+        .collect()
+}
+
+/// A comment's body as Markdown, after the text it quotes as a block quote.
+fn body_markdown(node: &CommentNode) -> String {
+    match &node.quoted_text {
+        Some(quote) => {
+            let quoted: Vec<String> = quote.lines().map(|line| format!("> {line}")).collect();
+            format!("{}\n\n{}", quoted.join("\n"), node.body)
+        }
+        None => node.body.clone(),
+    }
+}
+
+/// Threads for the terminal, laid out like the comments of `issue view`:
+/// wrapped headers, then each body rendered as Markdown.
+fn render_terminal(nodes: &[CommentNode], now: DateTime<Utc>, options: &RenderOptions) -> String {
+    let threads = Threads::new(nodes);
+    let action =
+        |verb: &str, node: &CommentNode| format!("{verb} {}", ago(node.created_at.0, now, &Local));
+    let id = |node: &CommentNode| vec![id_part(node.id.inner(), &node.url, options.styled)];
+    let mut out = String::new();
+    for (root, replies) in threads.roots {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        out.push_str(&terminal_header(
+            author(root),
+            &action("commented", root),
+            id(root),
+            "",
+            options,
+        ));
+        out.push('\n');
+        out.push_str(&markdown_terminal::render(&body_markdown(root), options));
+        for reply in replies {
+            out.push('\n');
+            out.push_str(&terminal_header(
+                author(reply),
+                &action("replied", reply),
+                id(reply),
+                "  ",
+                options,
+            ));
+            out.push('\n');
+            out.push_str(&render_reply(&body_markdown(reply), options));
+        }
+    }
+    for (reply, parent) in threads.orphans {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        let action = format!("{} to [{parent}]", action("replied", reply));
+        out.push_str(&terminal_header(
+            author(reply),
+            &action,
+            id(reply),
+            "  ",
+            options,
+        ));
+        out.push('\n');
+        out.push_str(&render_reply(&body_markdown(reply), options));
+    }
+    out
 }

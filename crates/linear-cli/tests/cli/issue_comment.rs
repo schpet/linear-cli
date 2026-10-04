@@ -450,6 +450,59 @@ fn list_text_shows_threads() {
 }
 
 #[test]
+fn list_on_a_terminal_renders_markdown_and_wraps_like_issue_view() {
+    let api = MockLinear::start();
+    let long = "word ".repeat(30);
+    let mut reply = comment(
+        "c2",
+        &format!("Reply with *emphasis* {long}"),
+        "bob",
+        Some("c1"),
+    );
+    reply["quotedText"] = json!("the quoted part");
+    api.on(
+        "GetIssueComments",
+        comments_page(
+            vec![
+                comment(
+                    "c1",
+                    &format!("Root with **bold** text {long}"),
+                    "alice",
+                    None,
+                ),
+                reply,
+            ],
+            Value::Null,
+            false,
+        ),
+    );
+    let run = Cli::for_api(&api).run_tty(&["issue", "comment", "list", "ENG-7", "--no-pager"], &[]);
+    run.success()
+        .stdout_has("@alice commented")
+        .stdout_has("Root with bold text")
+        .stdout_has("  @bob replied")
+        .stdout_has("  Reply with emphasis")
+        .stdout_has("[c2]");
+    assert!(!run.stdout.contains("**"), "{run}");
+    assert!(run.stdout.contains("│ the quoted part"), "{run}");
+    let widest = run.stdout.lines().map(|line| line.chars().count()).max();
+    assert!(widest.is_some_and(|width| width <= 80), "{run}");
+    // Reply bodies stay indented under their header when they wrap.
+    let reply_lines: Vec<&str> = run
+        .stdout
+        .lines()
+        .skip_while(|line| !line.contains("@bob replied"))
+        .skip(1)
+        .filter(|line| !line.is_empty())
+        .collect();
+    assert!(reply_lines.len() > 1, "{run}");
+    assert!(
+        reply_lines.iter().all(|line| line.starts_with("  ")),
+        "{run}"
+    );
+}
+
+#[test]
 fn list_text_shows_threads_oldest_first_like_issue_view() {
     let api = MockLinear::start();
     let mut newer = comment("c2", "Newer thread", "bob", None);
