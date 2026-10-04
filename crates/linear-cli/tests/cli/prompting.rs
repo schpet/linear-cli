@@ -167,3 +167,38 @@ fn yes_skips_the_question_after_typed_values() {
     run.success().stdout_has("Created team TYP: Typed");
     assert!(!run.stdout.contains("(y/N)"), "{run}");
 }
+
+#[test]
+fn yes_no_questions_take_readline_keys_and_explain_bad_answers() {
+    let api = MockLinear::start();
+    // Ctrl-A then Ctrl-K clears the bad answer; typed as letters they
+    // would leave one the question refuses again.
+    Cli::for_api(&api)
+        .run_tty(
+            &["team", "create"],
+            &[
+                ("Team name:", "Typed\r"),
+                ("Create team \"Typed\"? (y/N)", "maybe\r"),
+                ("✗ Type y for yes or n for no", "\u{1}\u{b}n\r"),
+            ],
+        )
+        .success()
+        .stdout_has("Create team \"Typed\"? No")
+        .stdout_has("Canceled.");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn pasted_tabs_become_spaces() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run_tty(
+            &["team", "create"],
+            &[
+                ("Team name:", "\u{1b}[200~tab\tand\u{1b}[201~\r"),
+                ("Create team \"tab and\"?", "\r"),
+            ],
+        )
+        .success()
+        .stdout_has("Canceled.");
+}

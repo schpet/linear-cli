@@ -2,8 +2,13 @@
 //!
 //! Every prompt needs a terminal. Commands get a [`Prompter`] from
 //! `Ctx::prompter`, which refuses when stdin is not one, and offer flags for
-//! scripted use instead. Ctrl-C or Esc at any prompt cancels the command,
-//! leaving the question on screen without the rest of the prompt.
+//! scripted use instead. Esc, Ctrl-C or Ctrl-G at any prompt cancels the
+//! command, leaving the question on screen without the rest of the prompt.
+//!
+//! Text answers and yes/no questions take the usual readline editing keys
+//! (see [`line_input`]). Select lists come from inquire, whose filter knows
+//! only the arrow keys, Home, End, Backspace and Delete: other control keys
+//! there type their letter.
 use std::fmt;
 use std::io::{self, Write};
 
@@ -43,6 +48,7 @@ impl<'a> Prompter<'a> {
         let format = |raw: &str| escape(&text.answer(raw).unwrap_or_default());
         let raw = line_input::ask(&LinePrompt {
             message: &message,
+            hint: None,
             placeholder: placeholder.as_deref(),
             help: None,
             masked: false,
@@ -80,6 +86,7 @@ impl<'a> Prompter<'a> {
         let message = escape(message);
         let answer = line_input::ask(&LinePrompt {
             message: &message,
+            hint: None,
             placeholder: None,
             help: Some(help),
             masked: true,
@@ -91,15 +98,27 @@ impl<'a> Prompter<'a> {
         Ok(answer.trim().to_owned())
     }
 
+    /// A yes/no question; a blank answer takes `default`.
     pub fn confirm(&self, message: &str, default: bool) -> Result<bool> {
+        self.stdout.flush()?;
         let message = escape(message);
-        // An error line follows an answer that is not y/n.
-        self.ask(&message, 1, || {
-            inquire::Confirm::new(&message)
-                .with_render_config(self.render_config())
-                .with_default(default)
-                .prompt()
-        })
+        let check = |raw: &str| yes_no(raw, default).map(drop);
+        let format = |raw: &str| {
+            let yes = yes_no(raw, default).expect("only accepted answers are shown");
+            if yes { "Yes" } else { "No" }.to_owned()
+        };
+        let raw = line_input::ask(&LinePrompt {
+            message: &message,
+            hint: Some(if default { "(Y/n)" } else { "(y/N)" }),
+            placeholder: None,
+            help: None,
+            masked: false,
+            color: self.color,
+            check: &check,
+            format: &format,
+        })?
+        .ok_or_else(Error::cancelled)?;
+        Ok(yes_no(&raw, default).expect("the prompt only accepts y or n"))
     }
 
     /// Picks one choice; typing filters the list.
@@ -203,6 +222,16 @@ impl<'a> Prompter<'a> {
         };
         // A cancelled prompt keeps only its question; `Canceled.` follows.
         config.with_canceled_prompt_indicator(Styled::new(""))
+    }
+}
+
+/// The answer `raw` input gives a yes/no question, or why it is refused.
+fn yes_no(raw: &str, default: bool) -> std::result::Result<bool, String> {
+    match raw.trim().to_lowercase().as_str() {
+        "" => Ok(default),
+        "y" | "yes" => Ok(true),
+        "n" | "no" => Ok(false),
+        _ => Err("Type y for yes or n for no".to_owned()),
     }
 }
 
@@ -530,6 +559,22 @@ mod tests {
         let text = Text::new("Name").with_default("   ").with_check(&reject);
         assert_eq!(text.answer(""), Err("checked".to_owned()));
     }
+    #[test]
+    fn yes_no_answers_take_y_n_or_the_default() {
+        for (raw, default, answer) in [
+            ("", true, Ok(true)),
+            (" ", false, Ok(false)),
+            ("y", false, Ok(true)),
+            (" YES ", false, Ok(true)),
+            ("n", true, Ok(false)),
+            ("No", true, Ok(false)),
+        ] {
+            assert_eq!(yes_no(raw, default), answer, "{raw:?}");
+        }
+        assert!(yes_no("u", true).is_err());
+        assert!(yes_no("yep", false).is_err());
+    }
+
     #[test]
     fn the_filter_needs_every_word_ignoring_case() {
         assert!(matches("", "Engineering (ENG)"));

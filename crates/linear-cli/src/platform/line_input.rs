@@ -16,6 +16,8 @@ const FALLBACK_COLUMNS: usize = 80;
 
 pub struct LinePrompt<'a> {
     pub message: &'a str,
+    /// Follows the message while the prompt is answered, such as `(y/N)`.
+    pub hint: Option<&'a str>,
     /// Shown dimmed while the input is empty.
     pub placeholder: Option<&'a str>,
     pub help: Option<&'a str>,
@@ -48,12 +50,8 @@ fn run(prompt: &LinePrompt<'_>) -> io::Result<Option<String>> {
         let command = match event::read()? {
             Event::Key(key) if key.kind != KeyEventKind::Release => command(key),
             Event::Paste(text) => {
-                for ch in text.chars() {
-                    // A pasted line break would otherwise submit half an answer.
-                    let ch = if ch == '\n' || ch == '\r' { ' ' } else { ch };
-                    if !ch.is_control() {
-                        buffer.apply(Edit::Insert(ch));
-                    }
+                for ch in pasted(&text) {
+                    buffer.apply(Edit::Insert(ch));
                 }
                 continue;
             }
@@ -84,6 +82,15 @@ fn run(prompt: &LinePrompt<'_>) -> io::Result<Option<String>> {
     }
 }
 
+/// The characters pasting `text` types. Line breaks and tabs become spaces
+/// (a line break would otherwise submit half an answer); other control
+/// characters are dropped.
+fn pasted(text: &str) -> impl Iterator<Item = char> + '_ {
+    text.chars()
+        .map(|ch| if matches!(ch, '\n' | '\r' | '\t') { ' ' } else { ch })
+        .filter(|ch| !ch.is_control())
+}
+
 impl LinePrompt<'_> {
     fn paint(&self, text: &str, style: Style) -> String {
         if self.color {
@@ -93,19 +100,21 @@ impl LinePrompt<'_> {
         }
     }
 
-    fn question(&self) -> String {
-        format!(
-            "{} {} ",
-            self.paint("?", Style::new().green().bright()),
-            self.message
-        )
+    /// The question as asked, and its display width.
+    fn question(&self) -> (String, usize) {
+        let text = match self.hint {
+            Some(hint) => format!("{} {hint} ", self.message),
+            None => format!("{} ", self.message),
+        };
+        let width = 2 + text.width();
+        let painted = format!("{} {text}", self.paint("?", Style::new().green().bright()));
+        (painted, width)
     }
 
     /// The lines of the prompt while it is being answered, and where the
     /// cursor goes on the first one (in columns).
     fn frame(&self, buffer: &LineBuffer, error: Option<&str>) -> Frame {
-        let question = self.question();
-        let question_width = 2 + self.message.width() + 1;
+        let (question, question_width) = self.question();
         let shown = if self.masked {
             "*".repeat(buffer.chars.len())
         } else {
@@ -134,7 +143,7 @@ impl LinePrompt<'_> {
             question_width + input_width + 1,
         )];
         if let Some(error) = error {
-            let text = format!("# {error}");
+            let text = format!("✗ {error}");
             let width = text.width();
             lines.push((self.paint(&text, Style::new().red().bright()), width));
         }
@@ -153,7 +162,11 @@ impl LinePrompt<'_> {
     /// cancelled.
     fn done(&self, answer: Option<&str>) -> String {
         let Some(answer) = answer else {
-            return self.question().trim_end().to_owned();
+            return format!(
+                "{} {}",
+                self.paint("?", Style::new().green().bright()),
+                self.message
+            );
         };
         let shown = if self.masked {
             "********".to_owned()
