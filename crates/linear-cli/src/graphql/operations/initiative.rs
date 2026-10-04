@@ -435,6 +435,7 @@ pub struct InitiativeDetails {
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub owner: Option<UserRef>,
+    #[arguments(first: 100)]
     pub projects: InitiativeViewProjects,
 }
 
@@ -442,6 +443,30 @@ pub struct InitiativeDetails {
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
 pub struct InitiativeViewProjects {
     pub nodes: Vec<InitiativeViewProject>,
+    pub page_info: PageInfo,
+}
+
+/// A later page of the projects `initiative view` shows.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "InitiativeProjectsPageVariables"
+)]
+pub struct GetInitiativeViewProjectsPage {
+    #[arguments(id: $id)]
+    pub initiative: InitiativeViewProjectsPage,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Initiative",
+    variables = "InitiativeProjectsPageVariables"
+)]
+pub struct InitiativeViewProjectsPage {
+    #[arguments(first: $first, after: $after)]
+    pub projects: InitiativeViewProjects,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]

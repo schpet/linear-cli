@@ -9,10 +9,12 @@ use crate::commands::relative_time::ago;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::initiative::{
-    DetailVariables, GetInitiativeDetails, InitiativeDetails,
+    DetailVariables, GetInitiativeDetails, GetInitiativeViewProjectsPage, InitiativeDetails,
+    InitiativeProjectsPageVariables,
 };
 use crate::graphql::operations::initiative::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::project::ProjectStatusType;
+use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::graphql::scalars;
 use crate::refs::{self, initiative::Archived};
 
@@ -46,11 +48,42 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
 
 async fn fetch(client: &LinearClient, id: String, original: &str) -> Result<InitiativeDetails> {
     let result: GetInitiativeDetails = client.query(DetailVariables { id }).await?;
-    let detail = result
+    let mut detail = result
         .initiative
         .ok_or_else(|| Error::not_found("Initiative", original))?;
+    complete_projects(client, &mut detail).await?;
     verify_detail(&detail)?;
     Ok(detail)
+}
+
+/// Replaces the first page of `detail`'s projects with every page.
+async fn complete_projects(client: &LinearClient, detail: &mut InitiativeDetails) -> Result<()> {
+    let first = Page {
+        nodes: std::mem::take(&mut detail.projects.nodes),
+        page_info: detail.projects.page_info.clone(),
+    };
+    let id = detail.id.inner().to_owned();
+    detail.projects.nodes = pagination::complete(first, |after, first| {
+        let variables = InitiativeProjectsPageVariables {
+            id: id.clone(),
+            first,
+            after,
+        };
+        async move {
+            let data: GetInitiativeViewProjectsPage = client.query(variables).await?;
+            let projects = data.initiative.projects;
+            Ok(Page {
+                nodes: projects.nodes,
+                page_info: projects.page_info,
+            })
+        }
+    })
+    .await?;
+    detail.projects.page_info = PageInfo {
+        has_next_page: false,
+        end_cursor: None,
+    };
+    Ok(())
 }
 
 fn verify_detail(detail: &InitiativeDetails) -> Result<()> {

@@ -250,11 +250,19 @@ pub struct DisplayIssue {
     pub title: String,
 }
 
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct RelationsPageVariables {
+    pub issue_id: String,
+    pub first: i32,
+    pub after: Option<String>,
+}
+
+/// A page of an issue's outgoing relations.
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(
     schema = "linear",
     graphql_type = "Query",
-    variables = "RelationsVariables"
+    variables = "RelationsPageVariables"
 )]
 pub struct FindIssueRelation {
     #[arguments(id: $issue_id)]
@@ -262,8 +270,13 @@ pub struct FindIssueRelation {
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Issue")]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Issue",
+    variables = "RelationsPageVariables"
+)]
 pub struct FindIssue {
+    #[arguments(first: $first, after: $after)]
     pub relations: FoundRelations,
 }
 
@@ -271,6 +284,7 @@ pub struct FindIssue {
 #[cynic(schema = "linear", graphql_type = "IssueRelationConnection")]
 pub struct FoundRelations {
     pub nodes: Vec<FoundRelation>,
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]

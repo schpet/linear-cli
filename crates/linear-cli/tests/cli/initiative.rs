@@ -41,10 +41,13 @@ fn details() -> Value {
         "icon": null, "url": URL, "archivedAt": null,
         "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-02-01T00:00:00.000Z",
         "owner": { "id": "user-1", "name": "Ada Lovelace", "displayName": "ada" },
-        "projects": { "nodes": [{
-            "id": PROJECT_ID, "slugId": "mobile-abc", "name": "Mobile",
-            "status": { "name": "Started", "type": "started" }
-        }] }
+        "projects": {
+            "nodes": [{
+                "id": PROJECT_ID, "slugId": "mobile-abc", "name": "Mobile",
+                "status": { "name": "Started", "type": "started" }
+            }],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+        }
     })
 }
 
@@ -258,6 +261,38 @@ fn view_json_by_id_returns_the_initiative() {
     let run = Cli::for_api(&api).run(&["initiative", "view", ID, "--json"]);
     assert_json(&run.success().json(), &details());
     assert_eq!(api.variables("GetInitiativeDetails"), json!({ "id": ID }));
+}
+
+#[test]
+fn view_pages_through_every_linked_project() {
+    let project = |n: usize| {
+        json!({
+            "id": format!("project-{n}"), "slugId": format!("p-{n}"), "name": format!("Project {n}"),
+            "status": { "name": "Started", "type": "started" }
+        })
+    };
+    let mut first = details();
+    first["projects"] = json!({
+        "nodes": (0..100).map(project).collect::<Vec<_>>(),
+        "pageInfo": { "hasNextPage": true, "endCursor": "cursor-1" }
+    });
+    let api = MockLinear::start();
+    api.on("GetInitiativeDetails", json!({ "initiative": first }))
+        .on(
+            "GetInitiativeViewProjectsPage",
+            json!({ "initiative": { "projects": {
+                "nodes": [project(100)],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+            } } }),
+        );
+    let run = Cli::for_api(&api).run(&["initiative", "view", ID, "--json"]);
+    let projects = run.success().json()["projects"].clone();
+    assert_eq!(projects.as_array().map(Vec::len), Some(101));
+    assert_eq!(projects[100]["name"], "Project 100");
+    assert_eq!(
+        api.variables("GetInitiativeViewProjectsPage"),
+        json!({ "id": ID, "first": 100, "after": "cursor-1" })
+    );
 }
 
 #[test]

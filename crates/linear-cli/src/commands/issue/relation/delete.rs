@@ -6,8 +6,9 @@ use crate::commands::{confirm, outcome};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue::{
-    DeleteIssueRelation, DeleteVariables, FindIssueRelation, RelationsVariables,
+    DeleteIssueRelation, DeleteVariables, FindIssueRelation, RelationsPageVariables,
 };
+use crate::graphql::pagination::{self, Page};
 
 pub fn run(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
     delete(ctx, args).context("Failed to delete relation")
@@ -32,14 +33,23 @@ fn delete(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
 /// The ID of the relation of `kind` from `a` to `b`.
 async fn find(client: &LinearClient, kind: RelationType, a: &str, b: &str) -> Result<String> {
     let input = super::lookup_pair(client, kind, a, b).await?;
-    let data: FindIssueRelation = client
-        .query(RelationsVariables {
+    let relations = pagination::collect(None, |after, first| {
+        let variables = RelationsPageVariables {
             issue_id: input.issue_id.clone(),
-        })
-        .await?;
-    data.issue
-        .relations
-        .nodes
+            first,
+            after,
+        };
+        async move {
+            let data: FindIssueRelation = client.query(variables).await?;
+            let relations = data.issue.relations;
+            Ok(Page {
+                nodes: relations.nodes,
+                page_info: relations.page_info,
+            })
+        }
+    })
+    .await?;
+    relations
         .iter()
         .find(|relation| {
             relation.relation_type == input.relation_type.spelling()

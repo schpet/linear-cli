@@ -89,7 +89,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 
 - `issue start` takes the team from the issue itself, so a full ID or URL works without a configured team. An argument that is not an issue ID errors instead of opening the picker, and a failed state update exits 1 (the branch or jj change is still prepared) instead of reporting success
 - finding the current issue from jj trailers reads one trailer per line. 2.x joined neighboring trailers (`Fixes A-1Fixes B-2`) and could pick the wrong issue. `issue commits` matches whole IDs, so `ENG-1` no longer matches `ENG-10`
-- `issue view` shows every label, child, attachment, document, and comment instead of the first page. `milestone view`, `team states`, issue state lookups, `linear config`'s team list, milestone names, and agent session activities also read every page
+- `issue view` shows every label, child, attachment, document, and comment instead of the first page. `milestone view`, `team states`, issue state lookups, `linear config`'s team list, milestone names, agent session activities, `initiative view`'s projects, and the relations `issue relation delete` searches also read every page
 - `team delete --move-issues` reports a partial failure honestly and keeps the team, and bulk deletes skip items whose lookup failed instead of sending the mutation anyway
 - piped stdin is read to end of input, where 2.x could drop input that arrived after 100 ms, and piped status update and document bodies are used verbatim instead of being split on commas
 - an ambiguous user name errors with the candidates instead of picking one, and `user list` no longer prints names as `Name (Name)`

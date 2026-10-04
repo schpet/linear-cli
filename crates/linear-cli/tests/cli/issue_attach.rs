@@ -217,10 +217,19 @@ fn relation_add_rejects_an_unknown_type_before_any_request() {
 }
 
 fn relations_of(kind: &str, related: &str) -> Value {
+    relations_page(
+        json!([{ "id": "relation-1", "type": kind, "relatedIssue": { "id": related } }]),
+        None,
+    )
+}
+
+/// One page of relations, followed by another when `next` is its cursor.
+fn relations_page(nodes: Value, next: Option<&str>) -> Value {
     json!({
         "issue": {
             "relations": {
-                "nodes": [{ "id": "relation-1", "type": kind, "relatedIssue": { "id": related } }]
+                "nodes": nodes,
+                "pageInfo": { "hasNextPage": next.is_some(), "endCursor": next }
             }
         }
     })
@@ -269,11 +278,49 @@ fn relation_delete_finds_and_deletes_the_matching_relation() {
         .stdout_has("✓ Deleted relation ENG-1 blocks ENG-2\n");
     assert_eq!(
         api.variables("FindIssueRelation"),
-        json!({ "issueId": ISSUE_1 })
+        json!({ "issueId": ISSUE_1, "first": 100, "after": null })
     );
     assert_eq!(
         api.variables("DeleteIssueRelation"),
         json!({ "id": "relation-1" })
+    );
+}
+
+#[test]
+fn relation_delete_looks_through_every_page_of_relations() {
+    let api = MockLinear::start();
+    let others: Vec<Value> = (0..100)
+        .map(|n| json!({ "id": format!("other-{n}"), "type": "related", "relatedIssue": { "id": format!("issue-{n}") } }))
+        .collect();
+    api.on("GetIssueId", issue_id(ISSUE_1))
+        .on("GetIssueId", issue_id(ISSUE_2))
+        .on("FindIssueRelation", relations_page(json!(others), Some("cursor-1")))
+        .on(
+            "FindIssueRelation",
+            relations_page(
+                json!([{ "id": "relation-101", "type": "blocks", "relatedIssue": { "id": ISSUE_2 } }]),
+                None,
+            ),
+        )
+        .on(
+            "DeleteIssueRelation",
+            json!({ "issueRelationDelete": { "success": true } }),
+        );
+    Cli::for_api(&api)
+        .run(&[
+            "issue", "relation", "delete", "ENG-1", "blocks", "ENG-2", "--yes",
+        ])
+        .success();
+    let pages: Vec<Value> = api
+        .requests()
+        .iter()
+        .filter(|request| request.operation.as_deref() == Some("FindIssueRelation"))
+        .map(|request| request.variables["after"].clone())
+        .collect();
+    assert_eq!(pages, [json!(null), json!("cursor-1")]);
+    assert_eq!(
+        api.variables("DeleteIssueRelation"),
+        json!({ "id": "relation-101" })
     );
 }
 
