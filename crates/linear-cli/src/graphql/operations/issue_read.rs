@@ -490,6 +490,7 @@ pub struct GetWorkflowStatesInScopeWorkflowStatesNodes {
     #[cynic(rename = "type")]
     #[serde(rename = "type")]
     pub r#type: String,
+    pub position: crate::graphql::scalars::Float,
     pub team: TeamKey,
 }
 

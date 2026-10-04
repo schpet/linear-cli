@@ -845,6 +845,7 @@ fn missing_state_hints_quote_names_before_issue_mutations() {
         };
         let run = Cli::for_api(&api).run(&argv);
         run.failure()
+            .stderr_has("Workflow state not found: 'Absent' in team ENG")
             .stderr_has(r#"Valid states: "Bell\u0007" (unstarted), "Say \"hi\"" (started)."#);
         assert!(!run.stderr.contains('\u{7}'));
         assert_eq!(api.operations(), ["ResolveTeam", "GetWorkflowStates"]);

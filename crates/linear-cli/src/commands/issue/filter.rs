@@ -5,6 +5,7 @@ use crate::error::Error;
 use crate::graphql::operations::issue_read::*;
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::DateTimeOrDuration;
+use crate::refs::workflow_states::{self, STATE_TYPES};
 use crate::refs::{self, is_linear_uuid, reject_linear_url};
 use chrono::{DateTime, SecondsFormat, Utc};
 
@@ -50,14 +51,6 @@ pub fn query_team_filter(keys: &[String]) -> TeamFilter {
         }
     }
 }
-pub const STATE_TYPES: [&str; 6] = [
-    "triage",
-    "backlog",
-    "unstarted",
-    "started",
-    "completed",
-    "canceled",
-];
 pub async fn state_filter(
     client: &LinearClient,
     values: &[String],
@@ -85,7 +78,7 @@ pub async fn state_filter(
             selected.push(value.clone());
         }
     }
-    let mut states = if lookups.is_empty() {
+    let states = if lookups.is_empty() {
         vec![]
     } else {
         pagination::collect(None, |after, first| async move {
@@ -119,48 +112,16 @@ pub async fn state_filter(
             })
             .collect::<Vec<_>>();
         if matches.is_empty() {
-            let where_text = keys.map_or_else(
-                || "any team".to_owned(),
-                |k| {
-                    format!(
-                        "team{} {}",
-                        if k.len() == 1 { "" } else { "s" },
-                        k.join(", ")
-                    )
-                },
-            );
-            states.sort_by(|a, b| {
-                crate::platform::collation::compare(&a.team.key, &b.team.key)
-                    .then_with(|| crate::platform::collation::compare(&a.name, &b.name))
-            });
-            let listed = states
+            let candidates = states
                 .iter()
-                .map(|s| {
-                    let name = crate::commands::json::quoted(&s.name);
-                    format!(
-                        "{name} ({})",
-                        if keys.is_some_and(|keys| keys.len() == 1) {
-                            s.r#type.clone()
-                        } else {
-                            format!("{}, {}", s.r#type, s.team.key)
-                        }
-                    )
+                .map(|state| workflow_states::Candidate {
+                    name: &state.name,
+                    state_type: &state.r#type,
+                    position: state.position.get(),
+                    team_key: &state.team.key,
                 })
-                .collect::<Vec<_>>()
-                .join(", ");
-            return Err(Error::not_found(
-                "Workflow state",
-                &format!("'{value}' in {where_text}"),
-            )
-            .with_hint(format!(
-                "{}State types: {}. Run `linear team states <team>` to list a team's states.",
-                if listed.is_empty() {
-                    String::new()
-                } else {
-                    format!("Valid states: {listed}. ")
-                },
-                STATE_TYPES.join(", ")
-            )));
+                .collect();
+            return Err(workflow_states::unknown_state(&value, keys, candidates));
         }
         for state in matches {
             if !ids.contains(&state.id) {

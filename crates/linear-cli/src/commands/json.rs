@@ -15,6 +15,6 @@ pub fn render(value: &impl Serialize) -> Vec<u8> {
 }
 
 /// A string quoted and escaped as JSON, for display within text.
-pub(super) fn quoted(text: &str) -> String {
+pub(crate) fn quoted(text: &str) -> String {
     serde_json::to_string(text).expect("strings always serialize")
 }

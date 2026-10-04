@@ -609,7 +609,7 @@ fn list_resolves_team_cycle_and_state_names() {
             json!({ "workflowStates": {
                 "nodes": [{
                     "id": "state-ready", "name": "Ready", "type": "unstarted",
-                    "team": { "key": "ENG" }
+                    "position": 1, "team": { "key": "ENG" }
                 }],
                 "pageInfo": { "hasNextPage": false, "endCursor": null }
             } }),
@@ -907,7 +907,7 @@ fn query_unknown_state_fails() {
         json!({ "workflowStates": {
             "nodes": [{
                 "id": "state-ready", "name": "Ready", "type": "unstarted",
-                "team": { "key": "ENG" }
+                "position": 1, "team": { "key": "ENG" }
             }],
             "pageInfo": { "hasNextPage": false, "endCursor": null }
         } }),
@@ -1309,8 +1309,8 @@ fn missing_state_hints_quote_names_in_single_and_multiple_team_scopes() {
         }
         api.on("GetWorkflowStatesInScope", json!({ "workflowStates": {
             "nodes": [
-                { "id": "say", "name": "Say \"hi\"", "type": "started", "team": { "key": if command == "list" { "ENG" } else { "OPS" } } },
-                { "id": "bell", "name": "Bell\u{7}", "type": "unstarted", "team": { "key": "ENG" } },
+                { "id": "say", "name": "Say \"hi\"", "type": "started", "position": 1, "team": { "key": if command == "list" { "ENG" } else { "OPS" } } },
+                { "id": "bell", "name": "Bell\u{7}", "type": "unstarted", "position": 2, "team": { "key": "ENG" } },
             ],
             "pageInfo": { "hasNextPage": false, "endCursor": null }
         } }));
@@ -1322,6 +1322,10 @@ fn missing_state_hints_quote_names_in_single_and_multiple_team_scopes() {
         let mut argv = vec!["issue", command, "--state", "Absent"];
         argv.extend(scope);
         let run = Cli::for_api(&api).run(&argv);
+        if command == "list" {
+            run.failure()
+                .stderr_has("Workflow state not found: 'Absent' in team ENG");
+        }
         let expected = if command == "list" {
             r#"Valid states: "Bell\u0007" (unstarted), "Say \"hi\"" (started)."#
         } else {

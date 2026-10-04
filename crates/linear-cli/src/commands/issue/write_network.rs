@@ -104,23 +104,20 @@ impl Backend for NetworkBackend {
         if let Some(state) = lowest_of_kind(&states, &normalized) {
             return Ok(state.id.clone());
         }
-        let suggestion = if states.is_empty() {
-            format!("Team {team_key} has no workflow states. Run `linear team states {team_key}`.")
-        } else {
-            format!(
-                "Valid states: {}. Run `linear team states {team_key}` to list them.",
-                states
-                    .iter()
-                    .map(|s| format!("{} ({})", crate::commands::json::quoted(&s.name), s.kind))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        };
-        Err(Error::not_found(
-            "Workflow state",
-            &format!("'{reference}' for team {team_key}"),
-        )
-        .with_hint(suggestion))
+        let candidates = states
+            .iter()
+            .map(|state| refs::workflow_states::Candidate {
+                name: &state.name,
+                state_type: &state.kind,
+                position: state.position,
+                team_key: &team_key,
+            })
+            .collect();
+        Err(refs::workflow_states::unknown_state(
+            &reference,
+            Some(std::slice::from_ref(&team_key)),
+            candidates,
+        ))
     }
     async fn label(&self, team_key: String, reference: String) -> Result<Option<String>, Error> {
         refs::reject_linear_url(&reference, "a label name")?;
