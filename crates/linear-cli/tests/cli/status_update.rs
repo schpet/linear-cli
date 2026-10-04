@@ -630,7 +630,7 @@ fn create_rejects_a_blank_body_before_any_request() {
         "empty.md",
     ])
     .usage_error()
-    .stderr_has("The update body is empty");
+    .stderr_has("Body file is empty: empty.md");
     cli.run(&[
         "initiative-update",
         "create",
@@ -683,11 +683,11 @@ fn create_reads_the_body_from_stdin_with_a_dash() {
         .success();
     assert_eq!(
         api.variables("CreateInitiativeUpdate")["input"]["body"],
-        "Shipped it\n"
+        "Shipped it"
     );
     Cli::for_api(&api)
         .stdin(b" \n")
         .run(&["project-update", "create", PROJECT_ID, "--body-file", "-"])
         .usage_error()
-        .stderr_has("The update body is empty");
+        .stderr_has("Body file is empty: stdin");
 }

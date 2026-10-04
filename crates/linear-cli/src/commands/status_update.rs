@@ -39,9 +39,15 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
     let interactive = ctx.optional_prompts(args.interactive)?;
     let body = match (&args.body, &args.body_file) {
         (Some(body), _) => Some(body.clone()),
-        (None, Some(source)) => Some(text_input::read_source(source).map_err(|error| {
-            Error::new(format!("Failed to read body file {source}: {error}")).with_source(error)
-        })?),
+        (None, Some(source)) => {
+            let body = text_input::read_source(source).map_err(|error| {
+                Error::new(format!("Failed to read body file {source}: {error}")).with_source(error)
+            })?;
+            Some(body.ok_or_else(|| {
+                Error::invalid(format!("Body file is empty: {source}"))
+                    .with_hint("Write the update into the file, or use --body.")
+            })?)
+        }
         (None, None) if !ctx.stdin_tty() => text_input::read_stdin(std::io::stdin().lock())?,
         (None, None) => None,
     };
@@ -247,9 +253,9 @@ fn prompt(
         }
         Content::File => {
             let path = prompter.text(Text::new("File path:").required())?;
-            Some(text_input::read_file(&path).map_err(|error| {
+            text_input::read_text_file(&path).map_err(|error| {
                 Error::new(format!("Failed to read {path}: {error}")).with_source(error)
-            })?)
+            })?
         }
         Content::Editor => {
             let body = text_input::edited_body(&ctx.edit_text("")?);

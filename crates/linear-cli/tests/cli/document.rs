@@ -281,7 +281,7 @@ fn create_reads_content_from_a_file() {
         .success();
     assert_eq!(
         api.variables("CreateDocument")["input"]["content"],
-        "# From file\n\nMultiple words, with commas.\n"
+        "# From file\n\nMultiple words, with commas."
     );
 }
 
@@ -411,7 +411,7 @@ fn update_content_checks_for_inline_comments_first() {
     );
     assert_eq!(
         api.variables("UpdateDocument"),
-        json!({ "id": SLUG, "input": { "content": "new body\n" } })
+        json!({ "id": SLUG, "input": { "content": "new body" } })
     );
 }
 
@@ -592,7 +592,7 @@ fn comment_add_reads_the_body_from_a_file() {
         .success();
     assert_eq!(
         api.variables("AddComment"),
-        json!({ "input": { "body": "**Bold** remark\n", "documentContentId": "content-1" } })
+        json!({ "input": { "body": "**Bold** remark", "documentContentId": "content-1" } })
     );
 }
 
@@ -974,7 +974,7 @@ fn update_reads_the_content_from_stdin_with_a_dash() {
         .success();
     assert_eq!(
         api.variables("UpdateDocument"),
-        json!({ "id": SLUG, "input": { "title": "New", "content": "piped body\n" } })
+        json!({ "id": SLUG, "input": { "title": "New", "content": "piped body" } })
     );
 }
 

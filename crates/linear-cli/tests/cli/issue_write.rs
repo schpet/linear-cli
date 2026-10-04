@@ -1214,6 +1214,21 @@ fn cycle_flags_accept_a_negative_offset_without_an_equals_sign() {
 }
 
 #[test]
+fn create_leaves_out_a_description_file_that_is_empty() {
+    for stdin in [&b""[..], b"\n  \n"] {
+        let api = MockLinear::start();
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+            .on("CreateIssue", created("ENG-8"));
+        Cli::for_api(&api)
+            .env("LINEAR_TEAM_ID", "ENG")
+            .stdin(stdin)
+            .run(&["issue", "create", "-t", "Piped", "--description-file", "-"])
+            .success();
+        assert!(input(&api, "CreateIssue").get("description").is_none());
+    }
+}
+
+#[test]
 fn create_reads_the_description_from_stdin_with_a_dash() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
@@ -1225,7 +1240,7 @@ fn create_reads_the_description_from_stdin_with_a_dash() {
         .success();
     assert_eq!(
         input(&api, "CreateIssue")["description"],
-        "Piped description\n"
+        "Piped description"
     );
 }
 

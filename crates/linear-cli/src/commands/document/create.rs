@@ -25,7 +25,7 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         title: args.title.clone(),
         content: match (&args.content, &args.content_file) {
             (Some(content), _) => Some(content.clone()),
-            (None, Some(source)) => Some(read_source(source)?),
+            (None, Some(source)) => read_source(source)?,
             (None, None) => None,
         },
         icon: args.icon.clone(),
@@ -38,12 +38,13 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         cycle: args.cycle.clone(),
         release: args.release.clone(),
     };
-    let given_content = fields.content.is_some();
+    // An empty content file counts as content given: none is asked for.
+    let given_content = args.content.is_some() || args.content_file.is_some();
     // Fields typed at prompts or in the editor are confirmed before sending.
     let mut typed = false;
     if ctx.interactive() {
         typed = fields.title.is_none() || optional || !flags.options().any();
-        prompt(ctx, &ctx.prompter()?, &mut fields, optional)?;
+        prompt(ctx, &ctx.prompter()?, &mut fields, optional, !given_content)?;
     }
     let title = fields
         .title
@@ -160,15 +161,21 @@ impl Attachment {
     }
 }
 
-/// Asks for the title when it is missing, and with `optional` for the
-/// content and icon the flags left out. The content can come from the
+/// Asks for the title when it is missing, and with `optional` for the icon
+/// and, with `ask_content` too, the content. The content can come from the
 /// configured editor.
-fn prompt(ctx: &Ctx, prompter: &Prompter<'_>, fields: &mut Fields, optional: bool) -> Result<()> {
+fn prompt(
+    ctx: &Ctx,
+    prompter: &Prompter<'_>,
+    fields: &mut Fields,
+    optional: bool,
+    ask_content: bool,
+) -> Result<()> {
     if fields.title.is_none() {
         fields.title = Some(prompter.text(Text::new("Title:").required())?);
     }
     if optional {
-        if fields.content.is_none() {
+        if ask_content {
             let editor = editor::configured_name(&ctx.config().child_env);
             fields.content = prompt_content(ctx, prompter, editor.as_deref())?;
         }
@@ -258,7 +265,7 @@ fn prompt_content(
         }
         Content::File => {
             let path = prompter.text(Text::new("File path:").required())?;
-            Some(read_file(Path::new(&path))?)
+            read_file(Path::new(&path))?
         }
         Content::Editor => {
             let label = editor.expect("the editor option is offered only with an editor");

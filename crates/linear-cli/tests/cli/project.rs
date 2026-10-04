@@ -320,7 +320,7 @@ fn create_reads_bodies_from_files_and_reports_the_url() {
         .stdout_has("https://linear.app/acme/project/fixture-project");
     let input = &api.variables("CreateProject")["input"];
     assert_eq!(input["description"], "From a file");
-    assert_eq!(input["content"], "## Plan\n");
+    assert_eq!(input["content"], "## Plan");
 }
 
 #[test]

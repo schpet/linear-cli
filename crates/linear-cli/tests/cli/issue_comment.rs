@@ -118,7 +118,7 @@ fn add_reads_the_body_file_and_replies_to_a_parent() {
         api.variables("AddComment"),
         json!({
             "input": {
-                "body": "# Notes\n\nFrom a file\n",
+                "body": "# Notes\n\nFrom a file",
                 "issueId": "ENG-1",
                 "parentId": "c0000000-0000-4000-8000-0000000000a1"
             }
@@ -286,7 +286,7 @@ fn update_reads_the_body_file() {
         .success();
     assert_eq!(
         api.variables("UpdateComment")["input"]["body"],
-        "Edited\nin a file\n"
+        "Edited\nin a file"
     );
 }
 
@@ -658,7 +658,7 @@ fn add_reads_the_body_from_stdin_with_a_dash() {
         .success();
     assert_eq!(
         api.variables("AddComment")["input"]["body"],
-        "Piped comment\n"
+        "Piped comment"
     );
     Cli::for_api(&api)
         .stdin(b"\n")

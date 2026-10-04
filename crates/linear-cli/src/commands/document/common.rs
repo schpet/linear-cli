@@ -48,11 +48,11 @@ pub fn set_target(input: &mut DocumentUpdateInput, kind: Kind, id: String) {
     *field = Some(id);
 }
 
-pub fn read_file(path: &Path) -> Result<String> {
+pub fn read_file(path: &Path) -> Result<Option<String>> {
     read_source(&TextSource::File(path.to_owned()))
 }
 
-pub fn read_source(source: &TextSource) -> Result<String> {
+pub fn read_source(source: &TextSource) -> Result<Option<String>> {
     text_input::read_source(source).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             Error::not_found("File", &source.to_string())

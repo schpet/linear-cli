@@ -64,13 +64,11 @@ pub fn description(
     }
     match file {
         None => Ok(inline.map(str::to_owned)),
-        Some(source) => crate::commands::text_input::read_source(source)
-            .map(Some)
-            .map_err(|error| {
-                Error::new(format!("Failed to read description file: {source}"))
-                    .with_hint(format!("Error: {error}"))
-                    .with_source(error)
-            }),
+        Some(source) => crate::commands::text_input::read_source(source).map_err(|error| {
+            Error::new(format!("Failed to read description file: {source}"))
+                .with_hint(format!("Error: {error}"))
+                .with_source(error)
+        }),
     }
 }
 /// The first state of this kind at the lowest position; equal positions,

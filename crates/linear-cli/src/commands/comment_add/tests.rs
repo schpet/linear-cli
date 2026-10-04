@@ -28,7 +28,7 @@ fn body_text_is_kept_exactly_and_blank_text_is_refused() {
 }
 
 #[test]
-fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
+fn body_files_drop_a_byte_order_mark_and_trailing_whitespace_and_must_be_utf8_text() {
     let dir = tempfile::tempdir().expect("temp dir");
     let write = |name: &str, bytes: &[u8]| {
         let path = dir.path().join(name);
@@ -41,7 +41,7 @@ fn body_files_drop_a_byte_order_mark_and_must_be_utf8_text() {
     );
     assert_eq!(
         resolve_body(None, Some(&text)).expect("body"),
-        Some("# Title\r\n\n  ☃ *md* \n".to_owned())
+        Some("# Title\r\n\n  ☃ *md*".to_owned())
     );
     let blank = write("blank.md", b"\xef\xbb\xbf \n");
     let error = resolve_body(None, Some(&blank)).expect_err("blank file");

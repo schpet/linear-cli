@@ -56,11 +56,10 @@ fn read_body_file(source: &TextSource) -> Result<String, Error> {
                 .with_hint(format!("Error: {error}"))
         }
     })?;
-    if is_blank(&content) {
-        return Err(Error::invalid(format!("Body file is empty: {shown}"))
-            .with_hint("Write the comment into the file, or use --body."));
-    }
-    Ok(content)
+    content.ok_or_else(|| {
+        Error::invalid(format!("Body file is empty: {shown}"))
+            .with_hint("Write the comment into the file, or use --body.")
+    })
 }
 
 /// Fails before any lookup when no body was given and none can be written

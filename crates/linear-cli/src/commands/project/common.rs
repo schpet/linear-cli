@@ -30,7 +30,7 @@ const DESCRIPTION_LIMIT: usize = 255;
 /// The description from `--description` or `--description-file`.
 pub fn description(fields: &ProjectFields) -> Result<Option<String>> {
     let description = match &fields.description_file {
-        Some(path) => Some(read(path, "description")?),
+        Some(path) => read(path, "description")?,
         None => fields.description.clone(),
     };
     if let Some(description) = &description {
@@ -49,12 +49,12 @@ pub fn description(fields: &ProjectFields) -> Result<Option<String>> {
 /// The overview Markdown from `--content` or `--content-file`.
 pub fn content(fields: &ProjectFields) -> Result<Option<String>> {
     match &fields.content_file {
-        Some(path) => read(path, "content").map(Some),
+        Some(path) => read(path, "content"),
         None => Ok(fields.content.clone()),
     }
 }
 
-fn read(source: &TextSource, what: &str) -> Result<String> {
+fn read(source: &TextSource, what: &str) -> Result<Option<String>> {
     text_input::read_source(source).map_err(|error| {
         Error::new(format!("Failed to read {what} file {source}: {error}")).with_source(error)
     })
