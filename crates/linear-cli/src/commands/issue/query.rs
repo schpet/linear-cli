@@ -57,6 +57,8 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
         Some(default_team(ctx)?)
     };
     let client = ctx.client()?;
+    // One spinner covers every lookup and the query; prompts hide it.
+    let spinner = ctx.spinner(true, "");
     let scope = if args.all_teams {
         Scope {
             keys: None,
@@ -100,7 +102,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     let sort = ctx.options().issue_sort(args.sort).0;
     let show_team = scope.several();
     let show_assignee = filters.assignee.is_none() && !filters.unassigned;
-    let output = ctx.spin(!args.json, async {
+    let output = ctx.block_on(async {
         filter::check_labels(client, &filters.label, scope.keys.as_deref()).await?;
         let mut filter = IssueFilter {
             team: scope.keys.as_deref().map(filter::query_team_filter),
@@ -167,6 +169,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             SystemTime::now(),
         )))
     })?;
+    drop(spinner);
     match output {
         Output::Json(json) => ctx.print(json),
         Output::Table(table) => list_view::print_table(ctx, &table, !args.no_pager),

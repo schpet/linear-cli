@@ -4,6 +4,7 @@
 //! `Ctx::prompter`, which refuses when stdin is not one, and offer flags for
 //! scripted use instead. Esc, Ctrl-C or Ctrl-G at any prompt cancels the
 //! command, leaving the question on screen without the rest of the prompt.
+//! A spinner left running hides while a prompt is open.
 //!
 //! Text answers and yes/no questions take the usual readline editing keys
 //! (see [`line_input`]). Select lists come from inquire, whose filter knows
@@ -21,6 +22,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::error::{Error, Result};
 use crate::platform::line_input::{self, LinePrompt};
 use crate::platform::output::Stdout;
+use crate::platform::spinner;
 
 /// The rows a select list shows at once (inquire's default).
 const PAGE_SIZE: usize = 7;
@@ -42,6 +44,7 @@ impl<'a> Prompter<'a> {
 
     pub fn text(&self, text: Text<'_>) -> Result<String> {
         self.stdout.flush()?;
+        let _hold = spinner::hold();
         let message = escape(text.message);
         let placeholder = text.default.map(escape);
         let check = |raw: &str| text.answer(raw).map(drop);
@@ -83,6 +86,7 @@ impl<'a> Prompter<'a> {
     /// A masked answer, such as an API key. It is trimmed.
     pub fn secret(&self, message: &str, help: &str) -> Result<String> {
         self.stdout.flush()?;
+        let _hold = spinner::hold();
         let message = escape(message);
         let answer = line_input::ask(&LinePrompt {
             message: &message,
@@ -101,6 +105,7 @@ impl<'a> Prompter<'a> {
     /// A yes/no question; a blank answer takes `default`.
     pub fn confirm(&self, message: &str, default: bool) -> Result<bool> {
         self.stdout.flush()?;
+        let _hold = spinner::hold();
         let message = escape(message);
         let check = |raw: &str| yes_no(raw, default).map(drop);
         let format = |raw: &str| {
@@ -180,6 +185,7 @@ impl<'a> Prompter<'a> {
         prompt: impl FnOnce() -> inquire::error::InquireResult<T>,
     ) -> Result<T> {
         self.stdout.flush()?;
+        let _hold = spinner::hold();
         // Room for the `? ` prefix and a short typed filter or answer.
         let rows = screen_rows(message.width() + 12) + below;
         reserve(rows).map_err(prompt_failed)?;

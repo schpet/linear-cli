@@ -36,6 +36,8 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
             "Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly.",
         ));
     }
+    // One spinner covers every lookup and the listing; prompts hide it.
+    let spinner = ctx.spinner(true, "");
     let explicit = args
         .team
         .as_deref()
@@ -46,6 +48,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         None => configured_team_key(ctx.options()).expect("checked above"),
     };
     if args.web || args.app {
+        drop(spinner);
         let path = if mine {
             format!("team/{team}/active?filter={ASSIGNED_TO_ME}")
         } else {
@@ -68,7 +71,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         .as_deref()
         .map(|milestone| ctx.block_on(filter::milestone_id(client, milestone, project.as_deref())))
         .transpose()?;
-    let rows = ctx.spin(!args.json, async {
+    let rows = ctx.block_on(async {
         let teams = std::slice::from_ref(&team);
         filter::check_labels(client, &filters.label, Some(teams)).await?;
         let mut filter = IssueFilter {
@@ -98,6 +101,7 @@ fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
         filter::apply_dates(&mut filter, filters.created_after, filters.updated_after);
         read::mine(client, filter, sort, filters.limit.max()).await
     })?;
+    drop(spinner);
     if args.json {
         return ctx.print(json::render(&rows));
     }

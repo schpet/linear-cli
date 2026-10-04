@@ -1149,9 +1149,10 @@ fn the_create_wizard_creates_nothing_unless_confirmed() {
 fn the_create_wizard_creates_the_issue_once_confirmed() {
     let api = MockLinear::start();
     api.on("CreateIssue", created("ENG-7"));
+    // The wizard reports progress like the flag form does.
     run_wizard(&api, "y\r")
         .success()
-        .stdout_has("✓ Created issue ENG-7");
+        .stdout_has("Creating issue in ENG\n✓ Created issue ENG-7");
     assert_eq!(input(&api, "CreateIssue")["title"], "Fix it");
 }
 

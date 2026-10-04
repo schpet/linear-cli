@@ -50,7 +50,7 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
         typed,
         yes: args.confirm.yes,
     };
-    let mut ui = Prompts::new(ctx, !interactive);
+    let mut ui = Prompts::new(ctx);
     let Some(start) = create_with(ctx, &mut ui, &fields, description, interactive, confirm)? else {
         return Ok(());
     };
@@ -99,6 +99,7 @@ fn create_with(
         let prompted = ctx.block_on(super::create_prompt::prompt(
             &backend, ui, &settings, fields,
         ))?;
+        ui.pause();
         let question = format!(
             "Create issue \"{}\" in {}?",
             prompted.title, prompted.team_key
@@ -106,7 +107,7 @@ fn create_with(
         if !confirm::proceed(ctx, confirm.yes, &question)? {
             return Ok(None);
         }
-        ui.output("Creating issue...\n\n")?;
+        ui.output(&header(&prompted.team_key))?;
         (prompted.input, prompted.start)
     } else {
         let fallback = ctx.interactive();
@@ -126,10 +127,10 @@ fn create_with(
                 return Ok(None);
             }
         }
-        ui.output(&flag_header(&assembled.team_display))?;
+        ui.output(&header(&assembled.team_display))?;
         (assembled.input, fields.start)
     };
-    let issue = ctx.spin(!interactive, backend.create(input))?;
+    let issue = ctx.spin(true, backend.create(input))?;
     ctx.print(output(&issue))?;
     Ok(Some(start.then(|| issue.identifier.clone())))
 }
@@ -152,21 +153,16 @@ fn settings(ctx: &Ctx) -> CreateSettings {
     }
 }
 
-/// Terminal prompts for issue creation. Without prompts (all fields from
-/// flags) a spinner runs, pausing while a near-match question is asked.
+/// Terminal prompts for issue creation. A spinner runs while issue creation
+/// looks things up, pausing for each question and line of output.
 struct Prompts<'a> {
     ctx: &'a Ctx,
-    spin: bool,
     spinner: Option<Spinner>,
 }
 
 impl<'a> Prompts<'a> {
-    fn new(ctx: &'a Ctx, spin: bool) -> Self {
-        let mut prompts = Self {
-            ctx,
-            spin,
-            spinner: None,
-        };
+    fn new(ctx: &'a Ctx) -> Self {
+        let mut prompts = Self { ctx, spinner: None };
         prompts.resume();
         prompts
     }
@@ -176,7 +172,7 @@ impl<'a> Prompts<'a> {
     }
 
     fn resume(&mut self) {
-        if self.spin && self.spinner.is_none() {
+        if self.spinner.is_none() {
             self.spinner = Some(self.ctx.spinner(true, ""));
         }
     }
@@ -211,12 +207,24 @@ impl Ui for Prompts<'_> {
     }
 
     fn output(&mut self, text: &str) -> Result<()> {
+        let spinning = self.spinner.is_some();
+        self.pause();
         self.ctx.print(text)?;
-        self.ctx.flush()
+        self.ctx.flush()?;
+        if spinning {
+            self.resume();
+        }
+        Ok(())
     }
 
     fn error(&mut self, text: &str) -> Result<()> {
-        self.ctx.eprint(text)
+        let spinning = self.spinner.is_some();
+        self.pause();
+        self.ctx.eprint(text)?;
+        if spinning {
+            self.resume();
+        }
+        Ok(())
     }
 
     fn discover_editor(&mut self) -> Result<Option<String>> {
@@ -443,8 +451,8 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         },
     })
 }
-pub fn flag_header(team: &str) -> String {
-    format!("Creating issue in {team}\n\n")
+fn header(team: &str) -> String {
+    format!("Creating issue in {team}\n")
 }
 fn output(issue: &shared::Created) -> String {
     outcome::done(
