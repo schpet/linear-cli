@@ -60,6 +60,7 @@ Arguments:
 Options:
       --team <TEAM>  Team key, name, or ID; defaults to the configured team
   -j, --json         Print JSON
+      --no-pager     Do not page long output
   -h, --help         Print help
 
 Global options:

@@ -44,7 +44,7 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
         };
     }
     let markdown = markdown(&document, content.as_deref(), Utc::now(), &chrono::Local);
-    ctx.show_markdown(&markdown, false)
+    ctx.show_markdown(&markdown, !args.no_pager)
 }
 
 /// The content with its uploaded files downloaded and pointed at the local

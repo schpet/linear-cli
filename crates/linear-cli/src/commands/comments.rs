@@ -60,14 +60,21 @@ pub async fn fetch<S: CommentSource>(
 }
 
 /// Prints comments as threads, or as JSON. `noun` names the entity in the
-/// empty message ("issue").
-pub fn print(ctx: &Ctx, comments: &[CommentNode], as_json: bool, noun: &str) -> Result<()> {
+/// empty message ("issue"); long threads are paged on a terminal when `paging`
+/// is on.
+pub fn print(
+    ctx: &Ctx,
+    comments: &[CommentNode],
+    as_json: bool,
+    noun: &str,
+    paging: bool,
+) -> Result<()> {
     if as_json {
         ctx.print(render_json(comments))
     } else if comments.is_empty() {
         ctx.print(format!("No comments found for this {noun}\n"))
     } else {
-        ctx.print(render_text(comments, Utc::now(), ctx.color()))
+        ctx.page(&render_text(comments, Utc::now(), ctx.color()), paging)
     }
 }
 

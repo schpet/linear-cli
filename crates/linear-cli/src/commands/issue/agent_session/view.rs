@@ -27,7 +27,10 @@ fn view(ctx: &Ctx, args: &IssueAgentSessionView) -> Result<()> {
     if args.json {
         return ctx.print(json::render(&session));
     }
-    ctx.show_markdown(&markdown(&session, Utc::now(), &chrono::Local)?, false)
+    ctx.show_markdown(
+        &markdown(&session, Utc::now(), &chrono::Local)?,
+        !args.no_pager,
+    )
 }
 
 /// The session with every one of its activities.

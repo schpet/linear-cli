@@ -72,6 +72,7 @@ Options:
       --raw          Print the Markdown source instead of rendering it
   -w, --web          Open the document in the browser
   -j, --json         Print JSON
+      --no-pager     Do not page long output
       --no-download  Keep remote image and file URLs instead of downloading them
   -h, --help         Print help
 
@@ -320,6 +321,7 @@ Arguments:
 Options:
       --limit <LIMIT>  Maximum number of comments to show (a number or `all`) [default: all]
   -j, --json           Print JSON
+      --no-pager       Do not page long output
   -h, --help           Print help
 
 Global options:

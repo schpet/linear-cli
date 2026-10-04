@@ -63,6 +63,7 @@ Options:
       --all                List every issue instead of the first 10
       --project <PROJECT>  Project (ID, slug, or name) to find the milestone name in
   -j, --json               Print JSON
+      --no-pager           Do not page long output
   -h, --help               Print help
 
 Global options:

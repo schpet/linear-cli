@@ -653,6 +653,7 @@ Arguments:
 Options:
       --limit <LIMIT>  Maximum number of comments to show (a number or `all`) [default: all]
   -j, --json           Print JSON
+      --no-pager       Do not page long output
   -h, --help           Print help
 
 Global options:
@@ -933,8 +934,9 @@ Arguments:
   <SESSION>  Agent session ID
 
 Options:
-  -j, --json  Print JSON
-  -h, --help  Print help
+  -j, --json      Print JSON
+      --no-pager  Do not page long output
+  -h, --help      Print help
 
 Global options:
       --workspace <SLUG>  Workspace to use, by the name its credential is stored under

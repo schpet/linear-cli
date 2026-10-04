@@ -19,7 +19,7 @@ fn list(ctx: &Ctx, args: &InitiativeCommentList) -> Result<()> {
         let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
         comments::fetch::<GetInitiativeComments>(client, original, &id, args.limit).await
     })?;
-    comments::print(ctx, &nodes, args.json, "initiative")
+    comments::print(ctx, &nodes, args.json, "initiative", !args.no_pager)
 }
 
 impl CommentSource for GetInitiativeComments {

@@ -49,7 +49,7 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
         ctx.print(render_json(&milestone))
     } else {
         let markdown = markdown(&milestone, args.all, Utc::now(), &chrono::Local);
-        ctx.show_markdown(&markdown, false)
+        ctx.show_markdown(&markdown, !args.no_pager)
     }
 }
 

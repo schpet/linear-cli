@@ -39,7 +39,10 @@ fn view(ctx: &Ctx, args: &CycleView) -> Result<()> {
     if args.json {
         ctx.print(render_json(&cycle))
     } else {
-        ctx.show_markdown(&markdown(&cycle, Utc::now(), &chrono::Local), false)
+        ctx.show_markdown(
+            &markdown(&cycle, Utc::now(), &chrono::Local),
+            !args.no_pager,
+        )
     }
 }
 

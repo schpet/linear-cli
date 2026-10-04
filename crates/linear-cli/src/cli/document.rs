@@ -75,6 +75,9 @@ pub struct DocumentView {
     /// Print JSON
     #[arg(long, short)]
     pub json: bool,
+    /// Do not page long output
+    #[arg(long)]
+    pub no_pager: bool,
     /// Keep remote image and file URLs instead of downloading them
     #[arg(long)]
     pub no_download: bool,
@@ -220,4 +223,7 @@ pub struct DocumentCommentList {
     /// Print JSON
     #[arg(long, short)]
     pub json: bool,
+    /// Do not page long output
+    #[arg(long)]
+    pub no_pager: bool,
 }

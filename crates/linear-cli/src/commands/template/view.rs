@@ -50,9 +50,8 @@ fn view(ctx: &Ctx, args: &TemplateView) -> Result<()> {
     if args.json {
         return ctx.print(template_json::render_one(&template));
     }
-    let mut text = render_text(&template, Utc::now(), &Local)?;
-    text.push('\n');
-    ctx.print(text)
+    let text = render_text(&template, Utc::now(), &Local)?;
+    ctx.page(&text, !args.no_pager)
 }
 
 /// The template by ID, or every template to match the name.

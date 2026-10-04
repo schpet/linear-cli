@@ -19,7 +19,7 @@ fn list(ctx: &Ctx, args: &ProjectCommentList) -> Result<()> {
         let id = refs::project::resolve(client, &reference).await?;
         comments::fetch::<GetProjectComments>(client, original, &id, args.limit).await
     })?;
-    comments::print(ctx, &nodes, args.json, "project")
+    comments::print(ctx, &nodes, args.json, "project", !args.no_pager)
 }
 
 impl CommentSource for GetProjectComments {

@@ -17,7 +17,7 @@ fn list(ctx: &Ctx, args: &DocumentCommentList) -> Result<()> {
         !args.json,
         comments::fetch::<GetDocumentComments>(client, &args.document, &id, args.limit),
     )?;
-    comments::print(ctx, &nodes, args.json, "document")
+    comments::print(ctx, &nodes, args.json, "document", !args.no_pager)
 }
 
 impl CommentSource for GetDocumentComments {

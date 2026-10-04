@@ -114,3 +114,27 @@ fn config_without_credentials_fails_before_any_request() {
         .stderr_has("linear auth login");
     assert!(api.requests().is_empty());
 }
+
+#[test]
+fn long_views_and_comment_lists_take_no_pager() {
+    let cli = Cli::new();
+    for command in [
+        &["issue", "view"][..],
+        &["issue", "list"],
+        &["issue", "comment", "list"],
+        &["issue", "agent-session", "view"],
+        &["project", "view"],
+        &["project", "comment", "list"],
+        &["document", "view"],
+        &["document", "comment", "list"],
+        &["initiative", "view"],
+        &["initiative", "comment", "list"],
+        &["cycle", "view"],
+        &["milestone", "view"],
+        &["template", "view"],
+    ] {
+        let mut args = command.to_vec();
+        args.push("--help");
+        cli.run(&args).success().stdout_has("--no-pager");
+    }
+}

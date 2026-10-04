@@ -41,7 +41,7 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     let rendered = ctx.render_markdown(&markdown(&detail, now, true));
     let status = format!("**Status:** {}", detail.status.as_str());
     let status = super::list::status_style(&detail.status, &status, ctx.color());
-    ctx.print(format!("{status}\n{rendered}\n"))
+    ctx.page(&format!("{status}\n{rendered}"), !args.no_pager)
 }
 
 async fn fetch(client: &LinearClient, id: String, original: &str) -> Result<InitiativeDetails> {

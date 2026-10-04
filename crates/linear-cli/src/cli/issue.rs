@@ -552,6 +552,9 @@ pub struct IssueCommentList {
     /// Print JSON
     #[arg(long, short)]
     pub json: bool,
+    /// Do not page long output
+    #[arg(long)]
+    pub no_pager: bool,
 }
 
 #[derive(Debug, Args)]
@@ -697,4 +700,7 @@ pub struct IssueAgentSessionView {
     /// Print JSON
     #[arg(long, short)]
     pub json: bool,
+    /// Do not page long output
+    #[arg(long)]
+    pub no_pager: bool,
 }

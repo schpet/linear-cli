@@ -89,6 +89,9 @@ Options:
           `templateData` stays a JSON-encoded string; decode it with `jq '.templateData |
           fromjson'`.
 
+      --no-pager
+          Do not page long output
+
   -h, --help
           Print help (see a summary with '-h')
 

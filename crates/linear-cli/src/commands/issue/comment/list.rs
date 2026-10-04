@@ -17,7 +17,7 @@ fn list(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
         !args.json,
         comments::fetch::<GetIssueComments>(client, &identifier, &identifier, args.limit),
     )?;
-    comments::print(ctx, &nodes, args.json, "issue")
+    comments::print(ctx, &nodes, args.json, "issue", !args.no_pager)
 }
 
 impl CommentSource for GetIssueComments {

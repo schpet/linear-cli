@@ -45,4 +45,7 @@ pub struct TemplateView {
     /// `jq '.templateData | fromjson'`.
     #[arg(long, short)]
     pub json: bool,
+    /// Do not page long output
+    #[arg(long)]
+    pub no_pager: bool,
 }
