@@ -137,7 +137,8 @@ pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<
     if comments {
         let data: GetIssueDetailsWithComments = client
             .query(GetIssueDetailsWithCommentsVariables { id: id.clone() })
-            .await?;
+            .await
+            .map_err(|failure| failure.or_not_found("Issue", &id))?;
         let mut issue = data.issue.ok_or_else(missing)?;
         let lists = Lists {
             labels: &mut issue.labels,
@@ -165,7 +166,8 @@ pub async fn fetch(client: &LinearClient, id: String, comments: bool) -> Result<
     } else {
         let data: GetIssueDetails = client
             .query(GetIssueDetailsVariables { id: id.clone() })
-            .await?;
+            .await
+            .map_err(|failure| failure.or_not_found("Issue", &id))?;
         let mut issue = data.issue.ok_or_else(missing)?;
         let lists = Lists {
             labels: &mut issue.labels,

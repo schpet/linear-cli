@@ -138,6 +138,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `cycle list` and `milestone list` now paginate instead of taking Linear's default page, so a team with more than 50 cycles or a project with more than 50 milestones is no longer silently truncated
 - `project-update create` and `initiative-update create` without a body (nothing or only whitespace piped on stdin, or `--no-input`) is a usage error instead of posting an empty update
 - `issue start` without an issue ID off a terminal or with `--no-input` is a usage error (exit 2) like other missing values, reported before the team is looked up
+- a missing issue is reported as `Issue not found: ENG-9999` instead of Linear's raw "Could not find referenced Issue." by `issue view`, `issue update`, `issue title`, `issue url`, `issue describe`, `issue start`, and `issue pull-request`, and `issue update` no longer prints `Updating issue …` before it knows the update worked
 
 ## [2.6.0] - 2026-09-02
 

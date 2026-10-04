@@ -178,11 +178,27 @@ fn view_rejects_an_unparseable_id_before_any_request() {
 #[test]
 fn view_reports_api_errors() {
     let api = MockLinear::start();
-    api.on_error("GetIssueDetailsWithComments", "Entity not found");
+    api.on_error("GetIssueDetailsWithComments", "Rate limit exceeded");
     Cli::for_api(&api)
         .run(&["issue", "view", "ENG-1", "--json"])
         .failure()
-        .stderr_has("Entity not found");
+        .stderr_has("Rate limit exceeded");
+}
+
+const ISSUE_NOT_FOUND: &str = r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#;
+
+#[test]
+fn view_and_title_name_a_missing_issue() {
+    let api = MockLinear::start();
+    api.on_raw("GetIssueDetailsWithComments", 200, ISSUE_NOT_FOUND)
+        .on_raw("GetIssueDetails", 200, ISSUE_NOT_FOUND);
+    let cli = Cli::for_api(&api);
+    cli.run(&["issue", "view", "ENG-9999"])
+        .failure()
+        .stderr_has("Issue not found: ENG-9999");
+    let run = cli.run(&["issue", "title", "ENG-9999"]);
+    run.failure().stderr_has("Issue not found: ENG-9999");
+    assert!(!run.stderr.contains("Could not find"), "{run}");
 }
 
 #[test]

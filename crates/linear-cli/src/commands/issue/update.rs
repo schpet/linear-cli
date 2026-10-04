@@ -23,7 +23,6 @@ fn update(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
     let identifier = super::require(ctx, args.issue_id.as_deref())?;
     let backend = super::create::backend(ctx)?;
     let changes = ctx.spin(true, input(&backend, &identifier, &fields, description))?;
-    ctx.print(header(&identifier))?;
     let issue = ctx.spin(true, backend.update(identifier, changes))?;
     ctx.print(output(&issue))
 }
@@ -315,9 +314,6 @@ pub async fn input<B: Backend>(
         state_id: Edit::set_or_unchanged(state),
         ..Default::default()
     })
-}
-pub fn header(issue_id: &str) -> String {
-    format!("Updating issue {issue_id}\n\n")
 }
 pub fn output(issue: &shared::Updated) -> String {
     outcome::done(

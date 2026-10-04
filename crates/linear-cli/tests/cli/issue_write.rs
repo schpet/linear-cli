@@ -552,6 +552,19 @@ fn update_reports_an_unsuccessful_mutation() {
         .failure();
 }
 
+#[test]
+fn update_of_a_missing_issue_names_it_and_prints_nothing_first() {
+    let api = MockLinear::start();
+    api.on_raw(
+        "UpdateIssue",
+        200,
+        r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#,
+    );
+    let run = Cli::for_api(&api).run(&["issue", "update", "ENG-9999", "-t", "x"]);
+    run.failure().stderr_has("Issue not found: ENG-9999");
+    assert_eq!(run.stdout, "", "{run}");
+}
+
 fn archive_details(archived_at: Value) -> Value {
     json!({ "issue": { "identifier": "ENG-1", "title": "Old work", "archivedAt": archived_at } })
 }

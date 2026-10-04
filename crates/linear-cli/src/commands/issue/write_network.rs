@@ -321,8 +321,12 @@ impl Backend for NetworkBackend {
         use crate::graphql::operations::issue::{UpdateIssue, UpdateIssueVariables};
         let data: UpdateIssue = self
             .client
-            .mutate(UpdateIssueVariables { id, input })
-            .await?;
+            .mutate(UpdateIssueVariables {
+                id: id.clone(),
+                input,
+            })
+            .await
+            .map_err(|failure| failure.or_not_found("Issue", &id))?;
         if !data.issue_update.success {
             return Err(Error::new("Linear did not update the issue"));
         }
