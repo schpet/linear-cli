@@ -63,6 +63,7 @@ Options:
   -t, --team <TEAM>                Team (key, name, or ID) for a team label; omit for a workspace
                                    label
   -i, --interactive                Also prompt for the optional fields
+  -y, --yes                        Do not ask for confirmation
   -h, --help                       Print help
 
 Global options:

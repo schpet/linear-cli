@@ -152,6 +152,9 @@ Options:
   -j, --json
           Print the created project as JSON
 
+  -y, --yes
+          Do not ask for confirmation
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -333,10 +336,13 @@ Options:
       --body-file <FILE>
           Read the comment from a Markdown file
 
-  -p, --parent <COMMENT>
+  -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)
           
-          [alias: --reply-to]
+          [alias: --parent]
+
+  -y, --yes
+          Do not ask for confirmation
 
   -h, --help
           Print help (see a summary with '-h')

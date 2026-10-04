@@ -44,7 +44,7 @@ Options:
       --team <TEAM>              Show this team's documents (key, name, or ID); with --cycle, the
                                  cycle's team
       --cycle <CYCLE>            Show this cycle's documents: a name, number, `active`, `next`,
-                                 `previous`, or an offset like +1
+                                 `previous`, or an offset like +1 or -1
       --release <RELEASE>        Show this release's documents (ID, name, or version)
   -j, --json                     Print JSON
       --limit <LIMIT>            Maximum number of documents to show (a number or `all`) [default:
@@ -113,7 +113,7 @@ Options:
 
       --cycle <CYCLE>
           Attach the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset
-          like +1
+          like +1 or -1
 
       --release <RELEASE>
           Attach the document to a release (ID, name, or version)
@@ -123,6 +123,9 @@ Options:
 
   -i, --interactive
           Also prompt for the optional fields
+
+  -y, --yes
+          Do not ask for confirmation
 
   -h, --help
           Print help (see a summary with '-h')
@@ -180,7 +183,7 @@ Options:
 
       --cycle <CYCLE>
           Move the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset
-          like +1
+          like +1 or -1
 
       --release <RELEASE>
           Move the document to a release (ID, name, or version)
@@ -190,6 +193,9 @@ Options:
 
       --force
           Replace the text even if inline comments may lose their anchors
+
+  -y, --yes
+          Do not ask for confirmation
 
   -h, --help
           Print help (see a summary with '-h')
@@ -275,10 +281,13 @@ Options:
       --body-file <FILE>
           Read the comment from a Markdown file
 
-  -p, --parent <COMMENT>
+  -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)
           
-          [alias: --reply-to]
+          [alias: --parent]
+
+  -y, --yes
+          Do not ask for confirmation
 
   -h, --help
           Print help (see a summary with '-h')

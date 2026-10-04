@@ -66,7 +66,7 @@ Options:
       --project <PROJECT>      Show only this project's issues (ID, slug, or name)
       --project-label <LABEL>  Show only issues in projects with this project label
       --cycle <CYCLE>          Show only this cycle's issues: a name, number, `active`, `next`,
-                               `previous`, or an offset like +1
+                               `previous`, or an offset like +1 or -1
       --milestone <MILESTONE>  Show only this milestone's issues (ID, or name with --project)
   -l, --label <LABEL>          Show only issues with this label; repeat to require several
       --created-after <DATE>   Show only issues created after this date (YYYY-MM-DD or RFC 3339)
@@ -108,7 +108,7 @@ Options:
       --project <PROJECT>      Show only this project's issues (ID, slug, or name)
       --project-label <LABEL>  Show only issues in projects with this project label
       --cycle <CYCLE>          Show only this cycle's issues: a name, number, `active`, `next`,
-                               `previous`, or an offset like +1
+                               `previous`, or an offset like +1 or -1
       --milestone <MILESTONE>  Show only this milestone's issues (ID, or name with --project)
   -l, --label <LABEL>          Show only issues with this label; repeat to require several
       --created-after <DATE>   Show only issues created after this date (YYYY-MM-DD or RFC 3339)
@@ -203,8 +203,7 @@ Options:
           Project milestone (ID, or name with --project)
 
       --cycle <CYCLE>
-          Cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 (write
-          --cycle=-1 for a negative offset)
+          Cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
 
       --template <TEMPLATE>
           Start from this issue template (name or ID) instead of the team's default
@@ -223,6 +222,9 @@ Options:
           Ask for every field instead of taking them as flags
           
           Only --parent and --project can be combined with it.
+
+  -y, --yes
+          Do not ask for confirmation
 
   -h, --help
           Print help (see a summary with '-h')
@@ -320,8 +322,7 @@ Options:
           Remove the issue from its milestone
 
       --cycle <CYCLE>
-          Cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 (write
-          --cycle=-1 for a negative offset)
+          Cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
 
       --clear-cycle
           Remove the issue from its cycle
@@ -421,6 +422,8 @@ Arguments:
   [ISSUE]  Issue ID like ENG-123, or a URL; asked for when omitted
 
 Options:
+      --team <TEAM>      Team to pick from, and the team of a bare issue number (key, name, or ID);
+                         defaults to the configured team
   -A, --all-assignees    Offer issues of every assignee in the picker
   -U, --unassigned       Offer only unassigned issues in the picker
   -f, --from-ref <REF>   Git ref to create the branch from
@@ -605,10 +608,13 @@ Options:
       --body-file <FILE>
           Read the comment from a Markdown file
 
-  -p, --parent <COMMENT>
+  -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)
           
-          [alias: --reply-to]
+          [alias: --parent]
+
+  -y, --yes
+          Do not ask for confirmation
 
   -a, --attach <FILE>
           Upload a file and link it in the comment (images render inline); repeatable
@@ -674,6 +680,9 @@ Options:
       --body-file <FILE>
           Read the new text from a Markdown file
 
+  -y, --yes
+          Do not ask for confirmation
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -703,6 +712,7 @@ Arguments:
   <COMMENT>  Comment ID
 
 Options:
+  -y, --yes   Do not ask for confirmation
   -h, --help  Print help
 
 Global options:
@@ -834,6 +844,7 @@ Arguments:
   <RELATED>   The other issue
 
 Options:
+  -y, --yes   Do not ask for confirmation
   -h, --help  Print help
 
 Global options:

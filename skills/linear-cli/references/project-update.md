@@ -52,6 +52,9 @@ Options:
   -i, --interactive
           Also prompt for the optional fields
 
+  -y, --yes
+          Do not ask for confirmation
+
   -h, --help
           Print help (see a summary with '-h')
 

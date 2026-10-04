@@ -55,7 +55,7 @@ Show a cycle and its issues
 Usage: linear cycle view [OPTIONS] <CYCLE>
 
 Arguments:
-  <CYCLE>  Cycle name, number, `active`, `next`, `previous`, or an offset like +1
+  <CYCLE>  Cycle name, number, `active`, `next`, `previous`, or an offset like +1 or -1
 
 Options:
       --team <TEAM>  Team key, name, or ID; defaults to the configured team

@@ -65,6 +65,7 @@ Options:
   -k, --key <KEY>                  Team key, like ENG; derived from the name when omitted
       --private                    Make the team private
   -i, --interactive                Also prompt for the optional fields
+  -y, --yes                        Do not ask for confirmation
   -h, --help                       Print help
 
 Global options:

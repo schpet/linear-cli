@@ -100,6 +100,7 @@ Options:
   -c, --color <COLOR>              Color, like #5E6AD2
       --icon <ICON>                Icon name
   -i, --interactive                Also prompt for the optional fields
+  -y, --yes                        Do not ask for confirmation
   -h, --help                       Print help
 
 Global options:
@@ -128,6 +129,7 @@ Options:
       --color <COLOR>              New color, like #5E6AD2
       --icon <ICON>                New icon name
   -i, --interactive                Prompt for the fields to change
+  -y, --yes                        Do not ask for confirmation
   -h, --help                       Print help
 
 Global options:
@@ -292,10 +294,13 @@ Options:
       --body-file <FILE>
           Read the comment from a Markdown file
 
-  -p, --parent <COMMENT>
+  -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)
           
-          [alias: --reply-to]
+          [alias: --parent]
+
+  -y, --yes
+          Do not ask for confirmation
 
   -h, --help
           Print help (see a summary with '-h')
