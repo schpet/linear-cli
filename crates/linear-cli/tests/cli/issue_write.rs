@@ -813,7 +813,7 @@ fn missing_state_hints_quote_names_before_issue_mutations() {
         };
         let run = Cli::for_api(&api).run(&argv);
         run.failure()
-            .stderr_has(r#"Valid states: "Say \"hi\"" (started), "Bell\u0007" (unstarted)."#);
+            .stderr_has(r#"Valid states: "Bell\u0007" (unstarted), "Say \"hi\"" (started)."#);
         assert!(!run.stderr.contains('\u{7}'));
         assert_eq!(api.operations(), ["ResolveTeam", "GetWorkflowStates"]);
     }

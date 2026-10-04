@@ -277,7 +277,7 @@ fn states_json_lists_the_teams_states() {
 }
 
 #[test]
-fn states_json_orders_known_and_unknown_types_then_position_with_stable_ties() {
+fn states_follow_the_workflow_then_position_with_unknown_types_last() {
     let api = MockLinear::start();
     let state = |id: &str, kind: &str, position: i32| {
         json!({
@@ -319,16 +319,16 @@ fn states_json_orders_known_and_unknown_types_then_position_with_stable_ties() {
         ids,
         [
             "triage",
-            "started-high",
-            "started-low",
+            "backlog",
             "todo-first",
             "todo-tied",
-            "backlog",
+            "started-low",
+            "started-high",
             "done",
             "canceled",
             "duplicate",
-            "accent-high",
             "accent-low",
+            "accent-high",
             "echo",
             "zulu"
         ]

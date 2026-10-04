@@ -1,4 +1,4 @@
-//! A team's workflow states: fetching them and the shared display ordering.
+//! A team's workflow states: fetching them and the orders they are shown in.
 
 use std::cmp::Ordering;
 
@@ -10,7 +10,20 @@ use crate::graphql::operations::team::{
 use crate::graphql::pagination::{self, Page};
 use crate::platform::collation;
 
-const KNOWN_TYPES: [&str; 7] = [
+/// The order of a team's workflow in Linear's settings, which state lists
+/// and pickers follow.
+const WORKFLOW_ORDER: [&str; 7] = [
+    "triage",
+    "backlog",
+    "unstarted",
+    "started",
+    "completed",
+    "canceled",
+    "duplicate",
+];
+
+/// Issue lists put work in progress first.
+const ISSUE_LIST_ORDER: [&str; 7] = [
     "triage",
     "started",
     "unstarted",
@@ -20,7 +33,8 @@ const KNOWN_TYPES: [&str; 7] = [
     "duplicate",
 ];
 
-/// Every workflow state of the team with key `team_key`, in display order.
+/// Every workflow state of the team with key `team_key`, in workflow order:
+/// by type, then by position within a type.
 pub async fn fetch(client: &LinearClient, team_key: String) -> Result<Vec<WorkflowState>> {
     let mut states = pagination::collect(None, |after, first| {
         let variables = GetWorkflowStatesVariables {
@@ -37,25 +51,26 @@ pub async fn fetch(client: &LinearClient, team_key: String) -> Result<Vec<Workfl
         }
     })
     .await?;
-    sort(&mut states);
+    states.sort_by(|left, right| {
+        compare_in(&WORKFLOW_ORDER, &left.state_type, &right.state_type)
+            .then_with(|| left.position.get().total_cmp(&right.position.get()))
+    });
     Ok(states)
 }
 
-/// Known workflow types first, followed by unknown types in display order.
+/// The order of state types in issue lists: known types first, followed by
+/// unknown types alphabetically.
 pub fn compare_types(left: &str, right: &str) -> Ordering {
-    let left_rank = KNOWN_TYPES.iter().position(|kind| *kind == left);
-    let right_rank = KNOWN_TYPES.iter().position(|kind| *kind == right);
+    compare_in(&ISSUE_LIST_ORDER, left, right)
+}
+
+fn compare_in(order: &[&str], left: &str, right: &str) -> Ordering {
+    let left_rank = order.iter().position(|kind| *kind == left);
+    let right_rank = order.iter().position(|kind| *kind == right);
     match (left_rank, right_rank) {
         (Some(left), Some(right)) => left.cmp(&right),
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,
         (None, None) => collation::compare(left, right),
     }
-}
-
-fn sort(states: &mut [WorkflowState]) {
-    states.sort_by(|left, right| {
-        compare_types(&left.state_type, &right.state_type)
-            .then_with(|| right.position.get().total_cmp(&left.position.get()))
-    });
 }

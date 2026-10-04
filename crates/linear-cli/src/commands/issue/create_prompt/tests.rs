@@ -475,6 +475,11 @@ async fn declining_self_assignment_overrides_the_auto_assignment() {
     .await
     .expect("issue input");
     ui.done();
+    assert_eq!(
+        ui.defaults,
+        [0, 1, 0],
+        "the assignee question defaults to yes"
+    );
     assert!(input(created).get("assigneeId").is_none());
 }
 
@@ -496,6 +501,14 @@ async fn empty_state_and_label_lists_skip_their_selection_prompts() {
     .expect("issue input");
     ui.done();
     assert_eq!(ui.menus.len(), 3, "next action, fields and start only");
+    assert!(
+        ui.shown
+            .contains(&"Team ENG has no workflow states to choose from.\n".to_owned())
+    );
+    assert!(
+        ui.shown
+            .contains(&"Team ENG has no labels to choose from.\n".to_owned())
+    );
     let input = input(created);
     assert!(input.get("stateId").is_none());
     assert_eq!(input["labelIds"], json!([]));
@@ -615,4 +628,26 @@ async fn no_accessible_teams_returns_an_error_without_opening_a_team_picker() {
     assert!(!linear.called("projects"));
     assert!(!linear.called("viewer"));
     ui.done();
+}
+
+#[tokio::test]
+async fn a_team_without_projects_says_so_instead_of_skipping_silently() {
+    let linear = Linear::default();
+    let mut ui = Script::answering(&["Title", "", "Submit issue", "No"]);
+    let created = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Never, true),
+        &Fields::default(),
+    )
+    .await
+    .expect("issue input");
+    ui.done();
+    assert!(
+        ui.shown
+            .contains(&"Team ENG has no projects, so the issue gets none.\n".to_owned()),
+        "{:?}",
+        ui.shown
+    );
+    assert_eq!(input(created)["projectId"], Value::Null);
 }

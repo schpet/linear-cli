@@ -22,15 +22,23 @@ enum Next {
     MoreFields,
 }
 
-fn yes_no<U: Ui>(ui: &mut U, message: &str) -> Result<bool, Error> {
+fn yes_no<U: Ui>(ui: &mut U, message: &str, default: bool) -> Result<bool, Error> {
     ui.choose(
         message,
         vec![Choice::new("No", false), Choice::new("Yes", true)],
-        0,
+        usize::from(default),
     )
 }
-fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>, Error> {
+fn project_menu<U: Ui>(
+    ui: &mut U,
+    team: &crate::refs::team::ResolvedTeam,
+    projects: &[Named],
+) -> Result<Option<String>, Error> {
     if projects.is_empty() {
+        ui.output(&format!(
+            "Team {} has no projects, so the issue gets none.\n",
+            team.key
+        ))?;
         return Ok(None);
     }
     let rows = std::iter::once(Choice::new("No project", None))
@@ -77,7 +85,7 @@ async fn additional<B: Backend, U: Ui>(
     if include_project {
         fields.push(Choice::new("Project", Field::Project))
     }
-    let selected = ui.checkbox("Select additional fields to configure", fields)?;
+    let selected = ui.checkbox("Select more fields to set:", fields)?;
     let mut more = More::default();
     // Choosing more fields starts them over, including the default state.
     if auto {
@@ -100,9 +108,12 @@ async fn additional<B: Backend, U: Ui>(
                     index,
                 )?);
             }
-            Field::WorkflowState => (),
+            Field::WorkflowState => ui.output(&format!(
+                "Team {} has no workflow states to choose from.\n",
+                team.key
+            ))?,
             Field::Assignee => {
-                let answer = yes_no(ui, "Assign this issue to yourself?")?;
+                let answer = yes_no(ui, "Assign this issue to yourself?", auto)?;
                 more.assignee = if answer {
                     Some(backend.viewer().await?)
                 } else {
@@ -133,19 +144,19 @@ async fn additional<B: Backend, U: Ui>(
                     .iter()
                     .map(|l| Choice::new(&l.name, l.id.clone()))
                     .collect();
-                more.labels = ui.checkbox(
-                    "Select labels (use space to select, enter to confirm)",
-                    options,
-                )?;
+                more.labels = ui.checkbox("Select labels:", options)?;
             }
-            Field::Labels => (),
+            Field::Labels => ui.output(&format!(
+                "Team {} has no labels to choose from.\n",
+                team.key
+            ))?,
             Field::Estimate => {
                 more.estimate =
                     ui.parsed(Text::new("Estimate (leave blank for none)"), &estimate)?;
             }
             Field::Project => {
                 let projects = backend.projects(team.key.clone()).await?;
-                more.project = project_menu(ui, &projects)?;
+                more.project = project_menu(ui, team, &projects)?;
             }
         }
     }
@@ -256,7 +267,7 @@ pub async fn prompt<B: Backend, U: Ui>(
     };
     let mut project = initial_project.clone();
     if let Some(projects) = projects {
-        project = project_menu(ui, &projects)?;
+        project = project_menu(ui, &team, &projects)?;
     }
     let next = ui.choose(
         "What's next?",
@@ -294,6 +305,7 @@ pub async fn prompt<B: Backend, U: Ui>(
     let start = yes_no(
         ui,
         "Start working on this issue now? (creates branch and updates status)",
+        false,
     )?;
     let project = project.or_else(|| parent_data.and_then(|Parent { project_id, .. }| project_id));
     Ok(Interactive {
