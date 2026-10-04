@@ -13,7 +13,7 @@ use crate::config::{
 use crate::ctx::{Ctx, CtxInit, Terminal};
 use crate::error::{Error, ErrorKind, Result};
 use crate::platform::output::{self, Stdout};
-use crate::platform::style;
+use crate::platform::{style, terminal_text};
 
 /// Runs a parsed command line and returns the process exit status.
 pub fn main(cli: Cli) -> u8 {
@@ -83,10 +83,22 @@ fn report(error: &Error, settings: DisplaySettings) {
         ErrorKind::Cancelled => "Canceled.\n".to_owned(),
         ErrorKind::Usage(usage) => usage.render().to_string(),
         ErrorKind::Other | ErrorKind::Invalid => {
-            let color = Terminal::detect(settings.no_color).stderr_color();
-            let mut lines = format!("{}\n", style::red(&format!("✗ {error}"), color));
+            let terminal = Terminal::detect(settings.no_color);
+            let color = terminal.stderr_color();
+            // On a terminal, lines wrap at spaces with their indent kept.
+            let columns = terminal
+                .stderr_tty
+                .then(|| crossterm::terminal::size().ok())
+                .flatten()
+                .map(|(columns, _)| usize::from(columns))
+                .filter(|&columns| columns > 0);
+            let fit = |text: &str, first: &str| match columns {
+                Some(columns) => terminal_text::wrap(text, columns, first, "  "),
+                None => format!("{first}{text}"),
+            };
+            let mut lines = format!("{}\n", style::red(&fit(&error.to_string(), "✗ "), color));
             if let Some(hint) = error.hint() {
-                lines.push_str(&format!("{}\n", style::gray(&format!("  {hint}"), color)));
+                lines.push_str(&format!("{}\n", style::gray(&fit(hint, "  "), color)));
             }
             if settings.debug {
                 if let Some(detail) = error.debug_detail() {

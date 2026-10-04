@@ -4,8 +4,11 @@
 //! characters in them (escape, CSI, bell, backspace, a lone carriage
 //! return…) could move the cursor, restyle or retitle the terminal, or make
 //! output look like something it is not. These functions run on remote text
-//! before any styling of our own is added.
+//! before any styling of our own is added. [`wrap`] fits plain text to the
+//! terminal's width.
 use std::borrow::Cow;
+
+use unicode_width::UnicodeWidthStr;
 
 /// Shown in place of a removed control character.
 const REPLACEMENT: char = '\u{FFFD}';
@@ -50,9 +53,54 @@ pub fn single_line(text: &str) -> Cow<'_, str> {
     )
 }
 
+/// `text` wrapped at spaces to lines at most `columns` wide, the first line
+/// starting with `first` and the rest with `rest`. A word wider than a line
+/// gets a line of its own, and line breaks in `text` are kept.
+pub fn wrap(text: &str, columns: usize, first: &str, rest: &str) -> String {
+    let mut out = String::new();
+    for (index, line) in text.split('\n').enumerate() {
+        let prefix = if index == 0 { first } else { rest };
+        if index > 0 {
+            out.push('\n');
+        }
+        out.push_str(prefix);
+        let start = prefix.width();
+        let mut width = start;
+        for word in line.split(' ').filter(|word| !word.is_empty()) {
+            let word_width = word.width();
+            if width > start && width + 1 + word_width > columns {
+                out.push('\n');
+                out.push_str(rest);
+                width = rest.width();
+            } else if width > start {
+                out.push(' ');
+                width += 1;
+            }
+            out.push_str(word);
+            width += word_width;
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wrapping_breaks_at_spaces_and_indents_later_lines() {
+        let hint = "Valid states: backlog, unstarted, started, completed";
+        assert_eq!(
+            wrap(hint, 24, "  ", "  "),
+            "  Valid states: backlog,\n  unstarted, started,\n  completed"
+        );
+        assert_eq!(wrap("short", 30, "✗ ", "  "), "✗ short");
+        assert_eq!(
+            wrap("a https://linear.app/a/very/long/url b", 10, "", ""),
+            "a\nhttps://linear.app/a/very/long/url\nb"
+        );
+        assert_eq!(wrap("one\ntwo three", 7, "", "> "), "one\n> two\n> three");
+    }
 
     #[test]
     fn plain_text_is_borrowed_unchanged() {
