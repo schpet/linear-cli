@@ -3,11 +3,11 @@
 //! Only terminal output is rendered; piped output stays raw Markdown. Source
 //! line breaks are kept, and text wider than the terminal wraps at spaces with
 //! list and quote indentation carried onto the next line. Tables shrink their
-//! columns to fit, wrapping cell text, and become one record per row when the
-//! terminal is too narrow for a grid. With `styled` on, emphasis,
-//! headings and code become SGR styles and links become OSC-8 hyperlinks;
-//! with it off the output is plain text that keeps the Markdown cues
-//! (`#` headings, backticks, link URLs) needed to read it.
+//! columns to fit, wrapping cell text at spaces, and become one record per row
+//! when the terminal is too narrow for a grid without splitting words. With
+//! `styled` on, emphasis, headings and code become SGR styles and links become
+//! OSC-8 hyperlinks; with it off the output is plain text that keeps the
+//! Markdown cues (`#` headings, backticks, link URLs) needed to read it.
 
 use std::num::NonZeroU16;
 use std::path::Path;
@@ -739,6 +739,18 @@ impl<'o> Renderer<'o> {
         } else {
             return self.table_records(table);
         };
+        // A column too narrow for one of its words would split it; records
+        // read better than a grid of broken words.
+        let splits_words = widths.iter().enumerate().any(|(column, &width)| {
+            table
+                .rows
+                .iter()
+                .filter_map(|row| row.get(column))
+                .any(|cell| longest_word(&cell.spans) > width)
+        });
+        if splits_words {
+            return self.table_records(table);
+        }
         let rule = |left: &str, middle: &str, right: &str| {
             let segments: Vec<String> = widths.iter().map(|width| "─".repeat(width + 2)).collect();
             format!("{left}{}{right}", segments.join(middle))
@@ -831,6 +843,26 @@ fn fit_columns(natural: &[usize], available: usize) -> Vec<usize> {
         remaining -= width;
     }
     widths
+}
+
+/// The display width of the widest run of text between spaces in `spans`.
+fn longest_word(spans: &[Span]) -> usize {
+    let mut longest = 0;
+    let mut current = 0;
+    for span in spans {
+        let Span::Text { text, .. } = span else {
+            continue;
+        };
+        for ch in text.chars() {
+            if ch == ' ' || ch == '\t' {
+                current = 0;
+            } else {
+                current += ch.width().unwrap_or(0);
+                longest = longest.max(current);
+            }
+        }
+    }
+    longest
 }
 
 /// One laid-out line: painted text and the columns it takes.
@@ -1235,13 +1267,14 @@ mod tests {
              │ Bee  │ x                   │\n\
              └──────┴─────────────────────┘\n"
         );
-        let long_words = narrow(
-            "| a | b |\n|---|---|\n| abcdefghijklmnop | qrstuvwxyz0123 |",
-            20,
+        // A grid would split these words, so each row becomes a record.
+        assert_eq!(
+            narrow(
+                "| a | b |\n|---|---|\n| abcdefghijklmnop | qrstuvwxyz0123 |",
+                20,
+            ),
+            "a: abcdefghijklmnop\nb: qrstuvwxyz0123\n"
         );
-        for line in long_words.lines() {
-            assert_eq!(line.width(), 20, "{long_words}");
-        }
     }
 
     #[test]

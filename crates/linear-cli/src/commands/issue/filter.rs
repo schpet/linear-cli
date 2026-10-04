@@ -333,9 +333,11 @@ pub(super) fn resolve_project(
         )));
     }
     let candidates: Vec<&Named> = rows.iter().collect();
-    let (message, choices) =
+    let suggestions =
         super::write::suggestions("Project", value, &candidates).expect("there are candidates");
-    ctx.prompter()?.select(&message, choices)
+    ctx.eprint(&suggestions.note)?;
+    ctx.prompter()?
+        .select(&suggestions.question, suggestions.choices)
 }
 
 /// The cycle `--cycle` names in the one team in scope.

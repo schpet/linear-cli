@@ -17,30 +17,36 @@ pub struct Named {
     pub detail: Option<String>,
 }
 
-/// The question offering `candidates`, near matches for the `kind` (like
-/// `Project`) the user called `original` that did not resolve, and its
-/// choices. `None` without candidates.
-pub fn suggestions(
-    kind: &str,
-    original: &str,
-    candidates: &[&Named],
-) -> Option<(String, Vec<Choice<Option<String>>>)> {
+/// Near matches to offer for a `kind` (like `Project`) the user called
+/// `original` that did not resolve: a line saying so, then a short question
+/// with its choices, kept short because a select list does not wrap at words.
+pub struct Suggestions {
+    pub note: String,
+    pub question: String,
+    pub choices: Vec<Choice<Option<String>>>,
+}
+
+/// The [`Suggestions`] for `candidates`; `None` without candidates.
+pub fn suggestions(kind: &str, original: &str, candidates: &[&Named]) -> Option<Suggestions> {
+    let note = format!("{kind} \"{original}\" not found.\n");
     match candidates {
         [] => None,
-        [only] => Some((
-            format!("{kind} \"{original}\" not found. Use \"{}\"?", only.name),
-            vec![
+        [only] => Some(Suggestions {
+            note,
+            question: format!("Use \"{}\" instead?", only.name),
+            choices: vec![
                 Choice::new("Yes", Some(only.id.clone())),
                 Choice::new("No", None),
             ],
-        )),
-        many => Some((
-            format!("{kind} \"{original}\" not found. Did you mean one of these?"),
-            Named::choices(many)
+        }),
+        many => Some(Suggestions {
+            note,
+            question: format!("{kind}:"),
+            choices: Named::choices(many)
                 .into_iter()
                 .chain([Choice::new("None of these", None)])
                 .collect(),
-        )),
+        }),
     }
 }
 

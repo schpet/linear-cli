@@ -336,7 +336,10 @@ fn a_near_miss_offers_the_closest_names() {
         create::select_option(&mut ui, "Project", "P", &one).expect("one candidate"),
         Some("a".into())
     );
-    assert_eq!(ui.shown, ["Project \"P\" not found. Use \"old\"?"]);
+    assert_eq!(
+        ui.shown,
+        ["Project \"P\" not found.\n", "Use \"old\" instead?"]
+    );
 
     let several = [named("10", "ten"), named("2", "two"), named("10", "TEN")];
     for (answer, chosen) in [("two", Some("2")), ("None of these", None)] {

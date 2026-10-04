@@ -124,9 +124,8 @@ fn choose(ctx: &Ctx, name: &str, labels: &[Label]) -> Result<Label> {
         .iter()
         .map(|label| Choice::new(format!("{} - {}", display(label), label.color), label))
         .collect();
-    let label = ctx
-        .prompter()?
-        .select(&format!("Label (several are named \"{name}\"):"), choices)?;
+    ctx.eprint(format!("Several labels are named \"{name}\".\n"))?;
+    let label = ctx.prompter()?.select("Label:", choices)?;
     Ok(label.clone())
 }
 

@@ -134,11 +134,12 @@ fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
         "what to do with the existing branch",
         "--branch with a new name",
     )?;
+    ctx.eprint(format!("Branch {branch} already exists.\n"))?;
     ctx.prompter()?.select(
-        &format!("Branch {branch} already exists. What would you like to do?"),
+        "Existing branch:",
         vec![
-            Choice::new("Switch to existing branch", ExistingBranch::Switch),
-            Choice::new("Create new branch with suffix", ExistingBranch::Suffix),
+            Choice::new("Switch to it", ExistingBranch::Switch),
+            Choice::new("Create a new branch with a suffix", ExistingBranch::Suffix),
         ],
     )
 }

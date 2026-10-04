@@ -465,10 +465,11 @@ pub fn select_option<U: Ui>(
         .iter()
         .filter(|option| seen.insert(option.id.as_str()))
         .collect();
-    let Some((message, choices)) = shared::suggestions(kind, original, &candidates) else {
+    let Some(suggestions) = shared::suggestions(kind, original, &candidates) else {
         return Ok(None);
     };
-    ui.choose(&message, choices, 0)
+    ui.note(&suggestions.note)?;
+    ui.choose(&suggestions.question, suggestions.choices, 0)
 }
 
 impl From<&crate::cli::issue::IssueCreate> for Fields {
