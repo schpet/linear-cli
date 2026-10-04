@@ -430,3 +430,30 @@ fn paginate_rejects_malformed_connections_and_unusable_cursors() {
         assert_eq!(run.stdout, "");
     }
 }
+
+#[test]
+fn schema_leaves_out_directive_locations_from_newer_servers() {
+    let api = MockLinear::start();
+    let mut reply = introspection();
+    let directive = |name: &str, locations: Value| json!({ "name": name, "description": null, "locations": locations, "args": [], "isRepeatable": false });
+    reply["__schema"]["directives"] = json!([
+        directive("tag", json!(["FIELD_DEFINITION", "DIRECTIVE_DEFINITION"])),
+        directive("meta", json!(["DIRECTIVE_DEFINITION"])),
+    ]);
+    serve_schema(&api, &reply);
+    let run = Cli::for_api(&api).run(&["schema"]);
+    run.success()
+        .stdout_has("directive @tag on FIELD_DEFINITION")
+        .stderr_has("@tag DIRECTIVE_DEFINITION, @meta DIRECTIVE_DEFINITION");
+    assert!(!run.stdout.contains("@meta"), "{run}");
+
+    serve_schema(&api, &reply);
+    let json = Cli::for_api(&api)
+        .run(&["schema", "--json"])
+        .success()
+        .json();
+    assert_eq!(
+        json["__schema"]["directives"][1]["locations"],
+        json!(["DIRECTIVE_DEFINITION"])
+    );
+}

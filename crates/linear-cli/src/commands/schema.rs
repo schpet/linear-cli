@@ -9,7 +9,7 @@
 //! returns.
 use std::collections::HashMap;
 
-use cynic_introspection::{IntrospectionQuery, Type};
+use cynic_introspection::{DirectiveLocation, IntrospectionQuery, Type};
 use futures_util::{StreamExt, TryStreamExt, stream};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -20,6 +20,7 @@ use crate::{
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::envelope::GraphQlRequest,
+    platform::style,
 };
 
 /// Types per request. One type costs about 92 complexity points against
@@ -56,10 +57,24 @@ fn write_schema(ctx: &Ctx, args: &Schema) -> Result<()> {
     let data = ctx.spin(true, introspect(client))?;
     // Parsing checks the result is a complete schema even when only the
     // JSON is printed.
-    let schema = parse(&data)?;
+    let (known, skipped) = known_locations(&data);
+    let schema = parse(&known)?;
     let content = if args.json {
         serde_json::to_string_pretty(&data).expect("a JSON value always serializes")
     } else {
+        if !skipped.is_empty() {
+            let color = ctx.terminal().stderr_color();
+            ctx.eprint(format!(
+                "{}\n",
+                style::warning(
+                    &format!(
+                        "Left out directive locations this version does not know: {}",
+                        skipped.join(", ")
+                    ),
+                    color
+                )
+            ))?;
+        }
         sdl(schema)
     };
     let content = format!("{}\n", content.trim_end());
@@ -178,6 +193,48 @@ fn take_type(data: &mut HashMap<String, Value>, alias: &str, name: &str) -> Resu
             "Unexpected introspection result: Linear listed the type {name} but did not describe it"
         )))
     }
+}
+
+/// `data` without the directive locations a newer GraphQL specification may
+/// add, which the SDL printer cannot represent, and the `@directive LOCATION`
+/// pairs left out. A directive left with no location is left out entirely.
+fn known_locations(data: &Value) -> (Value, Vec<String>) {
+    let mut data = data.clone();
+    let mut skipped = Vec::new();
+    let Some(directives) = data
+        .pointer_mut("/__schema/directives")
+        .and_then(Value::as_array_mut)
+    else {
+        // `parse` reports the missing directives.
+        return (data, skipped);
+    };
+    for directive in directives.iter_mut() {
+        let name = directive
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let Some(locations) = directive.get_mut("locations").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        locations.retain(|location| {
+            let known = serde_json::from_value::<DirectiveLocation>(location.clone()).is_ok();
+            if !known {
+                let location = location
+                    .as_str()
+                    .map_or_else(|| location.to_string(), str::to_owned);
+                skipped.push(format!("@{name} {location}"));
+            }
+            known
+        });
+    }
+    directives.retain(|directive| {
+        directive
+            .get("locations")
+            .and_then(Value::as_array)
+            .is_none_or(|locations| !locations.is_empty())
+    });
+    (data, skipped)
 }
 
 fn parse(data: &Value) -> Result<cynic_introspection::Schema> {

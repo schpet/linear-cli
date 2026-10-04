@@ -99,6 +99,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `project create` in a workspace with no accessible teams explains the problem instead of crashing, and `project update` gains `--priority`
 - `issue pull-request --title ""` uses the issue's title instead of producing a trailing space, and `label delete` honors `--team` and the configured team
 - keyring helper output that happens to contain "401" is no longer reported as an invalid API key
+- `schema` works against a server that reports directive locations newer than the GraphQL specification it knows (such as `DIRECTIVE_DEFINITION`): the SDL leaves them out with a warning naming each one, and `--json` prints them as received
 
 ### Changed
 
