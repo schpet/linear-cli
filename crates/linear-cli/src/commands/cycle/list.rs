@@ -105,7 +105,7 @@ fn render_text(nodes: &[cycle::Cycle]) -> Table {
     let mut table = Table::new([
         Column::fixed("#"),
         Column::flexible("NAME"),
-        Column::fixed("START"),
+        Column::fixed("START").droppable(1),
         Column::fixed("END"),
         Column::fixed("STATUS"),
     ]);

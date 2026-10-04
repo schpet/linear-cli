@@ -226,10 +226,10 @@ fn render_text(initiatives: &[Initiative]) -> Table {
         Column::fixed("SLUG"),
         Column::flexible("NAME"),
         Column::fixed("STATUS"),
-        Column::fixed("HEALTH"),
-        Column::fixed("OWNER"),
-        Column::fixed("PROJ"),
-        Column::fixed("TARGET"),
+        Column::fixed("HEALTH").droppable(4),
+        Column::fixed("OWNER").droppable(3),
+        Column::fixed("PROJ").droppable(1),
+        Column::fixed("TARGET").droppable(2),
     ]);
     for item in initiatives {
         let owner = item

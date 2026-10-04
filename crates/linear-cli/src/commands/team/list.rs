@@ -61,9 +61,9 @@ fn render_text(teams: &[team::Team], now: SystemTime) -> Table {
     let mut table = Table::new([
         Column::fixed("KEY"),
         Column::flexible("NAME"),
-        Column::fixed("CYCLES"),
-        Column::fixed("UPDATED"),
-        Column::fixed("ID"),
+        Column::fixed("CYCLES").droppable(3),
+        Column::fixed("UPDATED").droppable(1),
+        Column::fixed("ID").droppable(2),
     ]);
     for team in teams {
         let hex = team.color.clone().unwrap_or_default();

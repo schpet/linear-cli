@@ -3,7 +3,9 @@
 //! Columns are as wide as their widest cell, measured in terminal columns.
 //! When stdout is a terminal narrower than the table, the flexible columns
 //! give up width (widest first, never below [`FLEX_MIN`]) and their cells are
-//! cut at a character boundary with `…`. Piped output is never truncated.
+//! cut at a character boundary with `…`. If that is not enough, droppable
+//! columns are hidden, lowest rank first, and as a last resort flexible
+//! columns shrink to [`FLEX_LAST_RESORT`]. Piped output is never truncated.
 use std::borrow::Cow;
 
 use crate::ctx::Ctx;
@@ -12,7 +14,10 @@ use unicode_width::UnicodeWidthChar;
 
 /// Flexible columns keep at least this many terminal columns (or their full
 /// width when narrower) so their values stay recognizable.
-pub const FLEX_MIN: usize = 20;
+pub const FLEX_MIN: usize = 12;
+
+/// How far flexible columns shrink when hiding columns was not enough.
+pub const FLEX_LAST_RESORT: usize = 6;
 
 const GUTTER: &str = "  ";
 
@@ -21,6 +26,7 @@ type Painter = Box<dyn Fn(&str, bool) -> String>;
 pub struct Column {
     header: &'static str,
     flexible: bool,
+    drop_rank: Option<u8>,
 }
 
 impl Column {
@@ -29,6 +35,7 @@ impl Column {
         Self {
             header,
             flexible: false,
+            drop_rank: None,
         }
     }
 
@@ -37,6 +44,16 @@ impl Column {
         Self {
             header,
             flexible: true,
+            drop_rank: None,
+        }
+    }
+
+    /// Hidden when the terminal is too narrow for the table; columns with a
+    /// lower `rank` are hidden first.
+    pub fn droppable(self, rank: u8) -> Self {
+        Self {
+            drop_rank: Some(rank),
+            ..self
         }
     }
 }
@@ -116,12 +133,17 @@ impl Table {
             .map(|column| Cell::styled(column.header, style::heading))
             .collect();
         for row in std::iter::once(&headers).chain(&self.rows) {
+            let row: Vec<(&Cell, usize)> = row
+                .iter()
+                .zip(&widths)
+                .filter_map(|(cell, width)| width.map(|width| (cell, width)))
+                .collect();
             // Cells after the last non-empty one would only add trailing space.
             let shown = row
                 .iter()
-                .rposition(|cell| !cell.text.is_empty())
+                .rposition(|(cell, _)| !cell.text.is_empty())
                 .map_or(0, |last| last + 1);
-            for (index, (cell, &width)) in row.iter().zip(&widths).take(shown).enumerate() {
+            for (index, &(cell, width)) in row.iter().take(shown).enumerate() {
                 if index > 0 {
                     output.push_str(GUTTER);
                 }
@@ -136,28 +158,66 @@ impl Table {
         output
     }
 
-    fn widths(&self, available: Option<usize>) -> Vec<usize> {
-        let mut widths: Vec<usize> = self
+    /// Each column's width, or `None` for a column hidden to fit `available`.
+    fn widths(&self, available: Option<usize>) -> Vec<Option<usize>> {
+        let mut natural: Vec<usize> = self
             .columns
             .iter()
             .map(|column| display_width(column.header))
             .collect();
         for row in &self.rows {
-            for (width, cell) in widths.iter_mut().zip(row) {
+            for (width, cell) in natural.iter_mut().zip(row) {
                 *width = (*width).max(display_width(&cell.text));
             }
         }
         let Some(available) = available else {
-            return widths;
+            return natural.into_iter().map(Some).collect();
         };
-        let gutters = GUTTER.len() * self.columns.len().saturating_sub(1);
-        let mut excess = (widths.iter().sum::<usize>() + gutters).saturating_sub(available);
-        let floors: Vec<usize> = widths
+        let mut shown = vec![true; self.columns.len()];
+        loop {
+            let (widths, fits) = self.shrink(&natural, &shown, available, FLEX_MIN);
+            if fits {
+                return widths;
+            }
+            let next = self
+                .columns
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| shown.get(*index).copied().unwrap_or(false))
+                .filter_map(|(index, column)| column.drop_rank.map(|rank| (rank, index)))
+                .min();
+            match next.and_then(|(_, index)| shown.get_mut(index)) {
+                Some(slot) => *slot = false,
+                None => break,
+            }
+        }
+        self.shrink(&natural, &shown, available, FLEX_LAST_RESORT).0
+    }
+
+    /// The shown columns' widths after flexible columns give up width (widest
+    /// first, down to `floor`) to fit `available`, and whether they fit.
+    fn shrink(
+        &self,
+        natural: &[usize],
+        shown: &[bool],
+        available: usize,
+        floor: usize,
+    ) -> (Vec<Option<usize>>, bool) {
+        let mut widths: Vec<Option<usize>> = natural
+            .iter()
+            .zip(shown)
+            .map(|(&width, &shown)| shown.then_some(width))
+            .collect();
+        let count = widths.iter().flatten().count();
+        let gutters = GUTTER.len() * count.saturating_sub(1);
+        let mut excess =
+            (widths.iter().flatten().sum::<usize>() + gutters).saturating_sub(available);
+        let floors: Vec<usize> = natural
             .iter()
             .zip(&self.columns)
             .map(|(&width, column)| {
                 if column.flexible {
-                    width.min(FLEX_MIN)
+                    width.min(floor)
                 } else {
                     width
                 }
@@ -167,13 +227,13 @@ impl Table {
             let widest = widths
                 .iter_mut()
                 .zip(&floors)
-                .filter(|(width, floor)| **width > **floor)
-                .max_by_key(|(width, _)| **width);
-            let Some((width, _)) = widest else { break };
+                .filter_map(|(width, floor)| width.as_mut().filter(|width| **width > *floor))
+                .max_by_key(|width| **width);
+            let Some(width) = widest else { break };
             *width -= 1;
             excess -= 1;
         }
-        widths
+        (widths, excess == 0)
     }
 }
 
@@ -290,15 +350,48 @@ mod tests {
     #[test]
     fn flexible_columns_shrink_to_the_terminal_but_not_below_the_floor() {
         let fitted = format!(
-            "KEY  {:20}  ID\nENG  {:20}  t1\nOPS  {:20}  t2\n",
-            "NAME", "Engineering and des…", "Operations"
+            "KEY  {:12}  ID\nENG  {:12}  t1\nOPS  {:12}  t2\n",
+            "NAME", "Engineering…", "Operations"
         );
-        assert_eq!(sample().render(Some(29), false), fitted);
-        assert_eq!(sample().render(Some(10), false), fitted);
+        assert_eq!(sample().render(Some(21), false), fitted);
+        let fitted = format!(
+            "KEY  {:15}  ID\nENG  {:15}  t1\nOPS  {:15}  t2\n",
+            "NAME", "Engineering an…", "Operations"
+        );
+        assert_eq!(sample().render(Some(24), false), fitted);
         assert_eq!(
             sample().render(Some(80), false),
             sample().render(None, false)
         );
+    }
+
+    #[test]
+    fn narrow_terminals_hide_droppable_columns_lowest_rank_first() {
+        let mut table = Table::new([
+            Column::fixed("ID"),
+            Column::flexible("TITLE"),
+            Column::fixed("STATE").droppable(2),
+            Column::fixed("UPDATED").droppable(1),
+        ]);
+        table.row([
+            Cell::from("ENG-1"),
+            Cell::from("A title that is long enough to shrink"),
+            Cell::from("In Progress"),
+            Cell::from("3 days ago"),
+        ]);
+        let all = table.render(None, false);
+        assert!(all.contains("UPDATED"), "{all}");
+        let without_updated = table.render(Some(40), false);
+        assert_eq!(
+            without_updated,
+            "ID     TITLE                 STATE\n\
+             ENG-1  A title that is lon…  In Progress\n"
+        );
+        let only_title = table.render(Some(25), false);
+        assert_eq!(only_title, "ID     TITLE\nENG-1  A title that is l…\n");
+        // When nothing more can be hidden, flexible columns shrink further.
+        let squeezed = table.render(Some(13), false);
+        assert_eq!(squeezed, "ID     TITLE\nENG-1  A tit…\n");
     }
 
     #[test]

@@ -132,8 +132,8 @@ fn render_text(labels: &[IssueLabel]) -> Table {
     let mut table = Table::new([
         Column::fixed("ID"),
         Column::flexible("NAME"),
-        Column::fixed("COLOR"),
-        Column::fixed("TEAM"),
+        Column::fixed("COLOR").droppable(1),
+        Column::fixed("TEAM").droppable(2),
     ]);
     for label in labels {
         let hex = label.color.clone();

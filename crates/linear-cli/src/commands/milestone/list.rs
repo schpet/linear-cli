@@ -77,8 +77,8 @@ fn render_text(nodes: &[ProjectMilestone]) -> Table {
     let mut table = Table::new([
         Column::flexible("NAME"),
         Column::fixed("ID"),
-        Column::fixed("TARGET DATE"),
-        Column::flexible("PROJECT"),
+        Column::fixed("TARGET DATE").droppable(2),
+        Column::flexible("PROJECT").droppable(1),
     ]);
     for milestone in nodes {
         table.row([

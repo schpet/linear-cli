@@ -127,8 +127,8 @@ fn text(documents: &[ListedDocument], now: SystemTime) -> Table {
     let mut table = Table::new([
         Column::fixed("SLUG"),
         Column::flexible("TITLE"),
-        Column::flexible("ATTACHMENT"),
-        Column::fixed("UPDATED"),
+        Column::flexible("ATTACHMENT").droppable(1),
+        Column::fixed("UPDATED").droppable(2),
     ]);
     for doc in documents {
         table.row([

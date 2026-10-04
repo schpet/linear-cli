@@ -94,21 +94,24 @@ pub fn table(rows: &[ListedIssue], team: bool, assignee: bool, now: SystemTime) 
         .any(|r| r.cycle.is_some() || r.team.cycles_enabled);
     let mut columns = vec![Column::fixed("◌"), Column::fixed("ID")];
     if team {
-        columns.push(Column::fixed("TEAM"));
+        columns.push(Column::fixed("TEAM").droppable(6));
     }
     columns.extend([
         Column::flexible("TITLE"),
-        Column::flexible("LABELS"),
-        Column::fixed("B"),
-        Column::fixed("E"),
+        Column::flexible("LABELS").droppable(2),
+        Column::fixed("B").droppable(5),
+        Column::fixed("E").droppable(4),
     ]);
     if show_cycle {
-        columns.push(Column::fixed("CYC"));
+        columns.push(Column::fixed("CYC").droppable(3));
     }
     if assignee {
         columns.push(Column::fixed("A"));
     }
-    columns.extend([Column::fixed("STATE"), Column::fixed("UPDATED")]);
+    columns.extend([
+        Column::fixed("STATE"),
+        Column::fixed("UPDATED").droppable(1),
+    ]);
     let mut table = Table::new(columns);
     for r in rows {
         let mut cells = vec![

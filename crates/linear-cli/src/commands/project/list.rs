@@ -233,11 +233,11 @@ fn render_text(projects: &[Project], now: SystemTime) -> Table {
         Column::fixed("SLUG"),
         Column::flexible("NAME"),
         Column::fixed("STATUS"),
-        Column::fixed("PRIORITY"),
-        Column::fixed("HEALTH"),
-        Column::fixed("LEAD"),
-        Column::fixed("TEAMS"),
-        Column::fixed("DATE"),
+        Column::fixed("PRIORITY").droppable(4),
+        Column::fixed("HEALTH").droppable(5),
+        Column::fixed("LEAD").droppable(3),
+        Column::fixed("TEAMS").droppable(1),
+        Column::fixed("DATE").droppable(2),
     ]);
     for project in projects {
         let hex = project.status.color.clone();

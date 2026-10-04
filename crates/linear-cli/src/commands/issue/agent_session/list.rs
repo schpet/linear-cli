@@ -79,8 +79,8 @@ fn table(sessions: &[ListSession], now: DateTime<Utc>) -> Table {
     let mut table = Table::new([
         Column::fixed("ID"),
         Column::fixed("STATUS"),
-        Column::fixed("AGENT"),
-        Column::fixed("CREATED"),
+        Column::fixed("AGENT").droppable(2),
+        Column::fixed("CREATED").droppable(1),
         Column::flexible("SUMMARY"),
     ]);
     for session in sessions {

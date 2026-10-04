@@ -64,7 +64,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 
 #### Output and UX
 
-- tables size columns by display width, separate them with two spaces, and leave no trailing whitespace. On a terminal, headers are bold and underlined and only flexible columns are truncated (with `…`, and only when the terminal is too narrow). Piped output is never truncated. "N labels found."-style footers are gone
+- tables size columns by display width, separate them with two spaces, and leave no trailing whitespace. On a terminal, headers are bold and underlined and only flexible columns are truncated (with `…`, and only when the terminal is too narrow). Piped output is never truncated. "N labels found."-style footers are gone. On narrow terminals, low-value columns (such as UPDATED, LABELS or TEAMS) are hidden before the flexible ones shrink past readability
 - dates within the last week are relative ("3 days ago"), and older ones print as a local `YYYY-MM-DD`
 - color is used only when stdout is a terminal and `NO_COLOR` is unset or empty. The spinner, progress lines, and prompts go to stderr, so stdout carries only data
 - prompts filter select lists as you type, and Ctrl-C or Esc cancels with exit 130. The pager is `$PAGER` (default `less -FRX`), and the editor is `$VISUAL`, then `$EDITOR`, then git's `core.editor`, both run through the shell. A pager that fails gets a warning on stderr, and the output is printed without it

@@ -95,10 +95,10 @@ pub fn show(ctx: &Ctx, mut members: Vec<User>, shown: &Shown) -> Result<()> {
 pub fn table(members: &[User], now: DateTime<Utc>) -> Table {
     let mut table = Table::new([
         Column::flexible("NAME"),
-        Column::fixed("USERNAME"),
+        Column::fixed("USERNAME").droppable(3),
         Column::flexible("EMAIL"),
-        Column::fixed("ROLE"),
-        Column::fixed("LAST SEEN"),
+        Column::fixed("ROLE").droppable(2),
+        Column::fixed("LAST SEEN").droppable(1),
     ]);
     for member in members {
         let mut name = member.name.clone();

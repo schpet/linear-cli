@@ -361,7 +361,7 @@ pub fn table(rows: Vec<Row<'_>>, now: DateTime<Utc>) -> Table {
     let mut table = Table::new([
         Column::fixed("DATE"),
         Column::fixed("HEALTH"),
-        Column::fixed("AUTHOR"),
+        Column::fixed("AUTHOR").droppable(1),
         Column::flexible("UPDATE"),
     ]);
     for row in rows {

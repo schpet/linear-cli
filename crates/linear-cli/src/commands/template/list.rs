@@ -101,8 +101,8 @@ fn render_text(templates: &[Template]) -> Table {
     let mut table = Table::new([
         Column::fixed("ID"),
         Column::flexible("NAME"),
-        Column::fixed("TYPE"),
-        Column::fixed("TEAM"),
+        Column::fixed("TYPE").droppable(2),
+        Column::fixed("TEAM").droppable(1),
     ]);
     for template in templates {
         table.row([
