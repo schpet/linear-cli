@@ -1,7 +1,7 @@
 //! What `initiative archive` and `initiative delete` share: one initiative or
 //! many, confirmation, and the summary.
 use crate::client::LinearClient;
-use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
+use crate::commands::bulk::{self, BulkInput, BulkResult, Found, Skipped, Verb};
 use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
@@ -129,21 +129,6 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
             mode.verb()
         )));
     }
-    ctx.print(format!(
-        "Found {} initiative(s) to {}.\n",
-        ids.len(),
-        mode.verb()
-    ))?;
-    if mode == Mode::Delete {
-        ctx.print(PERMANENT)?;
-    }
-    let question = match mode {
-        Mode::Archive => format!("Archive {} initiative(s)?", ids.len()),
-        Mode::Delete => format!("Permanently delete {} initiative(s)?", ids.len()),
-    };
-    if !request.yes && !ctx.confirm(&question, "--yes")? {
-        return outcome::canceled(ctx);
-    }
     let scope = ctx.scope()?;
     let targets: Vec<_> = ids
         .into_iter()
@@ -153,51 +138,71 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         })
         .collect();
     let client = ctx.client()?;
-    let results = bulk::run(ctx, targets, |(original, reference)| {
-        run_item(client, original, reference, mode)
+    let (found, missing) = bulk::look_up(ctx, targets, |(original, reference)| {
+        look_up_item(client, original, reference, mode)
+    });
+    let verb = Verb {
+        present: mode.verb(),
+        past: mode.past(),
+    };
+    ctx.print(bulk::preview(&found, &missing, "initiative", verb))?;
+    if found.is_empty() {
+        return Err(Error::new("None of the listed initiatives could be found"));
+    }
+    if mode == Mode::Delete {
+        ctx.print(PERMANENT)?;
+    }
+    let count = bulk::count(found.len(), "initiative");
+    let question = match mode {
+        Mode::Archive => format!("Archive {count}?"),
+        Mode::Delete => format!("Permanently delete {count}?"),
+    };
+    if !request.yes && !ctx.confirm(&question, "--yes")? {
+        return outcome::canceled(ctx);
+    }
+    let mut results = bulk::run(ctx, found, |found| async move {
+        let outcome = if found.item.already_archived {
+            Ok(())
+        } else {
+            submit(client, &found.item.id, mode).await
+        };
+        found.result(outcome)
     })?;
-    bulk::report(
-        ctx,
-        &results,
-        "initiative",
-        Verb {
-            present: mode.verb(),
-            past: mode.past(),
-        },
-    )
+    results.extend(missing.into_iter().map(BulkResult::from));
+    bulk::report(ctx, &results, "initiative", verb)
 }
 
-/// One bulk row. Failures, including an unparseable reference, become the
-/// row's message rather than stopping the other items.
-async fn run_item(
+/// Looks up one listed initiative. Failures, including an unparseable
+/// reference, become the reason it is skipped.
+async fn look_up_item(
     client: &LinearClient,
     original: String,
     reference: Result<InitiativeReference>,
     mode: Mode,
-) -> BulkResult {
-    let row = async {
+) -> std::result::Result<Found<Details>, Skipped> {
+    let looked_up = async {
         let id = refs::initiative::resolve(client, &reference?, mode.archived()).await?;
-        let Some(details) = details(client, &id, mode).await? else {
-            return Ok(BulkResult {
-                id: original.clone(),
-                name: None,
-                outcome: BulkOutcome::Failed("Initiative not found".to_owned()),
-            });
-        };
-        if !details.already_archived {
-            submit(client, &details.id, mode).await?;
-        }
-        Ok::<_, Error>(BulkResult {
-            id: details.id,
-            name: Some(details.name),
-            outcome: BulkOutcome::Succeeded,
-        })
+        details(client, &id, mode).await
     };
-    row.await.unwrap_or_else(|error| BulkResult {
-        id: original.clone(),
-        name: None,
-        outcome: BulkOutcome::Failed(error.message().to_owned()),
-    })
+    match looked_up.await {
+        Ok(Some(details)) => Ok(Found {
+            original,
+            name: if details.already_archived {
+                format!("{} (already archived)", details.name)
+            } else {
+                details.name.clone()
+            },
+            item: details,
+        }),
+        Ok(None) => Err(Skipped {
+            original,
+            reason: "Initiative not found".to_owned(),
+        }),
+        Err(error) => Err(Skipped {
+            original,
+            reason: error.message().to_owned(),
+        }),
+    }
 }
 
 struct Details {

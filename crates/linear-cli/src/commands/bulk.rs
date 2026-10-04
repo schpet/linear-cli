@@ -93,6 +93,95 @@ pub struct Verb {
     pub past: &'static str,
 }
 
+/// A listed item that was looked up and can be changed.
+pub struct Found<T> {
+    /// The reference as it was listed.
+    pub original: String,
+    /// How the item is shown, like `ENG-1: Fix login`.
+    pub name: String,
+    pub item: T,
+}
+
+impl<T> Found<T> {
+    /// The row for this item once `op` has run.
+    pub fn result(&self, outcome: std::result::Result<(), Error>) -> BulkResult {
+        BulkResult {
+            id: self.original.clone(),
+            name: Some(self.name.clone()),
+            outcome: match outcome {
+                Ok(()) => BulkOutcome::Succeeded,
+                Err(error) => BulkOutcome::Failed(error.message().to_owned()),
+            },
+        }
+    }
+}
+
+/// A listed item that could not be looked up, and why.
+pub struct Skipped {
+    pub original: String,
+    pub reason: String,
+}
+
+impl From<Skipped> for BulkResult {
+    fn from(skipped: Skipped) -> Self {
+        Self {
+            id: skipped.original,
+            name: None,
+            outcome: BulkOutcome::Failed(skipped.reason),
+        }
+    }
+}
+
+/// Looks up every listed item, five at a time behind a spinner, before
+/// anything is confirmed or changed. Both lists keep the input order.
+pub fn look_up<I, T, F, Fut>(ctx: &Ctx, items: Vec<I>, op: F) -> (Vec<Found<T>>, Vec<Skipped>)
+where
+    F: FnMut(I) -> Fut,
+    Fut: Future<Output = std::result::Result<Found<T>, Skipped>>,
+{
+    let rows: Vec<_> = ctx.spin(true, stream::iter(items).map(op).buffered(5).collect());
+    let mut found = Vec::new();
+    let mut missing = Vec::new();
+    for row in rows {
+        match row {
+            Ok(item) => found.push(item),
+            Err(row) => missing.push(row),
+        }
+    }
+    (found, missing)
+}
+
+/// What a bulk command is about to change, and the listed items it skips
+/// because they could not be looked up.
+pub fn preview<T>(found: &[Found<T>], missing: &[Skipped], noun: &str, verb: Verb) -> String {
+    let mut output = String::new();
+    if !found.is_empty() {
+        output.push_str(&format!(
+            "{} to {}:\n",
+            count(found.len(), noun),
+            verb.present
+        ));
+        for item in found {
+            output.push_str(&format!("  {}\n", item.name));
+        }
+    }
+    if !missing.is_empty() {
+        output.push_str(&format!(
+            "Skipping {} that could not be found:\n",
+            count(missing.len(), noun)
+        ));
+        for skipped in missing {
+            output.push_str(&format!("  {}: {}\n", skipped.original, skipped.reason));
+        }
+    }
+    output
+}
+
+/// `count` of `noun`, as in `1 issue` or `3 issues`.
+pub fn count(count: usize, noun: &str) -> String {
+    format!("{count} {noun}{}", if count == 1 { "" } else { "s" })
+}
+
 /// Runs `op` for every item, five at a time, keeping the input order in the
 /// results. While stderr is a terminal a progress line counts them off.
 pub fn run<T, F, Fut>(ctx: &Ctx, items: Vec<T>, op: F) -> Result<Vec<BulkResult>>
@@ -137,7 +226,7 @@ pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, bool)
     let total = results.len();
     let succeeded = results.iter().filter(|row| row.succeeded()).count();
     let failed = total - succeeded;
-    let count = |count: usize| format!("{count} {noun}{}", if count == 1 { "" } else { "s" });
+    let count = |n: usize| count(n, noun);
     let mut output = String::from("\n");
     if failed == 0 {
         output.push_str(&format!(

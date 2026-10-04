@@ -3,7 +3,7 @@
 use crate::client::{LinearClient, RequestError};
 use crate::graphql::operations::common::IdVariables;
 use crate::{
-    commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb},
+    commands::bulk::{self, BulkInput, BulkResult, Found, Skipped, Verb},
     commands::outcome,
     commands::team_key::configured_team_key,
     ctx::Ctx,
@@ -65,15 +65,6 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
             mode.verb()
         )));
     }
-    ctx.print(format!(
-        "Found {} issue(s) to {}.\n",
-        ids.len(),
-        mode.verb()
-    ))?;
-    let question = format!("{} {} issue(s)?", mode.title(), ids.len());
-    if !request.yes && !ctx.confirm(&question, "--yes")? {
-        return outcome::canceled(ctx);
-    }
     let scope = ctx.scope()?;
     let team = configured_team_key(ctx.options());
     let targets: Vec<_> = ids
@@ -81,16 +72,22 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         .map(|id| Target::prepare(id, team.as_deref(), &scope))
         .collect();
     let client = ctx.client()?;
-    let results = bulk::run(ctx, targets, |target| run_item(client, target, mode))?;
-    bulk::report(
-        ctx,
-        &results,
-        "issue",
-        Verb {
-            present: mode.verb(),
-            past: mode.past(),
-        },
-    )
+    let (found, missing) = bulk::look_up(ctx, targets, |target| look_up_item(client, target));
+    let verb = Verb {
+        present: mode.verb(),
+        past: mode.past(),
+    };
+    ctx.print(bulk::preview(&found, &missing, "issue", verb))?;
+    if found.is_empty() {
+        return Err(Error::new("None of the listed issues could be found"));
+    }
+    let question = format!("{} {}?", mode.title(), bulk::count(found.len(), "issue"));
+    if !request.yes && !ctx.confirm(&question, "--yes")? {
+        return outcome::canceled(ctx);
+    }
+    let mut results = bulk::run(ctx, found, |found| apply_item(client, found, mode))?;
+    results.extend(missing.into_iter().map(BulkResult::from));
+    bulk::report(ctx, &results, "issue", verb)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -200,48 +197,51 @@ async fn submit_single(client: &LinearClient, id: &str, mode: Mode) -> Result<()
     }
     Ok(())
 }
-/// Archives or deletes one listed issue after looking it up; an issue that
-/// cannot be looked up is reported and left alone.
-async fn bulk_resolved(client: &LinearClient, id: &str, mode: Mode) -> Result<BulkResult, Error> {
-    let Some(details) = summary(client, id).await? else {
-        return Ok(BulkResult {
-            id: id.to_owned(),
-            name: None,
-            outcome: BulkOutcome::Failed("Issue not found".to_owned()),
-        });
-    };
-    let done = mode == Mode::Archive && details.archived;
-    let success = done || mutate(client, id, mode).await?;
-    Ok(BulkResult {
-        id: id.to_owned(),
-        name: Some(details.name()),
-        outcome: if success {
-            BulkOutcome::Succeeded
-        } else {
-            BulkOutcome::Failed(format!(
-                "{} operation failed",
-                match mode {
-                    Mode::Archive => "Archive",
-                    Mode::Delete => "Delete",
-                }
-            ))
-        },
-    })
+/// A listed issue: its identifier, and whether it is already archived.
+struct Listed {
+    id: String,
+    archived: bool,
 }
-async fn run_item(client: &LinearClient, target: Target, mode: Mode) -> BulkResult {
-    let result = match target.reference {
-        ReferenceOutcome::Resolved(id) => bulk_resolved(client, &id, mode).await,
-        ReferenceOutcome::Unresolved => Ok(BulkResult {
-            id: target.original.clone(),
-            name: None,
-            outcome: BulkOutcome::Failed("Issue not found".to_owned()),
-        }),
-        // Bulk rows show only the error message, not its suggestion or context.
-        ReferenceOutcome::Failed(error) => Err(error),
+
+async fn look_up_item(client: &LinearClient, target: Target) -> Result<Found<Listed>, Skipped> {
+    let skipped = |reason: String| Skipped {
+        original: target.original.clone(),
+        reason,
     };
-    result.unwrap_or_else(|error| BulkResult {
-        id: target.original,
-        name: None,
-        outcome: BulkOutcome::Failed(error.message().to_owned()),
-    })
+    let id = match target.reference {
+        ReferenceOutcome::Resolved(id) => id,
+        ReferenceOutcome::Unresolved => return Err(skipped("Issue not found".to_owned())),
+        // Rows show only the error message, not its suggestion or context.
+        ReferenceOutcome::Failed(error) => return Err(skipped(error.message().to_owned())),
+    };
+    match summary(client, &id).await {
+        Ok(Some(details)) => Ok(Found {
+            name: if details.archived {
+                format!("{} (already archived)", details.name())
+            } else {
+                details.name()
+            },
+            original: target.original,
+            item: Listed {
+                id,
+                archived: details.archived,
+            },
+        }),
+        Ok(None) => Err(skipped("Issue not found".to_owned())),
+        Err(error) => Err(skipped(error.message().to_owned())),
+    }
+}
+
+/// Archives or deletes one looked-up issue; archiving an archived issue
+/// changes nothing and succeeds.
+async fn apply_item(client: &LinearClient, found: Found<Listed>, mode: Mode) -> BulkResult {
+    if mode == Mode::Archive && found.item.archived {
+        return found.result(Ok(()));
+    }
+    let outcome = match mutate(client, &found.item.id, mode).await {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(Error::new(format!("{} operation failed", mode.title()))),
+        Err(failure) => Err(Error::from(failure)),
+    };
+    found.result(outcome)
 }

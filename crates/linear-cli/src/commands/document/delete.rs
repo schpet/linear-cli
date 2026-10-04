@@ -1,7 +1,7 @@
 //! `document delete`: move one document, or many in bulk, to the trash.
 use crate::cli::document::DocumentDelete;
 use crate::client::LinearClient;
-use crate::commands::bulk::{self, BulkInput, BulkOutcome, BulkResult, Verb};
+use crate::commands::bulk::{self, BulkInput, BulkResult, Found, Skipped, Verb};
 use crate::commands::outcome;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -44,11 +44,6 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
     if ids.is_empty() {
         return Err(Error::new("No document IDs provided for bulk delete"));
     }
-    ctx.print(format!("Found {} document(s) to delete.\n", ids.len()))?;
-    let question = format!("Delete {} document(s)?", ids.len());
-    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
-        return outcome::canceled(ctx);
-    }
     let scope = ctx.scope()?;
     let targets: Vec<_> = ids
         .into_iter()
@@ -58,43 +53,51 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
         })
         .collect();
     let client = ctx.client()?;
-    let results = bulk::run(ctx, targets, |(original, id)| {
-        delete_item(client, original, id)
+    let (found, missing) = bulk::look_up(ctx, targets, |(original, id)| {
+        look_up_item(client, original, id)
+    });
+    let verb = Verb {
+        present: "delete",
+        past: "deleted",
+    };
+    ctx.print(bulk::preview(&found, &missing, "document", verb))?;
+    if found.is_empty() {
+        return Err(Error::new("None of the listed documents could be found"));
+    }
+    let question = format!("Delete {}?", bulk::count(found.len(), "document"));
+    if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
+        return outcome::canceled(ctx);
+    }
+    let mut results = bulk::run(ctx, found, |found| async move {
+        let outcome = submit(client, &found.item).await;
+        found.result(outcome)
     })?;
-    bulk::report(
-        ctx,
-        &results,
-        "document",
-        Verb {
-            present: "delete",
-            past: "deleted",
-        },
-    )
+    results.extend(missing.into_iter().map(BulkResult::from));
+    bulk::report(ctx, &results, "document", verb)
 }
 
-/// One bulk row. Failures, including an unparseable reference, become the
-/// row's message rather than stopping the other items.
-async fn delete_item(client: &LinearClient, original: String, id: Result<String>) -> BulkResult {
-    let row = async {
-        let Some(document) = details(client, &id?).await? else {
-            return Ok(BulkResult {
-                id: original.clone(),
-                name: None,
-                outcome: BulkOutcome::Failed("Document not found".to_owned()),
-            });
-        };
-        submit(client, document.id.inner()).await?;
-        Ok::<_, Error>(BulkResult {
-            id: document.id.into_inner(),
-            name: Some(document.title),
-            outcome: BulkOutcome::Succeeded,
-        })
-    };
-    row.await.unwrap_or_else(|error| BulkResult {
-        id: original.clone(),
-        name: None,
-        outcome: BulkOutcome::Failed(error.message().to_owned()),
-    })
+/// Looks up one listed document; the found item is its UUID.
+async fn look_up_item(
+    client: &LinearClient,
+    original: String,
+    id: Result<String>,
+) -> std::result::Result<Found<String>, Skipped> {
+    let document = async { details(client, &id?).await }.await;
+    match document {
+        Ok(Some(document)) => Ok(Found {
+            original,
+            name: document.title,
+            item: document.id.into_inner(),
+        }),
+        Ok(None) => Err(Skipped {
+            original,
+            reason: "Document not found".to_owned(),
+        }),
+        Err(error) => Err(Skipped {
+            original,
+            reason: error.message().to_owned(),
+        }),
+    }
 }
 
 async fn details(client: &LinearClient, id: &str) -> Result<Option<DocumentDetails>> {

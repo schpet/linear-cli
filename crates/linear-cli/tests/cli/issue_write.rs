@@ -1227,3 +1227,44 @@ fn whitespace_only_flag_values_are_usage_errors() {
     }
     assert!(api.requests().is_empty());
 }
+
+const MISSING_ISSUE: &str = r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#;
+
+#[test]
+fn bulk_delete_lists_what_it_found_and_skips_before_asking() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueSummary",
+        json!({ "issue": { "identifier": "ENG-1", "title": "Fix login", "archivedAt": null } }),
+    )
+    .on("DeleteIssue", json!({ "issueDelete": { "success": true } }));
+    let run = Cli::for_api(&api).run_tty(
+        &["issue", "delete", "--bulk", "ENG-1", "3"],
+        &[("Delete 1 issue? (y/N)", "y\r")],
+    );
+    assert_eq!(run.code, 1, "{run}");
+    let listed = "1 issue to delete:\n  ENG-1: Fix login\n\
+                  Skipping 1 issue that could not be found:\n  3: Issue number 3 needs a team";
+    assert!(run.stdout.contains(listed), "{run}");
+    assert!(
+        run.stdout.contains("Completed: 1/2 issues deleted"),
+        "{run}"
+    );
+    assert_eq!(api.operations(), ["GetIssueSummary", "DeleteIssue"]);
+}
+
+#[test]
+fn bulk_archive_with_nothing_found_asks_nothing() {
+    let api = MockLinear::start();
+    api.on_raw("GetIssueSummary", 200, MISSING_ISSUE);
+    let run = Cli::for_api(&api).run_tty(&["issue", "archive", "--bulk", "ENG-404"], &[]);
+    assert_eq!(run.code, 1, "{run}");
+    assert!(run.stdout.contains("ENG-404: Issue not found"), "{run}");
+    assert!(
+        run.stdout
+            .contains("None of the listed issues could be found"),
+        "{run}"
+    );
+    assert!(!run.stdout.contains("(y/N)"), "{run}");
+    assert_eq!(api.operations(), ["GetIssueSummary"]);
+}

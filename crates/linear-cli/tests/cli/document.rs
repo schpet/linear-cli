@@ -969,3 +969,30 @@ fn update_reads_the_content_from_stdin_with_a_dash() {
         json!({ "id": SLUG, "input": { "title": "New", "content": "piped body\n" } })
     );
 }
+
+#[test]
+fn delete_bulk_lists_the_documents_before_deleting_and_skips_missing_ones() {
+    let api = MockLinear::start();
+    api.on(
+        "GetDocumentForDelete",
+        json!({ "document": { "id": "doc-a", "slugId": "aaa111", "title": "Design notes" } }),
+    )
+    .on(
+        "DeleteDocument",
+        json!({ "documentDelete": { "success": true } }),
+    );
+    let run = Cli::for_api(&api).run(&[
+        "document",
+        "delete",
+        "--bulk",
+        "aaa111",
+        "https://linear.app/acme/issue/ENG-1",
+        "-y",
+    ]);
+    run.failure()
+        .stdout_has("1 document to delete:\n  Design notes\n")
+        .stdout_has(
+            "Skipping 1 document that could not be found:\n  https://linear.app/acme/issue/ENG-1: ",
+        );
+    assert_eq!(api.operations(), ["GetDocumentForDelete", "DeleteDocument"]);
+}
