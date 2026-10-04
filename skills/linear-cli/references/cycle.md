@@ -11,7 +11,7 @@ Usage: linear cycle [OPTIONS] <COMMAND>
 
 Commands:
   list  List a team's cycles
-  view  Show a cycle and its issues [alias: v]
+  view  Show a cycle and its issues
   help  Print this message or the help of the given subcommand(s)
 
 Options:

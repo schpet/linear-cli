@@ -12,10 +12,10 @@ pub struct InitiativeUpdate {
 #[derive(Debug, Subcommand)]
 pub enum InitiativeUpdateCommand {
     /// Post a status update on an initiative
-    #[command(visible_alias = "c", after_long_help = LINEAR_MARKDOWN)]
+    #[command(alias = "c", after_long_help = LINEAR_MARKDOWN)]
     Create(InitiativeUpdateCreate),
     /// List an initiative's status updates
-    #[command(visible_aliases = ["l", "ls"])]
+    #[command(aliases = ["l", "ls"])]
     List(InitiativeUpdateList),
 }
 

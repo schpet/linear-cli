@@ -49,6 +49,7 @@ Changed:
 - `auth logout` and `auth default` take the workspace either as an argument or with `--workspace`
 - running a command group with no subcommand (`linear issue`) prints its help and exits 2
 - shell completions are dynamic: the shell asks `linear` for candidates as you type, and elvish and PowerShell are now supported. **Regenerate your completion script** and load it from your shell's startup file (see `linear completions --help`). Saved 2.x scripts call a `completions complete` subcommand that no longer exists
+- short subcommand aliases (`i`, `p`, `issue l`, `issue v`, …) still work but are no longer listed in help or offered as completions, and a mistyped subcommand suggests only real names
 
 #### JSON output
 

@@ -15,19 +15,19 @@ pub struct Document {
 #[derive(Debug, Subcommand)]
 pub enum DocumentCommand {
     /// List documents
-    #[command(visible_alias = "l")]
+    #[command(alias = "l")]
     List(DocumentList),
     /// Show a document
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(DocumentView),
     /// Create a document
-    #[command(visible_alias = "c", after_long_help = LINEAR_MARKDOWN)]
+    #[command(alias = "c", after_long_help = LINEAR_MARKDOWN)]
     Create(DocumentCreate),
     /// Update a document
-    #[command(visible_alias = "u", after_long_help = LINEAR_MARKDOWN)]
+    #[command(alias = "u", after_long_help = LINEAR_MARKDOWN)]
     Update(DocumentUpdate),
     /// Delete a document (moves it to the trash)
-    #[command(visible_alias = "d")]
+    #[command(alias = "d")]
     Delete(DocumentDelete),
     /// Add and list comments on a document
     Comment(DocumentComment),

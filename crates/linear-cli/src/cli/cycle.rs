@@ -13,7 +13,7 @@ pub enum CycleCommand {
     /// List a team's cycles
     List(CycleList),
     /// Show a cycle and its issues
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(CycleView),
 }
 

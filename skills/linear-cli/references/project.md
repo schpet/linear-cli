@@ -11,7 +11,7 @@ Usage: linear project [OPTIONS] <COMMAND>
 
 Commands:
   list     List projects
-  view     Show a project [alias: v]
+  view     Show a project
   create   Create a project
   update   Update a project
   delete   Delete a project (moves it to the trash)

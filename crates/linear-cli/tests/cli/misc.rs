@@ -68,6 +68,34 @@ fn completion_requests_reach_every_command_depth() {
 }
 
 #[test]
+fn completions_offer_subcommand_names_not_their_short_aliases() {
+    let cli = Cli::new().env("COMPLETE", "fish");
+    let commands = fish_candidates(&cli, &[""]);
+    for name in ["issue", "project", "document", "team", "user"] {
+        assert!(commands.contains(&name.to_owned()), "{commands:?}");
+    }
+    for alias in ["i", "p", "doc", "docs", "t", "u", "init", "configure"] {
+        assert!(!commands.contains(&alias.to_owned()), "{commands:?}");
+    }
+    let issue = fish_candidates(&cli, &["issue", ""]);
+    assert!(issue.contains(&"list".to_owned()), "{issue:?}");
+    for alias in ["l", "q", "v", "d", "mine"] {
+        assert!(!issue.contains(&alias.to_owned()), "{issue:?}");
+    }
+    // The aliases still work.
+    assert_eq!(fish_candidates(&cli, &["i", "vie"]), ["view"]);
+}
+
+#[test]
+fn unknown_subcommands_suggest_real_names_only() {
+    let run = Cli::new().run(&["isue"]);
+    run.usage_error().stderr_has("'issue'");
+    let run = Cli::new().run(&["--no-input", "issue", "lst"]);
+    run.usage_error().stderr_has("'list'");
+    assert!(!run.stderr.contains("'l'"), "{}", run.stderr);
+}
+
+#[test]
 fn completion_requests_skip_hidden_flags_and_configuration() {
     let cli = Cli::new()
         .env("COMPLETE", "fish")

@@ -16,7 +16,7 @@ pub enum MilestoneCommand {
     /// List a project's milestones
     List(MilestoneList),
     /// Show a milestone and its issues
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(MilestoneView),
     /// Create a project milestone
     Create(MilestoneCreate),

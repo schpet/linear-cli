@@ -17,13 +17,13 @@ pub struct Issue {
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
     /// List issues, assigned to you by default
-    #[command(visible_aliases = ["mine", "l"])]
+    #[command(aliases = ["mine", "l"])]
     List(IssueList),
     /// Find issues by filters or full-text search
-    #[command(visible_alias = "q")]
+    #[command(alias = "q")]
     Query(IssueQuery),
     /// Show an issue
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(IssueView),
     /// Create an issue
     #[command(after_long_help = LINEAR_MARKDOWN)]
@@ -32,7 +32,7 @@ pub enum IssueCommand {
     #[command(after_long_help = LINEAR_MARKDOWN)]
     Update(IssueUpdate),
     /// Delete an issue (moves it to the trash)
-    #[command(visible_alias = "d")]
+    #[command(alias = "d")]
     Delete(IssueDelete),
     /// Archive an issue
     ///
@@ -55,7 +55,7 @@ pub enum IssueCommand {
     /// List the commits that reference an issue (jj only)
     Commits(IssueCommits),
     /// Open a GitHub pull request for an issue
-    #[command(visible_alias = "pr")]
+    #[command(alias = "pr")]
     PullRequest(IssuePullRequest),
     /// Add, list, edit, and delete comments on an issue
     Comment(IssueComment),
@@ -669,7 +669,7 @@ pub enum IssueAgentSessionCommand {
     /// List an issue's agent sessions
     List(IssueAgentSessionList),
     /// Show an agent session and its activity
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(IssueAgentSessionView),
 }
 

@@ -10,8 +10,8 @@ Manage initiatives
 Usage: linear initiative [OPTIONS] <COMMAND>
 
 Commands:
-  list            List initiatives [alias: ls]
-  view            Show an initiative [alias: v]
+  list            List initiatives
+  view            Show an initiative
   create          Create an initiative
   update          Update an initiative
   archive         Archive an initiative

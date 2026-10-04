@@ -18,10 +18,10 @@ pub struct Initiative {
 #[derive(Debug, Subcommand)]
 pub enum InitiativeCommand {
     /// List initiatives
-    #[command(visible_alias = "ls")]
+    #[command(alias = "ls")]
     List(InitiativeList),
     /// Show an initiative
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(InitiativeView),
     /// Create an initiative
     Create(InitiativeCreate),

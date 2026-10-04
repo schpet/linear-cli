@@ -10,8 +10,8 @@ Post and list initiative status updates
 Usage: linear initiative-update [OPTIONS] <COMMAND>
 
 Commands:
-  create  Post a status update on an initiative [alias: c]
-  list    List an initiative's status updates [aliases: l, ls]
+  create  Post a status update on an initiative
+  list    List an initiative's status updates
   help    Print this message or the help of the given subcommand(s)
 
 Options:

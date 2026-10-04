@@ -13,7 +13,7 @@ Usage: linear template [OPTIONS] <COMMAND>
 
 Commands:
   list  List templates
-  view  Show a template and the fields it fills in [alias: v]
+  view  Show a template and the fields it fills in
   help  Print this message or the help of the given subcommand(s)
 
 Options:

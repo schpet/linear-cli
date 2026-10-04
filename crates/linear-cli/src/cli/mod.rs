@@ -84,31 +84,31 @@ pub struct GlobalArgs {
 #[derive(Debug, Subcommand)]
 pub enum RootCommand {
     /// Manage issues
-    #[command(visible_alias = "i")]
+    #[command(alias = "i")]
     Issue(issue::Issue),
     /// Manage projects
-    #[command(visible_alias = "p")]
+    #[command(alias = "p")]
     Project(project::Project),
     /// Post and list project status updates
-    #[command(visible_alias = "pu")]
+    #[command(alias = "pu")]
     ProjectUpdate(project_update::ProjectUpdate),
     /// Manage project milestones
-    #[command(visible_alias = "m")]
+    #[command(alias = "m")]
     Milestone(milestone::Milestone),
     /// View team cycles
-    #[command(visible_alias = "cy")]
+    #[command(alias = "cy")]
     Cycle(cycle::Cycle),
     /// Manage initiatives
-    #[command(visible_alias = "init")]
+    #[command(alias = "init")]
     Initiative(initiative::Initiative),
     /// Post and list initiative status updates
-    #[command(visible_alias = "iu")]
+    #[command(alias = "iu")]
     InitiativeUpdate(initiative_update::InitiativeUpdate),
     /// Manage documents
-    #[command(visible_aliases = ["docs", "doc"])]
+    #[command(aliases = ["docs", "doc"])]
     Document(document::Document),
     /// Manage issue labels
-    #[command(visible_alias = "l")]
+    #[command(alias = "l")]
     Label(label::Label),
     /// Browse issue, project and document templates
     ///
@@ -116,17 +116,17 @@ pub enum RootCommand {
     /// `linear project create --template`.
     Template(template::Template),
     /// Manage teams
-    #[command(visible_alias = "t")]
+    #[command(alias = "t")]
     Team(team::Team),
     /// List workspace members
-    #[command(visible_alias = "u")]
+    #[command(alias = "u")]
     User(user::User),
     /// Log in to workspaces and manage their credentials
     Auth(auth::Auth),
     /// Write a .linear.toml for the current repository
     ///
     /// Asks for the settings the flags leave out.
-    #[command(visible_alias = "configure")]
+    #[command(alias = "configure")]
     Config(config::Config),
     /// Send a raw GraphQL request to the Linear API
     ///
@@ -205,6 +205,56 @@ pub enum TemplateType {
 
 pub fn command() -> Command {
     Cli::command()
+}
+
+/// Parses the process arguments, exiting with a usage error (or help) when
+/// they do not parse.
+pub fn parse() -> Cli {
+    let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    Cli::try_parse_from(&args).unwrap_or_else(|error| {
+        let command = command();
+        suggest_names(error, &command, &args).exit()
+    })
+}
+
+/// An unknown subcommand's "similar subcommand" tip names only real
+/// subcommands: clap also matches the short aliases, which make poor
+/// suggestions (`lst` is not a typo of `l`).
+fn suggest_names(
+    mut error: clap::Error,
+    root: &Command,
+    args: &[std::ffi::OsString],
+) -> clap::Error {
+    use clap::error::{ContextKind, ContextValue};
+
+    let Some(ContextValue::Strings(suggested)) = error.get(ContextKind::SuggestedSubcommand) else {
+        return error;
+    };
+    let parent = args
+        .iter()
+        .skip(1)
+        .filter_map(|arg| arg.to_str())
+        .fold(root, |command, arg| {
+            command.find_subcommand(arg).unwrap_or(command)
+        });
+    let names: Vec<String> = suggested
+        .iter()
+        .filter(|name| {
+            parent
+                .get_subcommands()
+                .any(|subcommand| subcommand.get_name() == name.as_str())
+        })
+        .cloned()
+        .collect();
+    if names.is_empty() {
+        error.remove(ContextKind::SuggestedSubcommand);
+    } else {
+        error.insert(
+            ContextKind::SuggestedSubcommand,
+            ContextValue::Strings(names),
+        );
+    }
+    error
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

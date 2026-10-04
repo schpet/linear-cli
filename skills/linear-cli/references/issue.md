@@ -10,12 +10,12 @@ Manage issues
 Usage: linear issue [OPTIONS] <COMMAND>
 
 Commands:
-  list           List issues, assigned to you by default [aliases: mine, l]
-  query          Find issues by filters or full-text search [alias: q]
-  view           Show an issue [alias: v]
+  list           List issues, assigned to you by default
+  query          Find issues by filters or full-text search
+  view           Show an issue
   create         Create an issue
   update         Update an issue
-  delete         Delete an issue (moves it to the trash) [alias: d]
+  delete         Delete an issue (moves it to the trash)
   archive        Archive an issue
   start          Start an issue: switch to its branch and mark it started
   id             Print the issue ID of the current branch or jj change
@@ -23,7 +23,7 @@ Commands:
   url            Print an issue's URL
   describe       Print an issue's title and a Linear-issue trailer, for commit messages
   commits        List the commits that reference an issue (jj only)
-  pull-request   Open a GitHub pull request for an issue [alias: pr]
+  pull-request   Open a GitHub pull request for an issue
   comment        Add, list, edit, and delete comments on an issue
   attach         Upload a file and attach it to an issue
   link           Link a URL to an issue
@@ -883,7 +883,7 @@ Usage: linear issue agent-session [OPTIONS] <COMMAND>
 
 Commands:
   list  List an issue's agent sessions
-  view  Show an agent session and its activity [alias: v]
+  view  Show an agent session and its activity
   help  Print this message or the help of the given subcommand(s)
 
 Options:

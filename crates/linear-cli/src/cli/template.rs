@@ -15,7 +15,7 @@ pub enum TemplateCommand {
     /// Without --team, every template in the workspace is listed.
     List(TemplateList),
     /// Show a template and the fields it fills in
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(TemplateView),
 }
 

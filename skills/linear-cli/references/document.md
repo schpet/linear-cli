@@ -10,11 +10,11 @@ Manage documents
 Usage: linear document [OPTIONS] <COMMAND>
 
 Commands:
-  list     List documents [alias: l]
-  view     Show a document [alias: v]
-  create   Create a document [alias: c]
-  update   Update a document [alias: u]
-  delete   Delete a document (moves it to the trash) [alias: d]
+  list     List documents
+  view     Show a document
+  create   Create a document
+  update   Update a document
+  delete   Delete a document (moves it to the trash)
   comment  Add and list comments on a document
   help     Print this message or the help of the given subcommand(s)
 

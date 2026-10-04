@@ -15,10 +15,10 @@ pub struct ProjectUpdate {
 #[derive(Debug, Subcommand)]
 pub enum ProjectUpdateCommand {
     /// Post a status update on a project
-    #[command(visible_alias = "c", after_long_help = LINEAR_MARKDOWN)]
+    #[command(alias = "c", after_long_help = LINEAR_MARKDOWN)]
     Create(ProjectUpdateCreate),
     /// List a project's status updates
-    #[command(visible_alias = "l")]
+    #[command(alias = "l")]
     List(ProjectUpdateList),
 }
 

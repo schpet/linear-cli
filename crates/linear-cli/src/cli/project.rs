@@ -20,7 +20,7 @@ pub enum ProjectCommand {
     /// List projects
     List(ProjectList),
     /// Show a project
-    #[command(visible_alias = "v")]
+    #[command(alias = "v")]
     View(ProjectView),
     /// Create a project
     #[command(after_long_help = LINEAR_MARKDOWN)]

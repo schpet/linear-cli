@@ -11,7 +11,7 @@ Usage: linear milestone [OPTIONS] <COMMAND>
 
 Commands:
   list    List a project's milestones
-  view    Show a milestone and its issues [alias: v]
+  view    Show a milestone and its issues
   create  Create a project milestone
   update  Update a project milestone
   delete  Delete a project milestone

@@ -10,8 +10,8 @@ Post and list project status updates
 Usage: linear project-update [OPTIONS] <COMMAND>
 
 Commands:
-  create  Post a status update on a project [alias: c]
-  list    List a project's status updates [alias: l]
+  create  Post a status update on a project
+  list    List a project's status updates
   help    Print this message or the help of the given subcommand(s)
 
 Options:
