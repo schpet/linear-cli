@@ -352,3 +352,19 @@ fn view_reports_no_active_cycle_from_a_cycle_url() {
         .stderr_has("Team ENG has no active cycle");
     assert_eq!(api.requests().len(), 2, "no details request");
 }
+
+#[test]
+fn view_takes_a_negative_offset_from_the_active_cycle() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup(json!({ "id": "cycle-6", "number": 6, "name": "Sprint 6" })),
+        )
+        .on("GetCycleDetails", details());
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["cycle", "view", "-1"])
+        .success();
+    assert_eq!(api.variables("GetCycleDetails"), json!({ "id": "cycle-5" }));
+}

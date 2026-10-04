@@ -32,8 +32,8 @@ pub struct CycleList {
 
 #[derive(Debug, Args)]
 pub struct CycleView {
-    /// Cycle name, number, `active`, `next`, `previous`, or an offset like +1
-    #[arg(value_name = "CYCLE")]
+    /// Cycle name, number, `active`, `next`, `previous`, or an offset like +1 or -1
+    #[arg(value_name = "CYCLE", allow_negative_numbers = true)]
     pub cycle_ref: String,
     /// Team key, name, or ID; defaults to the configured team
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]

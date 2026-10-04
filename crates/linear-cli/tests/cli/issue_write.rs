@@ -1041,3 +1041,20 @@ fn empty_field_values_are_usage_errors_before_any_request() {
     }
     assert!(api.requests().is_empty(), "{:?}", api.operations());
 }
+
+#[test]
+fn cycle_flags_accept_a_negative_offset_without_an_equals_sign() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    for args in [
+        &["issue", "update", "ENG-1", "--cycle", "-1", "--help"][..],
+        &["issue", "create", "--cycle", "-2", "--help"],
+        &["issue", "query", "--cycle", "-1", "--help"],
+        &["document", "list", "--cycle", "-1", "--help"],
+    ] {
+        cli.run(args).success();
+    }
+    cli.run(&["issue", "update", "ENG-1", "--cycle", "--title", "x"])
+        .usage_error();
+    assert!(api.requests().is_empty());
+}

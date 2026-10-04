@@ -1303,7 +1303,9 @@ fn title_preserves_exact_remote_text_when_piped() {
 #[test]
 fn list_prints_the_rows_itself_when_the_pager_fails() {
     let api = MockLinear::start();
-    let rows = (1..=60).map(|n| list_issue(n, "ENG", "unstarted")).collect();
+    let rows = (1..=60)
+        .map(|n| list_issue(n, "ENG", "unstarted"))
+        .collect();
     api.on("GetIssuesForState", issues(rows, None));
     // The pager runs through `sh`, which the sandbox PATH lacks.
     let cli = Cli::for_api(&api)

@@ -125,8 +125,8 @@ pub struct IssueFilters {
     #[arg(long, value_name = "LABEL", conflicts_with_all = ["project", "milestone"], value_parser = NonEmptyStringValueParser::new())]
     pub project_label: Option<String>,
     /// Show only this cycle's issues: a name, number, `active`, `next`,
-    /// `previous`, or an offset like +1
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    /// `previous`, or an offset like +1 or -1
+    #[arg(long, allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Show only this milestone's issues (ID, or name with --project)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
@@ -361,8 +361,8 @@ pub struct IssueCreate {
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
     pub milestone: Option<String>,
     /// Cycle: a name, number, `active`, `next`, `previous`, or an offset like
-    /// +1 (write --cycle=-1 for a negative offset)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    /// +1 or -1
+    #[arg(long, allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Start from this issue template (name or ID) instead of the team's default
     ///
@@ -459,8 +459,8 @@ pub struct IssueUpdate {
     #[arg(long)]
     pub clear_milestone: bool,
     /// Cycle: a name, number, `active`, `next`, `previous`, or an offset like
-    /// +1 (write --cycle=-1 for a negative offset)
-    #[arg(long, value_parser = NonEmptyStringValueParser::new())]
+    /// +1 or -1
+    #[arg(long, allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Remove the issue from its cycle
     #[arg(long)]

@@ -47,8 +47,8 @@ pub struct DocumentList {
     /// Show this team's documents (key, name, or ID); with --cycle, the cycle's team
     #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    /// Show this cycle's documents: a name, number, `active`, `next`, `previous`, or an offset like +1
-    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
+    /// Show this cycle's documents: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
+    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Show this release's documents (ID, name, or version)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
@@ -103,8 +103,8 @@ pub struct DocumentCreate {
     /// Attach the document to a team (key, name, or ID); with --cycle, the cycle's team
     #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    /// Attach the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1
-    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
+    /// Attach the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
+    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Attach the document to a release (ID, name, or version)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
@@ -146,8 +146,8 @@ pub struct DocumentUpdate {
     /// Move the document to a team (key, name, or ID); with --cycle, the cycle's team
     #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
     pub team: Option<String>,
-    /// Move the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1
-    #[arg(long, conflicts_with = "release", value_parser = NonEmptyStringValueParser::new())]
+    /// Move the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset like +1 or -1
+    #[arg(long, conflicts_with = "release", allow_negative_numbers = true, value_parser = NonEmptyStringValueParser::new())]
     pub cycle: Option<String>,
     /// Move the document to a release (ID, name, or version)
     #[arg(long, value_parser = NonEmptyStringValueParser::new())]
