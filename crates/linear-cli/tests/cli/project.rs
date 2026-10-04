@@ -520,7 +520,7 @@ fn delete_without_confirmation_does_not_delete() {
     api.on("GetProjectName", project_name());
     Cli::for_api(&api)
         .run(&["project", "delete", ID])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert_eq!(api.operations(), ["GetProjectName"]);
 }

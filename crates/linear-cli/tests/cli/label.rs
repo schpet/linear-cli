@@ -269,7 +269,7 @@ fn delete_without_yes_refuses_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["label", "delete", "Bug"])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
 }
 

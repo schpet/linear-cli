@@ -626,7 +626,7 @@ fn archive_without_confirmation_or_terminal_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["issue", "archive", "ENG-1"])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }
@@ -681,7 +681,7 @@ fn delete_without_confirmation_or_terminal_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["issue", "delete", "ENG-3"])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }

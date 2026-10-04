@@ -464,7 +464,7 @@ fn create_validates_flags_before_any_request() {
         .usage_error()
         .stderr_has("--name");
     cli.run(&["initiative", "create", "-n", "X", "-i"])
-        .failure()
+        .usage_error()
         .stderr_has("needs a terminal");
     cli.run(&["initiative", "create", "-n", "X", "--status", "someday"])
         .usage_error()
@@ -546,7 +546,7 @@ fn update_without_changes_fails_before_any_request() {
         .usage_error()
         .stderr_has("No changes given");
     cli.run(&["initiative", "update", ID, "-i"])
-        .failure()
+        .usage_error()
         .stderr_has("terminal");
     assert!(api.requests().is_empty());
 }
@@ -628,10 +628,10 @@ fn archive_and_delete_without_yes_or_tty_fail_before_any_request() {
         &["initiative", "remove-project", ID, PROJECT_ID],
     ];
     for command in commands {
-        cli.run(command).failure().stderr_has("--yes");
+        cli.run(command).usage_error().stderr_has("--yes");
     }
     cli.run(&["initiative", "archive", "--bulk", ID])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }

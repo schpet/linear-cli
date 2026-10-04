@@ -618,7 +618,7 @@ fn delete_requires_yes_without_a_terminal() {
     Cli::for_api(&api)
         .stdin(b"y\n")
         .run(&["team", "delete", "SRC"])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }

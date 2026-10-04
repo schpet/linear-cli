@@ -68,13 +68,14 @@ fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
 /// Asks which project to show, from the configured team's projects.
 fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
     if args.json {
-        return Err(Error::new("A project is required with --json").with_hint(
+        return Err(Error::invalid("A project is required with --json").with_hint(
             "Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.",
         ));
     }
     if !ctx.interactive() {
-        return Err(Error::new("No project specified").with_hint(
-            "Pass a project UUID, slug ID, or exact name. Without one, `linear project view` picks from a list, but only on a terminal.",
+        return Err(ctx.missing_value(
+            "No project specified",
+            "a project UUID, slug ID, or exact name",
         ));
     }
     let team_key = configured_team_key(ctx.options());

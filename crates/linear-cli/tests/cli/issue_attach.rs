@@ -255,7 +255,7 @@ fn relation_delete_asks_first_and_defaults_to_no() {
         .on("FindIssueRelation", relations_of("blocks", ISSUE_2));
     Cli::for_api(&api)
         .run(&["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert!(!api.operations().contains(&"DeleteIssueRelation".to_owned()));
 }

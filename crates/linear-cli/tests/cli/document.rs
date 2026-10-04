@@ -326,7 +326,7 @@ fn create_without_title_fails_before_any_request() {
         .usage_error();
     Cli::for_api(&api)
         .run(&["document", "create", "-i"])
-        .failure()
+        .usage_error()
         .stderr_has("needs a terminal");
     assert!(api.requests().is_empty());
 }
@@ -478,10 +478,10 @@ fn delete_without_yes_or_a_terminal_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["document", "delete", SLUG])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     cli.run(&["document", "delete", "--bulk", SLUG])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert!(api.requests().is_empty());
 }

@@ -170,7 +170,7 @@ fn view_rejects_an_unparseable_id_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["issue", "view", "not an id!"])
-        .failure()
+        .usage_error()
         .stderr_has("issue ID");
     assert!(api.requests().is_empty());
 }

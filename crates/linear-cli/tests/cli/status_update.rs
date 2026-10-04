@@ -147,7 +147,7 @@ fn initiative_create_interactive_requires_a_terminal() {
             INITIATIVE_ID,
             "--interactive",
         ])
-        .failure()
+        .usage_error()
         .stderr_has("terminal");
     assert!(api.requests().is_empty());
 }

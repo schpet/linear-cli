@@ -336,7 +336,7 @@ fn delete_needs_yes_without_a_terminal() {
     api.on("GetCommentForDelete", comment_for_delete());
     Cli::for_api(&api)
         .run(&["issue", "comment", "delete", COMMENT_ID])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert_eq!(api.operations(), ["GetCommentForDelete"]);
 }

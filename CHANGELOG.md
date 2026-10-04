@@ -79,7 +79,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - terminal Markdown wraps long lines at spaces to the terminal width, keeping list and quote indentation on continuation lines. Tables wider than the terminal shrink their columns and wrap cell text, and print one `Header: value` record per row when the terminal is too narrow for a grid
 - success messages share one form, `✓ Created issue ENG-123: Title` followed by the URL on its own line. Declining a confirmation prints `Canceled.` on stderr and exits 0
 - errors read `✗ <what failed>: <why>`, often with a hint line underneath, and `LINEAR_DEBUG=1` adds the underlying causes. HTTP errors include a short excerpt of the response body. An ambiguous team, project, initiative, release, template, or user name lists the candidates. When a create's outcome is unknown, for example after a dropped connection, the error says the entity "may already exist"
-- exit codes: `0` success, `1` error, `2` usage error (bad flags or values, a required value that is missing or empty, missing subcommand), `130` cancelled. A closed pipe (`linear issue list | head`) exits quietly
+- exit codes: `0` success, `1` error, `2` usage error (bad flags or values, a required value that is missing or empty, a confirmation or question that cannot be asked without a terminal, missing subcommand), `130` cancelled. A closed pipe (`linear issue list | head`) exits quietly
 
 #### Security
 
@@ -156,6 +156,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `comment list` commands on a terminal render each comment as Markdown and wrap headers and bodies to the terminal like the comments in `issue view`, instead of printing raw Markdown that broke mid-word
 - `--reply-to` on the `comment add` commands is checked before posting: a comment on a different issue, project, document, or initiative is refused, as is a reply (naming its thread's top-level comment to use instead), and the success line says `Added reply to …`
 - an unknown `--state` gets the same error from every command (`Workflow state not found: 'x' in team ENG`), listing the states in workflow order and the state types that also work, where `issue list` and `issue update` worded it differently and ordered it differently
+- a missing value exits 2 everywhere: an issue command with no issue ID that cannot infer one (outside a repository, or on a branch that names none), `project view` with no project off a terminal, and a delete, archive, or other confirmation without `--yes` off a terminal or with `--no-input` exited 1
 
 ## [2.6.0] - 2026-09-02
 

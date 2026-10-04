@@ -384,7 +384,7 @@ impl Ctx {
                 .into());
         }
         if !self.interactive() {
-            return Err(Error::new("--interactive needs a terminal")
+            return Err(Error::invalid("--interactive needs a terminal")
                 .with_hint("Pass the values as flags instead."));
         }
         Ok(true)
@@ -397,7 +397,8 @@ impl Ctx {
         if self.interactive() {
             Ok(())
         } else {
-            Err(Error::new(format!(
+            // A usage error, like any value that was needed and not given.
+            Err(Error::invalid(format!(
                 "This command needs to ask {question}, but {}",
                 self.no_prompts_reason()
             ))

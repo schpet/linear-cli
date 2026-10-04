@@ -12,7 +12,7 @@ fn no_input_refuses_confirmations_and_names_the_flag_that_skips_them() {
         &["label", "delete", "Bug", "--no-interactive"],
     ] {
         cli.run(args)
-            .failure()
+            .usage_error()
             .stderr_has("--no-input is set")
             .stderr_has("--yes");
     }
@@ -48,7 +48,7 @@ fn interactive_without_a_terminal_fails_before_any_request() {
         &["document", "create", "-t", "Notes", "--team", "ENG", "-i"],
     ] {
         cli.run(args)
-            .failure()
+            .usage_error()
             .stderr_has("--interactive needs a terminal");
     }
     assert!(api.requests().is_empty());

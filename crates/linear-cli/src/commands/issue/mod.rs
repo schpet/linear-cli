@@ -92,5 +92,5 @@ pub(crate) fn unresolved(ctx: &Ctx) -> Error {
             "Pass an issue ID like ENG-123, or run from a jj change with a Linear-issue trailer."
         }
     };
-    Error::new("Could not determine issue ID").with_hint(hint)
+    Error::invalid("Could not determine issue ID").with_hint(hint)
 }

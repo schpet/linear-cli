@@ -534,7 +534,7 @@ fn delete_without_yes_needs_a_confirmation() {
     api.on("GetMilestoneName", milestone_name());
     Cli::for_api(&api)
         .run(&["milestone", "delete", MILESTONE_ID])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert_eq!(api.operations(), ["GetMilestoneName"]);
 }

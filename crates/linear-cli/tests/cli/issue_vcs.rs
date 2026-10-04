@@ -76,7 +76,7 @@ fn id_comes_from_the_git_branch() {
 
 #[test]
 fn id_fails_when_the_branch_names_no_issue() {
-    git(Cli::new(), "main").run(&["issue", "id"]).failure();
+    git(Cli::new(), "main").run(&["issue", "id"]).usage_error();
 }
 
 #[test]
@@ -532,7 +532,7 @@ fn id_outside_a_jj_repository_says_so() {
         "echo 'Error: There is no jj repo in \".\"' >&2; exit 1",
     );
     cli.run(&["issue", "id"])
-        .failure()
+        .usage_error()
         .stderr_has("Not in a jj repository")
         .stderr_has("Pass an issue ID like ENG-123");
 }
@@ -553,7 +553,7 @@ fn id_on_a_detached_git_head_names_no_issue() {
     Cli::new()
         .stub_bin("git", "exit 1")
         .run(&["issue", "id"])
-        .failure()
+        .usage_error()
         .stderr_has("Could not determine issue ID");
 }
 
@@ -562,7 +562,7 @@ fn id_outside_a_git_repository_says_so() {
     Cli::new()
         .stub_bin("git", "echo 'fatal: not a git repository' >&2; exit 128")
         .run(&["issue", "id"])
-        .failure()
+        .usage_error()
         .stderr_has("Not in a git repository")
         .stderr_has("Pass an issue ID like ENG-123");
 }
@@ -677,7 +677,7 @@ fn start_still_requires_a_terminal_when_a_local_branch_exists() {
  esac",
     );
     cli.run(&["issue", "start", "ENG-7"])
-        .failure()
+        .usage_error()
         .stderr_has("--branch with a new name");
     assert_eq!(api.operations(), ["GetIssueDetails"]);
     assert!(

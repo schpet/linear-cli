@@ -18,7 +18,8 @@ pub fn infer_issue(vcs: Vcs, cwd: &Path, env: &ChildEnvOverlay) -> Result<Option
         if in_repository(vcs, cwd) {
             error
         } else {
-            not_in_repository(vcs)
+            // Outside a repository the issue simply was not given.
+            Error::invalid(format!("Not in a {} repository", name(vcs)))
                 .with_hint("Pass an issue ID like ENG-123, or run from inside the repository.")
         }
     })
@@ -37,11 +38,14 @@ pub fn in_repository(vcs: Vcs, cwd: &Path) -> bool {
 
 /// The error for a command that needs a repository run outside one.
 pub fn not_in_repository(vcs: Vcs) -> Error {
-    let kind = match vcs {
+    Error::new(format!("Not in a {} repository", name(vcs)))
+}
+
+fn name(vcs: Vcs) -> &'static str {
+    match vcs {
         Vcs::Git => "git",
         Vcs::Jj => "jj",
-    };
-    Error::new(format!("Not in a {kind} repository"))
+    }
 }
 
 fn read_issue(vcs: Vcs, cwd: &Path, env: &ChildEnvOverlay) -> Result<Option<String>> {

@@ -200,7 +200,7 @@ fn logout_and_default_take_the_workspace_from_either_spelling() {
 fn logout_without_yes_needs_a_terminal() {
     let cli = Cli::new().credentials(INLINE).stdin(b"y\n");
     cli.run(&["auth", "logout", "acme"])
-        .failure()
+        .usage_error()
         .stderr_has("--yes");
     assert_eq!(cli.read(CREDENTIALS), INLINE);
 }
