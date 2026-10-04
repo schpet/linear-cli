@@ -191,6 +191,25 @@ fn create_uses_the_configured_team_and_default_template() {
 }
 
 #[test]
+fn create_prints_its_progress_on_stderr_and_only_the_result_on_stdout() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("CreateIssue", created("ENG-7"));
+    let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&[
+        "issue",
+        "create",
+        "--no-interactive",
+        "-t",
+        "Plain",
+    ]);
+    run.success().stderr_has("Creating issue in ENG\n");
+    assert_eq!(
+        run.stdout,
+        "✓ Created issue ENG-7: New issue\nhttps://linear.app/acme/issue/ENG-7/new\n"
+    );
+}
+
+#[test]
 fn create_reads_the_description_file_and_looks_up_assignees() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
@@ -795,7 +814,7 @@ fn delete_bulk_skips_issues_whose_lookup_fails() {
     let api = MockLinear::start();
     api.on_error("GetIssueSummary", "Rate limit exceeded");
     let run = Cli::for_api(&api).run(&["issue", "delete", "--confirm", "--bulk", "ENG-5"]);
-    run.failure().stdout_has("Rate limit exceeded");
+    run.failure().stderr_has("Rate limit exceeded");
     assert_eq!(api.operations(), ["GetIssueSummary"]);
 }
 

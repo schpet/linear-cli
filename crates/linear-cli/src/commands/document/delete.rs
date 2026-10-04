@@ -60,7 +60,7 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
         present: "delete",
         past: "deleted",
     };
-    ctx.print(bulk::preview(&found, &missing, "document", verb))?;
+    ctx.eprint(bulk::preview(&found, &missing, "document", verb))?;
     if found.is_empty() {
         return Err(Error::new("None of the listed documents could be found"));
     }

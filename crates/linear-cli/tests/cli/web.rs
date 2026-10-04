@@ -30,10 +30,10 @@ fn issue_view_opens_the_issue_without_a_request() {
     let cli = configured(&api);
     cli.run(&["issue", "view", "ENG-1", "--web"])
         .success()
-        .stdout_has("https://linear.app/acme/issue/ENG-1");
+        .stderr_has("https://linear.app/acme/issue/ENG-1");
     cli.run(&["issue", "view", "ENG-1", "--app"])
         .success()
-        .stdout_has("Linear.app");
+        .stderr_has("Linear.app");
     assert_eq!(
         opened(&cli),
         [
@@ -64,7 +64,7 @@ fn project_view_opens_the_project() {
     cli.run(&["project", "view", ID, "--web"]).success();
     cli.run(&["project", "view", ID, "--app"])
         .success()
-        .stdout_has("Linear.app");
+        .stderr_has("Linear.app");
     let url = format!("https://linear.app/acme/project/{ID}");
     assert_eq!(opened(&cli), [url.clone(), url]);
 }

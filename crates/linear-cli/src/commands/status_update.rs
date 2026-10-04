@@ -105,9 +105,9 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
         let (body, health) = prompt(ctx, &ctx.prompter()?, body, args.health)?;
         (body, health, true)
     } else if body.is_none() && terminal {
-        ctx.print("Opening editor for the update content...\n")?;
+        ctx.eprint("Opening editor for the update content...\n")?;
         let Some(body) = text_input::edited_body(&ctx.edit_text("")?) else {
-            ctx.print("No content entered.\n")?;
+            ctx.eprint("No content entered.\n")?;
             return outcome::canceled(ctx);
         };
         let health = match args.health {

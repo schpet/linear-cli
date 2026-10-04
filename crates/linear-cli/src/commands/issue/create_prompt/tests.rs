@@ -230,11 +230,7 @@ impl Ui for Script {
             .map(|(_, choice)| choice.value)
             .collect())
     }
-    fn output(&mut self, text: &str) -> Result<(), Error> {
-        self.shown.push(text.into());
-        Ok(())
-    }
-    fn error(&mut self, text: &str) -> Result<(), Error> {
+    fn note(&mut self, text: &str) -> Result<(), Error> {
         self.shown.push(text.into());
         Ok(())
     }

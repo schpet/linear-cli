@@ -35,7 +35,7 @@ fn project_menu<U: Ui>(
     projects: &[Named],
 ) -> Result<Option<String>, Error> {
     if projects.is_empty() {
-        ui.output(&format!(
+        ui.note(&format!(
             "Team {} has no projects, so the issue gets none.\n",
             team.key
         ))?;
@@ -104,7 +104,7 @@ async fn additional<B: Backend, U: Ui>(
                     .unwrap_or(0);
                 more.state = Some(ui.choose("Workflow state:", options, index)?);
             }
-            Field::WorkflowState => ui.output(&format!(
+            Field::WorkflowState => ui.note(&format!(
                 "Team {} has no workflow states to choose from.\n",
                 team.key
             ))?,
@@ -146,7 +146,7 @@ async fn additional<B: Backend, U: Ui>(
                     .collect();
                 more.labels = ui.checkbox("Labels:", options)?;
             }
-            Field::Labels => ui.output(&format!(
+            Field::Labels => ui.note(&format!(
                 "Team {} has no labels to choose from.\n",
                 team.key
             ))?,
@@ -205,7 +205,7 @@ pub async fn prompt<B: Backend, U: Ui>(
     };
     let (auto, team) = tokio::try_join!(auto, team)?;
     if let Some(parent) = &parent_data {
-        ui.output(&format!(
+        ui.note(&format!(
             "Creating sub-issue for: {}: {}\n\n",
             parent.identifier, parent.title
         ))?
@@ -248,20 +248,20 @@ pub async fn prompt<B: Backend, U: Ui>(
     let raw = ui.text(Text::new(&message))?;
     let description = if raw == "e" {
         if let Some(editor) = editor_label {
-            ui.output(&format!("Opening {editor}...\n"))?;
+            ui.note(&format!("Opening {editor}...\n"))?;
             let text = ui.optional_editor()?;
             if let Some(text) = text.filter(|text| !text.is_empty()) {
-                ui.output(&format!(
+                ui.note(&format!(
                     "Description entered ({} characters)\n",
                     text.chars().count()
                 ))?;
                 Some(text)
             } else {
-                ui.output("No description entered\n")?;
+                ui.note("No description entered\n")?;
                 None
             }
         } else {
-            ui.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>\n")?;
+            ui.note("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>\n")?;
             None
         }
     } else {

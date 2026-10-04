@@ -67,11 +67,11 @@ fn create(ctx: &Ctx, args: &DocumentCreate) -> Result<()> {
         fields.content = if !ctx.stdin_tty() {
             text_input::read_stdin(std::io::stdin().lock())?
         } else if ctx.interactive() {
-            ctx.print("Opening editor for document content...\n")?;
+            ctx.eprint("Opening editor for document content...\n")?;
             typed = true;
             let content = optional_editor(ctx)?;
             if content.is_none() {
-                ctx.print("No content entered. Creating document without content.\n")?;
+                ctx.eprint("No content entered. Creating document without content.\n")?;
             }
             content
         } else {
@@ -262,10 +262,10 @@ fn prompt_content(
         }
         Content::Editor => {
             let label = editor.expect("the editor option is offered only with an editor");
-            ctx.print(format!("Opening {label}...\n"))?;
+            ctx.eprint(format!("Opening {label}...\n"))?;
             let content = optional_editor(ctx)?;
             if let Some(content) = &content {
-                ctx.print(format!(
+                ctx.eprint(format!(
                     "Content entered ({} characters)\n",
                     content.chars().count()
                 ))?;

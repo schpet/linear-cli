@@ -77,7 +77,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         present: mode.verb(),
         past: mode.past(),
     };
-    ctx.print(bulk::preview(&found, &missing, "issue", verb))?;
+    ctx.eprint(bulk::preview(&found, &missing, "issue", verb))?;
     if found.is_empty() {
         return Err(Error::new("None of the listed issues could be found"));
     }

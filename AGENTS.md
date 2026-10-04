@@ -35,6 +35,7 @@
 - when user-provided input (flags, args) doesn't match expected values, error immediately with guidance on how to fix it, using `with_hint` for the suggestion
 - avoid falling back to defaults when explicit user input is invalid; explicit input should either work or error
 - add context with `.context("Failed to <action>")`. errors print to stderr with a ✗ prefix; causes are only shown with `LINEAR_DEBUG=1`
+- stdout carries only a command's result (data, or the `✓` line and URL). prompts, the spinner, warnings and progress lines ("Creating issue in ENG", "Opening … in web browser") go to stderr with `ctx.eprint`
 
 ## cli flags
 

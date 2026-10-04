@@ -54,7 +54,7 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
         .map(|team| TeamReference::parse(team, &ctx.scope()?))
         .transpose()?;
     if asks {
-        ctx.print(BANNER)?;
+        ctx.eprint(BANNER)?;
     }
     let workspace = match workspaces.as_slice() {
         [] => ctx.workspace().map(str::to_owned),

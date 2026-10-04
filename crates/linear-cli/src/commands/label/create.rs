@@ -91,7 +91,7 @@ fn prompt(
     team: Option<TeamReference>,
     optional: bool,
 ) -> Result<Fields> {
-    ctx.print("\nCreate a new label\n\n")?;
+    ctx.eprint("\nCreate a new label\n\n")?;
     let prompter = ctx.prompter()?;
     let name = match &args.name {
         Some(name) => name.clone(),

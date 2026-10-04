@@ -164,17 +164,17 @@ fn offer_migration(ctx: &Ctx, credentials: &mut Credentials, keyring: &dyn Keyri
     if !keyring.available() {
         return Ok(());
     }
-    let color = ctx.color();
+    let color = ctx.terminal().stderr_color();
     let notice = style::yellow(
         "Your credentials are stored as plaintext in the credentials file.",
         color,
     );
     if !ctx.interactive() {
-        return ctx.print(format!(
+        return ctx.eprint(format!(
             "\n{notice}\nRun `linear auth migrate` to move them to the system keyring.\n"
         ));
     }
-    ctx.print(format!("\n{notice}\n"))?;
+    ctx.eprint(format!("\n{notice}\n"))?;
     let migrate = ctx.prompter()?.confirm(
         "Migrate all credentials to the system keyring for better security?",
         true,

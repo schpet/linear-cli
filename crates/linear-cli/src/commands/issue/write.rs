@@ -185,8 +185,9 @@ pub trait Ui {
     ) -> Result<T, Error>;
     /// The picked values, in list order.
     fn checkbox<T>(&mut self, message: &str, choices: Vec<Choice<T>>) -> Result<Vec<T>, Error>;
-    fn output(&mut self, text: &str) -> Result<(), Error>;
-    fn error(&mut self, text: &str) -> Result<(), Error>;
+    /// Shows `text` beside the questions: a note or progress line, never
+    /// part of the command's result.
+    fn note(&mut self, text: &str) -> Result<(), Error>;
     fn discover_editor(&mut self) -> Result<Option<String>, Error>;
     fn optional_editor(&mut self) -> Result<Option<String>, Error>;
 }

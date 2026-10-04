@@ -107,7 +107,7 @@ fn create_with(
         if !confirm::proceed(ctx, confirm.yes, &question)? {
             return Ok(None);
         }
-        ui.output(&header(&prompted.team_key))?;
+        ui.note(&header(&prompted.team_key))?;
         (prompted.input, prompted.start)
     } else {
         let fallback = ctx.interactive();
@@ -127,7 +127,7 @@ fn create_with(
                 return Ok(None);
             }
         }
-        ui.output(&header(&assembled.team_display))?;
+        ui.note(&header(&assembled.team_display))?;
         (assembled.input, fields.start)
     };
     let issue = ctx.spin(true, backend.create(input))?;
@@ -206,18 +206,7 @@ impl Ui for Prompts<'_> {
         self.ask(|prompter| prompter.multi_select(message, choices))
     }
 
-    fn output(&mut self, text: &str) -> Result<()> {
-        let spinning = self.spinner.is_some();
-        self.pause();
-        self.ctx.print(text)?;
-        self.ctx.flush()?;
-        if spinning {
-            self.resume();
-        }
-        Ok(())
-    }
-
-    fn error(&mut self, text: &str) -> Result<()> {
+    fn note(&mut self, text: &str) -> Result<()> {
         let spinning = self.spinner.is_some();
         self.pause();
         self.ctx.eprint(text)?;

@@ -320,8 +320,7 @@ impl Ctx {
     /// Opens a full Linear URL in the browser, or in the desktop app with `app`.
     pub fn open_url(&self, url: &str, app: bool) -> Result<()> {
         let destination = if app { "Linear.app" } else { "web browser" };
-        self.print(format!("Opening {url} in {destination}\n"))?;
-        self.flush()?;
+        self.eprint(format!("Opening {url} in {destination}\n"))?;
         opener::open(url, app)
     }
 

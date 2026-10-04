@@ -33,7 +33,7 @@ fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
     let optional = ctx.optional_prompts(args.interactive)?;
     let typed = ctx.interactive() && (fields.name.is_none() || optional);
     if typed {
-        ctx.print("\nCreate a new initiative\n\n")?;
+        ctx.eprint("\nCreate a new initiative\n\n")?;
         prompt(ctx, &mut fields, &ctx.prompter()?, optional)?;
     }
     let input = validate(fields)?;

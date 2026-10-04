@@ -68,7 +68,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
         target_date: fields.target_date,
     };
     if interactive {
-        ctx.print("\nCreate a new project\n\n")?;
+        ctx.eprint("\nCreate a new project\n\n")?;
         prompt(
             ctx,
             &ctx.prompter()?,

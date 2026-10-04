@@ -79,7 +79,7 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         ));
     }
     if details.linked_projects > 0 {
-        ctx.print(format!(
+        ctx.eprint(format!(
             "\n⚠️  Initiative \"{}\" has {} linked project(s).\nDeleting the initiative will unlink these projects.\n\n",
             details.name, details.linked_projects
         ))?;
@@ -100,7 +100,7 @@ fn confirm_single(ctx: &Ctx, mode: Mode, name: &str) -> Result<bool> {
     let question = match mode {
         Mode::Archive => format!("Archive initiative \"{name}\"?"),
         Mode::Delete => {
-            ctx.print(PERMANENT)?;
+            ctx.eprint(PERMANENT)?;
             format!("Are you sure you want to permanently delete \"{name}\"?")
         }
     };
@@ -116,7 +116,7 @@ fn confirm_single(ctx: &Ctx, mode: Mode, name: &str) -> Result<bool> {
     if answer == name.trim() {
         Ok(true)
     } else {
-        ctx.print("Name does not match.\n")?;
+        ctx.eprint("Name does not match.\n")?;
         Ok(false)
     }
 }
@@ -145,12 +145,12 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         present: mode.verb(),
         past: mode.past(),
     };
-    ctx.print(bulk::preview(&found, &missing, "initiative", verb))?;
+    ctx.eprint(bulk::preview(&found, &missing, "initiative", verb))?;
     if found.is_empty() {
         return Err(Error::new("None of the listed initiatives could be found"));
     }
     if mode == Mode::Delete {
-        ctx.print(PERMANENT)?;
+        ctx.eprint(PERMANENT)?;
     }
     let count = bulk::count(found.len(), "initiative");
     let question = match mode {

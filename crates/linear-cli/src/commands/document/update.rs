@@ -58,7 +58,7 @@ fn update(ctx: &Ctx, args: &DocumentUpdate) -> Result<()> {
     if edit {
         let document = ctx.spin(true, for_edit(client, &id))?;
         let seed = document.content.unwrap_or_default();
-        ctx.print(format!("Opening {} in editor...\n", document.title))?;
+        ctx.eprint(format!("Opening {} in editor...\n", document.title))?;
         let edited = ctx.edit_text(&seed)?;
         if edited != seed {
             input.content = text_input::edited_body(&edited);

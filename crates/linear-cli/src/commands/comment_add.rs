@@ -82,7 +82,7 @@ pub fn write_in_editor(
     question: &str,
 ) -> Result<Option<String>> {
     let Some(body) = text_input::edited_body(&ctx.edit_text(initial)?) else {
-        ctx.print("No content entered.\n")?;
+        ctx.eprint("No content entered.\n")?;
         outcome::canceled(ctx)?;
         return Ok(None);
     };

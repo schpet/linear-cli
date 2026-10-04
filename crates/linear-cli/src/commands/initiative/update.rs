@@ -48,7 +48,7 @@ fn update(ctx: &Ctx, args: &InitiativeUpdate) -> Result<()> {
             let current = details(client, &id, original).await?;
             Ok::<_, Error>((id, current))
         })?;
-        ctx.print(format!("\nUpdating initiative: {}\n\n", current.name))?;
+        ctx.eprint(format!("\nUpdating initiative: {}\n\n", current.name))?;
         let changes = prompt(&ctx.prompter()?, &current)?;
         if changes.is_empty() {
             return ctx.print(outcome::NO_CHANGES);

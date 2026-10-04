@@ -250,7 +250,7 @@ fn list_web_opens_the_workspace_initiatives_page() {
     let cli = open_stubs(Cli::for_api(&api));
     cli.run(&["initiative", "list", "--web"])
         .success()
-        .stdout_has("https://linear.app/acme/initiatives");
+        .stderr_has("https://linear.app/acme/initiatives");
     assert_eq!(opened(&cli), ["https://linear.app/acme/initiatives"]);
 }
 
@@ -363,10 +363,10 @@ fn view_web_and_app_open_the_initiative_url() {
     let cli = open_stubs(Cli::for_api(&api));
     cli.run(&["initiative", "view", ID, "--web"])
         .success()
-        .stdout_has(URL);
+        .stderr_has(URL);
     cli.run(&["initiative", "view", ID, "--app"])
         .success()
-        .stdout_has("Linear.app");
+        .stderr_has("Linear.app");
     assert_eq!(opened(&cli), [URL, URL]);
 }
 

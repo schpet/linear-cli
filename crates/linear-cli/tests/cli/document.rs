@@ -717,7 +717,8 @@ fn update_edit_sends_the_edited_content() {
     let cli = with_editor(&api, "printf 'Added\\n' >> \"$1\"");
     cli.run(&["document", "update", SLUG, "--edit", "--force"])
         .success()
-        .stdout_has("Design notes");
+        .stderr_has("Opening Design notes in editor")
+        .stdout_has("✓ Updated document Server title");
     assert_eq!(api.variables("GetDocumentForEdit"), json!({ "id": SLUG }));
     let content = api.variables("UpdateDocument")["input"]["content"].clone();
     assert_eq!(
@@ -990,8 +991,8 @@ fn delete_bulk_lists_the_documents_before_deleting_and_skips_missing_ones() {
         "-y",
     ]);
     run.failure()
-        .stdout_has("1 document to delete:\n  Design notes\n")
-        .stdout_has(
+        .stderr_has("1 document to delete:\n  Design notes\n")
+        .stderr_has(
             "Skipping 1 document that could not be found:\n  https://linear.app/acme/issue/ENG-1: ",
         );
     assert_eq!(api.operations(), ["GetDocumentForDelete", "DeleteDocument"]);

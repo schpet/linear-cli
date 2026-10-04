@@ -296,7 +296,7 @@ fn login_into_plaintext_credentials_suggests_migrating_without_a_terminal() {
     cli.run(&["auth", "login", "--key", "key-gamma"])
         .success()
         .stdout_has("stored as plaintext to match existing format")
-        .stdout_has("linear auth migrate");
+        .stderr_has("linear auth migrate");
     assert_eq!(
         credentials_toml(&cli).get("gamma").and_then(|v| v.as_str()),
         Some("key-gamma")

@@ -120,7 +120,7 @@ fn choose_target(
         ))
         .with_hint("Pass --move-issues <team> to choose where they go."));
     }
-    ctx.print(format!(
+    ctx.eprint(format!(
         "Team {} ({}) has {count} issue(s). They must move to another team before it is deleted.\n",
         team.key, team.name
     ))?;
@@ -145,7 +145,7 @@ fn move_issues(
     target: &ResolvedTeam,
     issues: &[MoveIssue],
 ) -> Result<()> {
-    ctx.print(format!(
+    ctx.eprint(format!(
         "Moving {} issue(s) to {}...\n",
         issues.len(),
         target.key
