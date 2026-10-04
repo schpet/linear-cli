@@ -17,7 +17,7 @@ fn check_lookup(server: Server) {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn missing_comments_fail_before_the_body_prompt() {
+async fn missing_comments_fail_before_the_editor_opens() {
     for response in [
         json!({"data": {"comment": null}}),
         json!({"data": null, "errors": [{"message": "Entity not found: Comment"}]}),

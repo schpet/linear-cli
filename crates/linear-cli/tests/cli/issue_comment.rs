@@ -491,3 +491,72 @@ fn every_comment_command_refuses_a_non_utf8_body_file_before_any_request() {
         assert!(api.requests().is_empty(), "{target:?}");
     }
 }
+
+/// An editor that appends ` (edited)` to the file it is given.
+const APPENDING_EDITOR: &str = "printf ' (edited)' >> \"$1\"";
+
+#[test]
+fn add_on_a_terminal_checks_the_issue_then_confirms_the_edited_body() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
+        .on("AddComment", created());
+    let cli = Cli::for_api(&api)
+        .stub_bin("editor", APPENDING_EDITOR)
+        .env("VISUAL", "editor");
+    cli.run_tty(
+        &["issue", "comment", "add", "ENG-1"],
+        &[("Post this comment on ENG-1? (y/N)", "y\r")],
+    )
+    .success()
+    .stdout_has("✓ Added comment to issue ENG-1");
+    assert_eq!(api.operations(), ["GetIssueId", "AddComment"]);
+    assert_eq!(
+        api.variables("AddComment"),
+        json!({ "input": { "body": "(edited)", "issueId": "ENG-1" } })
+    );
+}
+
+#[test]
+fn add_on_a_terminal_does_not_open_the_editor_for_a_missing_issue() {
+    let api = MockLinear::start();
+    api.on_error("GetIssueId", "Entity not found: Issue");
+    let cli = Cli::for_api(&api)
+        .stub_bin("editor", APPENDING_EDITOR)
+        .env("VISUAL", "editor");
+    cli.run_tty(&["issue", "comment", "add", "ENG-404"], &[])
+        .failure()
+        .stdout_has("Issue not found: ENG-404");
+    assert!(cli.calls("editor").is_empty());
+}
+
+#[test]
+fn add_on_a_terminal_posts_nothing_when_declined() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }));
+    Cli::for_api(&api)
+        .stub_bin("editor", APPENDING_EDITOR)
+        .env("VISUAL", "editor")
+        .run_tty(&["issue", "comment", "add", "ENG-1"], &[("(y/N)", "\r")])
+        .success()
+        .stdout_has("Canceled.");
+    assert_eq!(api.operations(), ["GetIssueId"]);
+}
+
+#[test]
+fn update_on_a_terminal_edits_the_existing_body() {
+    let api = MockLinear::start();
+    api.on("GetComment", json!({ "comment": { "body": "Old body" } }))
+        .on("UpdateComment", updated());
+    Cli::for_api(&api)
+        .stub_bin("editor", APPENDING_EDITOR)
+        .env("VISUAL", "editor")
+        .run_tty(
+            &["issue", "comment", "update", COMMENT_ID],
+            &[("Save the edited comment? (y/N)", "y\r")],
+        )
+        .success();
+    assert_eq!(
+        api.variables("UpdateComment")["input"]["body"],
+        "Old body (edited)"
+    );
+}

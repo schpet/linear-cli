@@ -1,14 +1,13 @@
-//! `issue comment update`: body from a flag, a file or a prompt, then one mutation.
+//! `issue comment update`: body from a flag, a file or the editor, then one mutation.
 use std::path::Path;
 
 use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueCommentUpdate,
-    commands::outcome,
+    commands::{comment_add, outcome},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::comment::*,
-    platform::prompt::Text,
     refs::{reject_comment_url, reject_linear_url},
 };
 
@@ -19,20 +18,23 @@ pub fn run(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
 fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
     let id = &args.comment_id;
     let body = prepare_body(id, args.body.as_deref(), args.body_file.as_deref())?;
-    let body = body.filter(|body| !needs_prompt(Some(body)));
-    if body.is_none() && !ctx.interactive() {
-        return Err(ctx.missing_value("No comment body given", "--body or --body-file"));
+    if body.is_none() {
+        comment_add::require_editor(ctx)?;
     }
     let client = ctx.client()?;
     let body = match body {
         Some(body) => body,
         None => {
             let existing = ctx.spin(true, existing_body(client, id))?;
-            ctx.prompter()?.text(
-                Text::new("New comment body")
-                    .required()
-                    .with_default(&existing),
-            )?
+            match comment_add::write_in_editor(
+                ctx,
+                &existing,
+                args.confirm.yes,
+                "Save the edited comment?",
+            )? {
+                Some(body) => body,
+                None => return Ok(()),
+            }
         }
     };
     ctx.print(ctx.spin(true, submit(client, id, body))?)
@@ -45,22 +47,7 @@ pub fn prepare_body(
 ) -> Result<Option<String>, Error> {
     reject_comment_url(id)?;
     reject_linear_url(id, "a comment UUID")?;
-    if body.is_some_and(|value| !value.is_empty()) && file.is_some() {
-        return Err(Error::invalid("Cannot specify both --body and --body-file"));
-    }
-    match file {
-        Some(path) => crate::commands::text_input::read_file(path)
-            .map(Some)
-            .map_err(|error| {
-                Error::new(format!("Failed to read body file: {}", path.display()))
-                    .with_hint(format!("Error: {error}"))
-                    .with_source(error)
-            }),
-        None => Ok(body.map(str::to_owned)),
-    }
-}
-pub fn needs_prompt(body: Option<&str>) -> bool {
-    body.is_none_or(str::is_empty)
+    comment_add::resolve_body(body, file)
 }
 pub async fn existing_body(client: &LinearClient, id: &str) -> Result<String, Error> {
     let result: GetComment = client

@@ -230,6 +230,8 @@ pub struct InitiativeCommentAdd {
     /// Reply to this top-level comment (by ID)
     #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub reply_to: Option<String>,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]

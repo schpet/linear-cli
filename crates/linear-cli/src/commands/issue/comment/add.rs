@@ -21,7 +21,19 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
     }
     upload::prevalidate(&args.attach, args.public)?;
     let text = match text {
-        None if args.attach.is_empty() => Some(comment_add::prompt(ctx)?),
+        None if args.attach.is_empty() => {
+            comment_add::require_editor(ctx)?;
+            // The issue must exist before anything is typed for it.
+            ctx.spin(
+                true,
+                crate::commands::issue::id::fetch(ctx.client()?, &identifier),
+            )?;
+            let question = format!("Post this comment on {identifier}?");
+            match comment_add::write_in_editor(ctx, "", args.confirm.yes, &question)? {
+                Some(body) => Some(body),
+                None => return Ok(()),
+            }
+        }
         text => text,
     };
     let files = args

@@ -11,7 +11,7 @@ mod delete;
 mod describe;
 mod details;
 mod filter;
-mod id;
+pub(crate) mod id;
 mod link;
 mod list;
 mod list_view;

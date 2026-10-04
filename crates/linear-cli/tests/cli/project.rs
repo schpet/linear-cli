@@ -936,3 +936,17 @@ fn an_ambiguous_name_lists_the_uuids_to_pass_instead() {
         .stderr_has(&format!("  {ID}\n  96e4ebe7-247f-4aa0-a6a4-44ed5c33c6ff"))
         .stderr_has("Pass one of these UUIDs instead.");
 }
+
+#[test]
+fn comment_add_on_a_terminal_resolves_the_project_before_the_editor() {
+    let api = MockLinear::start();
+    api.on("GetProjectIdByName", no_ids())
+        .on("GetProjectIdBySlugId", no_ids());
+    let cli = Cli::for_api(&api)
+        .stub_bin("editor", "printf 'Hi' > \"$1\"")
+        .env("VISUAL", "editor");
+    cli.run_tty(&["project", "comment", "add", "Nope"], &[])
+        .failure()
+        .stdout_has("Project not found: Nope");
+    assert!(cli.calls("editor").is_empty());
+}

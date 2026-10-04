@@ -1,17 +1,17 @@
-//! Shared `comment add` steps: body flags, the body prompt check, the single
-//! `AddComment` mutation and its output. Each target command resolves its own
-//! target and then calls these in order.
+//! Shared `comment add` steps: body flags, writing the body in the editor,
+//! the single `AddComment` mutation and its output. Each target command
+//! checks its flags, resolves its target, and only then opens the editor, so
+//! nothing typed is lost to a target that does not exist.
 use std::path::Path;
 
 use crate::client::LinearClient;
-use crate::commands::text_input;
+use crate::commands::{confirm, outcome, text_input};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::operations::comment::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
     DocumentCommentTargetVariables, GetDocumentCommentTarget,
 };
-use crate::platform::prompt::Text;
 use crate::refs::{reject_comment_url, reject_linear_url};
 
 /// Linear requires exactly one target even for replies.
@@ -34,7 +34,7 @@ pub fn resolve_body(body: Option<&str>, body_file: Option<&Path>) -> Result<Opti
         (Some(_), Some(_)) => Err(Error::invalid("Cannot specify both --body and --body-file")),
         (None, Some(path)) => read_body_file(path).map(Some),
         (Some(text), None) if is_blank(text) => Err(Error::invalid("Comment body cannot be empty")
-            .with_hint("Pass text with --body, or omit it to be prompted.")),
+            .with_hint("Pass text with --body, or omit it to write the comment in your editor.")),
         (Some(text), None) => Ok(Some(text.to_owned())),
         (None, None) => Ok(None),
     }
@@ -54,18 +54,40 @@ fn read_body_file(path: &Path) -> Result<String, Error> {
         }
     })?;
     if is_blank(&content) {
-        return Err(Error::new(format!("Body file is empty: {shown}"))
+        return Err(Error::invalid(format!("Body file is empty: {shown}"))
             .with_hint("Write the comment into the file, or use --body."));
     }
     Ok(content)
 }
 
-/// Asks for the body on the terminal; without one it fails, naming --body.
-pub fn prompt(ctx: &Ctx) -> Result<String> {
-    if !ctx.interactive() {
-        return Err(ctx.missing_value("No comment body given", "--body or --body-file"));
+/// Fails before any lookup when no body was given and none can be written
+/// in the editor, naming the flags to pass instead.
+pub fn require_editor(ctx: &Ctx) -> Result<()> {
+    if ctx.interactive() {
+        Ok(())
+    } else {
+        Err(ctx.missing_value("No comment body given", "--body or --body-file"))
     }
-    ctx.prompter()?.text(Text::new("Comment body").required())
+}
+
+/// The body written in the editor, starting from `initial`, once the user
+/// confirms `question` (or passed `yes`). `None` when the editor is left
+/// empty or the user declines; the cancellation is already reported.
+pub fn write_in_editor(
+    ctx: &Ctx,
+    initial: &str,
+    yes: bool,
+    question: &str,
+) -> Result<Option<String>> {
+    let Some(body) = text_input::edited_body(&ctx.edit_text(initial)?) else {
+        ctx.print("No content entered.\n")?;
+        outcome::canceled(ctx)?;
+        return Ok(None);
+    };
+    if !confirm::proceed(ctx, yes, question)? {
+        return Ok(None);
+    }
+    Ok(Some(body))
 }
 
 /// Checks `--parent` before anything is looked up: a pasted comment link

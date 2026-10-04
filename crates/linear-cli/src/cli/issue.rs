@@ -504,6 +504,8 @@ pub struct IssueCommentAdd {
     /// Reply to this top-level comment (by ID)
     #[arg(long, short = 'p', visible_alias = "parent", value_name = "COMMENT", value_parser = NonEmptyStringValueParser::new())]
     pub reply_to: Option<String>,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
     /// ID for the new comment (a UUID you choose)
     #[arg(long, hide = true, value_name = "UUID", value_parser = NonEmptyStringValueParser::new())]
     pub id: Option<String>,
@@ -535,6 +537,8 @@ pub struct IssueCommentUpdate {
     /// Read the new text from a Markdown file
     #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<PathBuf>,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]
