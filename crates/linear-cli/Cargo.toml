@@ -63,6 +63,7 @@ keyring = { version = "3.6.3", default-features = false, features = ["windows-na
 
 [package.metadata.dist]
 dist = true
-# Ship the dependency license notices (one subdirectory per crate) next to
-# the README, CHANGELOG and LICENSE that dist includes on its own.
-include = ["../../licenses"]
+# Ship the third-party license notices next to the README, CHANGELOG and
+# LICENSE that dist includes on its own. Release builds generate the file
+# first (see .github/build-setup.yml); locally run `cargo xtask licenses`.
+include = ["../../THIRD_PARTY_LICENSES.md"]

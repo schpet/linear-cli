@@ -1,5 +1,7 @@
 [workspace]
-members = ["crates/linear-cli", "crates/linear-schema"]
+members = ["crates/linear-cli", "crates/linear-schema", "xtask"]
+# Keeps plain `cargo run` and `cargo build` on the cli; `--workspace` includes xtask.
+default-members = ["crates/linear-cli", "crates/linear-schema"]
 resolver = "3"
 
 [workspace.package]

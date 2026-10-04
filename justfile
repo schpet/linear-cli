@@ -20,15 +20,9 @@ skill-docs:
 sync-schema:
     cargo run --quiet -- schema --output graphql/schema.graphql
 
-# regenerates the dependency license notices in release archives (needs uv)
+# writes THIRD_PARTY_LICENSES.md, the dependency license notices that releases ship
 licenses:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    metadata="$(mktemp)"
-    trap 'rm -f "$metadata"' EXIT
-    cargo metadata --format-version 1 --locked > "$metadata"
-    rm -rf licenses/dependencies
-    uv run --script scripts/generate-license-inventory.py --repository . --metadata "$metadata" --output licenses/dependencies
+    cargo xtask licenses
 
 # sets the claude code plugin versions to the version in Cargo.toml
 plugin-version:

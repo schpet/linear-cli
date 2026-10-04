@@ -12,6 +12,7 @@
 - the `@schpet/linear-cli` package on JSR is no longer published, so `deno install` stays on 2.x. Install 3.x with Homebrew, the shell installer, npm, a release binary, or `cargo install` (see the README). The Homebrew formula, npm package, and release archive names are unchanged
 - `linear --version` and `-V` print `linear 3.0.0`, not a bare version number, and requests identify as `schpet-linear-cli/3.0.0`
 - `--help` works even when a config file is broken, and `completions` and `markdown` do not read config or credentials at all
+- release archives and the npm package include `THIRD_PARTY_LICENSES.md`, the license notices of the Rust crates `linear` is built from, which is also attached to each GitHub release
 
 #### Credentials and config
 

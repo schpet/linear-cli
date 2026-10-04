@@ -1,0 +1,5 @@
+# Steps dist runs before `dist build` in each build-local-artifacts job of
+# release.yml (`github-build-setup` in dist-workspace.toml). Edit this file,
+# then run `just dist-generate`.
+- name: Generate third-party license notices
+  run: cargo xtask licenses

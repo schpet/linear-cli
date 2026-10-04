@@ -1,4 +1,4 @@
 .config/linear.toml
 .idea/
 /target/
-__pycache__/
+/THIRD_PARTY_LICENSES.md

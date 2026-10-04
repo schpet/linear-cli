@@ -2,6 +2,7 @@
 
 - this is a rust cli. the toolchain is pinned in `rust-toolchain.toml`. `mise.toml` pins the `dist` release tool; run `mise trust` once in a fresh checkout (until then mise refuses to load this directory, including its cargo shims)
 - `crates/linear-cli` is the cli (the `linear` binary plus a library the tests and examples use); `crates/linear-schema` holds the cynic types generated from `graphql/schema.graphql`, linear's graphql schema
+- `xtask/` holds repository maintenance commands, run with `cargo xtask <task>` (an alias in `.cargo/config.toml`). it is not part of the release
 - format with `cargo fmt --all`, then before finishing a change run `just check`, which runs:
   - `cargo fmt --all --check`
   - `cargo clippy --locked --workspace --all-targets -- -D warnings`
@@ -9,7 +10,7 @@
 - run the cli from source with `just dev <args>` (`cargo run -- <args>`)
 - `just sync-schema` refreshes `graphql/schema.graphql` from linear's api
 - after changing commands, flags or help text, run `just skill-docs` to regenerate `skills/linear-cli/SKILL.md` and its references. edit `skills/linear-cli/SKILL.template.md`, not `SKILL.md`
-- after adding, removing or upgrading a dependency, run `just licenses` to refresh the notices in `licenses/dependencies` (needs [uv](https://docs.astral.sh/uv/), which provides Python 3.11+; CI fails if they are out of date)
+- release builds generate `THIRD_PARTY_LICENSES.md` (gitignored) with `cargo xtask licenses` and ship it in every archive. it reproduces the license files of every crate in `Cargo.lock`; a crate whose package ships no license file needs its upstream text added to `licenses/supplemental/` and recorded in `sources.json` there, or the command (and CI, which runs it) fails
 - add an entry under `## [Unreleased]` in `CHANGELOG.md` for user-facing changes
 - ask before adding a new dependency
 

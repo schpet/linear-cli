@@ -1,3 +1,2 @@
 graphql/schema.graphql linguist-generated=true
 graphql/** -diff linguist-generated=true
-licenses/dependencies/** linguist-generated=true

@@ -58,16 +58,8 @@ jobs:
             echo "skills/linear-cli is out of date; run 'just skill-docs'" >&2
             exit 1
           fi
-      - name: Check dependency license notices are current
+      # Releases generate these notices; this catches a crate without a
+      # license file before release time.
+      - name: Generate third-party license notices
         if: runner.os == 'Linux'
-        run: |
-          # The runner's python3 is 3.12; the script needs 3.11+.
-          python3 -m unittest discover -s scripts/tests
-          cargo metadata --format-version 1 --locked > "$RUNNER_TEMP/metadata.json"
-          rm -rf licenses/dependencies
-          python3 scripts/generate-license-inventory.py --repository . --metadata "$RUNNER_TEMP/metadata.json" --output licenses/dependencies
-          if [ -n "$(git status --porcelain licenses)" ]; then
-            git status --short licenses
-            echo "licenses/dependencies is out of date; run 'just licenses'" >&2
-            exit 1
-          fi
+        run: cargo xtask licenses --output "$RUNNER_TEMP/THIRD_PARTY_LICENSES.md"

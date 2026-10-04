@@ -23,3 +23,12 @@ npm-package = "linear-cli"
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = true
+# Steps run before each build-local-artifacts job (relative to .github/workflows).
+# They write THIRD_PARTY_LICENSES.md, which `include` adds to every archive.
+github-build-setup = "../build-setup.yml"
+
+# The global job (installers, npm package) needs the notices too, and builds
+# them as an extra artifact, which also attaches them to the release.
+[[dist.extra-artifacts]]
+artifacts = ["THIRD_PARTY_LICENSES.md"]
+build = ["cargo", "xtask", "licenses"]
