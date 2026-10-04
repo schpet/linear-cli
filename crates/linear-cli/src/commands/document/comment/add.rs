@@ -17,9 +17,15 @@ fn add(ctx: &Ctx, args: &DocumentCommentAdd) -> Result<()> {
     }
     let client = ctx.client()?;
     let target = ctx.spin(true, async {
-        let target = comment_add::document_target(client, &document).await?;
-        if body.is_none() {
-            comment_add::check_parent_exists(client, args.reply_to.as_deref()).await?;
+        let (target, parent) = tokio::try_join!(
+            comment_add::document_target(client, &document),
+            comment_add::fetch_parent(client, args.reply_to.as_deref()),
+        )?;
+        if let Some(parent) = parent {
+            let content = CommentTarget::Document {
+                document_content_id: target.document_content_id.clone(),
+            };
+            parent.check(&content, &format!("document \"{}\"", target.title))?;
         }
         Ok::<_, Error>(target)
     })?;
@@ -42,5 +48,10 @@ fn add(ctx: &Ctx, args: &DocumentCommentAdd) -> Result<()> {
     };
     let input = comment_add::build_input(target, body, args.reply_to.as_deref(), None);
     let comment = ctx.spin(true, comment_add::create(client, input))?;
-    ctx.print(comment_add::output("document", &document, &comment))
+    ctx.print(comment_add::output(
+        "document",
+        &document,
+        args.reply_to.as_deref(),
+        &comment,
+    ))
 }

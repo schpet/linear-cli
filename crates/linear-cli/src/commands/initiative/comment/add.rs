@@ -19,15 +19,21 @@ fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     }
     let client = ctx.client()?;
     let (initiative_id, name) = ctx.spin(true, async {
-        let id = refs::initiative::resolve(client, &reference, Archived::Exclude).await?;
-        if body.is_some() {
-            return Ok::<_, Error>((id, None));
-        }
-        let (name, ()) = tokio::try_join!(
-            refs::initiative::name(client, &id),
-            comment_add::check_parent_exists(client, args.reply_to.as_deref()),
+        let (id, parent) = tokio::try_join!(
+            refs::initiative::resolve(client, &reference, Archived::Exclude),
+            comment_add::fetch_parent(client, args.reply_to.as_deref()),
         )?;
-        Ok((id, Some(name)))
+        if let Some(parent) = parent {
+            let target = CommentTarget::Initiative {
+                initiative_id: id.clone(),
+            };
+            parent.check(&target, &format!("initiative {original}"))?;
+        }
+        let name = match body {
+            Some(_) => None,
+            None => Some(refs::initiative::name(client, &id).await?),
+        };
+        Ok::<_, Error>((id, name))
     })?;
     let body = match body {
         Some(body) => body,
@@ -44,5 +50,10 @@ fn add(ctx: &Ctx, args: &InitiativeCommentAdd) -> Result<()> {
     let target = CommentTarget::Initiative { initiative_id };
     let input = comment_add::build_input(target, body, args.reply_to.as_deref(), None);
     let comment = ctx.spin(true, comment_add::create(client, input))?;
-    ctx.print(comment_add::output("initiative", original, &comment))
+    ctx.print(comment_add::output(
+        "initiative",
+        original,
+        args.reply_to.as_deref(),
+        &comment,
+    ))
 }

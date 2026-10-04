@@ -20,25 +20,35 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
             .with_hint("Add --attach <file> to upload, or remove --public."));
     }
     upload::prevalidate(&args.attach, args.public)?;
-    let text = match text {
-        None if args.attach.is_empty() => {
-            comment_add::require_editor(ctx)?;
-            // The issue and the comment replied to must exist before
-            // anything is typed for them.
-            let client = ctx.client()?;
-            ctx.spin(true, async {
-                tokio::try_join!(
-                    crate::commands::issue::id::fetch(client, &identifier),
-                    comment_add::check_parent_exists(client, args.reply_to.as_deref()),
-                )
-            })?;
-            let question = comment_add::question(&identifier, args.reply_to.as_deref());
-            match comment_add::write_in_editor(ctx, "", args.confirm.yes, &question)? {
-                Some(body) => Some(body),
-                None => return Ok(()),
-            }
+    let editor = text.is_none() && args.attach.is_empty();
+    if editor {
+        comment_add::require_editor(ctx)?;
+    }
+    let client = ctx.client()?;
+    // The issue and the comment replied to must exist before anything is
+    // typed for them, and a reply must answer a thread on this issue.
+    if editor || args.reply_to.is_some() {
+        let (issue_id, parent) = ctx.spin(true, async {
+            tokio::try_join!(
+                crate::commands::issue::id::fetch(client, &identifier),
+                comment_add::fetch_parent(client, args.reply_to.as_deref()),
+            )
+        })?;
+        if let Some(parent) = parent {
+            parent.check(
+                &CommentTarget::Issue { issue_id },
+                &format!("issue {identifier}"),
+            )?;
         }
-        text => text,
+    }
+    let text = if editor {
+        let question = comment_add::question(&identifier, args.reply_to.as_deref());
+        match comment_add::write_in_editor(ctx, "", args.confirm.yes, &question)? {
+            Some(body) => Some(body),
+            None => return Ok(()),
+        }
+    } else {
+        text
     };
     let files = args
         .attach
@@ -54,9 +64,13 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
         args.reply_to.as_deref(),
         args.id.as_deref(),
     );
-    let client = ctx.client()?;
     let comment = ctx.spin(true, comment_add::create(client, input))?;
-    ctx.print(comment_add::output("issue", &identifier, &comment))
+    ctx.print(comment_add::output(
+        "issue",
+        &identifier,
+        args.reply_to.as_deref(),
+        &comment,
+    ))
 }
 
 fn validate_comment_id(id: Option<&str>) -> Result<(), Error> {

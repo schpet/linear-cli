@@ -990,6 +990,13 @@ fn comment_add_resolves_the_initiative_and_posts_the_body() {
     api.on("ResolveInitiativeBySlug", none())
         .on("ResolveInitiativeByName", by_id(ID))
         .on(
+            "GetReplyParent",
+            json!({ "comment": {
+                "parentId": null, "issueId": null, "projectId": null,
+                "initiativeId": ID, "documentContentId": null
+            } }),
+        )
+        .on(
             "AddComment",
             json!({ "commentCreate": {
             "success": true,

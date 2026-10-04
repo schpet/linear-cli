@@ -5,6 +5,17 @@ use crate::support::{Cli, MockLinear};
 
 const COMMENT_ID: &str = "7d2e4f1a-3b5c-4d6e-8f90-a1b2c3d4e5f6";
 
+/// A top-level comment for `--reply-to` to find, on the entity whose
+/// `field` (like `issueId`) is `value`.
+fn reply_parent(field: &str, value: &str) -> Value {
+    let mut comment = json!({
+        "parentId": null, "issueId": null, "projectId": null,
+        "initiativeId": null, "documentContentId": null
+    });
+    comment[field] = json!(value);
+    json!({ "comment": comment })
+}
+
 fn created() -> Value {
     json!({
         "commentCreate": {
@@ -86,7 +97,9 @@ fn add_refuses_a_parent_url_before_uploading_or_looking_up() {
 #[test]
 fn add_reads_the_body_file_and_replies_to_a_parent() {
     let api = MockLinear::start();
-    api.on("AddComment", created());
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
+        .on("GetReplyParent", reply_parent("issueId", "issue-1-id"))
+        .on("AddComment", created());
     Cli::for_api(&api)
         .file("cwd/body.md", "# Notes\n\nFrom a file\n")
         .run(&[
@@ -99,7 +112,8 @@ fn add_reads_the_body_file_and_replies_to_a_parent() {
             "--parent",
             "c0000000-0000-4000-8000-0000000000a1",
         ])
-        .success();
+        .success()
+        .stdout_has("✓ Added reply to issue ENG-1");
     assert_eq!(
         api.variables("AddComment"),
         json!({
@@ -678,7 +692,7 @@ fn add_refuses_a_reply_to_that_is_not_a_uuid_before_any_request() {
 fn add_on_a_terminal_checks_the_parent_before_the_editor() {
     let api = MockLinear::start();
     api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
-        .on_error("GetComment", "Entity not found: Comment");
+        .on_error("GetReplyParent", "Entity not found: Comment");
     let cli = Cli::for_api(&api)
         .stub_bin("editor", APPENDING_EDITOR)
         .env("VISUAL", "editor");
@@ -695,7 +709,7 @@ fn add_on_a_terminal_checks_the_parent_before_the_editor() {
 fn add_on_a_terminal_asks_to_post_a_reply() {
     let api = MockLinear::start();
     api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
-        .on("GetComment", json!({ "comment": { "body": "Parent" } }))
+        .on("GetReplyParent", reply_parent("issueId", "issue-1-id"))
         .on("AddComment", created());
     Cli::for_api(&api)
         .stub_bin("editor", APPENDING_EDITOR)
@@ -706,6 +720,62 @@ fn add_on_a_terminal_asks_to_post_a_reply() {
         )
         .success();
     assert_eq!(api.variables("AddComment")["input"]["parentId"], PARENT_ID);
+}
+
+#[test]
+fn add_refuses_to_reply_to_a_reply_naming_its_thread() {
+    let api = MockLinear::start();
+    let mut parent = reply_parent("issueId", "issue-1-id");
+    parent["comment"]["parentId"] = json!("thread-root-id");
+    api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }))
+        .on("GetReplyParent", parent);
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "comment",
+            "add",
+            "ENG-1",
+            "--body",
+            "Hi",
+            "--reply-to",
+            PARENT_ID,
+        ])
+        .failure()
+        .stderr_has("only a top-level comment can be replied to")
+        .stderr_has("--reply-to thread-root-id");
+    assert!(!api.operations().contains(&"AddComment".to_owned()));
+}
+
+#[test]
+fn add_refuses_to_reply_to_a_comment_on_another_entity() {
+    for (target, field) in [
+        (&["issue", "comment", "add", "ENG-1"][..], "issueId"),
+        (
+            &[
+                "project",
+                "comment",
+                "add",
+                "a0000000-0000-4000-8000-000000000001",
+            ],
+            "projectId",
+        ),
+    ] {
+        let api = MockLinear::start();
+        if field == "issueId" {
+            api.on("GetIssueId", json!({ "issue": { "id": "issue-1-id" } }));
+        }
+        api.on("GetReplyParent", reply_parent(field, "someone-else"));
+        let mut args = target.to_vec();
+        args.extend(["--body", "Hi", "--reply-to", PARENT_ID]);
+        Cli::for_api(&api)
+            .run(&args)
+            .failure()
+            .stderr_has(&format!("Comment {PARENT_ID} is not on"));
+        assert!(
+            !api.operations().contains(&"AddComment".to_owned()),
+            "{target:?}"
+        );
+    }
 }
 
 #[test]

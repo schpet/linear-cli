@@ -9,7 +9,8 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::operations::comment::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
-    DocumentCommentTargetVariables, GetComment, GetCommentVariables, GetDocumentCommentTarget,
+    DocumentCommentTargetVariables, GetCommentVariables, GetDocumentCommentTarget, GetReplyParent,
+    ReplyParent,
 };
 use crate::refs::{is_linear_uuid, reject_comment_url, reject_linear_url};
 
@@ -111,21 +112,66 @@ pub fn check_parent(parent_id: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// Fails unless the comment `--reply-to` names exists, so nothing is
-/// written in the editor for a reply that cannot be posted.
-pub async fn check_parent_exists(client: &LinearClient, parent_id: Option<&str>) -> Result<()> {
-    let Some(parent) = parent_id else {
-        return Ok(());
+/// The comment `--reply-to` names, looked up before anything is typed so
+/// a reply that cannot be posted fails first.
+pub struct Parent<'a> {
+    id: &'a str,
+    comment: ReplyParent,
+}
+
+/// Looks up the comment `--reply-to` names, failing when it does not exist.
+pub async fn fetch_parent<'a>(
+    client: &LinearClient,
+    parent_id: Option<&'a str>,
+) -> Result<Option<Parent<'a>>> {
+    let Some(id) = parent_id else {
+        return Ok(None);
     };
-    let data: GetComment = client
-        .query(GetCommentVariables {
-            id: parent.to_owned(),
-        })
+    let data: GetReplyParent = client
+        .query(GetCommentVariables { id: id.to_owned() })
         .await
-        .map_err(|failure| failure.or_not_found("Comment", parent))?;
-    match data.comment {
-        Some(_) => Ok(()),
-        None => Err(Error::not_found("Comment", parent)),
+        .map_err(|failure| failure.or_not_found("Comment", id))?;
+    let comment = data
+        .comment
+        .ok_or_else(|| Error::not_found("Comment", id))?;
+    Ok(Some(Parent { id, comment }))
+}
+
+impl Parent<'_> {
+    /// Fails unless this is a top-level comment on `target` (described as
+    /// `described`, like `issue ENG-1`), so a reply never lands in another
+    /// entity's thread. An issue target must hold the issue's UUID.
+    pub fn check(&self, target: &CommentTarget, described: &str) -> Result<()> {
+        let Self { id, comment } = self;
+        if let Some(top) = &comment.parent_id {
+            return Err(Error::new(format!(
+                "Comment {id} is a reply; only a top-level comment can be replied to"
+            ))
+            .with_hint(format!(
+                "Reply in its thread with --reply-to {top}, the thread's top-level comment."
+            )));
+        }
+        let on_target = match target {
+            CommentTarget::Issue { issue_id } => comment.issue_id.as_ref() == Some(issue_id),
+            CommentTarget::Document {
+                document_content_id,
+            } => comment.document_content_id.as_ref() == Some(document_content_id),
+            CommentTarget::Project { project_id } => {
+                comment.project_id.as_ref() == Some(project_id)
+            }
+            CommentTarget::Initiative { initiative_id } => {
+                comment.initiative_id.as_ref() == Some(initiative_id)
+            }
+        };
+        if on_target {
+            Ok(())
+        } else {
+            Err(
+                Error::new(format!("Comment {id} is not on {described}")).with_hint(
+                    "--reply-to takes a top-level comment on the same entity, as its `comment list --json` shows.",
+                ),
+            )
+        }
     }
 }
 
@@ -183,10 +229,20 @@ pub async fn create(
 }
 
 /// The success lines, naming the target as the user gave it.
-pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
+pub fn output(
+    noun: &str,
+    original: &str,
+    parent_id: Option<&str>,
+    comment: &CreatedComment,
+) -> Vec<u8> {
+    let what = if parent_id.is_some() {
+        "reply to"
+    } else {
+        "comment to"
+    };
     super::outcome::done(
         "Added",
-        "comment to",
+        what,
         &format!("{noun} {original}"),
         Some(&comment.url),
     )

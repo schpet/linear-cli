@@ -119,6 +119,29 @@ pub struct GetComment {
     pub comment: Option<ExistingComment>,
 }
 
+/// The comment `--reply-to` names: whether it is itself a reply, and what
+/// it is on.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetCommentVariables"
+)]
+pub struct GetReplyParent {
+    #[arguments(id: $id)]
+    pub comment: Option<ReplyParent>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Comment")]
+pub struct ReplyParent {
+    pub parent_id: Option<String>,
+    pub issue_id: Option<String>,
+    pub project_id: Option<String>,
+    pub initiative_id: Option<String>,
+    pub document_content_id: Option<String>,
+}
+
 #[derive(cynic::QueryFragment, serde::Deserialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Comment", no_deserialize)]
 pub struct ExistingComment {

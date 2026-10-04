@@ -577,7 +577,14 @@ fn comment_add_resolves_the_project_and_posts_the_body() {
 #[test]
 fn comment_add_replies_with_a_body_file() {
     let api = MockLinear::start();
-    api.on("AddComment", comment_created());
+    api.on(
+        "GetReplyParent",
+        json!({ "comment": {
+            "parentId": null, "issueId": null, "projectId": ID,
+            "initiativeId": null, "documentContentId": null
+        } }),
+    )
+    .on("AddComment", comment_created());
     Cli::for_api(&api)
         .file("cwd/reply.md", "**Bold** reply\n")
         .run(&[

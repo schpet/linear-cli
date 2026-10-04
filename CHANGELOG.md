@@ -154,6 +154,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `milestone create` asks for the milestone name on a terminal when `--name` is not given, as the README described, confirms typed values (skip with `--yes`), and gains `-i` to also ask for the description and target date. Without a terminal a missing `--name` is still a usage error
 - a user typed at the lead prompt of `project create -i` or the owner prompt of `initiative create -i`, and the attachment typed for `document create`, are looked up right away; one that is not found is reported and asked for again, instead of failing after the final confirmation. `document create` also looks up an attachment given as a flag before it opens the editor, so typed content is not lost to a wrong `--project`
 - `comment list` commands on a terminal render each comment as Markdown and wrap headers and bodies to the terminal like the comments in `issue view`, instead of printing raw Markdown that broke mid-word
+- `--reply-to` on the `comment add` commands is checked before posting: a comment on a different issue, project, document, or initiative is refused, as is a reply (naming its thread's top-level comment to use instead), and the success line says `Added reply to …`
 
 ## [2.6.0] - 2026-09-02
 

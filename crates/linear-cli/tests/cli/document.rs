@@ -541,6 +541,13 @@ fn comment_created() -> Value {
 fn comment_add_replies_on_the_document_content() {
     let api = MockLinear::start();
     api.on("GetDocumentCommentTarget", comment_target())
+        .on(
+            "GetReplyParent",
+            json!({ "comment": {
+                "parentId": null, "issueId": null, "projectId": null,
+                "initiativeId": null, "documentContentId": "content-1"
+            } }),
+        )
         .on("AddComment", comment_created());
     Cli::for_api(&api)
         .run(&[

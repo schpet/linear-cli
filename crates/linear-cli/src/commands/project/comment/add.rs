@@ -19,15 +19,21 @@ fn add(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
     }
     let client = ctx.client()?;
     let (project_id, name) = ctx.spin(true, async {
-        let id = refs::project::resolve(client, &reference).await?;
-        if body.is_some() {
-            return Ok::<_, Error>((id, None));
-        }
-        let (name, ()) = tokio::try_join!(
-            refs::project::name(client, &id),
-            comment_add::check_parent_exists(client, args.reply_to.as_deref()),
+        let (id, parent) = tokio::try_join!(
+            refs::project::resolve(client, &reference),
+            comment_add::fetch_parent(client, args.reply_to.as_deref()),
         )?;
-        Ok((id, Some(name)))
+        if let Some(parent) = parent {
+            let target = CommentTarget::Project {
+                project_id: id.clone(),
+            };
+            parent.check(&target, &format!("project {original}"))?;
+        }
+        let name = match body {
+            Some(_) => None,
+            None => Some(refs::project::name(client, &id).await?),
+        };
+        Ok::<_, Error>((id, name))
     })?;
     let body = match body {
         Some(body) => body,
@@ -48,5 +54,10 @@ fn add(ctx: &Ctx, args: &ProjectCommentAdd) -> Result<()> {
         None,
     );
     let comment = ctx.spin(true, comment_add::create(client, input))?;
-    ctx.print(comment_add::output("project", original, &comment))
+    ctx.print(comment_add::output(
+        "project",
+        original,
+        args.reply_to.as_deref(),
+        &comment,
+    ))
 }
