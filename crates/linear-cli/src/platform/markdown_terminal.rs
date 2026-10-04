@@ -1,7 +1,10 @@
 //! Markdown rendering for a terminal.
 //!
 //! Only terminal output is rendered; piped output stays raw Markdown. Source
-//! line breaks are kept and nothing is reflowed. With `styled` on, emphasis,
+//! line breaks are kept, and text wider than the terminal wraps at spaces with
+//! list and quote indentation carried onto the next line. Tables shrink their
+//! columns to fit, wrapping cell text, and become one record per row when the
+//! terminal is too narrow for a grid. With `styled` on, emphasis,
 //! headings and code become SGR styles and links become OSC-8 hyperlinks;
 //! with it off the output is plain text that keeps the Markdown cues
 //! (`#` headings, backticks, link URLs) needed to read it.
@@ -14,7 +17,7 @@ use pulldown_cmark::{
     Alignment, CodeBlockKind, Event, HeadingLevel, LinkType, Options, Parser, Tag, TagEnd,
 };
 use reqwest::Url;
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::platform::terminal_text;
 
@@ -25,6 +28,13 @@ pub const FALLBACK_COLUMNS: NonZeroU16 = NonZeroU16::MIN.saturating_add(79);
 const DEFAULT_FILE_LINK: &str = "file://{host}{path}";
 
 const BULLETS: [&str; 3] = ["•", "◦", "▪"];
+
+/// Wrapped text keeps at least this many columns however deep it is nested.
+const MIN_TEXT_WIDTH: usize = 10;
+
+/// A table column narrower than this cannot show its cells usefully; such
+/// tables print one record per row instead.
+const MIN_CELL_WIDTH: usize = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderOptions {
@@ -117,10 +127,27 @@ struct Image {
     alt: String,
 }
 
+/// Inline content waiting to be laid out into lines.
+#[derive(Clone)]
+enum Span {
+    Text {
+        text: String,
+        style: Style,
+    },
+    /// Starts an OSC-8 hyperlink (styled output only).
+    LinkStart(String),
+    LinkEnd,
+}
+
 #[derive(Default)]
 struct Cell {
-    plain: String,
-    painted: String,
+    spans: Vec<Span>,
+}
+
+impl Cell {
+    fn width(&self) -> usize {
+        spans_width(&self.spans)
+    }
 }
 
 struct Table {
@@ -137,6 +164,8 @@ struct Renderer<'o> {
     links: Vec<Link>,
     image: Option<Image>,
     table: Option<Table>,
+    /// Inline content of the current line, laid out when the line ends.
+    pending: Vec<Span>,
     at_line_start: bool,
     /// A block ended; the next one starts after a blank line.
     gap: bool,
@@ -157,6 +186,7 @@ impl<'o> Renderer<'o> {
             links: Vec::new(),
             image: None,
             table: None,
+            pending: Vec::new(),
             at_line_start: true,
             gap: false,
             heading: None,
@@ -196,8 +226,10 @@ impl<'o> Renderer<'o> {
             }
             Event::SoftBreak | Event::HardBreak => {
                 if let Some(cell) = self.table.as_mut().and_then(|table| table.cell()) {
-                    cell.plain.push(' ');
-                    cell.painted.push(' ');
+                    cell.spans.push(Span::Text {
+                        text: " ".to_owned(),
+                        style: Style::new(),
+                    });
                 } else if let Some(image) = &mut self.image {
                     image.alt.push(' ');
                 } else {
@@ -206,7 +238,7 @@ impl<'o> Renderer<'o> {
             }
             Event::Rule => {
                 self.start_block();
-                let columns = usize::from(self.options.columns.get()).min(80);
+                let columns = self.text_width().min(80);
                 let rule = self.paint(&"─".repeat(columns), &Style::new().black().bright());
                 self.write(&rule);
                 self.end_block();
@@ -235,7 +267,7 @@ impl<'o> Renderer<'o> {
                 self.heading = Some(level);
                 if !self.options.styled {
                     let marks = "#".repeat(heading_depth(level));
-                    self.write(&format!("{marks} "));
+                    self.inline(&format!("{marks} "), &Style::new());
                 }
             }
             Tag::BlockQuote(_) => {
@@ -321,7 +353,7 @@ impl<'o> Renderer<'o> {
                 };
                 let url = sanitize(&url);
                 if self.options.styled {
-                    self.raw(&format!("\x1b]8;;{url}\x1b\\"));
+                    self.span(Span::LinkStart(url.clone()));
                 }
                 self.links.push(Link {
                     url,
@@ -368,6 +400,7 @@ impl<'o> Renderer<'o> {
                 self.end_block();
             }
             TagEnd::Item => {
+                self.flush_inline();
                 if !self.at_line_start {
                     self.newline();
                 }
@@ -401,7 +434,7 @@ impl<'o> Renderer<'o> {
             TagEnd::Link => {
                 let link = self.links.pop().expect("a link ends after it starts");
                 if self.options.styled {
-                    self.raw("\x1b]8;;\x1b\\");
+                    self.span(Span::LinkEnd);
                 } else if link.text != link.url && !link.url.is_empty() {
                     self.inline(&format!(" ({})", link.url), &self.style());
                 }
@@ -465,26 +498,25 @@ impl<'o> Renderer<'o> {
             image.alt.push_str(text);
             return;
         }
-        let painted = self.paint(text, style);
-        if let Some(cell) = self.table.as_mut().and_then(|table| table.cell()) {
-            cell.plain.push_str(text);
-            cell.painted.push_str(&painted);
-        } else {
-            self.write(&painted);
-        }
+        self.span(Span::Text {
+            text: text.to_owned(),
+            style: style.clone(),
+        });
     }
 
-    /// Escape sequences that take no columns.
-    fn raw(&mut self, escape: &str) {
+    /// Inline content for the table cell being filled or the current line.
+    /// Inside an image only the alt text counts.
+    fn span(&mut self, span: Span) {
         if let Some(cell) = self.table.as_mut().and_then(|table| table.cell()) {
-            cell.painted.push_str(escape);
+            cell.spans.push(span);
         } else if self.image.is_none() {
-            self.write(escape);
+            self.pending.push(span);
         }
     }
 
     /// Multi-line block text, each line painted separately.
     fn lines(&mut self, text: &str, style: &Style) {
+        self.flush_inline();
         let mut lines = text.split('\n').peekable();
         while let Some(line) = lines.next() {
             if lines.peek().is_none() {
@@ -502,9 +534,14 @@ impl<'o> Renderer<'o> {
         }
     }
 
-    /// Writes text without line breaks, preceded by the container prefixes
-    /// at the start of a line.
+    /// Writes text without line breaks, after any pending inline content.
     fn write(&mut self, text: &str) {
+        self.flush_inline();
+        self.emit(text);
+    }
+
+    /// Writes text, preceded by the container prefixes at the start of a line.
+    fn emit(&mut self, text: &str) {
         if self.at_line_start {
             let prefix = self.prefix();
             self.out.push_str(&prefix);
@@ -514,8 +551,45 @@ impl<'o> Renderer<'o> {
     }
 
     fn newline(&mut self) {
+        self.flush_inline();
         self.out.push('\n');
         self.at_line_start = true;
+    }
+
+    /// Lays the pending inline content out in lines that fit the terminal.
+    fn flush_inline(&mut self) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let spans = std::mem::take(&mut self.pending);
+        let width = self.text_width();
+        for (index, line) in layout(&spans, width, false, self.options.styled)
+            .iter()
+            .enumerate()
+        {
+            if index > 0 {
+                self.out.push('\n');
+                self.at_line_start = true;
+            }
+            self.emit(&line.painted);
+        }
+    }
+
+    /// Columns left for text after the container prefixes, never so few
+    /// that every word lands on its own line.
+    fn text_width(&self) -> usize {
+        let prefix: usize = self
+            .containers
+            .iter()
+            .map(|container| match container {
+                Container::Quote => 2,
+                Container::Item { marker, .. } => marker.width(),
+                Container::Code => 4,
+            })
+            .sum();
+        usize::from(self.options.columns.get())
+            .saturating_sub(prefix)
+            .max(MIN_TEXT_WIDTH)
     }
 
     fn prefix(&mut self) -> String {
@@ -561,6 +635,7 @@ impl<'o> Renderer<'o> {
 
     /// An empty line that keeps quote bars but never prints list markers.
     fn blank_line(&mut self) {
+        self.flush_inline();
         let mut prefix = String::new();
         for container in &self.containers {
             if matches!(container, Container::Quote) {
@@ -574,6 +649,7 @@ impl<'o> Renderer<'o> {
     }
 
     fn start_block(&mut self) {
+        self.flush_inline();
         if !self.at_line_start {
             self.newline();
         }
@@ -584,6 +660,7 @@ impl<'o> Renderer<'o> {
     }
 
     fn end_block(&mut self) {
+        self.flush_inline();
         if !self.at_line_start {
             self.newline();
         }
@@ -591,24 +668,31 @@ impl<'o> Renderer<'o> {
     }
 
     fn image(&mut self, image: &Image) {
-        let (visible, text) = if self.options.styled {
+        let spans = if self.options.styled {
             let target = self.image_target(&image.url);
             let gray = Style::new().black().bright();
-            let text = format!(
-                "{}{}",
-                self.paint(&format!("Image: {} ", image.alt), &gray),
-                hyperlink(&self.paint(&image.url, &gray.underlined()), &target)
-            );
-            (format!("Image: {} {}", image.alt, image.url), text)
+            vec![
+                Span::Text {
+                    text: format!("Image: {} ", image.alt),
+                    style: gray.clone(),
+                },
+                Span::LinkStart(target),
+                Span::Text {
+                    text: image.url.clone(),
+                    style: gray.underlined(),
+                },
+                Span::LinkEnd,
+            ]
         } else {
-            let text = format!("![{}]({})", image.alt, image.url);
-            (text.clone(), text)
+            vec![Span::Text {
+                text: format!("![{}]({})", image.alt, image.url),
+                style: Style::new(),
+            }]
         };
         if let Some(cell) = self.table.as_mut().and_then(|table| table.cell()) {
-            cell.plain.push_str(&visible);
-            cell.painted.push_str(&text);
+            cell.spans.extend(spans);
         } else {
-            self.write(&text);
+            self.pending.extend(spans);
         }
     }
 
@@ -628,19 +712,33 @@ impl<'o> Renderer<'o> {
         target.replacen("{path}", &encode_path(url), 1)
     }
 
+    /// A grid with box-drawing borders, its columns shrunk (and cell text
+    /// wrapped) to fit the terminal; one record per row when even that
+    /// cannot fit.
     fn table(&mut self, table: &Table) {
         let columns = table.rows.iter().map(Vec::len).max().unwrap_or_default();
-        let widths: Vec<usize> = (0..columns)
+        let natural: Vec<usize> = (0..columns)
             .map(|column| {
                 table
                     .rows
                     .iter()
                     .filter_map(|row| row.get(column))
-                    .map(|cell| cell.plain.width())
+                    .map(Cell::width)
                     .max()
                     .unwrap_or_default()
             })
             .collect();
+        // Each column has a border and a space on either side, plus the
+        // closing border.
+        let borders = 3 * columns + 1;
+        let available = self.text_width().saturating_sub(borders);
+        let widths = if natural.iter().sum::<usize>() <= available {
+            natural
+        } else if available >= MIN_CELL_WIDTH * columns {
+            fit_columns(&natural, available)
+        } else {
+            return self.table_records(table);
+        };
         let rule = |left: &str, middle: &str, right: &str| {
             let segments: Vec<String> = widths.iter().map(|width| "─".repeat(width + 2)).collect();
             format!("{left}{}{right}", segments.join(middle))
@@ -653,29 +751,280 @@ impl<'o> Renderer<'o> {
                 self.write(&rule("├", "┼", "┤"));
                 self.newline();
             }
-            let mut line = String::from("│");
-            for (column, width) in widths.iter().enumerate() {
-                let cell = row.get(column).unwrap_or(&empty);
-                let space = width.saturating_sub(cell.plain.width());
-                let (left, right) = match table.alignments.get(column) {
-                    Some(Alignment::Center) => (space / 2, space - space / 2),
-                    Some(Alignment::Right) => (space, 0),
-                    Some(Alignment::Left | Alignment::None) | None => (0, space),
-                };
-                line.push_str(&format!(
-                    " {}{}{} │",
-                    " ".repeat(left),
-                    cell.painted,
-                    " ".repeat(right)
-                ));
+            let cells: Vec<Vec<Laid>> = widths
+                .iter()
+                .enumerate()
+                .map(|(column, &width)| {
+                    layout(
+                        &row.get(column).unwrap_or(&empty).spans,
+                        width,
+                        true,
+                        self.options.styled,
+                    )
+                })
+                .collect();
+            let height = cells.iter().map(Vec::len).max().unwrap_or_default().max(1);
+            for line_index in 0..height {
+                let mut line = String::from("│");
+                for (column, (lines, width)) in cells.iter().zip(&widths).enumerate() {
+                    let (painted, used) = lines
+                        .get(line_index)
+                        .map_or(("", 0), |laid| (laid.painted.as_str(), laid.width));
+                    let space = width.saturating_sub(used);
+                    let (left, right) = match table.alignments.get(column) {
+                        Some(Alignment::Center) => (space / 2, space - space / 2),
+                        Some(Alignment::Right) => (space, 0),
+                        Some(Alignment::Left | Alignment::None) | None => (0, space),
+                    };
+                    line.push_str(&format!(
+                        " {}{painted}{} │",
+                        " ".repeat(left),
+                        " ".repeat(right)
+                    ));
+                }
+                self.write(&line);
+                self.newline();
             }
-            self.write(&line);
-            self.newline();
         }
         self.write(&rule("└", "┴", "┘"));
         self.newline();
     }
+
+    /// A table too wide for a grid: each body row as `Header: value` lines,
+    /// rows separated by blank lines.
+    fn table_records(&mut self, table: &Table) {
+        let Some((head, body)) = table.rows.split_first() else {
+            return;
+        };
+        for (index, row) in body.iter().enumerate() {
+            if index > 0 {
+                self.blank_line();
+            }
+            for (column, cell) in row.iter().enumerate() {
+                if let Some(header) = head.get(column).filter(|header| header.width() > 0) {
+                    self.pending.extend(header.spans.iter().cloned());
+                    self.pending.push(Span::Text {
+                        text: ": ".to_owned(),
+                        style: Style::new(),
+                    });
+                }
+                self.pending.extend(cell.spans.iter().cloned());
+                self.newline();
+            }
+        }
+    }
 }
+
+/// The shortest columns keep their width and the rest share what is left
+/// of `available` equally.
+fn fit_columns(natural: &[usize], available: usize) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..natural.len()).collect();
+    order.sort_by_key(|&column| natural.get(column).copied().unwrap_or_default());
+    let mut widths = vec![0; natural.len()];
+    let mut remaining = available;
+    for (placed, &column) in order.iter().enumerate() {
+        let share = remaining / (natural.len() - placed);
+        let width = natural.get(column).copied().unwrap_or_default().min(share);
+        if let Some(slot) = widths.get_mut(column) {
+            *slot = width;
+        }
+        remaining -= width;
+    }
+    widths
+}
+
+/// One laid-out line: painted text and the columns it takes.
+struct Laid {
+    painted: String,
+    width: usize,
+}
+
+fn spans_width(spans: &[Span]) -> usize {
+    spans
+        .iter()
+        .map(|span| match span {
+            Span::Text { text, .. } => text.width(),
+            Span::LinkStart(_) | Span::LinkEnd => 0,
+        })
+        .sum()
+}
+
+/// Lays `spans` out in lines of at most `width` columns, breaking at spaces
+/// and dropping the spaces a break replaces. A word wider than a line is
+/// split when `split_words` is on and overflows the line otherwise (long
+/// URLs stay copyable that way). A hyperlink that crosses a break is closed
+/// at the end of the line and reopened on the next.
+fn layout(spans: &[Span], width: usize, split_words: bool, styled: bool) -> Vec<Laid> {
+    let mut lines = Lines {
+        width: width.max(1),
+        split_words,
+        done: Vec::new(),
+        line: Vec::new(),
+        line_width: 0,
+        gap: Vec::new(),
+        gap_width: 0,
+        word: Vec::new(),
+        word_width: 0,
+    };
+    for span in spans {
+        lines.push(span);
+    }
+    let mut open_link: Option<&str> = None;
+    lines
+        .finish()
+        .iter()
+        .map(|line| {
+            let mut painted = String::new();
+            if let Some(url) = open_link {
+                painted.push_str(&link_start(url));
+            }
+            for span in line {
+                match span {
+                    Span::Text { text, style } if styled => {
+                        let style = style.clone().force_styling(true);
+                        painted.push_str(&style.apply_to(text).to_string());
+                    }
+                    Span::Text { text, .. } => painted.push_str(text),
+                    Span::LinkStart(url) => {
+                        painted.push_str(&link_start(url));
+                        open_link = Some(url);
+                    }
+                    Span::LinkEnd => {
+                        painted.push_str(LINK_END);
+                        open_link = None;
+                    }
+                }
+            }
+            if open_link.is_some() {
+                painted.push_str(LINK_END);
+            }
+            Laid {
+                painted,
+                width: spans_width(line),
+            }
+        })
+        .collect()
+}
+
+/// Greedy line filling for [`layout`]: words are collected until a space
+/// ends them, then placed on the current line or the next.
+struct Lines {
+    width: usize,
+    split_words: bool,
+    done: Vec<Vec<Span>>,
+    line: Vec<Span>,
+    line_width: usize,
+    /// Spaces before the word being collected.
+    gap: Vec<Span>,
+    gap_width: usize,
+    word: Vec<Span>,
+    word_width: usize,
+}
+
+impl Lines {
+    fn push(&mut self, span: &Span) {
+        let Span::Text { text, style } = span else {
+            self.word.push(span.clone());
+            return;
+        };
+        for (is_space, run) in runs(text) {
+            let piece = Span::Text {
+                text: run.to_owned(),
+                style: style.clone(),
+            };
+            if is_space {
+                if !self.word.is_empty() {
+                    self.place_word();
+                }
+                self.gap.push(piece);
+                self.gap_width += run.width();
+            } else {
+                self.word.push(piece);
+                self.word_width += run.width();
+            }
+        }
+    }
+
+    fn place_word(&mut self) {
+        let gap = std::mem::take(&mut self.gap);
+        let gap_width = std::mem::take(&mut self.gap_width);
+        if self.line_width > 0 && self.line_width + gap_width + self.word_width > self.width {
+            self.break_line();
+        }
+        if self.line_width > 0 {
+            self.line.extend(gap);
+            self.line_width += gap_width;
+        }
+        let word = std::mem::take(&mut self.word);
+        let word_width = std::mem::take(&mut self.word_width);
+        if !self.split_words || word_width <= self.width {
+            self.line.extend(word);
+            self.line_width += word_width;
+            return;
+        }
+        for span in word {
+            let Span::Text { text, style } = span else {
+                self.line.push(span);
+                continue;
+            };
+            let mut chunk = String::new();
+            for ch in text.chars() {
+                let ch_width = ch.width().unwrap_or(0);
+                if self.line_width > 0 && self.line_width + ch_width > self.width {
+                    if !chunk.is_empty() {
+                        self.line.push(Span::Text {
+                            text: std::mem::take(&mut chunk),
+                            style: style.clone(),
+                        });
+                    }
+                    self.break_line();
+                }
+                chunk.push(ch);
+                self.line_width += ch_width;
+            }
+            if !chunk.is_empty() {
+                self.line.push(Span::Text { text: chunk, style });
+            }
+        }
+    }
+
+    fn break_line(&mut self) {
+        self.done.push(std::mem::take(&mut self.line));
+        self.line_width = 0;
+    }
+
+    fn finish(mut self) -> Vec<Vec<Span>> {
+        if !self.word.is_empty() {
+            self.place_word();
+        }
+        if !self.line.is_empty() {
+            self.done.push(self.line);
+        }
+        self.done
+    }
+}
+
+/// `text` split into alternating runs of spaces and of everything else.
+fn runs(text: &str) -> impl Iterator<Item = (bool, &str)> {
+    let is_space = |ch: char| ch == ' ' || ch == '\t';
+    let mut rest = text;
+    std::iter::from_fn(move || {
+        let first = rest.chars().next()?;
+        let space = is_space(first);
+        let end = rest
+            .find(|ch: char| is_space(ch) != space)
+            .unwrap_or(rest.len());
+        let (run, tail) = rest.split_at(end);
+        rest = tail;
+        Some((space, run))
+    })
+}
+
+fn link_start(url: &str) -> String {
+    format!("\x1b]8;;{url}\x1b\\")
+}
+
+const LINK_END: &str = "\x1b]8;;\x1b\\";
 
 impl Table {
     /// The cell being filled, if any.
@@ -810,5 +1159,97 @@ mod tests {
         let output =
             plain("# A\n\n**b** _c_ ~~d~~ `e` [f](https://g) ![h](/i)\n\n| x |\n|---|\n| y |");
         assert!(!output.contains('\x1b'), "{output:?}");
+    }
+
+    fn narrow(markdown: &str, columns: u16) -> String {
+        let columns = NonZeroU16::new(columns).expect("nonzero width");
+        render(markdown, &RenderOptions::for_terminal(columns, false, None))
+    }
+
+    #[test]
+    fn paragraphs_wrap_at_spaces_to_the_terminal_width() {
+        assert_eq!(
+            narrow("The quick brown fox jumps over the lazy dog.", 20),
+            "The quick brown fox\njumps over the lazy\ndog.\n"
+        );
+        // Source line breaks stay; a word wider than the line is not split.
+        assert_eq!(
+            narrow("short\nhttps://example.com/a/very/long/path ok", 20),
+            "short\nhttps://example.com/a/very/long/path\nok\n"
+        );
+        assert_eq!(
+            narrow("**bold**text stays together and `code spans` too", 20),
+            "boldtext stays\ntogether and `code\nspans` too\n"
+        );
+    }
+
+    #[test]
+    fn wrapped_lines_keep_list_and_quote_indentation() {
+        assert_eq!(
+            narrow(
+                "- alpha beta gamma delta epsilon\n  - zeta eta theta iota",
+                20
+            ),
+            "• alpha beta gamma\n  delta epsilon\n  ◦ zeta eta theta\n    iota\n"
+        );
+        assert_eq!(
+            narrow("> alpha beta gamma delta epsilon", 20),
+            "│ alpha beta gamma\n│ delta epsilon\n"
+        );
+        assert_eq!(
+            narrow("1. alpha beta gamma delta", 20),
+            "1. alpha beta gamma\n   delta\n"
+        );
+    }
+
+    #[test]
+    fn hyperlinks_split_by_a_wrap_are_reopened_on_the_next_line() {
+        let columns = NonZeroU16::new(12).expect("nonzero width");
+        let options = RenderOptions::for_terminal(columns, true, None);
+        let styled = render("see [the linked docs](https://x.test)", &options);
+        let lines: Vec<&str> = styled.lines().collect();
+        assert_eq!(lines.len(), 2, "{styled:?}");
+        for line in lines {
+            assert_eq!(
+                line.matches("\x1b]8;;https://x.test\x1b\\").count(),
+                1,
+                "{line:?}"
+            );
+            assert!(line.ends_with("\x1b]8;;\x1b\\"), "{line:?}");
+        }
+    }
+
+    #[test]
+    fn wide_tables_shrink_their_columns_and_wrap_cells() {
+        let table = "| Name | Notes |\n| --- | --- |\n| A | one two three four five six seven eight |\n| Bee | x |";
+        let rendered = narrow(table, 30);
+        assert_eq!(
+            rendered,
+            "┌──────┬─────────────────────┐\n\
+             │ Name │ Notes               │\n\
+             ├──────┼─────────────────────┤\n\
+             │ A    │ one two three four  │\n\
+             │      │ five six seven      │\n\
+             │      │ eight               │\n\
+             ├──────┼─────────────────────┤\n\
+             │ Bee  │ x                   │\n\
+             └──────┴─────────────────────┘\n"
+        );
+        let long_words = narrow(
+            "| a | b |\n|---|---|\n| abcdefghijklmnop | qrstuvwxyz0123 |",
+            20,
+        );
+        for line in long_words.lines() {
+            assert_eq!(line.width(), 20, "{long_words}");
+        }
+    }
+
+    #[test]
+    fn tables_too_wide_for_a_grid_print_one_record_per_row() {
+        let table = "| A | B | C | D | E |\n|---|---|---|---|---|\n| 1 | 2 | 3 | 4 | 5 alpha beta gamma |\n| 6 | 7 | 8 | 9 | 0 |";
+        assert_eq!(
+            narrow(table, 20),
+            "A: 1\nB: 2\nC: 3\nD: 4\nE: 5 alpha beta\ngamma\n\nA: 6\nB: 7\nC: 8\nD: 9\nE: 0\n"
+        );
     }
 }
