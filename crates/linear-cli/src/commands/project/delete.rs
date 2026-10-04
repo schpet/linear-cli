@@ -15,7 +15,7 @@ fn delete(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
     let original = &args.project_id;
     let reference = ProjectReference::parse(original, &ctx.scope()?)?;
     let question = format!("Are you sure you want to delete project {original}?");
-    if !confirm::deletion(ctx, args.confirm.yes, &question)? {
+    if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
     let client = ctx.client()?;

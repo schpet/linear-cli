@@ -524,3 +524,83 @@ fn project_list_preserves_null_health_and_user() {
     assert_eq!(columns[1], "-", "missing health: {row}");
     assert_eq!(columns[2], "-", "missing author: {row}");
 }
+
+/// An editor that writes `Shipped the beta` into the file it is given.
+const EDITOR: &str = "printf 'Shipped the beta\\n' > \"$1\"";
+
+fn editor_cli(api: &MockLinear, script: &str) -> Cli {
+    Cli::for_api(api)
+        .stub_bin("editor", script)
+        .env("VISUAL", "editor")
+}
+
+#[test]
+fn project_create_on_a_terminal_asks_for_health_and_confirms_after_the_editor() {
+    let api = MockLinear::start();
+    api.on("CreateProjectUpdate", project_created(json!("atRisk")));
+    editor_cli(&api, EDITOR)
+        .run_tty(
+            &["project-update", "create", PROJECT_ID],
+            &[
+                // The second choice, At Risk.
+                ("Health status", "\x1b[B\r"),
+                ("Post this update to", "y\r"),
+            ],
+        )
+        .success()
+        .stdout_has("Created status update for Mobile");
+    assert_eq!(
+        api.variables("CreateProjectUpdate"),
+        json!({ "input": { "projectId": PROJECT_ID, "body": "Shipped the beta", "health": "atRisk" } })
+    );
+}
+
+#[test]
+fn project_create_on_a_terminal_posts_nothing_unless_confirmed() {
+    let api = MockLinear::start();
+    editor_cli(&api, EDITOR)
+        .run_tty(
+            &[
+                "project-update",
+                "create",
+                PROJECT_ID,
+                "--health",
+                "on-track",
+            ],
+            &[("(y/N)", "\r")],
+        )
+        .success()
+        .stdout_has("Canceled.");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn initiative_create_cancels_when_the_editor_is_left_empty() {
+    let api = MockLinear::start();
+    editor_cli(&api, ": > \"$1\"")
+        .run_tty(&["initiative-update", "create", INITIATIVE_ID], &[])
+        .success()
+        .stdout_has("No content entered.")
+        .stdout_has("Canceled.");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn create_with_yes_posts_the_edited_update_without_asking() {
+    let api = MockLinear::start();
+    api.on("CreateProjectUpdate", project_created(json!("onTrack")));
+    let run = editor_cli(&api, EDITOR).run_tty(
+        &[
+            "project-update",
+            "create",
+            PROJECT_ID,
+            "--health",
+            "on-track",
+            "--yes",
+        ],
+        &[],
+    );
+    run.success();
+    assert!(!run.stdout.contains("(y/N)"), "{run}");
+    assert_eq!(api.operations(), ["CreateProjectUpdate"]);
+}

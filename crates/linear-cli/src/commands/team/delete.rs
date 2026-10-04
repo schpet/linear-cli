@@ -60,7 +60,7 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
             team.key, team.name
         ),
     };
-    if !confirm::deletion(ctx, args.confirm.yes, &question)? {
+    if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
     if let Some(target) = &target {

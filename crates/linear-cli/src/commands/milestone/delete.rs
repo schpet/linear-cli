@@ -17,7 +17,7 @@ fn delete(ctx: &Ctx, args: &MilestoneDelete) -> Result<()> {
     let id = &args.id;
     reject_linear_url(id, "a milestone UUID")?;
     let question = format!("Are you sure you want to delete milestone {id}?");
-    if !confirm::deletion(ctx, args.confirm.yes, &question)? {
+    if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
     let client = ctx.client()?;

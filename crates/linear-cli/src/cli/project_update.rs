@@ -46,6 +46,8 @@ pub struct StatusUpdateArgs {
     /// Also prompt for the optional fields
     #[arg(long, short)]
     pub interactive: bool,
+    #[command(flatten)]
+    pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]

@@ -4,10 +4,10 @@ use serde::Serialize;
 
 use crate::cli::project_update::{Health, StatusUpdateArgs};
 use crate::client::LinearClient;
-use crate::commands::outcome;
 use crate::commands::relative_time::ago;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::text_input;
+use crate::commands::{confirm, outcome};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 use crate::graphql::operations::initiative::InitiativeUpdateHealthType;
@@ -69,18 +69,33 @@ pub fn create(ctx: &Ctx, target: Target<'_>, args: &StatusUpdateArgs) -> Result<
             }
         }
     })?;
-    let (body, health) = if interactive {
-        prompt(ctx, &ctx.prompter()?, body, args.health)?
+    // Content typed on the terminal is confirmed before it is posted.
+    let (body, health, typed) = if interactive {
+        let (body, health) = prompt(ctx, &ctx.prompter()?, body, args.health)?;
+        (body, health, true)
     } else if body.is_none() && terminal {
         ctx.print("Opening editor for the update content...\n")?;
-        let body = text_input::edited_body(&ctx.edit_text("")?);
-        if body.is_none() {
+        let Some(body) = text_input::edited_body(&ctx.edit_text("")?) else {
             ctx.print("No content entered.\n")?;
-        }
-        (body, args.health)
+            return outcome::canceled(ctx);
+        };
+        let health = match args.health {
+            Some(health) => Some(health),
+            None => ask_health(&ctx.prompter()?)?,
+        };
+        (Some(body), health, true)
     } else {
-        (body, args.health)
+        (body, args.health, false)
     };
+    if typed
+        && !confirm::proceed(
+            ctx,
+            args.confirm.yes,
+            &format!("Post this update to {original}?"),
+        )?
+    {
+        return Ok(());
+    }
     let body = body.filter(|body| !body.trim().is_empty());
     let created = ctx.spin(true, submit(client, target, &id, body, health))?;
     let mut output = outcome::done(
@@ -177,15 +192,7 @@ fn prompt(
 ) -> Result<(Option<String>, Option<Health>)> {
     let health = match health {
         Some(health) => Some(health),
-        None => prompter.select(
-            "Health status",
-            vec![
-                Choice::new("Skip (no change)", None),
-                Choice::new("On Track", Some(Health::OnTrack)),
-                Choice::new("At Risk", Some(Health::AtRisk)),
-                Choice::new("Off Track", Some(Health::OffTrack)),
-            ],
-        )?,
+        None => ask_health(prompter)?,
     };
     if body.is_some() {
         return Ok((body, health));
@@ -222,6 +229,20 @@ fn prompt(
         }
     };
     Ok((body, health))
+}
+
+/// The health of a new update. Linear has no "no health" for an update, so
+/// there is no skip; on track, its default, comes first.
+fn ask_health(prompter: &Prompter<'_>) -> Result<Option<Health>> {
+    let health = prompter.select(
+        "Health status",
+        vec![
+            Choice::new("On Track", Health::OnTrack),
+            Choice::new("At Risk", Health::AtRisk),
+            Choice::new("Off Track", Health::OffTrack),
+        ],
+    )?;
+    Ok(Some(health))
 }
 
 /// Where prompted content comes from.

@@ -60,7 +60,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
         "Are you sure you want to delete label \"{}\"?",
         display(&label)
     );
-    if !confirm::deletion(ctx, args.confirm.yes, &question)? {
+    if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
     let result: DeleteIssueLabel = ctx.spin(

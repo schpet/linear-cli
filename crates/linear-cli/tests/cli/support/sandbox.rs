@@ -212,6 +212,135 @@ impl Cli {
     }
 }
 
+impl Cli {
+    /// Runs `linear` on a pseudo-terminal through script(1), for the prompts
+    /// and confirmations that only appear on a terminal. Each step waits until
+    /// the screen shows `wait_for` (after the previous step's text), then types
+    /// `keys`. The run's `stdout` is what the terminal showed, stdout and
+    /// stderr together, with escape sequences and carriage returns removed;
+    /// its `stderr` is empty.
+    pub fn run_tty(&self, args: &[&str], steps: &[(&str, &str)]) -> Run {
+        let binary = env!("CARGO_BIN_EXE_linear");
+        let mut command = Command::new("/usr/bin/script");
+        if cfg!(target_os = "macos") {
+            command.args(["-q", "/dev/null", binary]).args(args);
+        } else {
+            let quote = |word: &str| format!("'{}'", word.replace('\'', r"'\''"));
+            let line: Vec<String> = std::iter::once(binary)
+                .chain(args.iter().copied())
+                .map(quote)
+                .collect();
+            command.args(["-q", "-e", "-c", &line.join(" "), "/dev/null"]);
+        }
+        let mut child = command
+            .env_clear()
+            .envs(&self.env)
+            .env("TERM", "xterm")
+            .env("SHELL", "/bin/sh")
+            .current_dir(self.path(&self.cwd))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn script");
+        let screen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let reader = {
+            let screen = std::sync::Arc::clone(&screen);
+            let mut pipe = child.stdout.take().expect("stdout pipe");
+            thread::spawn(move || {
+                let mut buffer = [0; 4096];
+                loop {
+                    match pipe.read(&mut buffer) {
+                        Ok(0) | Err(_) => break,
+                        Ok(read) => screen
+                            .lock()
+                            .expect("screen lock")
+                            .extend_from_slice(&buffer[..read]),
+                    }
+                }
+            })
+        };
+        let shown = || plain_text(&screen.lock().expect("screen lock"));
+        let mut stdin = child.stdin.take().expect("stdin pipe");
+        let started = Instant::now();
+        let mut seen = 0;
+        for (wait_for, keys) in steps {
+            loop {
+                let text = shown();
+                if let Some(at) = text[seen..].find(wait_for) {
+                    seen += at + wait_for.len();
+                    break;
+                }
+                if started.elapsed() > TIMEOUT || child.try_wait().expect("poll script").is_some() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!(
+                        "linear {args:?} never showed {wait_for:?}; the terminal showed:\n{text}"
+                    );
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            stdin.write_all(keys.as_bytes()).expect("type keys");
+            stdin.flush().expect("flush keys");
+        }
+        let status = loop {
+            if let Some(status) = child.try_wait().expect("wait for script") {
+                break status;
+            }
+            if started.elapsed() > TIMEOUT {
+                child.kill().expect("kill hung script");
+                child.wait().expect("reap hung script");
+                panic!(
+                    "linear {args:?} did not exit within {TIMEOUT:?}:\n{}",
+                    shown()
+                );
+            }
+            thread::sleep(Duration::from_millis(5));
+        };
+        drop(stdin);
+        reader.join().expect("screen reader");
+        Run {
+            args: args.iter().map(|arg| (*arg).to_owned()).collect(),
+            code: status.code().expect("script exited normally"),
+            stdout: shown(),
+            stderr: String::new(),
+        }
+    }
+}
+
+/// Terminal output without escape sequences or carriage returns.
+fn plain_text(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let mut plain = String::new();
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\u{1b}' => match chars.next() {
+                // CSI: parameters, then a final byte in @..~.
+                Some('[') => {
+                    for c in chars.by_ref() {
+                        if ('@'..='~').contains(&c) {
+                            break;
+                        }
+                    }
+                }
+                // OSC: up to BEL or ST.
+                Some(']') => {
+                    while let Some(c) = chars.next() {
+                        if c == '\u{7}' || (c == '\u{1b}' && chars.next_if_eq(&'\\').is_some()) {
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            },
+            '\r' => {}
+            c => plain.push(c),
+        }
+    }
+    plain
+}
+
 impl Drop for Cli {
     fn drop(&mut self) {
         if let Err(error) = std::fs::remove_dir_all(&self.root) {
