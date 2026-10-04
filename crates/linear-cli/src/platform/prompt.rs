@@ -2,15 +2,26 @@
 //!
 //! Every prompt needs a terminal. Commands get a [`Prompter`] from
 //! `Ctx::prompter`, which refuses when stdin is not one, and offer flags for
-//! scripted use instead. Ctrl-C or Esc at any prompt cancels the command.
+//! scripted use instead. Ctrl-C or Esc at any prompt cancels the command,
+//! leaving the question on screen without the rest of the prompt.
 use std::fmt;
+use std::io::{self, Write};
 
+use console::Style;
+use crossterm::{cursor, queue, terminal};
 use inquire::InquireError;
-use inquire::ui::RenderConfig;
-use inquire::validator::Validation;
+use inquire::ui::{RenderConfig, Styled};
+use unicode_width::UnicodeWidthStr;
 
 use crate::error::{Error, Result};
+use crate::platform::line_input::{self, LinePrompt};
 use crate::platform::output::Stdout;
+
+/// The rows a select list shows at once (inquire's default).
+const PAGE_SIZE: usize = 7;
+
+const SELECT_HELP: &str = "↑↓ to move, enter to select, type to filter";
+const MULTI_SELECT_HELP: &str = "↑↓ to move, space to toggle, → all, ← none, type to filter";
 
 pub struct Prompter<'a> {
     stdout: &'a Stdout,
@@ -28,21 +39,18 @@ impl<'a> Prompter<'a> {
         self.stdout.flush()?;
         let message = escape(text.message);
         let placeholder = text.default.map(escape);
-        let validator = |raw: &str| {
-            Ok(match text.answer(raw) {
-                Ok(_) => Validation::Valid,
-                Err(reason) => Validation::Invalid(reason.into()),
-            })
-        };
-        let formatter = |raw: &str| escape(&text.answer(raw).unwrap_or_default());
-        let mut prompt = inquire::Text::new(&message)
-            .with_render_config(self.render_config())
-            .with_validator(validator)
-            .with_formatter(&formatter);
-        if let Some(placeholder) = &placeholder {
-            prompt = prompt.with_placeholder(placeholder);
-        }
-        let raw = finish(prompt.prompt())?;
+        let check = |raw: &str| text.answer(raw).map(drop);
+        let format = |raw: &str| escape(&text.answer(raw).unwrap_or_default());
+        let raw = line_input::ask(&LinePrompt {
+            message: &message,
+            placeholder: placeholder.as_deref(),
+            help: None,
+            masked: false,
+            color: self.color,
+            check: &check,
+            format: &format,
+        })?
+        .ok_or_else(Error::cancelled)?;
         Ok(text
             .answer(&raw)
             .expect("the prompt only accepts valid answers"))
@@ -70,26 +78,28 @@ impl<'a> Prompter<'a> {
     pub fn secret(&self, message: &str, help: &str) -> Result<String> {
         self.stdout.flush()?;
         let message = escape(message);
-        let answer = finish(
-            inquire::Password::new(&message)
-                .with_render_config(self.render_config())
-                .with_display_mode(inquire::PasswordDisplayMode::Masked)
-                .without_confirmation()
-                .with_help_message(help)
-                .prompt(),
-        )?;
+        let answer = line_input::ask(&LinePrompt {
+            message: &message,
+            placeholder: None,
+            help: Some(help),
+            masked: true,
+            color: self.color,
+            check: &|_| Ok(()),
+            format: &str::to_owned,
+        })?
+        .ok_or_else(Error::cancelled)?;
         Ok(answer.trim().to_owned())
     }
 
     pub fn confirm(&self, message: &str, default: bool) -> Result<bool> {
-        self.stdout.flush()?;
         let message = escape(message);
-        finish(
+        // An error line follows an answer that is not y/n.
+        self.ask(&message, 1, || {
             inquire::Confirm::new(&message)
                 .with_render_config(self.render_config())
                 .with_default(default)
-                .prompt(),
-        )
+                .prompt()
+        })
     }
 
     /// Picks one choice; typing filters the list.
@@ -106,42 +116,127 @@ impl<'a> Prompter<'a> {
     ) -> Result<T> {
         assert!(!choices.is_empty(), "a select prompt needs choices");
         assert!(start < choices.len(), "the starting choice is in the list");
-        self.stdout.flush()?;
         let message = escape(message);
-        let choice = finish(
+        let rows = list_rows(choices.len(), SELECT_HELP);
+        let choice = self.ask(&message, rows, || {
             inquire::Select::new(&message, choices)
                 .with_render_config(self.render_config())
                 .with_scorer(&score)
+                .with_page_size(PAGE_SIZE)
                 .with_starting_cursor(start)
-                .prompt(),
-        )?;
+                .with_help_message(SELECT_HELP)
+                .prompt()
+        })?;
         Ok(choice.value)
     }
 
     /// Picks any number of choices, returned in list order; typing filters
-    /// the list.
+    /// the list. Space toggles a choice, so the filter ignores the spaces in
+    /// labels: `qafeedback` finds "QA feedback".
     pub fn multi_select<T>(&self, message: &str, choices: Vec<Choice<T>>) -> Result<Vec<T>> {
         if choices.is_empty() {
             return Ok(Vec::new());
         }
-        self.stdout.flush()?;
         let message = escape(message);
-        let picked = finish(
+        let rows = list_rows(choices.len(), MULTI_SELECT_HELP);
+        let picked = self.ask(&message, rows, || {
             inquire::MultiSelect::new(&message, choices)
                 .with_render_config(self.render_config())
                 .with_scorer(&score)
-                .prompt(),
-        )?;
+                .with_page_size(PAGE_SIZE)
+                .with_help_message(MULTI_SELECT_HELP)
+                .prompt()
+        })?;
         Ok(picked.into_iter().map(|choice| choice.value).collect())
     }
 
+    /// Runs an inquire prompt that draws `message` and at most `below` rows
+    /// under it. Space for them is made first, so the prompt never scrolls
+    /// the screen and can be erased after Ctrl-C (which inquire leaves on
+    /// screen, unlike Esc).
+    fn ask<T>(
+        &self,
+        message: &str,
+        below: usize,
+        prompt: impl FnOnce() -> inquire::error::InquireResult<T>,
+    ) -> Result<T> {
+        self.stdout.flush()?;
+        // Room for the `? ` prefix and a short typed filter or answer.
+        let rows = screen_rows(message.width() + 12) + below;
+        reserve(rows).map_err(prompt_failed)?;
+        match prompt() {
+            Err(InquireError::OperationInterrupted) => {
+                self.erase_canceled(message).map_err(prompt_failed)?;
+                Err(Error::cancelled())
+            }
+            result => finish(result),
+        }
+    }
+
+    /// Replaces the prompt left by Ctrl-C with its question, as Esc does.
+    fn erase_canceled(&self, message: &str) -> io::Result<()> {
+        let mut stderr = io::stderr();
+        queue!(
+            stderr,
+            cursor::RestorePosition,
+            terminal::Clear(terminal::ClearType::FromCursorDown)
+        )?;
+        let prefix = if self.color {
+            Style::new()
+                .green()
+                .bright()
+                .force_styling(true)
+                .apply_to("?")
+                .to_string()
+        } else {
+            "?".to_owned()
+        };
+        writeln!(stderr, "{prefix} {message}")?;
+        stderr.flush()
+    }
+
     fn render_config(&self) -> RenderConfig<'static> {
-        if self.color {
+        let config = if self.color {
             RenderConfig::default_colored()
         } else {
             RenderConfig::empty()
-        }
+        };
+        // A cancelled prompt keeps only its question; `Canceled.` follows.
+        config.with_canceled_prompt_indicator(Styled::new(""))
     }
+}
+
+/// Rows a select list of `choices` takes below its question: a page of
+/// choices and the `help` line.
+fn list_rows(choices: usize, help: &str) -> usize {
+    choices.min(PAGE_SIZE) + screen_rows(help.width() + 2)
+}
+
+/// Rows a line `width` columns wide takes on stderr's terminal.
+fn screen_rows(width: usize) -> usize {
+    let columns = terminal::size()
+        .ok()
+        .map(|(columns, _)| usize::from(columns))
+        .filter(|&columns| columns > 0)
+        .unwrap_or(80);
+    width.div_ceil(columns).max(1)
+}
+
+/// Makes room for `rows` rows below the cursor, scrolling the screen if it
+/// must, and saves the position where they start.
+fn reserve(rows: usize) -> io::Result<()> {
+    let mut stderr = io::stderr();
+    let below = rows.saturating_sub(1);
+    stderr.write_all("\n".repeat(below).as_bytes())?;
+    if let Some(below) = u16::try_from(below).ok().filter(|&below| below > 0) {
+        queue!(stderr, cursor::MoveUp(below))?;
+    }
+    queue!(stderr, cursor::MoveToColumn(0), cursor::SavePosition)?;
+    stderr.flush()
+}
+
+fn prompt_failed(error: io::Error) -> Error {
+    Error::new(format!("The prompt failed: {error}")).with_source(error)
 }
 
 /// Checks a nonempty answer: trimmed input, or the default as supplied.
@@ -237,9 +332,14 @@ impl<T> fmt::Display for Choice<T> {
 }
 
 /// Whether a label survives the typed filter: every word of the filter
-/// appears in it, ignoring case.
+/// appears in it, ignoring case and the label's own spaces (which a
+/// multi-select cannot type, since space toggles a choice there).
 pub fn matches(filter: &str, label: &str) -> bool {
-    let label = label.to_lowercase();
+    let label: String = label
+        .to_lowercase()
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect();
     filter
         .split_whitespace()
         .all(|word| label.contains(&word.to_lowercase()))
@@ -378,6 +478,8 @@ mod tests {
         assert!(matches("eng", "Engineering (ENG)"));
         assert!(matches("ENG ring", "Engineering (ENG)"));
         assert!(!matches("eng ops", "Engineering (ENG)"));
+        assert!(matches("qafeed", "QA feedback"));
+        assert!(matches("qa feedback", "QA feedback"));
     }
 
     #[test]

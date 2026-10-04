@@ -78,7 +78,9 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
 /// `LINEAR_DEBUG` the debug detail and source chain.
 fn report(error: &Error, settings: DisplaySettings) {
     let lines = match error.kind() {
-        ErrorKind::Cancelled | ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
+        ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
+        // The same word as declining a confirmation, though the status differs.
+        ErrorKind::Cancelled => "Canceled.\n".to_owned(),
         ErrorKind::Usage(usage) => usage.render().to_string(),
         ErrorKind::Other | ErrorKind::Invalid => {
             let color = Terminal::detect(settings.no_color).stderr_color();

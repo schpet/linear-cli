@@ -19,7 +19,8 @@ pub enum ErrorKind {
     Invalid,
     /// A command-line usage error, rendered and given its exit status by clap.
     Usage(clap::Error),
-    /// The user cancelled a prompt (Ctrl-C or Esc): exit status 130, no message.
+    /// The user cancelled a prompt (Ctrl-C or Esc) or the editor: exit status
+    /// 130 after `Canceled.`.
     Cancelled,
     /// The command already reported its failure: exit with this status, no message.
     Exit(NonZeroU8),
