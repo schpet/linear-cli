@@ -445,8 +445,28 @@ fn list_text_shows_threads() {
         .success()
         .stdout_has("Root comment")
         .stdout_has("A reply")
-        .stdout_has("alice")
-        .stdout_has("bob");
+        .stdout_has("@alice commented")
+        .stdout_has("@bob replied");
+}
+
+#[test]
+fn list_text_shows_threads_oldest_first_like_issue_view() {
+    let api = MockLinear::start();
+    let mut newer = comment("c2", "Newer thread", "bob", None);
+    newer["createdAt"] = json!("2026-01-03T12:00:00.000Z");
+    api.on(
+        "GetIssueComments",
+        comments_page(
+            vec![newer, comment("c1", "Older thread", "alice", None)],
+            Value::Null,
+            false,
+        ),
+    );
+    let run = Cli::for_api(&api).run(&["issue", "comment", "list", "ENG-7"]);
+    run.success();
+    let older = run.stdout.find("Older thread").expect("older thread");
+    let newer = run.stdout.find("Newer thread").expect("newer thread");
+    assert!(older < newer, "{run}");
 }
 
 #[test]

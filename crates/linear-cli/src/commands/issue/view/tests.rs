@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::{Comment, threads};
+use super::{Comment, threads, wrap_parts};
 
 fn comment(id: &str, created_at: &str, parent: Option<&str>, resolved: bool) -> Comment {
     serde_json::from_value(json!({
@@ -48,4 +48,27 @@ fn a_parent_cycle_is_an_error() {
         panic!("a parent cycle must be refused");
     };
     assert!(error.message().contains("cycle"), "{error}");
+}
+
+#[test]
+fn comment_headers_wrap_between_parts_and_keep_their_indent() {
+    let part = |text: &str| (text.to_owned(), text.len());
+    let parts = [
+        part("@alice"),
+        part("replied 3 days ago"),
+        part("[0a1b2c3d-0000-4000-8000-000000000000]"),
+    ];
+    assert_eq!(
+        wrap_parts(&parts, "  ", 80),
+        "  @alice replied 3 days ago [0a1b2c3d-0000-4000-8000-000000000000]"
+    );
+    assert_eq!(
+        wrap_parts(&parts, "  ", 60),
+        "  @alice replied 3 days ago\n  [0a1b2c3d-0000-4000-8000-000000000000]"
+    );
+    // A part wider than the terminal gets a line of its own.
+    assert_eq!(
+        wrap_parts(&parts, "", 10),
+        "@alice\nreplied 3 days ago\n[0a1b2c3d-0000-4000-8000-000000000000]"
+    );
 }

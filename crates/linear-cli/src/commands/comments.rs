@@ -168,7 +168,8 @@ fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String
             }
         }
     }
-    roots.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    // Oldest first, as `issue view` and Linear show a conversation.
+    roots.sort_by_key(|node| node.created_at);
     let mut output = String::new();
     for root in roots {
         output.push_str(&header(root, "commented", now, color));
