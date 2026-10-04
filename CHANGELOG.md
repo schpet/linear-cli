@@ -10,6 +10,9 @@
 
 - `linear` is now a single native executable with no runtime to install, and it starts noticeably faster than the 2.x TypeScript implementation
 - the `@schpet/linear-cli` package on JSR is no longer published, so `deno install` stays on 2.x. Install 3.x with Homebrew, the shell installer, npm, a release binary, or `cargo install` (see the README). The Homebrew formula, npm package, and release archive names are unchanged
+- to upgrade an existing install, run `brew upgrade linear` for Homebrew or `npm install -g @schpet/linear-cli@latest` for a global npm install. Shell installer installs keep updating with `linear-update`. Existing credentials keep working
+- a project that lists `@schpet/linear-cli` as a dependency needs its range bumped, since `^2` does not match 3.x: `npm install -D @schpet/linear-cli@^3` (likewise with pnpm or bun)
+- prereleases (alpha and beta) are published only as GitHub releases, not to npm or Homebrew
 - `linear --version` and `-V` print `linear 3.0.0`, not a bare version number, and requests identify as `schpet-linear-cli/3.0.0`
 - `--help` works even when a config file is broken, and `completions` and `markdown` do not read config or credentials at all
 - release archives and the npm package include `THIRD_PARTY_LICENSES.md`, the license notices of the Rust crates `linear` is built from, which is also attached to each GitHub release
