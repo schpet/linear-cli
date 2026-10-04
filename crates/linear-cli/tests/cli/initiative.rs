@@ -1124,3 +1124,20 @@ fn update_interactively_without_changes_saves_nothing() {
     assert!(run.stdout.contains("No changes made."), "{run}");
     assert_eq!(api.operations(), ["GetInitiativeForUpdate"]);
 }
+
+#[test]
+fn health_reads_as_words_in_text() {
+    let api = MockLinear::start();
+    api.on(
+        "GetInitiatives",
+        initiatives(json!([list_node(ID, "Roadmap", "Active")])),
+    )
+    .on("GetInitiativeDetails", json!({ "initiative": details() }));
+    let cli = Cli::for_api(&api);
+    let run = cli.run(&["initiative", "list"]);
+    run.success().stdout_has("On Track");
+    assert!(!run.stdout.contains("onTrack"), "{run}");
+    let run = cli.run(&["initiative", "view", ID, "--no-pager"]);
+    run.success().stdout_has("At Risk");
+    assert!(!run.stdout.contains("atRisk"), "{run}");
+}

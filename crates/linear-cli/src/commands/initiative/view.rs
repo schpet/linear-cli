@@ -6,6 +6,7 @@ use crate::cli::initiative::InitiativeView;
 use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::ago;
+use crate::commands::status_update::UpdateHealth;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::initiative::{
@@ -219,7 +220,10 @@ fn markdown(detail: &InitiativeDetails, now: DateTime<Utc>, terminal: bool) -> S
         lines.push(format!("**Status:** {}", detail.status.as_str()));
     }
     if let Some(health) = &detail.health {
-        lines.push(format!("**Health:** {}", health.as_str()));
+        lines.push(format!(
+            "**Health:** {}",
+            UpdateHealth::from(health).label()
+        ));
     }
     if let Some(owner) = &detail.owner {
         let display = if owner.display_name.is_empty() {

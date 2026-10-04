@@ -5,6 +5,7 @@ use crate::cli::initiative::InitiativeList;
 use crate::cli::values;
 use crate::client::LinearClient;
 use crate::commands::json;
+use crate::commands::status_update::UpdateHealth;
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -245,11 +246,7 @@ fn render_text(initiatives: &[Initiative]) -> Table {
             Cell::styled(item.status.as_str(), move |text, on| {
                 status_style(&status, text, on)
             }),
-            Cell::from(
-                item.health
-                    .as_ref()
-                    .map_or("-", InitiativeUpdateHealthType::as_str),
-            ),
+            UpdateHealth::cell(item.health.as_ref().map(UpdateHealth::from)),
             Cell::from(owner),
             Cell::from(item.projects.nodes.len().to_string()),
             Cell::styled(

@@ -8,6 +8,7 @@ use crate::cli::project::ProjectView;
 use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::ago;
+use crate::commands::status_update::UpdateHealth;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -322,7 +323,10 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
         format!("**Priority:** {priority}"),
     ];
     if let Some(health) = &project.health {
-        meta.push(format!("**Health:** {}", health.as_str()));
+        meta.push(format!(
+            "**Health:** {}",
+            UpdateHealth::from(health).label()
+        ));
     }
     meta.push(format!(
         "**Lead:** {}",
@@ -464,7 +468,10 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
             ago(update.created_at.0, now, zone)
         ));
         if let Some(health) = &update.health {
-            out.push_str(&format!("**Health:** {}\n", health.as_str()));
+            out.push_str(&format!(
+                "**Health:** {}\n",
+                UpdateHealth::from(health).label()
+            ));
         }
         out.push_str(&format!("\n{}", update.body));
     }

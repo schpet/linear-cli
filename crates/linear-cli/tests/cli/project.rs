@@ -1014,3 +1014,22 @@ fn create_interactive_asks_for_the_lead_again_until_it_is_found() {
     assert!(run.stdout.contains("Canceled."), "{run}");
     assert_eq!(api.operations(), ["LookupUser", "LookupUser"]);
 }
+
+#[test]
+fn health_reads_as_words_in_text() {
+    let api = MockLinear::start();
+    let mut project = details();
+    project["health"] = json!("atRisk");
+    api.on(
+        "GetProjects",
+        json!({ "projects": page(json!([list_node("Roadmap")])) }),
+    )
+    .on("GetProjectDetails", json!({ "project": project }));
+    let cli = Cli::for_api(&api);
+    let run = cli.run(&["project", "list", "--all-teams"]);
+    run.success().stdout_has("On Track");
+    assert!(!run.stdout.contains("onTrack"), "{run}");
+    let run = cli.run(&["project", "view", ID, "--no-pager"]);
+    run.success().stdout_has("At Risk");
+    assert!(!run.stdout.contains("atRisk"), "{run}");
+}

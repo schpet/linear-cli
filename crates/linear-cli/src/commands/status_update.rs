@@ -297,7 +297,19 @@ pub enum UpdateHealth {
 }
 
 impl UpdateHealth {
-    fn label(&self) -> &str {
+    /// A table cell for `health`, colored by how the work is going; `-`
+    /// when there is none.
+    pub fn cell(health: Option<Self>) -> Cell {
+        match health {
+            Some(health) => {
+                let label = health.label().to_owned();
+                Cell::styled(label, move |text, on| health.paint(text, on))
+            }
+            None => Cell::from("-"),
+        }
+    }
+
+    pub fn label(&self) -> &str {
         match self {
             Self::OnTrack => "On Track",
             Self::AtRisk => "At Risk",
@@ -394,16 +406,9 @@ pub fn table(rows: Vec<Row<'_>>, now: DateTime<Utc>) -> Table {
         Column::flexible("UPDATE"),
     ]);
     for row in rows {
-        let health = match row.health {
-            Some(health) => {
-                let label = health.label().to_owned();
-                Cell::styled(label, move |text, on| health.paint(text, on))
-            }
-            None => Cell::from("-"),
-        };
         table.row([
             Cell::styled(ago(row.created_at, now, &Local), style::gray),
-            health,
+            UpdateHealth::cell(row.health),
             Cell::from(if row.author.is_empty() {
                 "-"
             } else {

@@ -10,6 +10,7 @@ use crate::cli::project::{ProjectList, Status};
 use crate::client::LinearClient;
 use crate::commands::json;
 use crate::commands::relative_time::ago;
+use crate::commands::status_update::UpdateHealth;
 use crate::commands::table::{Cell, Column, Table};
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
@@ -258,20 +259,13 @@ fn render_text(projects: &[Project], now: SystemTime) -> Table {
                 style::rgb(text, &hex, on)
             }),
             Cell::from(priority_label(project.priority)),
-            Cell::from(health(project)),
+            UpdateHealth::cell(project.health.as_ref().map(UpdateHealth::from)),
             Cell::from(lead(project)),
             Cell::from(teams(project)),
             Cell::styled(display_date(project, now), style::gray),
         ]);
     }
     table
-}
-
-fn health(project: &Project) -> &str {
-    project.health.as_ref().map_or("Unknown", |health| {
-        let value = health.as_str();
-        if value.is_empty() { "Unknown" } else { value }
-    })
 }
 
 fn lead(project: &Project) -> &str {
