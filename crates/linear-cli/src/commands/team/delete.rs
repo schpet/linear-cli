@@ -133,8 +133,7 @@ fn choose_target(
         .into_iter()
         .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))
         .collect();
-    ctx.prompter()?
-        .select("Select a team to move issues to:", choices)
+    ctx.prompter()?.select("Move issues to team:", choices)
 }
 
 /// Moves every issue to `target`. Any failure stops the delete, after

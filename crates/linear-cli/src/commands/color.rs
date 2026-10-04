@@ -29,7 +29,7 @@ pub fn label(name: &str, hex: &str) -> String {
 pub fn custom(prompter: &Prompter<'_>) -> Result<String> {
     Ok(prompter
         .parsed(
-            Text::new("Enter hex color (e.g., #FF5733):").required(),
+            Text::new("Color (hex, like #FF5733):").required(),
             &str::parse::<HexColor>,
         )?
         .expect("a required answer is never blank")

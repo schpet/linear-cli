@@ -51,26 +51,26 @@ fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
 fn ask(prompter: &Prompter<'_>, args: &TeamCreate, optional: bool) -> Result<TeamCreateInput> {
     let name = match &args.name {
         Some(name) => name.clone(),
-        None => prompter.text(Text::new("Team name:").required())?,
+        None => prompter.text(Text::new("Name:").required())?,
     };
     let description = match &args.description {
         Some(description) => Some(description.clone()),
-        None if optional => Some(prompter.text(Text::new("Team description (optional):"))?)
+        None if optional => Some(prompter.text(Text::new("Description (optional):"))?)
             .filter(|value| !value.is_empty()),
         None => None,
     };
     let key = match &args.key {
         Some(key) => Some(key.clone()),
-        None if optional => Some(prompter.text(Text::new(
-            "Team key (optional, generated from the name if empty):",
-        ))?)
-        .filter(|value| !value.is_empty()),
+        None if optional => {
+            Some(prompter.text(Text::new("Key (optional, made from the name if blank):"))?)
+                .filter(|value| !value.is_empty())
+        }
         None => None,
     };
     let private = args.private
         || (optional
             && prompter.select(
-                "Team visibility:",
+                "Visibility:",
                 vec![Choice::new("Public", false), Choice::new("Private", true)],
             )?);
     Ok(TeamCreateInput {

@@ -36,14 +36,14 @@ linear auth token              # print the resolved API key
 ```bash
 # first workspace becomes the default
 $ linear auth login
-Enter your Linear API key: ***
+API key: ********
 Logged in to workspace: Acme Corp (acme)
   User: Jane Developer <jane@acme.com>
   Set as default workspace
 
 # add additional workspaces
 $ linear auth login
-Enter your Linear API key: ***
+API key: ********
 Logged in to workspace: Side Project (side-project)
   User: Jane Developer <jane@example.com>
 ```

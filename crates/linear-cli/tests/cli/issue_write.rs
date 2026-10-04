@@ -1069,9 +1069,9 @@ fn run_wizard(api: &MockLinear, last: &str) -> Run {
         .run_tty(
             &["issue", "create", "-i"],
             &[
-                ("title of your issue?", "Fix it\r"),
-                ("Description", "\r"),
-                ("What's next?", "\r"),
+                ("Title:", "Fix it\r"),
+                ("Description (optional", "\r"),
+                ("Next:", "\r"),
                 ("Start working on this issue now?", "\r"),
                 ("Create issue \"Fix it\" in ENG? (y/N)", last),
             ],
@@ -1101,13 +1101,10 @@ fn the_create_wizard_offers_every_team_and_workspace_label() {
         .run_tty(
             &["issue", "create", "-i"],
             &[
-                ("title of your issue?", "Fix it\r"),
-                ("Description", "\r"),
-                ("What's next?", &format!("{down}\r")),
-                (
-                    "Select more fields to set:",
-                    &format!("{down}{down}{down} \r"),
-                ),
+                ("Title:", "Fix it\r"),
+                ("Description (optional", "\r"),
+                ("Next:", &format!("{down}\r")),
+                ("More fields:", &format!("{down}{down}{down} \r")),
                 ("Customer", &format!("{down} \r")),
                 ("Start working on this issue now?", "\r"),
                 ("Create issue \"Fix it\" in ENG? (y/N)", "y\r"),

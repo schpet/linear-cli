@@ -84,7 +84,7 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
             .with_hint("Pass a project UUID, slug ID, or exact name."));
     }
     ctx.prompter()?
-        .select("Select a project:", picker_choices(&projects))
+        .select("Project:", picker_choices(&projects))
 }
 
 /// The project with every issue page, so the issue counts are complete.

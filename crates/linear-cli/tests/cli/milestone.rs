@@ -352,7 +352,7 @@ fn create_on_a_terminal_asks_for_the_name_and_confirms() {
         .run_tty(
             &["milestone", "create", "--project", PROJECT_ID],
             &[
-                ("Milestone name:", "Launch\r"),
+                ("Name:", "Launch\r"),
                 (
                     "Create milestone \"Launch\" in project \"Mobile App\"? (y/N)",
                     "y\r",
@@ -384,8 +384,8 @@ fn create_interactive_asks_for_the_optional_fields_too() {
                 "--yes",
             ],
             &[
-                ("Description:", "Ship it\r"),
-                ("Target date (YYYY-MM-DD):", "2026-10-31\r"),
+                ("Description (optional):", "Ship it\r"),
+                ("Target date (YYYY-MM-DD, optional):", "2026-10-31\r"),
             ],
         )
         .success();

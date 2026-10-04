@@ -383,7 +383,7 @@ async fn additional_fields_keep_menu_order_defaults_and_typed_values() {
         "",
         "Add more fields",
         "later (unstarted)",
-        "Yes",
+        "Me",
         "⚠⚠⚠ Urgent",
         "0",
         "Release",
@@ -464,7 +464,7 @@ async fn more_fields_resets_default_state_and_omits_zero_priority() {
 #[tokio::test]
 async fn declining_self_assignment_overrides_the_auto_assignment() {
     let linear = Linear::default();
-    let mut ui = Script::answering(&["Title", "", "Add more fields", "No", "No"]);
+    let mut ui = Script::answering(&["Title", "", "Add more fields", "Unassigned", "No"]);
     ui.checked.push_back(vec!["Assignee (self)"]);
     let created = prompt(
         &linear,
@@ -560,7 +560,7 @@ async fn a_team_picker_returns_the_selected_team_and_start_answer() {
     };
     let mut config = settings(AssignSelf::Never, false);
     config.default_team = None;
-    let mut ui = Script::answering(&["Title", "Shared (OPS)", "", "Submit issue", "Yes"]);
+    let mut ui = Script::answering(&["Shared (OPS)", "Title", "", "Submit issue", "Yes"]);
     let created = prompt(&linear, &mut ui, &config, &Fields::default())
         .await
         .expect("issue input");
@@ -611,7 +611,7 @@ async fn no_accessible_teams_returns_an_error_without_opening_a_team_picker() {
     let linear = Linear::default();
     let mut config = settings(AssignSelf::Never, true);
     config.default_team = None;
-    let mut ui = Script::answering(&["Title"]);
+    let mut ui = Script::answering(&[]);
     let Err(error) = prompt(&linear, &mut ui, &config, &Fields::default()).await else {
         panic!("no accessible team must prevent issue creation");
     };
@@ -623,7 +623,7 @@ async fn no_accessible_teams_returns_an_error_without_opening_a_team_picker() {
         error.hint(),
         Some("Ask a workspace admin to add you to a team, or check the API key's workspace.")
     );
-    assert_eq!(ui.shown, ["What's the title of your issue?"]);
+    assert!(ui.shown.is_empty(), "the title is asked after the team");
     assert!(ui.menus.is_empty());
     assert!(!linear.called("projects"));
     assert!(!linear.called("viewer"));

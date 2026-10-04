@@ -97,7 +97,7 @@ impl Valid {
 /// field not given as a flag.
 fn prompt(ctx: &Ctx, options: &mut Fields, prompter: &Prompter<'_>, all: bool) -> Result<()> {
     if options.name.as_deref().is_none_or(str::is_empty) {
-        options.name = Some(prompter.text(Text::new("Initiative name:").required())?);
+        options.name = Some(prompter.text(Text::new("Name:").required())?);
     }
     if !all {
         return Ok(());
@@ -120,16 +120,14 @@ fn prompt(ctx: &Ctx, options: &mut Fields, prompter: &Prompter<'_>, all: bool) -
         options.owner = lookup_prompt::ask_user(
             ctx,
             prompter,
-            "Owner (username, email, or @me - press Enter to skip):",
+            "Owner (username, email, or @me; optional):",
             "Owner",
         )?
         .map(UserChoice::Found);
     }
     if options.target_date.is_none() {
-        options.target_date = prompter.parsed(
-            Text::new("Target date (YYYY-MM-DD - press Enter to skip):"),
-            &date,
-        )?;
+        options.target_date =
+            prompter.parsed(Text::new("Target date (YYYY-MM-DD, optional):"), &date)?;
     }
     if options.color.as_deref().is_none_or(str::is_empty) {
         let mut colors = vec![Choice::new("Skip (use default)", Color::Skip)];

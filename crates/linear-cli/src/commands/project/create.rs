@@ -257,7 +257,7 @@ fn prompt(
     optional: bool,
 ) -> Result<()> {
     if draft.name.is_none() {
-        draft.name = Some(prompter.text(Text::new("Project name:").required())?);
+        draft.name = Some(prompter.text(Text::new("Name:").required())?);
     }
     let default_team = configured_team_key(ctx.options());
     if draft.teams.is_empty() && (optional || default_team.is_none()) {
@@ -291,19 +291,16 @@ fn prompt(
         draft.lead = lookup_prompt::ask_user(
             ctx,
             prompter,
-            "Lead (username, email, or @me - press Enter to skip):",
+            "Lead (username, email, or @me; optional):",
             "Lead",
         )?
         .map(UserChoice::Found);
     }
     for (field, message) in [
-        (
-            &mut draft.start_date,
-            "Start date (YYYY-MM-DD - press Enter to skip):",
-        ),
+        (&mut draft.start_date, "Start date (YYYY-MM-DD, optional):"),
         (
             &mut draft.target_date,
-            "Target date (YYYY-MM-DD - press Enter to skip):",
+            "Target date (YYYY-MM-DD, optional):",
         ),
     ] {
         if field.is_none() {

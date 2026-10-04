@@ -48,7 +48,7 @@ fn project_menu<U: Ui>(
                 .map(|project| Choice::new(&project.name, Some(project.id.clone()))),
         )
         .collect();
-    ui.choose("Which project should this issue belong to?", rows, 0)
+    ui.choose("Project:", rows, 0)
 }
 async fn additional<B: Backend, U: Ui>(
     backend: &B,
@@ -85,7 +85,7 @@ async fn additional<B: Backend, U: Ui>(
     if include_project {
         fields.push(Choice::new("Project", Field::Project))
     }
-    let selected = ui.checkbox("Select more fields to set:", fields)?;
+    let selected = ui.checkbox("More fields:", fields)?;
     let mut more = More::default();
     // Choosing more fields starts them over, including the default state.
     if auto {
@@ -102,19 +102,19 @@ async fn additional<B: Backend, U: Ui>(
                     .as_ref()
                     .and_then(|id| states.iter().position(|state| &state.id == id))
                     .unwrap_or(0);
-                more.state = Some(ui.choose(
-                    "Which workflow state should this issue be in?",
-                    options,
-                    index,
-                )?);
+                more.state = Some(ui.choose("Workflow state:", options, index)?);
             }
             Field::WorkflowState => ui.output(&format!(
                 "Team {} has no workflow states to choose from.\n",
                 team.key
             ))?,
             Field::Assignee => {
-                let answer = yes_no(ui, "Assign this issue to yourself?", auto)?;
-                more.assignee = if answer {
+                let me = ui.choose(
+                    "Assignee:",
+                    vec![Choice::new("Unassigned", false), Choice::new("Me", true)],
+                    usize::from(auto),
+                )?;
+                more.assignee = if me {
                     Some(backend.viewer().await?)
                 } else {
                     None
@@ -136,7 +136,7 @@ async fn additional<B: Backend, U: Ui>(
                         Choice::new(format!("{glyph} {label}"), value)
                     })
                     .collect::<Vec<_>>();
-                let value = ui.choose("What priority should this issue have?", options, 0)?;
+                let value = ui.choose("Priority:", options, 0)?;
                 more.priority = (value != Priority::None).then(|| value.number());
             }
             Field::Labels if !labels.is_empty() => {
@@ -144,15 +144,14 @@ async fn additional<B: Backend, U: Ui>(
                     .iter()
                     .map(|l| Choice::new(&l.name, l.id.clone()))
                     .collect();
-                more.labels = ui.checkbox("Select labels:", options)?;
+                more.labels = ui.checkbox("Labels:", options)?;
             }
             Field::Labels => ui.output(&format!(
                 "Team {} has no labels to choose from.\n",
                 team.key
             ))?,
             Field::Estimate => {
-                more.estimate =
-                    ui.parsed(Text::new("Estimate (leave blank for none)"), &estimate)?;
+                more.estimate = ui.parsed(Text::new("Estimate (optional):"), &estimate)?;
             }
             Field::Project => {
                 let projects = backend.projects(team.key.clone()).await?;
@@ -211,7 +210,6 @@ pub async fn prompt<B: Backend, U: Ui>(
             parent.identifier, parent.title
         ))?
     }
-    let title = ui.text(Text::new("What's the title of your issue?").required())?;
     let team = match team {
         Some(team) => team,
         None => {
@@ -223,9 +221,10 @@ pub async fn prompt<B: Backend, U: Ui>(
                 .into_iter()
                 .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))
                 .collect();
-            ui.choose("Which team should this issue belong to?", options, 0)?
+            ui.choose("Team:", options, 0)?
         }
     };
+    let title = ui.text(Text::new("Title:").required())?;
     let ask_project = settings.ask_project
         && parent_data.is_none()
         && initial_project.as_deref().is_none_or(str::is_empty);
@@ -244,8 +243,8 @@ pub async fn prompt<B: Backend, U: Ui>(
     let editor = ui.discover_editor()?;
     let editor_label = editor.as_deref();
     let message = editor_label
-        .map(|label| format!("Description [(e) to launch {label}]"))
-        .unwrap_or_else(|| "Description".to_owned());
+        .map(|label| format!("Description (optional, e to open {label}):"))
+        .unwrap_or_else(|| "Description (optional):".to_owned());
     let raw = ui.text(Text::new(&message))?;
     let description = if raw == "e" {
         if let Some(editor) = editor_label {
@@ -273,7 +272,7 @@ pub async fn prompt<B: Backend, U: Ui>(
         project = project_menu(ui, &team, &projects)?;
     }
     let next = ui.choose(
-        "What's next?",
+        "Next:",
         vec![
             Choice::new("Submit issue", Next::Submit),
             Choice::new("Add more fields", Next::MoreFields),

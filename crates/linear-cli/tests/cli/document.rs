@@ -1011,12 +1011,12 @@ fn create_on_a_terminal_asks_for_the_attachment_again_until_it_is_found() {
     let run = cli.run_tty(
         &["document", "create"],
         &[
-            ("Document title", "Notes\r"),
-            ("Attach the document to:", "\r"),
-            ("Project (UUID, slug ID, or name)", "nope\r"),
+            ("Title:", "Notes\r"),
+            ("Attach to:", "\r"),
+            ("Project (ID, slug, or name):", "nope\r"),
             ("Project not found: nope", ""),
-            ("Attach the document to:", "\r"),
-            ("Project (UUID, slug ID, or name)", "Mobile\r"),
+            ("Attach to:", "\r"),
+            ("Project (ID, slug, or name):", "Mobile\r"),
             ("Create document \"Notes\"? (y/N)", "\r"),
         ],
     );

@@ -232,7 +232,7 @@ fn prompt(
         return Ok((body, health));
     }
     let method = prompter.select(
-        "How would you like to enter the update content?",
+        "Content:",
         vec![
             Choice::new("Skip (no content)", Content::Skip),
             Choice::new("Enter inline", Content::Inline),
@@ -243,10 +243,10 @@ fn prompt(
     let body = match method {
         Content::Skip => None,
         Content::Inline => {
-            text_input::edited_body(&prompter.text(Text::new("Content (markdown)"))?)
+            text_input::edited_body(&prompter.text(Text::new("Content (markdown):"))?)
         }
         Content::File => {
-            let path = prompter.text(Text::new("File path").required())?;
+            let path = prompter.text(Text::new("File path:").required())?;
             Some(text_input::read_file(&path).map_err(|error| {
                 Error::new(format!("Failed to read {path}: {error}")).with_source(error)
             })?)

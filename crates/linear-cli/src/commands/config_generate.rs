@@ -85,7 +85,7 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
     let sort = match args.sort {
         Some(sort) => sort,
         None => ctx.prompter()?.select(
-            "Select sort order:",
+            "Sort order:",
             vec![
                 Choice::new("manual", IssueSort::Manual),
                 Choice::new("priority", IssueSort::Priority),
@@ -149,8 +149,7 @@ fn pick_workspace(ctx: &Ctx, workspaces: &[String]) -> Result<String> {
             Choice::new(label, name.clone())
         })
         .collect();
-    ctx.prompter()?
-        .select_from("Select a workspace:", choices, start)
+    ctx.prompter()?.select_from("Workspace:", choices, start)
 }
 
 fn pick_team(ctx: &Ctx, teams: Vec<ResolvedTeam>) -> Result<ResolvedTeam> {
@@ -161,7 +160,7 @@ fn pick_team(ctx: &Ctx, teams: Vec<ResolvedTeam>) -> Result<ResolvedTeam> {
         .into_iter()
         .map(|team| Choice::new(format!("{} ({})", team.name, team.key), team))
         .collect();
-    ctx.prompter()?.select("Select a team:", choices)
+    ctx.prompter()?.select("Team:", choices)
 }
 
 /// `.config/linear.toml` at the repository root when `.config` exists there,

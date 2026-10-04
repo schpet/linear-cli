@@ -56,6 +56,5 @@ fn pick(ctx: &Ctx, workspaces: &[String], default: Option<&str>) -> Result<Strin
             Choice::new(label, name.clone())
         })
         .collect();
-    ctx.prompter()?
-        .select("Select a workspace to remove:", choices)
+    ctx.prompter()?.select("Workspace to remove:", choices)
 }

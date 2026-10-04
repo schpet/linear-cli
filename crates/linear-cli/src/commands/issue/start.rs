@@ -73,7 +73,7 @@ fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
         ),
     )?;
     ctx.prompter()?
-        .select("Select an issue to start:", choices(&issues, team, args)?)
+        .select("Issue to start:", choices(&issues, team, args)?)
 }
 
 /// Switches the working copy to the issue (a git branch or a jj change), then

@@ -71,21 +71,22 @@ fn prompt(
 ) -> Result<ProjectMilestoneCreateInput> {
     let name = match &args.name {
         Some(name) => name.clone(),
-        None => prompter.text(Text::new("Milestone name:").required())?,
+        None => prompter.text(Text::new("Name:").required())?,
     };
     let description = match &args.description {
         Some(description) => Some(description.clone()),
         None if optional => {
-            let answer = prompter.text(Text::new("Description:"))?;
+            let answer = prompter.text(Text::new("Description (optional):"))?;
             (!answer.is_empty()).then_some(answer)
         }
         None => None,
     };
     let target_date = match args.target_date {
         Some(date) => Some(date),
-        None if optional => {
-            prompter.parsed(Text::new("Target date (YYYY-MM-DD):"), &values::date)?
-        }
+        None if optional => prompter.parsed(
+            Text::new("Target date (YYYY-MM-DD, optional):"),
+            &values::date,
+        )?,
         None => None,
     };
     Ok(ProjectMilestoneCreateInput {

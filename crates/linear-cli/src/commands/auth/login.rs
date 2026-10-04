@@ -108,9 +108,7 @@ fn read_key(ctx: &Ctx) -> Result<ConfigSecret> {
         })?;
         return Ok(ConfigSecret::new(key));
     }
-    let key = ctx
-        .prompter()?
-        .secret("Enter your Linear API key", KEY_HINT)?;
+    let key = ctx.prompter()?.secret("API key:", KEY_HINT)?;
     Ok(ConfigSecret::new(key))
 }
 

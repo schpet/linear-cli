@@ -113,22 +113,14 @@ fn values_typed_at_prompts_are_confirmed_before_anything_is_created() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
     for (args, prompt, question) in [
-        (
-            &["label", "create"][..],
-            "Label name:",
-            "Create label \"Typed\"?",
-        ),
-        (&["team", "create"], "Team name:", "Create team \"Typed\"?"),
+        (&["label", "create"][..], "Name:", "Create label \"Typed\"?"),
+        (&["team", "create"], "Name:", "Create team \"Typed\"?"),
         (
             &["initiative", "create"],
-            "Initiative name:",
+            "Name:",
             "Create initiative \"Typed\"?",
         ),
-        (
-            &["project", "create"],
-            "Project name:",
-            "Create project \"Typed\"?",
-        ),
+        (&["project", "create"], "Name:", "Create project \"Typed\"?"),
     ] {
         cli.run_tty(args, &[(prompt, "Typed\r"), (question, "\r")])
             .success()
@@ -142,10 +134,7 @@ fn values_typed_at_prompts_are_confirmed_before_anything_is_created() {
     );
     cli.run_tty(
         &["document", "create", "--team", "ENG", "--content", "Body"],
-        &[
-            ("Document title", "Typed\r"),
-            ("Create document \"Typed\"?", "\r"),
-        ],
+        &[("Title:", "Typed\r"), ("Create document \"Typed\"?", "\r")],
     )
     .success()
     .stdout_has("Canceled.");
@@ -162,8 +151,7 @@ fn yes_skips_the_question_after_typed_values() {
             "team": { "id": "team-1", "key": "TYP", "name": "Typed" }
         } }),
     );
-    let run =
-        Cli::for_api(&api).run_tty(&["team", "create", "--yes"], &[("Team name:", "Typed\r")]);
+    let run = Cli::for_api(&api).run_tty(&["team", "create", "--yes"], &[("Name:", "Typed\r")]);
     run.success().stdout_has("Created team TYP: Typed");
     assert!(!run.stdout.contains("(y/N)"), "{run}");
 }
@@ -177,7 +165,7 @@ fn yes_no_questions_take_readline_keys_and_explain_bad_answers() {
         .run_tty(
             &["team", "create"],
             &[
-                ("Team name:", "Typed\r"),
+                ("Name:", "Typed\r"),
                 ("Create team \"Typed\"? (y/N)", "maybe\r"),
                 ("✗ Type y for yes or n for no", "\u{1}\u{b}n\r"),
             ],
@@ -195,7 +183,7 @@ fn pasted_tabs_become_spaces() {
         .run_tty(
             &["team", "create"],
             &[
-                ("Team name:", "\u{1b}[200~tab\tand\u{1b}[201~\r"),
+                ("Name:", "\u{1b}[200~tab\tand\u{1b}[201~\r"),
                 ("Create team \"tab and\"?", "\r"),
             ],
         )

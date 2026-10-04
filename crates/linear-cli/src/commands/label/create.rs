@@ -95,7 +95,7 @@ fn prompt(
     let prompter = ctx.prompter()?;
     let name = match &args.name {
         Some(name) => name.clone(),
-        None => prompter.text(Text::new("Label name:").required())?,
+        None => prompter.text(Text::new("Name:").required())?,
     };
     let color = match &args.color {
         Some(color) => color.clone().into(),

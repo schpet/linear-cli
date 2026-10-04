@@ -188,7 +188,7 @@ fn prompt(prompter: &Prompter<'_>, current: &CurrentInitiative) -> Result<Change
     let default = current.color.as_deref().unwrap_or("");
     let value = prompter
         .parsed(
-            Text::new("Color (hex, e.g., #5E6AD2):").with_default(default),
+            Text::new("Color (hex, like #5E6AD2):").with_default(default),
             &str::parse::<HexColor>,
         )?
         .map(String::from);

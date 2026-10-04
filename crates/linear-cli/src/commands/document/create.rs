@@ -165,7 +165,7 @@ impl Attachment {
 /// configured editor.
 fn prompt(ctx: &Ctx, prompter: &Prompter<'_>, fields: &mut Fields, optional: bool) -> Result<()> {
     if fields.title.is_none() {
-        fields.title = Some(prompter.text(Text::new("Document title").required())?);
+        fields.title = Some(prompter.text(Text::new("Title:").required())?);
     }
     if optional {
         if fields.content.is_none() {
@@ -173,9 +173,8 @@ fn prompt(ctx: &Ctx, prompter: &Prompter<'_>, fields: &mut Fields, optional: boo
             fields.content = prompt_content(ctx, prompter, editor.as_deref())?;
         }
         if fields.icon.is_none() {
-            fields.icon = text_input::edited_body(
-                &prompter.text(Text::new("Icon (emoji, leave blank for none)"))?,
-            );
+            fields.icon =
+                text_input::edited_body(&prompter.text(Text::new("Icon (emoji, optional):"))?);
         }
     }
     Ok(())
@@ -219,20 +218,20 @@ fn attachment(prompter: &Prompter<'_>, default_team: Option<&str>) -> Result<Att
     };
     let required = |message| prompter.text(Text::new(message).required());
     let mut answer = Attachment::default();
-    match prompter.select("Attach the document to:", targets)? {
-        Kind::Project => answer.project = Some(required("Project (UUID, slug ID, or name)")?),
-        Kind::Issue => answer.issue = Some(required("Issue identifier (e.g., TC-123)")?),
-        Kind::Team => answer.team = Some(team("Team key (e.g., ENG)")?),
+    match prompter.select("Attach to:", targets)? {
+        Kind::Project => answer.project = Some(required("Project (ID, slug, or name):")?),
+        Kind::Issue => answer.issue = Some(required("Issue (like ENG-123):")?),
+        Kind::Team => answer.team = Some(team("Team (key, like ENG):")?),
         Kind::Initiative => {
-            answer.initiative = Some(required("Initiative (UUID, slug ID, or name)")?);
+            answer.initiative = Some(required("Initiative (ID, slug, or name):")?);
         }
         Kind::Cycle => {
-            answer.team = Some(team("Team key for the cycle (e.g., ENG)")?);
+            answer.team = Some(team("Cycle team (key, like ENG):")?);
             answer.cycle = Some(required(
-                "Cycle (name, number, 'active', 'next', or 'previous')",
+                "Cycle (name, number, active, next, or previous):",
             )?);
         }
-        Kind::Release => answer.release = Some(required("Release (UUID, name, or version)")?),
+        Kind::Release => answer.release = Some(required("Release (ID, name, or version):")?),
     }
     Ok(answer)
 }
@@ -252,30 +251,28 @@ fn prompt_content(
         methods.push(Choice::new(format!("Open {label}"), Content::Editor));
     }
     methods.push(Choice::new("Read from file", Content::File));
-    Ok(
-        match prompter.select("How would you like to enter content?", methods)? {
-            Content::Skip => None,
-            Content::Inline => {
-                text_input::edited_body(&prompter.text(Text::new("Content (markdown)"))?)
+    Ok(match prompter.select("Content:", methods)? {
+        Content::Skip => None,
+        Content::Inline => {
+            text_input::edited_body(&prompter.text(Text::new("Content (markdown):"))?)
+        }
+        Content::File => {
+            let path = prompter.text(Text::new("File path:").required())?;
+            Some(read_file(Path::new(&path))?)
+        }
+        Content::Editor => {
+            let label = editor.expect("the editor option is offered only with an editor");
+            ctx.print(format!("Opening {label}...\n"))?;
+            let content = optional_editor(ctx)?;
+            if let Some(content) = &content {
+                ctx.print(format!(
+                    "Content entered ({} characters)\n",
+                    content.chars().count()
+                ))?;
             }
-            Content::File => {
-                let path = prompter.text(Text::new("File path").required())?;
-                Some(read_file(Path::new(&path))?)
-            }
-            Content::Editor => {
-                let label = editor.expect("the editor option is offered only with an editor");
-                ctx.print(format!("Opening {label}...\n"))?;
-                let content = optional_editor(ctx)?;
-                if let Some(content) = &content {
-                    ctx.print(format!(
-                        "Content entered ({} characters)\n",
-                        content.chars().count()
-                    ))?;
-                }
-                content
-            }
-        },
-    )
+            content
+        }
+    })
 }
 
 /// Where prompted content comes from.

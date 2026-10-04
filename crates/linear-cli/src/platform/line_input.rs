@@ -87,7 +87,13 @@ fn run(prompt: &LinePrompt<'_>) -> io::Result<Option<String>> {
 /// characters are dropped.
 fn pasted(text: &str) -> impl Iterator<Item = char> + '_ {
     text.chars()
-        .map(|ch| if matches!(ch, '\n' | '\r' | '\t') { ' ' } else { ch })
+        .map(|ch| {
+            if matches!(ch, '\n' | '\r' | '\t') {
+                ' '
+            } else {
+                ch
+            }
+        })
         .filter(|ch| !ch.is_control())
 }
 
