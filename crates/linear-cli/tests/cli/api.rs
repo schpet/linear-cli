@@ -15,6 +15,10 @@ fn prints_the_response_and_sends_the_document() {
     api.on("Probe", viewer());
     let run = Cli::for_api(&api).run(&["api", QUERY]);
     assert_eq!(run.success().json(), json!({ "data": viewer() }));
+    assert!(
+        run.stdout.ends_with("}\n"),
+        "piped output ends with a newline: {run}"
+    );
     let request = api.request("Probe");
     assert_eq!(request.query, QUERY);
     assert_eq!(request.header("authorization"), Some(API_KEY));

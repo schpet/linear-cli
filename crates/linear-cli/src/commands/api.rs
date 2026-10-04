@@ -164,14 +164,17 @@ enum Response {
     HttpError(String),
 }
 
+/// The response as printed: pretty on a terminal, compact when piped, and
+/// always ending in one newline.
 fn json_output(value: &Value, raw: &str, tty: bool) -> String {
-    if tty {
-        format!("{value:#}\n")
+    let text = if tty {
+        format!("{value:#}")
     } else if value.is_string() {
         raw.to_owned()
     } else {
         value.to_string()
-    }
+    };
+    format!("{}\n", text.trim_end_matches('\n'))
 }
 fn has_errors(value: &Value) -> bool {
     value
