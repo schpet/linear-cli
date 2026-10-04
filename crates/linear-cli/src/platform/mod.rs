@@ -1,10 +1,10 @@
 //! Operating-system integration: terminals, subprocesses, prompts, pagers,
 //! editors, version control and Markdown rendering.
 
-pub mod child;
 pub mod collation;
 pub mod editor;
 pub mod gh;
+pub mod interrupt;
 pub mod markdown_assets;
 pub mod markdown_terminal;
 pub mod opener;

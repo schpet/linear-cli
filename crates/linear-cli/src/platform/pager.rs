@@ -9,6 +9,7 @@ use std::process::{Command, Stdio};
 
 use crate::config::ChildEnvOverlay;
 use crate::error::{Error, Result};
+use crate::platform::interrupt::InterruptShield;
 
 /// Line limit used when a terminal reports no size.
 const UNKNOWN_SIZE_LINE_LIMIT: usize = 50;
@@ -61,6 +62,8 @@ pub fn page(text: &str, pager: Option<&OsStr>, env: &ChildEnvOverlay) -> Result<
         .stdin(Stdio::piped())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
+    // Ctrl-C belongs to the pager while it runs, as with git.
+    let _shield = InterruptShield::raise()?;
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Paged::NoPager),

@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::commands::text_input::read_file;
 use crate::config::ChildEnvOverlay;
 use crate::error::{Error, Result};
-use crate::platform::child::InterruptShield;
+use crate::platform::interrupt::InterruptShield;
 
 /// Opens `initial` in the editor and returns the saved text.
 pub fn edit(initial: &str, env: &ChildEnvOverlay) -> Result<String> {
