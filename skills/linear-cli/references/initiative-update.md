@@ -42,7 +42,7 @@ Options:
           Update text, in Markdown
 
       --body-file <FILE>
-          Read the update from a Markdown file
+          Read the update from a Markdown file (- for stdin)
 
       --health <HEALTH>
           How the work is going

@@ -78,13 +78,15 @@ Global options:
 ```
 Create a project milestone
 
-Usage: linear milestone create [OPTIONS] --project <PROJECT> --name <NAME>
+Usage: linear milestone create [OPTIONS] --project <PROJECT>
 
 Options:
       --project <PROJECT>          Project ID, slug, or name
-      --name <NAME>                Milestone name
+      --name <NAME>                Milestone name; asked for on a terminal when not given
       --description <DESCRIPTION>  Milestone description
       --target-date <DATE>         Target date (YYYY-MM-DD)
+  -i, --interactive                Also prompt for the optional fields
+  -y, --yes                        Do not ask for confirmation
   -h, --help                       Print help
 
 Global options:

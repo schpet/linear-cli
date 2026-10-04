@@ -98,7 +98,7 @@ Options:
           Document text, in Markdown
 
   -f, --content-file <FILE>
-          Read the document from a Markdown file
+          Read the document from a Markdown file (- for stdin)
 
       --project <PROJECT>
           Attach the document to a project (ID, slug, or name)
@@ -165,7 +165,7 @@ Options:
           New text, in Markdown
 
   -f, --content-file <FILE>
-          Read the new text from a Markdown file
+          Read the new text from a Markdown file (- for stdin)
 
       --icon <ICON>
           New icon (an emoji)
@@ -280,7 +280,7 @@ Options:
           Comment text, in Markdown
 
       --body-file <FILE>
-          Read the comment from a Markdown file
+          Read the comment from a Markdown file (- for stdin)
 
   -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)

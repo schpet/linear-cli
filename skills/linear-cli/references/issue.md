@@ -168,7 +168,7 @@ Options:
           Issue description, in Markdown
 
       --description-file <FILE>
-          Read the description from a Markdown file
+          Read the description from a Markdown file (- for stdin)
 
       --team <TEAM>
           Team (key, name, or ID); defaults to the configured team
@@ -263,7 +263,7 @@ Options:
           New description, in Markdown
 
       --description-file <FILE>
-          Read the new description from a Markdown file
+          Read the new description from a Markdown file (- for stdin)
 
       --team <TEAM>
           Move the issue to this team (key, name, or ID)
@@ -606,7 +606,7 @@ Options:
           Comment text, in Markdown
 
       --body-file <FILE>
-          Read the comment from a Markdown file
+          Read the comment from a Markdown file (- for stdin)
 
   -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)
@@ -679,7 +679,7 @@ Options:
           New text, in Markdown
 
       --body-file <FILE>
-          Read the new text from a Markdown file
+          Read the new text from a Markdown file (- for stdin)
 
   -y, --yes
           Do not ask for confirmation

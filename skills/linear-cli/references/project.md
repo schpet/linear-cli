@@ -95,13 +95,13 @@ Options:
           Short summary, up to 255 characters
 
   -f, --description-file <FILE>
-          Read the summary from a file
+          Read the summary from a file (- for stdin)
 
       --content <MARKDOWN>
           Project overview, in Markdown
 
       --content-file <FILE>
-          Read the overview from a Markdown file
+          Read the overview from a Markdown file (- for stdin)
 
   -s, --status <STATUS>
           Project status
@@ -192,13 +192,13 @@ Options:
           Short summary, up to 255 characters
 
   -f, --description-file <FILE>
-          Read the summary from a file
+          Read the summary from a file (- for stdin)
 
       --content <MARKDOWN>
           Project overview, in Markdown
 
       --content-file <FILE>
-          Read the overview from a Markdown file
+          Read the overview from a Markdown file (- for stdin)
 
   -s, --status <STATUS>
           Project status
@@ -334,7 +334,7 @@ Options:
           Comment text, in Markdown
 
       --body-file <FILE>
-          Read the comment from a Markdown file
+          Read the comment from a Markdown file (- for stdin)
 
   -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)

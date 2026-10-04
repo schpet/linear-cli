@@ -293,7 +293,7 @@ Options:
           Comment text, in Markdown
 
       --body-file <FILE>
-          Read the comment from a Markdown file
+          Read the comment from a Markdown file (- for stdin)
 
   -p, --reply-to <COMMENT>
           Reply to this top-level comment (by ID)
