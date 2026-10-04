@@ -162,11 +162,7 @@ impl Backend for NetworkBackend {
         ))
     }
     async fn labels(&self, team_key: String) -> Result<Vec<Label>, Error> {
-        let data: ops::GetLabelsForTeam = self
-            .client
-            .query(ops::TeamKeyVariables { team_key })
-            .await?;
-        let mut labels = data.team.map(|t| t.labels.nodes).unwrap_or_default();
+        let mut labels = crate::commands::label::for_team(&self.client, team_key).await?;
         labels.sort_by(|a, b| {
             crate::platform::collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
         });

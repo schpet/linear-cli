@@ -70,6 +70,12 @@ fn list(ctx: &Ctx, args: &LabelList) -> Result<()> {
     }
 }
 
+/// The labels an issue in the team with `key` can carry: the team's own and
+/// the workspace's, as `label list --team` shows them.
+pub(crate) async fn for_team(client: &LinearClient, key: String) -> Result<Vec<IssueLabel>> {
+    fetch(client, Some(team_filter(key))).await
+}
+
 /// Every label matching `filter`.
 async fn fetch(client: &LinearClient, filter: Option<IssueLabelFilter>) -> Result<Vec<IssueLabel>> {
     pagination::collect(None, |after, first| {

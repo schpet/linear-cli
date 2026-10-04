@@ -3,6 +3,8 @@ mod create;
 mod delete;
 mod list;
 
+pub(crate) use list::for_team;
+
 use crate::cli::label::LabelCommand;
 use crate::ctx::Ctx;
 use crate::error::Result;

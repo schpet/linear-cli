@@ -680,42 +680,6 @@ pub struct UserSettings {
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct TeamKeyVariables {
-    pub team_key: String,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(
-    schema = "linear",
-    graphql_type = "Query",
-    variables = "TeamKeyVariables"
-)]
-pub struct GetLabelsForTeam {
-    #[arguments(id:$team_key)]
-    pub team: Option<LabelTeam>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Team")]
-pub struct LabelTeam {
-    pub labels: LabelConnection,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "IssueLabelConnection")]
-pub struct LabelConnection {
-    pub nodes: Vec<Label>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "IssueLabel")]
-pub struct Label {
-    pub id: cynic::Id,
-    pub name: String,
-    pub color: String,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct LabelVariables {
     pub name: String,
     pub team_key: String,

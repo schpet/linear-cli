@@ -1035,9 +1035,16 @@ fn create_with_yes_skips_the_question_after_a_typed_title() {
     assert_eq!(api.operations(), ["ResolveTeam", "CreateIssue"]);
 }
 
-/// The `--interactive` wizard for an issue in ENG, answered up to its final
-/// question, which gets `last`.
-fn run_wizard(api: &MockLinear, last: &str) -> Run {
+fn label_page(labels: Value, next: Option<&str>) -> Value {
+    json!({ "issueLabels": {
+        "nodes": labels,
+        "pageInfo": { "hasNextPage": next.is_some(), "endCursor": next }
+    } })
+}
+
+/// The lookups of the `--interactive` wizard for an issue in ENG, with one
+/// page of labels per entry of `labels`.
+fn wizard_api(api: &MockLinear, labels: &[Value]) {
     api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
         .on(
             "GetWorkflowStates",
@@ -1045,8 +1052,17 @@ fn run_wizard(api: &MockLinear, last: &str) -> Run {
                 "nodes": [{ "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 }],
                 "pageInfo": { "hasNextPage": false, "endCursor": null }
             } } }),
-        )
-        .on("GetLabelsForTeam", json!({ "team": { "labels": { "nodes": [] } } }));
+        );
+    for (index, page) in labels.iter().enumerate() {
+        let next = (index + 1 < labels.len()).then(|| format!("cursor-{index}"));
+        api.on("GetIssueLabels", label_page(page.clone(), next.as_deref()));
+    }
+}
+
+/// The `--interactive` wizard for an issue in ENG, answered up to its final
+/// question, which gets `last`.
+fn run_wizard(api: &MockLinear, last: &str) -> Run {
+    wizard_api(api, &[json!([])]);
     Cli::for_api(api)
         .env("LINEAR_TEAM_ID", "ENG")
         .env("LINEAR_ISSUE_CREATE_ASSIGN_SELF", "never")
@@ -1063,6 +1079,63 @@ fn run_wizard(api: &MockLinear, last: &str) -> Run {
 }
 
 #[test]
+fn the_create_wizard_offers_every_team_and_workspace_label() {
+    let api = MockLinear::start();
+    let label = |id: &str, name: &str, team: Value| json!({ "id": id, "name": name, "description": null, "color": "#000000", "team": team });
+    wizard_api(
+        &api,
+        &[
+            json!([label(
+                "label-bug",
+                "Bug",
+                json!({ "key": "ENG", "name": "Engineering" })
+            )]),
+            json!([label("label-customer", "Customer", Value::Null)]),
+        ],
+    );
+    api.on("CreateIssue", created("ENG-7"));
+    let down = "\u{1b}[B";
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .env("LINEAR_ISSUE_CREATE_ASSIGN_SELF", "never")
+        .run_tty(
+            &["issue", "create", "-i"],
+            &[
+                ("title of your issue?", "Fix it\r"),
+                ("Description", "\r"),
+                ("What's next?", &format!("{down}\r")),
+                (
+                    "Select more fields to set:",
+                    &format!("{down}{down}{down} \r"),
+                ),
+                ("Customer", &format!("{down} \r")),
+                ("Start working on this issue now?", "\r"),
+                ("Create issue \"Fix it\" in ENG? (y/N)", "y\r"),
+            ],
+        )
+        .success();
+    assert_eq!(
+        input(&api, "CreateIssue")["labelIds"],
+        json!(["label-customer"])
+    );
+    let filters: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .filter(|request| request.operation.as_deref() == Some("GetIssueLabels"))
+        .map(|request| request.variables)
+        .collect();
+    assert_eq!(filters.len(), 2);
+    assert_eq!(
+        filters[0]["filter"],
+        json!({ "or": [
+            { "team": { "key": { "eq": "ENG" } } },
+            { "team": { "null": true } }
+        ] })
+    );
+    assert_eq!(filters[1]["after"], "cursor-0");
+}
+
+#[test]
 fn the_create_wizard_creates_nothing_unless_confirmed() {
     let api = MockLinear::start();
     run_wizard(&api, "\r").success().stdout_has("Canceled.");
@@ -1071,7 +1144,7 @@ fn the_create_wizard_creates_nothing_unless_confirmed() {
     operations.sort();
     assert_eq!(
         operations,
-        ["GetLabelsForTeam", "GetWorkflowStates", "ResolveTeam"]
+        ["GetIssueLabels", "GetWorkflowStates", "ResolveTeam"]
     );
 }
 

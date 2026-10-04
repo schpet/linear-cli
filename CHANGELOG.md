@@ -140,6 +140,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `issue start` without an issue ID off a terminal or with `--no-input` is a usage error (exit 2) like other missing values, reported before the team is looked up
 - a missing issue is reported as `Issue not found: ENG-9999` instead of Linear's raw "Could not find referenced Issue." by `issue view`, `issue update`, `issue title`, `issue url`, `issue describe`, `issue start`, and `issue pull-request`, and `issue update` no longer prints `Updating issue …` before it knows the update worked
 - `issue list --label` and `issue query --label` with a label that does not exist in the queried teams or the workspace fail with `Issue label not found` instead of silently finding no issues, like an unknown `--state` or `--assignee`
+- the label picker of `issue create -i` offers the same labels as `label list --team`: the team's and the workspace's, every page of them, where it showed only the team's first 50
 
 ## [2.6.0] - 2026-09-02
 
