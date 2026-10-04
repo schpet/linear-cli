@@ -9,9 +9,9 @@ use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::initiative::{
-    GetInitiatives, GetInitiativesVariables, IDComparator, Initiative, InitiativeFilter,
-    InitiativeOwner, InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType,
-    NullableUserFilter,
+    GetInitiativeProjectsPage, GetInitiatives, GetInitiativesVariables, IDComparator, Initiative,
+    InitiativeFilter, InitiativeOwner, InitiativeProject, InitiativeProjectsPageVariables,
+    InitiativeStatus, InitiativeUpdateHealthType, NullableUserFilter,
 };
 use crate::graphql::operations::team::StringComparator;
 use crate::graphql::pagination::{self, Page, PageInfo};
@@ -76,6 +76,11 @@ fn filter(status: Option<&str>, owner: Option<String>) -> Option<InitiativeFilte
     (status.is_some() || owner.is_some()).then_some(InitiativeFilter { status, owner })
 }
 
+/// Initiatives per request. Linear prices a request by how many nodes it
+/// could return, and each initiative brings up to 50 projects, so a page of
+/// 100 is over its complexity limit of 10,000.
+const INITIATIVES_PER_REQUEST: i32 = 25;
+
 /// Every matching initiative, sorted by status then name.
 async fn fetch(
     client: &LinearClient,
@@ -86,7 +91,7 @@ async fn fetch(
         let variables = GetInitiativesVariables {
             filter: filter.clone(),
             include_archived: Some(archived),
-            first: Some(first),
+            first: Some(first.min(INITIATIVES_PER_REQUEST)),
             after,
         };
         async move {
@@ -107,6 +112,11 @@ async fn fetch(
         }
     })
     .await?;
+    for item in &mut initiatives {
+        if item.projects.page_info.has_next_page {
+            complete_projects(client, item).await?;
+        }
+    }
     for item in &initiatives {
         if let InitiativeStatus::Unknown(value) = &item.status {
             return Err(Error::new(format!(
@@ -128,6 +138,37 @@ async fn fetch(
     Ok(initiatives)
 }
 
+/// Replaces the first page of `initiative`'s projects with every page.
+async fn complete_projects(client: &LinearClient, initiative: &mut Initiative) -> Result<()> {
+    let first = Page {
+        nodes: std::mem::take(&mut initiative.projects.nodes),
+        page_info: initiative.projects.page_info.clone(),
+    };
+    let id = initiative.id.inner().to_owned();
+    let nodes = pagination::complete(first, |after, first| {
+        let variables = InitiativeProjectsPageVariables {
+            id: id.clone(),
+            first,
+            after,
+        };
+        async move {
+            let data: GetInitiativeProjectsPage = client.query(variables).await?;
+            let projects = data.initiative.projects;
+            Ok(Page {
+                nodes: projects.nodes,
+                page_info: projects.page_info,
+            })
+        }
+    })
+    .await?;
+    initiative.projects.nodes = nodes;
+    initiative.projects.page_info = PageInfo {
+        has_next_page: false,
+        end_cursor: None,
+    };
+    Ok(())
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JsonInitiative<'a> {
@@ -143,7 +184,7 @@ struct JsonInitiative<'a> {
     url: &'a str,
     archived_at: Option<&'a DateTime>,
     owner: Option<&'a InitiativeOwner>,
-    projects: &'a InitiativeProjects,
+    projects: &'a [InitiativeProject],
 }
 
 fn render_json(initiatives: &[Initiative]) -> Vec<u8> {
@@ -162,7 +203,7 @@ fn render_json(initiatives: &[Initiative]) -> Vec<u8> {
             url: &item.url,
             archived_at: item.archived_at.as_ref(),
             owner: item.owner.as_ref(),
-            projects: &item.projects,
+            projects: &item.projects.nodes,
         })
         .collect();
     json::render(&initiatives)

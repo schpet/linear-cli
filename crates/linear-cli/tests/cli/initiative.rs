@@ -14,6 +14,10 @@ fn page(nodes: Value, end_cursor: Value, has_next: bool) -> Value {
     json!({ "nodes": nodes, "pageInfo": { "hasNextPage": has_next, "endCursor": end_cursor } })
 }
 
+fn project_node(id: &str, name: &str) -> Value {
+    json!({ "id": id, "name": name, "status": { "name": "Started" } })
+}
+
 fn list_node(id: &str, name: &str, status: &str) -> Value {
     json!({
         "id": id, "slugId": format!("{}-slug", name.to_lowercase()), "name": name,
@@ -22,7 +26,7 @@ fn list_node(id: &str, name: &str, status: &str) -> Value {
         "url": format!("https://linear.app/acme/initiative/{}", name.to_lowercase()),
         "archivedAt": null,
         "owner": { "id": "user-1", "displayName": "ada", "initials": "AL" },
-        "projects": { "nodes": [{ "id": PROJECT_ID, "name": "Mobile", "status": { "name": "Started" } }] }
+        "projects": page(json!([project_node(PROJECT_ID, "Mobile")]), Value::Null, false)
     })
 }
 
@@ -79,7 +83,7 @@ fn list_json_defaults_to_active_initiatives() {
     assert_json(&Value::Array(listed), &nodes);
     assert_eq!(
         api.variables("GetInitiatives"),
-        json!({ "filter": { "status": { "eq": "Active" } }, "includeArchived": false, "first": 100 })
+        json!({ "filter": { "status": { "eq": "Active" } }, "includeArchived": false, "first": 25 })
     );
 }
 
@@ -115,9 +119,49 @@ fn list_sorts_by_status_then_name_and_follows_pages() {
     assert_eq!(
         variables,
         [
-            json!({ "includeArchived": false, "first": 100 }),
-            json!({ "includeArchived": false, "first": 100, "after": "cursor-1" }),
+            json!({ "includeArchived": false, "first": 25 }),
+            json!({ "includeArchived": false, "first": 25, "after": "cursor-1" }),
         ]
+    );
+}
+
+#[test]
+fn list_fetches_the_remaining_projects_of_an_initiative_with_many() {
+    let api = MockLinear::start();
+    let mut node = list_node(ID, "Roadmap", "Active");
+    node["projects"] = page(
+        json!([project_node(PROJECT_ID, "Mobile")]),
+        json!("projects-1"),
+        true,
+    );
+    api.on("GetInitiatives", initiatives(json!([node]))).on(
+        "GetInitiativeProjectsPage",
+        json!({ "initiative": { "projects": page(
+                json!([project_node(OTHER_ID, "Web")]),
+                Value::Null,
+                false
+            ) } }),
+    );
+    let listed = Cli::for_api(&api)
+        .run(&["initiative", "list", "--json"])
+        .success()
+        .json_nodes();
+    let projects: Vec<&str> = listed[0]["projects"]
+        .as_array()
+        .expect("projects")
+        .iter()
+        .map(|project| project["name"].as_str().expect("name"))
+        .collect();
+    assert_eq!(projects, ["Mobile", "Web"]);
+    assert_eq!(
+        api.variables("GetInitiativeProjectsPage"),
+        json!({ "id": ID, "first": 100, "after": "projects-1" })
+    );
+    assert!(
+        api.request("GetInitiatives")
+            .query
+            .contains("projects(first: 50)"),
+        "the nested projects are bounded so a page stays under Linear's complexity limit"
     );
 }
 
@@ -158,12 +202,12 @@ fn list_filters_by_owner_status_and_archived() {
             json!({
                 "filter": { "status": { "eq": "Planned" }, "owner": { "id": { "eq": "user-me" } } },
                 "includeArchived": true,
-                "first": 100
+                "first": 25
             }),
             json!({
                 "filter": { "status": { "eq": "Active" }, "owner": { "id": { "eq": "user-alice" } } },
                 "includeArchived": false,
-                "first": 100
+                "first": 25
             })
         ]
     );

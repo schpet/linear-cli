@@ -558,6 +558,7 @@ pub struct Initiative {
     pub url: String,
     pub archived_at: Option<DateTime>,
     pub owner: Option<InitiativeOwner>,
+    #[arguments(first: 50)]
     pub projects: InitiativeProjects,
 }
 
@@ -630,11 +631,11 @@ pub struct InitiativeOwner {
     pub initials: String,
 }
 
-#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "ProjectConnection")]
-#[serde(transparent)]
 pub struct InitiativeProjects {
     pub nodes: Vec<InitiativeProject>,
+    pub page_info: PageInfo,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -649,4 +650,35 @@ pub struct InitiativeProject {
 #[cynic(schema = "linear", graphql_type = "ProjectStatus")]
 pub struct InitiativeProjectStatus {
     pub name: String,
+}
+
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct InitiativeProjectsPageVariables {
+    pub id: String,
+    pub first: i32,
+    pub after: Option<String>,
+}
+
+/// A later page of an initiative's projects, for the initiatives in a list
+/// whose first page of projects was not the last.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "InitiativeProjectsPageVariables"
+)]
+pub struct GetInitiativeProjectsPage {
+    #[arguments(id: $id)]
+    pub initiative: InitiativeProjectsPage,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Initiative",
+    variables = "InitiativeProjectsPageVariables"
+)]
+pub struct InitiativeProjectsPage {
+    #[arguments(first: $first, after: $after)]
+    pub projects: InitiativeProjects,
 }
