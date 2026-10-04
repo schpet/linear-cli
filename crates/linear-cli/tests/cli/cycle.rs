@@ -368,3 +368,39 @@ fn view_takes_a_negative_offset_from_the_active_cycle() {
         .success();
     assert_eq!(api.variables("GetCycleDetails"), json!({ "id": "cycle-5" }));
 }
+
+#[test]
+fn list_puts_the_active_cycle_first_then_upcoming_soonest_then_past_latest() {
+    let at = |id: &str, number: u32, starts: &str, phase: &str| {
+        json!({
+            "id": id, "number": number, "name": null,
+            "startsAt": format!("{starts}T00:00:00.000Z"), "endsAt": format!("{starts}T12:00:00.000Z"),
+            "completedAt": null, "isActive": phase == "active",
+            "isFuture": phase == "future", "isPast": phase == "past"
+        })
+    };
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCycles",
+            cycles_page(
+                vec![
+                    at("far", 30, "2027-06-01", "future"),
+                    at("old", 8, "2026-01-01", "past"),
+                    at("next", 11, "2026-03-01", "future"),
+                    at("now", 10, "2026-02-15", "active"),
+                    at("last", 9, "2026-02-01", "past"),
+                ],
+                Value::Null,
+                false,
+            ),
+        );
+    let numbers: Vec<u64> = Cli::for_api(&api)
+        .run(&["cycle", "list", "--team", "ENG", "--json"])
+        .success()
+        .json_nodes()
+        .iter()
+        .map(|node| node["number"].as_u64().expect("number"))
+        .collect();
+    assert_eq!(numbers, [10, 11, 30, 9, 8]);
+}
