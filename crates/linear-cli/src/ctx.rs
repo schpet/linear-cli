@@ -257,9 +257,14 @@ impl Ctx {
                 rendered,
                 self.config.pager.as_deref(),
                 &self.config.child_env,
-            )? {
-                pager::Paged::Shown => return Ok(()),
-                pager::Paged::NoPager => {}
+            ) {
+                Ok(pager::Paged::Shown) => return Ok(()),
+                Ok(pager::Paged::NoPager) => {}
+                // A failed pager may have shown nothing, so the text is
+                // printed directly rather than lost.
+                Err(error) => self.eprint(format!(
+                    "Warning: {error}, so the output is printed without it. Check PAGER, or pass --no-pager.\n"
+                ))?,
             }
         }
         self.print(rendered)?;

@@ -1299,3 +1299,20 @@ fn title_preserves_exact_remote_text_when_piped() {
         assert_eq!(api.variables("GetIssueDetails"), json!({"id": "ENG-1"}));
     }
 }
+
+#[test]
+fn list_prints_the_rows_itself_when_the_pager_fails() {
+    let api = MockLinear::start();
+    let rows = (1..=60).map(|n| list_issue(n, "ENG", "unstarted")).collect();
+    api.on("GetIssuesForState", issues(rows, None));
+    // The pager runs through `sh`, which the sandbox PATH lacks.
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .stub_bin("sh", "exec /bin/sh \"$@\"")
+        .stub_bin("failing-pager", "cat > /dev/null; exit 1");
+    let pager = cli.path("bin/failing-pager").display().to_string();
+    let run = cli.env("PAGER", &pager).run_tty(&["issue", "list"], &[]);
+    run.success()
+        .stdout_has("Warning: The pager exited with status 1, so the output is printed without it")
+        .stdout_has("ENG-50");
+}
