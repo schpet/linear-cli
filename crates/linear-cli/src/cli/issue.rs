@@ -41,7 +41,12 @@ pub enum IssueCommand {
     /// unless --include-archived is passed. See
     /// https://linear.app/docs/delete-archive-issues
     Archive(IssueArchive),
-    /// Start an issue: switch to its branch and mark it started
+    /// Start an issue: check out its git branch or jj change, then mark it started
+    ///
+    /// With git, creates the issue's branch (or switches to it if it exists).
+    /// With jj (`vcs = "jj"` in config or LINEAR_VCS=jj), starts a new change,
+    /// reusing an empty undescribed one, and describes it with the issue title
+    /// and `Linear-issue` trailers; no git branch is created.
     Start(IssueStart),
     /// Print the issue ID of the current branch or jj change
     Id(IssueId),
@@ -208,10 +213,10 @@ pub struct IssueStart {
     /// Offer only unassigned issues in the picker
     #[arg(long, short = 'U', conflicts_with = "all_assignees")]
     pub unassigned: bool,
-    /// Git ref to create the branch from
+    /// Git ref to create the branch from (git only)
     #[arg(long, short, value_name = "REF", value_parser = NonBlank)]
     pub from_ref: Option<String>,
-    /// Branch name to use instead of the issue's
+    /// Branch name to use instead of the issue's (git only)
     #[arg(long, short, value_parser = NonBlank)]
     pub branch: Option<String>,
 }

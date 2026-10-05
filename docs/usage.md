@@ -121,7 +121,7 @@ start a specific issue:
 linear issue start TEAM-123
 ```
 
-this will move the issue to "in progress" and create a git branch.
+this will move the issue to "in progress" and create a git branch (with `vcs = "jj"`, it starts a new jj change described with the issue title and a `Linear-issue` trailer instead).
 
 #### create an issue
 

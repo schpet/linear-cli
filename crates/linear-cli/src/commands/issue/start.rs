@@ -1,4 +1,4 @@
-//! `issue start`: create or switch the VCS branch, then move the issue to a started state.
+//! `issue start`: check out the issue's git branch or jj change, then move the issue to a started state.
 use crate::client::LinearClient;
 use crate::{
     cli::issue::IssueStart,
@@ -23,6 +23,21 @@ pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 }
 
 fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
+    if super::vcs(ctx) == Vcs::Jj
+        && let Some(flag) = [
+            args.branch.as_ref().map(|_| "--branch"),
+            args.from_ref.as_ref().map(|_| "--from-ref"),
+        ]
+        .into_iter()
+        .flatten()
+        .next()
+    {
+        return Err(
+            Error::invalid(format!("{flag} only applies to git")).with_hint(
+                "With jj, issue start describes a new jj change instead of creating a branch.",
+            ),
+        );
+    }
     if args.issue_id.is_none() && !ctx.interactive() {
         return Err(ctx.missing_value("No issue to start", "an issue ID"));
     }

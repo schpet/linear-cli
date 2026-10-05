@@ -128,6 +128,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 
 ### Fixed
 
+- `issue start` help now explains jj mode (it starts a new jj change with the issue's title and `Linear-issue` trailers instead of creating a git branch), and `--branch`/`--from-ref` are refused with a usage error when jj is the configured VCS instead of being silently ignored
 - `linear schema` works again. A standard introspection query costs far more than the 10,000 complexity points Linear allows per request, so the schema is now fetched as the type names first and then the type definitions in batches
 - `initiative list` no longer fails with "The query is too complex": it fetches 25 initiatives per request with at most 50 nested projects each, then fetches the remaining projects of any initiative that has more
 - `cycle list` shows the active cycle first, then upcoming cycles from the soonest, then past cycles from the most recent, instead of newest first, where far-future cycles pushed the active one down
