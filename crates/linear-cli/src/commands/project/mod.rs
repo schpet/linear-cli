@@ -6,7 +6,7 @@ mod create;
 mod delete;
 mod list;
 mod update;
-mod view;
+pub(crate) mod view;
 
 use crate::cli::project::ProjectCommand;
 use crate::ctx::Ctx;

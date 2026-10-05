@@ -78,6 +78,12 @@ fn pick(ctx: &Ctx, args: &ProjectView) -> Result<String> {
             "a project UUID, slug ID, or exact name",
         ));
     }
+    choose(ctx)
+}
+
+/// Asks for a project on the terminal, from the configured team's projects
+/// (the workspace's when no team is configured), and returns its ID.
+pub(crate) fn choose(ctx: &Ctx) -> Result<String> {
     let team_key = configured_team_key(ctx.options());
     let client = ctx.client()?;
     let projects = ctx.spin(true, fetch_picker(client, team_key.as_deref()))?;

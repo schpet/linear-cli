@@ -19,12 +19,20 @@ pub fn run(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
 
 fn create(ctx: &Ctx, args: &MilestoneCreate) -> Result<()> {
     let optional = ctx.optional_prompts(args.interactive)?;
-    if args.name.is_none() && !ctx.interactive() {
-        return Err(ctx.missing_value("Milestone name is required", "--name"));
+    if !ctx.interactive() {
+        if args.project.is_none() {
+            return Err(ctx.missing_value("Project is required", "--project"));
+        }
+        if args.name.is_none() {
+            return Err(ctx.missing_value("Milestone name is required", "--name"));
+        }
     }
-    let project = ProjectReference::parse(&args.project, &ctx.scope()?)?;
+    let project = match &args.project {
+        Some(original) => ProjectReference::parse(original, &ctx.scope()?)?,
+        None => ProjectReference::from_id(crate::commands::project::view::choose(ctx)?),
+    };
     let client = ctx.client()?;
-    let typed = args.name.is_none() || optional;
+    let typed = args.project.is_none() || args.name.is_none() || optional;
     // The project is found before anything is typed for it.
     let (project_id, project_name) = ctx.spin(true, async {
         let id = refs::project::resolve(client, &project).await?;

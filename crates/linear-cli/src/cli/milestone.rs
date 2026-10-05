@@ -60,9 +60,9 @@ pub struct MilestoneView {
 
 #[derive(Debug, Args)]
 pub struct MilestoneCreate {
-    /// Project ID, slug, or name
+    /// Project ID, slug, or name; picked from a list on a terminal when not given
     #[arg(long, value_parser = NonBlank)]
-    pub project: String,
+    pub project: Option<String>,
     /// Milestone name; asked for on a terminal when not given
     #[arg(long, value_parser = NonBlank)]
     pub name: Option<String>,

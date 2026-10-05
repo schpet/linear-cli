@@ -344,6 +344,59 @@ fn create_without_a_name_off_a_terminal_is_a_usage_error() {
 }
 
 #[test]
+fn create_without_a_project_off_a_terminal_names_the_flag() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["milestone", "create", "--name", "Launch"])
+        .usage_error()
+        .stderr_has("Project is required")
+        .stderr_has("Pass --project");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn create_on_a_terminal_picks_the_project_when_none_is_given() {
+    let api = MockLinear::start();
+    let picker_project = |id: &str, name: &str, slug: &str| {
+        json!({
+            "id": id, "name": name, "slugId": slug, "sortOrder": 1,
+            "status": { "name": "In Progress" },
+            "teams": { "nodes": [{ "key": "ENG" }], "pageInfo": { "hasNextPage": false, "endCursor": null } }
+        })
+    };
+    api.on(
+        "GetProjectsForPicker",
+        json!({ "projects": {
+            "nodes": [
+                picker_project("other-id", "Other", "oth111"),
+                picker_project(PROJECT_ID, "Mobile App", "mob222"),
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+        } }),
+    )
+    .on("GetProjectName", json!({ "project": project() }))
+    .on("CreateProjectMilestone", created(Value::Null));
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run_tty(
+            &["milestone", "create", "--name", "Launch"],
+            &[
+                ("Project:", "mob222\r"),
+                (
+                    "Create milestone \"Launch\" in project \"Mobile App\"? (y/N)",
+                    "y\r",
+                ),
+            ],
+        )
+        .success()
+        .stdout_has("✓ Created milestone Launch");
+    assert_eq!(
+        api.variables("CreateProjectMilestone"),
+        json!({ "input": { "projectId": PROJECT_ID, "name": "Launch" } })
+    );
+}
+
+#[test]
 fn create_on_a_terminal_asks_for_the_name_and_confirms() {
     let api = MockLinear::start();
     api.on("GetProjectName", json!({ "project": project() }))

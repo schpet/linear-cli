@@ -160,6 +160,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - text read from a file or stdin (`--body-file`, `--description-file`, `--content-file`, `-`, or piped stdin) follows one rule on every command: a byte-order mark and trailing whitespace such as the final newline are dropped, and a file left empty is an error for a required body (`Body file is empty: stdin`) and the same as leaving the flag out for an optional field, where `issue create --description-file -` with nothing piped sent an empty description and `--body-file -` kept the final newline that piped stdin dropped
 - pickers tell apart choices that share a name: projects in `issue create -i` and in the "did you mean" suggestions for an unknown `--project` show their slug ID, and labels show their team (or `workspace`).
 - a Markdown table on a terminal too narrow for its columns prints one `Header: value` record per row as soon as a grid would split a word, instead of drawing a grid of broken words. Select prompts keep their question short, since a list prompt cannot wrap at words: the "did you mean" project suggestions, the existing-branch choice of `issue start`, and the same-named label choice of `label delete` print their context on a line of their own first
+- `milestone create` without `--project` picks the project from a list on a terminal, like `project view`, and off a terminal is a usage error naming `--project` instead of a clap error
 
 ## [2.6.0] - 2026-09-02
 
