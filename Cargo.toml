@@ -1,0 +1,16 @@
+[workspace]
+members = ["crates/linear-cli", "crates/linear-schema", "xtask"]
+# Keeps plain `cargo run` and `cargo build` on the cli; `--workspace` includes xtask.
+default-members = ["crates/linear-cli", "crates/linear-schema"]
+resolver = "3"
+
+[workspace.package]
+version = "3.0.0-alpha.1"
+edition = "2024"
+rust-version = "1.93"
+license = "ISC"
+repository = "https://github.com/schpet/linear-cli"
+homepage = "https://github.com/schpet/linear-cli"
+
+[profile.dist]
+inherits = "release"

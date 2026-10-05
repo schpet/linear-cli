@@ -10,3 +10,6 @@ indent_size = 2
 
 [**.{md,markdown}]
 trim_trailing_whitespace = false
+
+[*.rs]
+indent_size = 4

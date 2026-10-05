@@ -1,20 +1,5 @@
 [workspace]
-members = ["dist:."]
-
-
-[package]
-name = "linear"
-description = "CLI tool for linear.app that uses git branch names and directory names to open issues and team pages"
-version = "2.6.0"
-license = "MIT"
-repository = "https://github.com/schpet/linear-cli"
-homepage = "https://github.com/schpet/linear-cli"
-binaries = ["linear"]
-build-command = [
-    "sh",
-    "-c",
-    "deno compile --target=$CARGO_DIST_TARGET -o linear --allow-all --quiet src/main.ts",
-]
+members = ["cargo:."]
 
 # Config for 'dist'
 [dist]
@@ -34,11 +19,16 @@ publish-jobs = ["homebrew", "npm"]
 npm-scope = "@schpet"
 # The npm package should have this name
 npm-package = "linear-cli"
-# Which actions to run on pull requests
-# pr-run-mode = "upload"
-# https://opensource.axo.dev/cargo-dist/book/ci/customizing.html#customizing-build-setup
-github-build-setup = "../build-setup.yml"
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = true
+# Steps run before each build-local-artifacts job (relative to .github/workflows).
+# They write THIRD_PARTY_LICENSES.md, which `include` adds to every archive.
+github-build-setup = "../build-setup.yml"
+
+# The global job (installers, npm package) needs the notices too, and builds
+# them as an extra artifact, which also attaches them to the release.
+[[dist.extra-artifacts]]
+artifacts = ["THIRD_PARTY_LICENSES.md"]
+build = ["cargo", "xtask", "licenses"]

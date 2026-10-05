@@ -1,5 +1,4 @@
-.aider.*
 .config/linear.toml
 .idea/
-src/__codegen__/
-npm
+/target/
+/THIRD_PARTY_LICENSES.md
