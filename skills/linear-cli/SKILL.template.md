@@ -39,22 +39,22 @@ linear issue query --project "Mobile App" --state backlog --state triage --unass
 linear issue query --assignee sam --label bug --updated-after 2026-01-01
 ```
 
-Note: `linear issue list` is an alias of `issue mine` and only shows _your_ issues — use `issue query` for anything scoped to other people or a whole team/project.
+Note: `linear issue list` (alias `issue mine`) shows _your_ issues by default — use `issue query` for anything scoped to other people or a whole team/project.
 
 ### List my issues
 
 ```bash
-linear issue mine --state started --sort priority
+linear issue list --state started --sort priority
 ```
 
 ### Create an issue
 
 ```bash
 linear issue create --team ENG --title "Fix login redirect" \
-  --description-file ./description.md --no-interactive
+  --description-file ./description.md --no-input
 ```
 
-Write multi-line markdown to a file and pass `--description-file` (see the markdown section below); `--no-interactive` avoids prompts in scripted use.
+Write multi-line markdown to a file and pass `--description-file` (see the markdown section below); `--no-input` makes the command fail instead of prompting for anything missing in scripted use.
 
 ### Update an issue's state, assignee, or labels
 
@@ -105,7 +105,7 @@ linear issue url ENG-123           # print just the URL
 ```bash
 linear issue update ENG-123 --state Done       # or Canceled; Linear auto-archives closed issues later
 linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
-linear issue archive ENG-123 --confirm         # rarely appropriate, see below
+linear issue archive ENG-123 --yes             # rarely appropriate, see below
 ```
 
 Prefer closing or deleting over archiving. Linear's docs say "archiving happens automatically with no option to manually archive items" (https://linear.app/docs/delete-archive-issues): closed issues are auto-archived after the team's configured period, and Linear removed manual archiving from its app because people used it as a trash can. `issue archive` calls the `issueArchive` mutation directly, bypassing auto-archive's checks for open parents, sub-issues, cycles, and projects, and archived issues vanish from `issue list`, `issue query`, and search unless `--include-archived` is passed. Only archive when the user explicitly asks for it.
@@ -210,7 +210,7 @@ Each command has detailed help output describing all available flags and options
 Some commands have required flags that aren't obvious. Notable examples:
 
 - `issue list` sorts by priority by default — override via `--sort` (valid values: `manual`, `priority`), the `issue_sort` config option, or the `LINEAR_ISSUE_SORT` env var. Requires `--team <key>` unless the team can be inferred from the directory — if unknown, run `linear team list` first (`linear team list --json` maps team names to their `key` and `id`).
-- `--no-pager` is only supported on `issue list` — passing it to other commands like `project list` will error.
+- `--no-pager` is only supported on `issue list`, `issue query`, `issue view`, and `project view` — passing it to other commands like `project list` will error.
 
 ## Using the Linear GraphQL API Directly
 

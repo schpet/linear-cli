@@ -1,63 +1,69 @@
 # cycle
 
-> Manage Linear team cycles
+> View team cycles
 
 ## Usage
 
 ```
-Usage:   linear cycle
+View team cycles
 
-Description:
-
-  Manage Linear team cycles
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear cycle [OPTIONS] <COMMAND>
 
 Commands:
+  list  List a team's cycles
+  view  Show a cycle and its issues
+  help  Print this message or the help of the given subcommand(s)
 
-  list                 - List cycles for a team
-  view, v  <cycleRef>  - View cycle details
+Options:
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ## Subcommands
 
 ### list
 
-> List cycles for a team
+> List a team's cycles
 
 ```
-Usage:   linear cycle list
+List a team's cycles
 
-Description:
-
-  List cycles for a team
+Usage: linear cycle list [OPTIONS]
 
 Options:
+      --team <TEAM>    Team key, name, or ID; defaults to the configured team
+      --limit <LIMIT>  Maximum number of cycles to show, newest first (a number or `all`) [default:
+                       all]
+  -j, --json           Print JSON
+  -h, --help           Print help
 
-  -h, --help           - Show this help.                                   
-  --workspace  <slug>  - Target workspace (uses credentials)               
-  --team       <team>  - Team key, name, or ID (defaults to current team)  
-  -j, --json           - Output as JSON
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ### view
 
-> View cycle details
+> Show a cycle and its issues
 
 ```
-Usage:   linear cycle view <cycleRef>
+Show a cycle and its issues
 
-Description:
+Usage: linear cycle view [OPTIONS] <CYCLE>
 
-  View cycle details
+Arguments:
+  <CYCLE>  Cycle name, number, `active`, `next`, `previous`, or an offset like +1 or -1
 
 Options:
+      --team <TEAM>  Team key, name, or ID; defaults to the configured team
+  -j, --json         Print JSON
+      --no-pager     Do not page long output
+  -h, --help         Print help
 
-  -h, --help           - Show this help.                                   
-  --workspace  <slug>  - Target workspace (uses credentials)               
-  --team       <team>  - Team key, name, or ID (defaults to current team)  
-  -j, --json           - Output as JSON
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

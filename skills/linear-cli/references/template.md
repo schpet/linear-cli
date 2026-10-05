@@ -1,64 +1,104 @@
 # template
 
-> Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
+> Browse issue, project and document templates
 
 ## Usage
 
 ```
-Usage:   linear template
+Browse issue, project and document templates
 
-Description:
+Apply one with `linear issue create --template` or `linear project create --template`.
 
-  Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear template [OPTIONS] <COMMAND>
 
 Commands:
+  list  List templates
+  view  Show a template and the fields it fills in
+  help  Print this message or the help of the given subcommand(s)
 
-  list                 - List templates. Without --team, every template in the workspace is shown.
-  view, v  <template>  - Show a template and what it pre-fills. Pass its name or ID.
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```
 
 ## Subcommands
 
 ### list
 
-> List templates. Without --team, every template in the workspace is shown.
+> List templates
 
 ```
-Usage:   linear template list
+List templates
 
-Description:
+Without --team, every template in the workspace is listed.
 
-  List templates. Without --team, every template in the workspace is shown.
+Usage: linear template list [OPTIONS]
 
 Options:
+      --type <TYPE>
+          Show only templates of this type
+          
+          [possible values: issue, project, document]
 
-  -h, --help           - Show this help.                                                                                                       
-  --workspace  <slug>  - Target workspace (uses credentials)                                                                                   
-  --type       <type>  - Only templates of this type (issue, project, or document)                     (Values: "issue", "project", "document")
-  --team       <team>  - Team key, name, or ID. Shows that team's templates plus workspace templates.                                          
-  -j, --json           - Output as JSON
+      --team <TEAM>
+          Show this team's templates (key, name, or ID) plus workspace templates
+
+      --limit <LIMIT>
+          Maximum number of templates to show (a number or `all`)
+          
+          [default: all]
+
+  -j, --json
+          Print JSON
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```
 
 ### view
 
-> Show a template and what it pre-fills. Pass its name or ID.
+> Show a template and the fields it fills in
 
 ```
-Usage:   linear template view <template>
+Show a template and the fields it fills in
 
-Description:
+Usage: linear template view [OPTIONS] <TEMPLATE>
 
-  Show a template and what it pre-fills. Pass its name or ID.
+Arguments:
+  <TEMPLATE>
+          Template name or ID
 
 Options:
+  -j, --json
+          Print JSON
+          
+          `templateData` stays a JSON-encoded string; decode it with `jq '.templateData |
+          fromjson'`.
 
-  -h, --help           - Show this help.                                                                 
-  --workspace  <slug>  - Target workspace (uses credentials)                                             
-  -j, --json           - Output the template as JSON (templateData stays a JSON-encoded string; use `jq  
-                         '.templateData | fromjson'`)
+      --no-pager
+          Do not page long output
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```

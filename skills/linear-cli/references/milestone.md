@@ -1,52 +1,123 @@
 # milestone
 
-> Manage Linear project milestones
+> Manage project milestones
 
 ## Usage
 
 ```
-Usage:   linear milestone
+Manage project milestones
 
-Description:
-
-  Manage Linear project milestones
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear milestone [OPTIONS] <COMMAND>
 
 Commands:
+  list    List a project's milestones
+  view    Show a milestone and its issues
+  create  Create a project milestone
+  update  Update a project milestone
+  delete  Delete a project milestone
+  help    Print this message or the help of the given subcommand(s)
 
-  list                  - List milestones for a project                                                 
-  view, v  <milestone>  - View milestone details. By default lists the first 10 attached issues from the
-                          first page of 50; use --all to paginate the full set.                         
-  create                - Create a new project milestone                                                
-  update   <id>         - Update an existing project milestone                                          
-  delete   <id>         - Delete a project milestone
+Options:
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ## Subcommands
 
-### create
+### list
 
-> Create a new project milestone
+> List a project's milestones
 
 ```
-Usage:   linear milestone create --project <project> --name <name>
+List a project's milestones
 
-Description:
-
-  Create a new project milestone
+Usage: linear milestone list [OPTIONS] --project <PROJECT>
 
 Options:
+      --project <PROJECT>  Project ID, slug, or name
+      --limit <LIMIT>      Maximum number of milestones to show (a number or `all`) [default: all]
+  -j, --json               Print JSON
+  -h, --help               Print help
 
-  -h, --help                    - Show this help.                                
-  --workspace    <slug>         - Target workspace (uses credentials)            
-  --project      <project>      - Project (UUID, slug ID, or name)     (required)
-  --name         <name>         - Milestone name                       (required)
-  --description  <description>  - Milestone description                          
-  --target-date  <date>         - Target date (YYYY-MM-DD)
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### view
+
+> Show a milestone and its issues
+
+```
+Show a milestone and its issues
+
+Usage: linear milestone view [OPTIONS] <MILESTONE>
+
+Arguments:
+  <MILESTONE>  Milestone ID, or its name with --project
+
+Options:
+      --all                List every issue instead of the first 10
+      --project <PROJECT>  Project (ID, slug, or name) to find the milestone name in
+  -j, --json               Print JSON
+      --no-pager           Do not page long output
+  -h, --help               Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### create
+
+> Create a project milestone
+
+```
+Create a project milestone
+
+Usage: linear milestone create [OPTIONS]
+
+Options:
+      --project <PROJECT>          Project ID, slug, or name; picked from a list on a terminal when
+                                   not given
+      --name <NAME>                Milestone name; asked for on a terminal when not given
+      --description <DESCRIPTION>  Milestone description
+      --target-date <DATE>         Target date (YYYY-MM-DD)
+  -i, --interactive                Also prompt for the optional fields
+  -y, --yes                        Do not ask for confirmation
+  -h, --help                       Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### update
+
+> Update a project milestone
+
+```
+Update a project milestone
+
+Usage: linear milestone update [OPTIONS] <ID>
+
+Arguments:
+  <ID>  Milestone ID
+
+Options:
+      --name <NAME>                New name
+      --description <DESCRIPTION>  New description
+      --target-date <DATE>         New target date (YYYY-MM-DD)
+      --sort-order <NUMBER>        Position among the project's milestones
+      --project <PROJECT>          Move the milestone to this project (ID, slug, or name)
+  -h, --help                       Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ### delete
@@ -54,76 +125,18 @@ Options:
 > Delete a project milestone
 
 ```
-Usage:   linear milestone delete <id>
+Delete a project milestone
 
-Description:
+Usage: linear milestone delete [OPTIONS] <ID>
 
-  Delete a project milestone
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -f, --force          - Skip confirmation prompt
-```
-
-### list
-
-> List milestones for a project
-
-```
-Usage:   linear milestone list --project <project>
-
-Description:
-
-  List milestones for a project
+Arguments:
+  <ID>  Milestone ID
 
 Options:
+  -y, --yes   Do not ask for confirmation
+  -h, --help  Print help
 
-  -h, --help              - Show this help.                                
-  --workspace  <slug>     - Target workspace (uses credentials)            
-  --project    <project>  - Project (UUID, slug ID, or name)     (required)
-  -j, --json              - Output as JSON
-```
-
-### update
-
-> Update an existing project milestone
-
-```
-Usage:   linear milestone update <id>
-
-Description:
-
-  Update an existing project milestone
-
-Options:
-
-  -h, --help                    - Show this help.                                       
-  --workspace    <slug>         - Target workspace (uses credentials)                   
-  --name         <name>         - Milestone name                                        
-  --description  <description>  - Milestone description                                 
-  --target-date  <date>         - Target date (YYYY-MM-DD)                              
-  --sort-order   <value>        - Sort order relative to other milestones               
-  --project      <project>      - Move to a different project (UUID, slug ID, or name)
-```
-
-### view
-
-> View milestone details. By default lists the first 10 attached issues from the first page of 50; use --all to paginate the full set.
-
-```
-Usage:   linear milestone view <milestone>
-
-Description:
-
-  View milestone details. By default lists the first 10 attached issues from the first page of 50; use --all to paginate the full set.
-
-Options:
-
-  -h, --help              - Show this help.                                                                   
-  --workspace  <slug>     - Target workspace (uses credentials)                                               
-  --all                   - Fetch and list every issue attached to the milestone (paginates the Linear API).  
-  --project    <project>  - Project for resolving a milestone name (UUID, slug ID, or name)                   
-  -j, --json              - Output as JSON
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

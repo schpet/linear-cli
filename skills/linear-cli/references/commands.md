@@ -2,23 +2,23 @@
 
 ## Commands
 
-- [api](./api.md) - Make a raw GraphQL API request
-- [auth](./auth.md) - Manage Linear authentication
-- [config](./config.md) - Interactively generate .linear.toml configuration
-- [cycle](./cycle.md) - Manage Linear team cycles
-- [document](./document.md) - Manage Linear documents
-- [initiative](./initiative.md) - Manage Linear initiatives
-- [initiative-update](./initiative-update.md) - Manage initiative status updates (timeline posts)
-- [issue](./issue.md) - Manage Linear issues
-- [label](./label.md) - Manage Linear issue labels
-- [markdown](./markdown.md) - Linear-flavored Markdown: mentions and collapsible sections
-- [milestone](./milestone.md) - Manage Linear project milestones
-- [project](./project.md) - Manage Linear projects
-- [project-update](./project-update.md) - Manage project status updates
-- [schema](./schema.md) - Print the GraphQL schema to stdout
-- [team](./team.md) - Manage Linear teams
-- [template](./template.md) - Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
-- [user](./user.md) - Manage Linear users
+- [api](./api.md) - Send a raw GraphQL request to the Linear API
+- [auth](./auth.md) - Log in to workspaces and manage their credentials
+- [config](./config.md) - Write a .linear.toml for the current repository
+- [cycle](./cycle.md) - View team cycles
+- [document](./document.md) - Manage documents
+- [initiative](./initiative.md) - Manage initiatives
+- [initiative-update](./initiative-update.md) - Post and list initiative status updates
+- [issue](./issue.md) - Manage issues
+- [label](./label.md) - Manage issue labels
+- [markdown](./markdown.md) - Explain Linear-flavored Markdown: mentions and collapsible sections
+- [milestone](./milestone.md) - Manage project milestones
+- [project](./project.md) - Manage projects
+- [project-update](./project-update.md) - Post and list project status updates
+- [schema](./schema.md) - Print the Linear GraphQL schema
+- [team](./team.md) - Manage teams
+- [template](./template.md) - Browse issue, project and document templates
+- [user](./user.md) - List workspace members
 
 ## Quick Reference
 
