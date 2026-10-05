@@ -1,45 +1,49 @@
 ## basics
 
-- this is a deno app
-- after editing any graphql documents, run `deno task codegen` to get the updated types after it's updated, `const result = await client.request(query, { teamId });` should work and be typed (and not require explicit types)
-- graphql/schema.graphql has the graphql schema document for linear's api
-- for diagnostics, use `deno check` and `deno lint` (do not use tsc or rely on LSP for this)
-- when coloring or styling terminal text, use deno's @std/fmt/colors package
-- prefer `foo == null` and `foo != null` over `foo === undefined` and `foo !== undefined`
-- import: use dynamic import only when necessary, the static form is preferable
-- avoid the typescript `any` type - prefer strict typing, if you can't find a good way to fix a type issue (particularly with graphql data or documents) explain the problem instead of working around it
-- for `--json` output, preserve GraphQL field names and nesting instead of inventing CLI-specific JSON shapes
-- for paginated `--json` output, preserve connection shape and concatenate `nodes` rather than flattening or renaming fields
+- this is a rust cli. the toolchain is pinned in `rust-toolchain.toml`. `mise.toml` pins the `dist` release tool; run `mise trust` once in a fresh checkout (until then mise refuses to load this directory, including its cargo shims)
+- `crates/linear-cli` is the cli (the `linear` binary plus a library the tests and examples use); `crates/linear-schema` holds the cynic types generated from `graphql/schema.graphql`, linear's graphql schema
+- `xtask/` holds repository maintenance commands, run with `cargo xtask <task>` (an alias in `.cargo/config.toml`). it is not part of the release
+- format with `cargo fmt --all`, then before finishing a change run `just check`, which runs:
+  - `cargo fmt --all --check`
+  - `cargo clippy --locked --workspace --all-targets -- -D warnings`
+  - `cargo test --locked --workspace`
+- run the cli from source with `just dev <args>` (`cargo run -- <args>`)
+- `just sync-schema` refreshes `graphql/schema.graphql` from linear's api
+- after changing commands, flags or help text, run `just skill-docs` to regenerate `skills/linear-cli/SKILL.md` and its references. edit `skills/linear-cli/SKILL.template.md`, not `SKILL.md`
+- release builds generate `THIRD_PARTY_LICENSES.md` (gitignored) with `cargo xtask licenses` and ship it in every archive. it reproduces the license files of every crate in `Cargo.lock`; a crate whose package ships no license file needs its upstream text added to `licenses/supplemental/` and recorded in `sources.json` there, or the command (and CI, which runs it) fails
+- add an entry under `## [Unreleased]` in `CHANGELOG.md` for user-facing changes
+- ask before adding a new dependency
 
-## permissions
+## layout of `crates/linear-cli/src`
 
-- deno permissions (--allow-env, --allow-net, etc.) are configured in multiple files that must stay in sync
-- see [docs/deno-permissions.md](docs/deno-permissions.md) for the full list of files to update when adding new permissions
-- key files: `deno.json` (tasks), `dist-workspace.toml` (release builds), test files
+- `src/cli/`: clap definitions of every command, flag and help text
+- `src/commands/`: one module per command group, doing the work for a parsed command
+- `src/graphql/operations/`: cynic queries and mutations, one module per entity. the field order of a selection is the order of its `--json` output
+- `src/refs/`: resolving user input (issue ids, team keys, names, urls) to linear ids
+- `src/config/` and `src/auth/`: `.linear.toml`, `.env`, `LINEAR_*` env vars, credentials and keyring storage
+- `src/platform/`: terminal, pager, editor, prompts, browser and other process integrations
+
+## coding
+
+- strict inputs: parse flags into types with clap (`ValueEnum`, typed value parsers) and reject invalid values before any request is sent
+- exhaustive matching; no `as` casts, `unwrap`, `panic!` or slice indexing in production code (enforced by clippy in `lib.rs`). `expect("why")` is fine for real invariants
+- for `--json` output, keep linear's graphql field names. lists are a json array of entities, views are a single object, and nested connections are plain arrays
 
 ## error handling
 
-- never fail silently - if something goes wrong or a lookup fails, throw an error with a helpful message
-- when user-provided input (flags, args) doesn't match expected values, error immediately with guidance on how to fix it
+- never fail silently. if something goes wrong or a lookup fails, return an `Error` (`src/error.rs`) with a helpful message
+- when user-provided input (flags, args) doesn't match expected values, error immediately with guidance on how to fix it, using `with_hint` for the suggestion
 - avoid falling back to defaults when explicit user input is invalid; explicit input should either work or error
-- use custom error classes from src/utils/errors.ts:
-  - `ValidationError(message, { suggestion })` for bad input
-  - `NotFoundError(entityType, identifier)` for missing entities
-  - `AuthError(message)` for auth issues
-  - `CliError(userMessage, { suggestion, cause })` for others
-- wrap command actions in try-catch with `handleError(error, "Failed to <action>")`
-- errors display clean messages to stderr with ✗ prefix, stack traces only shown when `LINEAR_DEBUG=1`
+- add context with `.context("Failed to <action>")`. errors print to stderr with a ✗ prefix; causes are only shown with `LINEAR_DEBUG=1`
+- stdout carries only a command's result (data, or the `✓` line and URL). prompts, the spinner, warnings and progress lines ("Creating issue in ENG", "Opening … in web browser") go to stderr with `ctx.eprint`
 
 ## cli flags
 
-- never use the same short flag alias (e.g. `-w`) on both a global option and a command-level option — cliffy resolves global options first, so the command-level alias will be shadowed
-- before adding a short flag, grep the codebase for that letter to ensure it's not already in use at a conflicting scope
+- never use the same short flag (e.g. `-w`) on both a global option and a command-level option
+- before adding a short flag, grep `src/cli/` for that letter to ensure it's not already in use at a conflicting scope
 
 ## tests
 
-- tests on commands should mirror the directory structure of the src, e.g.
-  - src/commands/issue/issue-view.ts
-  - test/commands/issue/issue-view.test.ts
-- use `deno task test` instead of `deno test`, use `deno task snapshot` to update snapshots
-- use the NO_COLOR variable for snapshot tests so they don't include ansi escape codes
-- new feature should get tests
+- `crates/linear-cli/tests/cli/` (unix only; windows CI runs the unit tests) runs the built `linear` binary against a mock linear api (`support::MockLinear`) with a cleared environment, `NO_COLOR=1` and a sandboxed home directory (`support::Cli`). prefer these tests for command behavior; there is one module per command group
+- unit tests live next to the code in `tests.rs` submodules
+- new features should get tests

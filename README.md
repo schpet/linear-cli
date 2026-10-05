@@ -9,7 +9,7 @@ here's how it works:
 ```bash
 linear config               # setup your repo, it writes a config file
 
-linear issue mine           # list unstarted issues assigned to you
+linear issue list           # list unstarted issues assigned to you
 linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
 linear issue start          # choose an issue to start, creates a branch
@@ -24,9 +24,9 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 ## screencast demos
 
 <details>
-<summary><code>linear issue create</code></summary>
+<summary><code>linear issue create -i</code></summary>
 
-<img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create command, interactively adding issue details">
+<img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create -i command, interactively adding issue details">
 
 </details>
 
@@ -43,12 +43,6 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 
 ```
 brew install schpet/tap/linear
-```
-
-### deno via jsr
-
-```bash
-deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
 ```
 
 ### npm / bun / pnpm
@@ -74,17 +68,27 @@ bunx linear issue list
 
 package on npm: [@schpet/linear-cli](https://www.npmjs.com/package/@schpet/linear-cli)
 
+### shell installer
+
+for macOS and Linux:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/schpet/linear-cli/releases/latest/download/linear-installer.sh | sh
+```
+
 ### binaries
 
 https://github.com/schpet/linear-cli/releases/latest
 
-### local dev
+### from source
+
+with a [rust toolchain](https://rustup.rs) installed:
 
 ```bash
-git clone https://github.com/schpet/linear-cli
-cd linear-cli
-deno task install
+cargo install --locked --git https://github.com/schpet/linear-cli linear
 ```
+
+upgrading from 2.x? see [upgrading from 2.x](CHANGELOG.md#upgrading-from-2x) in the changelog.
 
 ## setup
 
@@ -138,17 +142,18 @@ linear issue list -a   # open issue list in Linear.app
 linear issue query --search "login bug"  # search issues by text in your configured team
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
-linear issue query --all-teams --json --limit 0  # export all issues as JSON
+linear issue query --all-teams --json --limit all  # export all issues as JSON
 linear issue start     # create/switch to issue branch and mark as started
-linear issue create    # create a new issue (interactive prompts)
+linear issue create    # create a new issue, asking for the title
+linear issue create -i # create a new issue, asking for every field
 linear issue create -t "title" -d "description"  # create with flags
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
 linear issue create --template "Bug report" -t "Login fails"  # create from a template (see template commands)
-linear issue update    # update an issue (interactive prompts)
+linear issue update ENG-123 -s started  # change only the fields you pass
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
 linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
-linear issue archive ENG-123 --confirm  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
-linear issue archive --confirm --bulk ENG-123 ENG-124  # archive several issues
+linear issue archive ENG-123 --yes  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
+linear issue archive --yes --bulk ENG-123 ENG-124  # archive several issues
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
@@ -182,7 +187,7 @@ linear issue comment add ENG-123 -a ./screenshot.png --public   # public image U
 ```bash
 linear team list       # list teams
 linear team list --json  # as JSON, e.g. to map a team name to its key or id in scripts
-linear team id         # print out the team id (e.g. for scripts)
+linear team id         # print the configured team key (e.g. for scripts)
 linear team members    # list team members
 linear team members --all --json  # include inactive members, as JSON
 linear team create     # create a new team
@@ -245,13 +250,14 @@ linear m list --project <projectId>             # list milestones (alias)
 linear milestone list --project <projectId> --json  # as JSON
 linear milestone view <milestoneId>             # view milestone details
 linear m view <milestoneId>                     # view milestone (alias)
-linear milestone view <milestoneId> --all --json  # every attached issue, as JSON
+linear milestone view <milestoneId> --all       # list every issue, not just the first 10
+linear milestone view <milestoneId> --json      # milestone with every issue, as JSON
 linear milestone create --project <projectId> --name "Q1 Goals" --target-date "2026-03-31"  # create a milestone
-linear m create --project <projectId>           # create a milestone (interactive)
+linear m create --project <projectId>           # create a milestone, asking for its name
 linear milestone update <milestoneId> --name "New Name"  # update milestone name
 linear m update <milestoneId> --target-date "2026-04-15"  # update target date
 linear milestone delete <milestoneId>           # delete a milestone
-linear m delete <milestoneId> --force           # delete without confirmation
+linear m delete <milestoneId> --yes             # delete without confirmation
 ```
 
 ### document commands
@@ -301,7 +307,6 @@ linear document update <slug> --content-file ./updated.md --force     # bypass c
 
 # delete a document
 linear document delete <slug>                   # soft delete (move to trash)
-linear document delete <slug> --permanent       # permanent delete
 linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
 
@@ -348,13 +353,14 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
 | PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
 
-the config file can be placed at (checked in order, first found is used):
+settings are read from two config files, a project file and a global file. each option takes the first value it finds in this order:
 
-- `./linear.toml` or `./.linear.toml` (current directory)
-- `<repo-root>/linear.toml` or `<repo-root>/.linear.toml` (repository root)
-- `<repo-root>/.config/linear.toml`
-- `$XDG_CONFIG_HOME/linear/linear.toml` or `~/.config/linear/linear.toml` (Unix)
-- `%APPDATA%\linear\linear.toml` (Windows)
+1. a command-line flag, where the command has one
+2. an environment variable, from the shell or a `.env` file (the shell wins)
+3. the project config file: the first that exists of `./linear.toml`, `./.linear.toml`, then `linear.toml`, `.linear.toml`, or `.config/linear.toml` at the repository root
+4. the global config file: `$XDG_CONFIG_HOME/linear/linear.toml` (or `~/.config/linear/linear.toml`) on macOS and Linux, `%APPDATA%\linear\linear.toml` on Windows
+
+so the global file can hold defaults such as `issue_sort`, and a repository's `.linear.toml` overrides them for that project. every value is validated, even one a higher tier overrides, and an invalid value is an error naming its file and key.
 
 ## skills
 
@@ -390,31 +396,29 @@ view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/sch
 
 ## development
 
+linear-cli is written in rust; the toolchain is pinned in `rust-toolchain.toml`. common tasks are in the `justfile`:
+
+```bash
+just dev issue list   # run the cli from source (cargo run -- issue list)
+just install          # install this checkout as `linear`
+just check            # cargo fmt --check, clippy, and tests, as CI runs them
+```
+
 ### updating skill documentation
 
-the skill documentation in `skills/linear-cli/` is automatically generated from the CLI help text. after making changes to commands or help text, regenerate the docs:
+the skill's command list and `skills/linear-cli/references/` are generated from the cli's help. edit `skills/linear-cli/SKILL.template.md`, then regenerate:
 
 ```bash
-deno task generate-skill-docs
+just skill-docs
 ```
 
-this will:
+### updating the graphql schema
 
-- discover all commands and subcommands from `linear --help`
-- generate reference documentation for each command
-- update the `SKILL.md` file from `SKILL.template.md`
-
-**important:** the CI checks will fail if the generated docs are out of date, so make sure to run this before committing changes that affect command structure or help text.
-
-### code formatting
-
-ensure code is formatted consistently:
+`graphql/schema.graphql` is linear's api schema, used to type-check every query at compile time. refresh it with a logged in cli:
 
 ```bash
-deno fmt
+just sync-schema
 ```
-
-the project uses deno's built-in formatter with configuration in `deno.json`. formatting is checked in CI.
 
 ## why
 

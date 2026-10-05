@@ -1,17 +1,21 @@
 # authentication
 
-the CLI supports multiple authentication methods with the following precedence:
+the CLI picks the API key for a command in this order:
 
-1. `--api-key` flag (explicit key for single command)
-2. `LINEAR_API_KEY` environment variable
-3. `api_key` in project `.linear.toml` config
-4. `--workspace` flag → stored credentials lookup
-5. project's `workspace` config → stored credentials lookup
-6. default workspace from stored credentials
+1. `LINEAR_API_KEY`, from the environment or a `.env` file. combining it with `--workspace` is an error, since the key already decides the workspace
+2. `api_key` in a `.linear.toml` config file
+3. the stored key of the workspace named by `--workspace`
+4. the stored key of the configured `workspace` (`.linear.toml` or `LINEAR_WORKSPACE`)
+5. the stored key of the default workspace in the credentials file
+
+workspace selection is strict: once a workspace is chosen by `--workspace`, the `workspace` setting, or the default, its stored key must be usable. if it is missing (for example, its keyring entry was deleted), the command fails and says where the choice came from instead of falling back to another workspace's key.
 
 ## stored credentials (recommended)
 
-API keys are stored in your system's native keyring (macOS Keychain, Linux libsecret, Windows CredentialManager). workspace metadata is stored in `~/.config/linear/credentials.toml`.
+API keys are stored in your system's native keyring (macOS Keychain, Linux libsecret, Windows Credential Manager). the list of workspaces and the default are stored in the credentials file:
+
+- macOS and Linux: `$XDG_CONFIG_HOME/linear/credentials.toml`, or `~/.config/linear/credentials.toml` when `XDG_CONFIG_HOME` is unset
+- Windows: `%APPDATA%\linear\credentials.toml`
 
 ### commands
 
@@ -22,7 +26,7 @@ linear auth list               # list configured workspaces
 linear auth default            # interactively set default workspace
 linear auth default <slug>     # set default workspace directly
 linear auth logout <slug>      # remove a workspace
-linear auth logout <slug> -f   # remove without confirmation
+linear auth logout <slug> --yes  # remove without confirmation
 linear auth whoami             # show current user and workspace
 linear auth token              # print the resolved API key
 ```
@@ -32,14 +36,14 @@ linear auth token              # print the resolved API key
 ```bash
 # first workspace becomes the default
 $ linear auth login
-Enter your Linear API key: ***
+API key: ********
 Logged in to workspace: Acme Corp (acme)
   User: Jane Developer <jane@acme.com>
   Set as default workspace
 
 # add additional workspaces
 $ linear auth login
-Enter your Linear API key: ***
+API key: ********
 Logged in to workspace: Side Project (side-project)
   User: Jane Developer <jane@example.com>
 ```
@@ -48,9 +52,9 @@ Logged in to workspace: Side Project (side-project)
 
 ```bash
 $ linear auth list
-  WORKSPACE    ORG NAME      USER
-* acme         Acme Corp     Jane Developer <jane@acme.com>
-  side-project Side Project  Jane Developer <jane@example.com>
+   WORKSPACE     ORGANIZATION  USER
+*  acme          Acme Corp     Jane Developer <jane@acme.com>
+   side-project  Side Project  Jane Developer <jane@example.com>
 ```
 
 the `*` indicates the default workspace.
@@ -69,12 +73,12 @@ linear --workspace acme issue create --title "Bug fix"
 ### credentials file format
 
 ```toml
-# ~/.config/linear/credentials.toml
+# credentials.toml
 default = "acme"
 workspaces = ["acme", "side-project"]
 ```
 
-API keys are not stored in this file. they are stored in the system keyring and loaded at startup.
+API keys are not stored in this file. they are stored in the system keyring and read when a command needs them, usually just the key of the selected workspace.
 
 ### platform requirements
 
@@ -88,7 +92,11 @@ if the keyring is unavailable, set `LINEAR_API_KEY` as a fallback.
 
 ### migrating from plaintext credentials
 
-older versions stored API keys directly in the TOML file. if the CLI detects this format, it will continue to work but print a warning. run `linear auth login` for each workspace to migrate keys to the system keyring.
+older versions stored API keys directly in the credentials file, and `linear auth login --plaintext` still does. that format keeps working. to move every key into the system keyring, run:
+
+```bash
+linear auth migrate
+```
 
 ## environment variable
 
@@ -105,8 +113,7 @@ set -Ux LINEAR_API_KEY "lin_api_..."
 this takes precedence over stored credentials. if you have `LINEAR_API_KEY` set and try to use `linear auth login`, you'll see a warning:
 
 ```
-Warning: LINEAR_API_KEY environment variable is set.
-It takes precedence over stored credentials.
+Warning: LINEAR_API_KEY is set and takes precedence over stored credentials.
 Remove it from your shell config to use multi-workspace auth.
 ```
 
