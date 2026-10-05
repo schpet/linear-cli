@@ -425,13 +425,21 @@ fn pull_request_with_a_missing_template_fails_before_any_request() {
 }
 
 #[test]
-fn pull_request_fails_when_gh_fails() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let run = Cli::for_api(&api)
-        .stub_bin("gh", "exit 5")
-        .run(&["issue", "pr", "ENG-7"]);
-    assert_eq!(run.code, 5, "{run}");
+fn pull_request_fails_with_status_1_when_gh_fails_and_130_when_it_is_cancelled() {
+    for (script, code) in [
+        ("echo 'To get started, run: gh auth login' >&2; exit 4", 1),
+        ("exit 2", 130),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetIssueDetails", details());
+        let run = Cli::for_api(&api)
+            .stub_bin("gh", script)
+            .run(&["issue", "pr", "ENG-7"]);
+        assert_eq!(run.code, code, "{run}");
+        if code == 1 {
+            run.stderr_has("gh auth login");
+        }
+    }
 }
 
 #[test]
@@ -476,7 +484,7 @@ fn commits_requires_jj() {
 }
 
 #[test]
-fn commits_drains_large_probe_output_and_passes_the_log_exit_status_through() {
+fn commits_drains_large_probe_output_and_fails_with_a_failed_log() {
     let api = MockLinear::start();
     api.on("GetIssueId", json!({ "issue": { "id": "issue-7" } }));
     // Children get a null stdin, and the probe output is larger than a pipe buffer on both
@@ -493,7 +501,7 @@ fn commits_drains_large_probe_output_and_passes_the_log_exit_status_through() {
              esac",
         );
     let run = cli.run(&["issue", "commits", "ENG-7"]);
-    assert_eq!(run.code, 7, "{run}");
+    run.failure();
     assert_eq!(run.stdout, "+patched line\n");
     assert_eq!(calls(&cli, "jj").len(), 2);
 }

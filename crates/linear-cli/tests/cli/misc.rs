@@ -96,6 +96,17 @@ fn unknown_subcommands_suggest_real_names_only() {
 }
 
 #[test]
+fn unknown_flags_suggest_the_flag_rather_than_a_hidden_alias() {
+    for typo in ["--confrm", "--forc"] {
+        let run = Cli::new().run(&["issue", "delete", typo, "ENG-1"]);
+        run.usage_error()
+            .stderr_has("a similar argument exists: '--yes'");
+        assert!(!run.stderr.contains("'--confirm'"), "{}", run.stderr);
+        assert!(!run.stderr.contains("'--force'"), "{}", run.stderr);
+    }
+}
+
+#[test]
 fn completion_requests_skip_hidden_flags_and_configuration() {
     let cli = Cli::new()
         .env("COMPLETE", "fish")

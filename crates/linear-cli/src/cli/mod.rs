@@ -214,8 +214,54 @@ pub fn parse() -> Cli {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
     Cli::try_parse_from(&args).unwrap_or_else(|error| {
         let command = command();
-        suggest_names(error, &command, &args).exit()
+        let error = suggest_names(error, &command, &args);
+        suggest_flag_names(error, &command, &args).exit()
     })
+}
+
+/// The commands `args` names, from the root down to the deepest one found.
+fn command_path<'a>(root: &'a Command, args: &[std::ffi::OsString]) -> Vec<&'a Command> {
+    let mut path = vec![root];
+    for arg in args.iter().skip(1).filter_map(|arg| arg.to_str()) {
+        let current = *path.last().expect("the path starts at the root");
+        if let Some(subcommand) = current.find_subcommand(arg) {
+            path.push(subcommand);
+        }
+    }
+    path
+}
+
+/// An unknown flag's "similar argument" tip names the flag itself, not a
+/// hidden alias of it (`--confirm` is kept for old scripts; `--yes` is the
+/// flag the usage line and help show).
+fn suggest_flag_names(
+    mut error: clap::Error,
+    root: &Command,
+    args: &[std::ffi::OsString],
+) -> clap::Error {
+    use clap::error::{ContextKind, ContextValue};
+
+    let Some(ContextValue::String(suggested)) = error.get(ContextKind::SuggestedArg) else {
+        return error;
+    };
+    let Some(alias) = suggested.strip_prefix("--") else {
+        return error;
+    };
+    let canonical = command_path(root, args)
+        .into_iter()
+        .flat_map(Command::get_arguments)
+        .find(|arg| {
+            arg.get_all_aliases()
+                .is_some_and(|aliases| aliases.contains(&alias))
+        })
+        .and_then(clap::Arg::get_long);
+    if let Some(long) = canonical {
+        error.insert(
+            ContextKind::SuggestedArg,
+            ContextValue::String(format!("--{long}")),
+        );
+    }
+    error
 }
 
 /// An unknown subcommand's "similar subcommand" tip names only real
@@ -231,13 +277,9 @@ fn suggest_names(
     let Some(ContextValue::Strings(suggested)) = error.get(ContextKind::SuggestedSubcommand) else {
         return error;
     };
-    let parent = args
-        .iter()
-        .skip(1)
-        .filter_map(|arg| arg.to_str())
-        .fold(root, |command, arg| {
-            command.find_subcommand(arg).unwrap_or(command)
-        });
+    let parent = *command_path(root, args)
+        .last()
+        .expect("the path starts at the root");
     let names: Vec<String> = suggested
         .iter()
         .filter(|name| {

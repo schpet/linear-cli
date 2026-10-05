@@ -58,18 +58,23 @@ pub fn failed(command: &Command, status: ExitStatus, stderr: &[u8]) -> Error {
     Error::new(message)
 }
 
-/// Exits with a failed child's status, after it has reported its own failure.
-/// A child killed by a signal exits with 128 plus the signal number.
-pub fn exit_like(status: ExitStatus) -> Result<()> {
+/// Fails quietly when a child attached to the terminal failed, since it
+/// reported its own failure there: with status 1, or 128 plus the signal
+/// number for a child killed by a signal (130 for Ctrl-C), as a child that
+/// exits 130 itself was interrupted too.
+pub fn check_attached(status: ExitStatus) -> Result<()> {
     if status.success() {
         return Ok(());
     }
-    let code = status.code().or_else(|| signal(status)?.checked_add(128));
-    let code = code
-        .and_then(|code| u8::try_from(code).ok())
-        .and_then(NonZeroU8::new)
-        .unwrap_or(NonZeroU8::MIN);
-    Err(Error::exit(code))
+    let interrupted = match status.code() {
+        Some(130) => NonZeroU8::new(130),
+        Some(_) => None,
+        None => signal(status)
+            .and_then(|signal| signal.checked_add(128))
+            .and_then(|code| u8::try_from(code).ok())
+            .and_then(NonZeroU8::new),
+    };
+    Err(interrupted.map_or_else(Error::reported, Error::exit))
 }
 
 #[cfg(unix)]
@@ -126,11 +131,18 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn a_failed_child_status_becomes_the_exit_status() {
+    fn a_failed_attached_child_fails_with_status_1_unless_interrupted() {
         use std::os::unix::process::ExitStatusExt;
-        for (raw, expected) in [(0, 0), (7 << 8, 7), (255 << 8, 255), (15, 143)] {
+        for (raw, expected) in [
+            (0, 0),
+            (7 << 8, 1),
+            (255 << 8, 1),
+            (130 << 8, 130),
+            (2, 130),
+            (15, 143),
+        ] {
             let status = ExitStatus::from_raw(raw);
-            let code = exit_like(status).map_or_else(|error| error.exit_code(), |()| 0);
+            let code = check_attached(status).map_or_else(|error| error.exit_code(), |()| 0);
             assert_eq!(code, expected, "{status:?}");
         }
     }

@@ -675,14 +675,14 @@ fn autolinks_looks_up_the_workspace_for_an_api_key() {
 }
 
 #[test]
-fn autolinks_exits_with_the_status_of_a_failed_gh() {
+fn autolinks_fails_with_status_1_and_gh_s_error_when_gh_fails() {
     let cli = Cli::new()
         .env("LINEAR_TEAM_ID", "ENG")
         .env("LINEAR_WORKSPACE", "acme")
         .stub_bin("gh", "echo 'HTTP 422' >&2; exit 4");
-    let run = cli.run(&["team", "autolinks"]);
-    assert_eq!(run.code, 4, "{run}");
-    run.stderr_has("HTTP 422");
+    cli.run(&["team", "autolinks"])
+        .failure()
+        .stderr_has("HTTP 422");
 }
 
 #[test]

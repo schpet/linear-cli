@@ -31,7 +31,7 @@ fn show_commits(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
         return Err(Error::not_found("Commits", &identifier));
     }
     // jj reports its own failures, so its exit status becomes ours.
-    process::exit_like(process::status(jj().args([
+    process::check_attached(process::status(jj().args([
         "log",
         "-r",
         &revset,
