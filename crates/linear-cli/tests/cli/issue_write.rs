@@ -644,9 +644,10 @@ fn archive_bulk_archives_each_issue() {
             json!({ "issueArchive": { "success": true } }),
         );
     }
-    Cli::for_api(&api)
-        .run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-2"])
-        .success();
+    let run = Cli::for_api(&api).run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-2"]);
+    run.success();
+    // stdout is only the summary; the blank line before it is on stderr.
+    assert_eq!(run.stdout, "✓ Successfully archived 2 issues\n");
     let mut archived: Vec<Value> = api
         .requests()
         .into_iter()

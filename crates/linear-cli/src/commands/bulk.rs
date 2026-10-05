@@ -213,6 +213,9 @@ where
 /// Prints the outcome of every item and fails (already reported) when any did.
 pub fn report(ctx: &Ctx, results: &[BulkResult], noun: &str, verb: Verb) -> Result<()> {
     let (summary, failed) = summary(results, noun, verb);
+    // The blank line sets the summary off from the listing and progress on
+    // stderr; on stdout it would be the first line a script reads.
+    ctx.eprint("\n")?;
     ctx.print(summary)?;
     if failed {
         return Err(Error::reported());
@@ -227,7 +230,7 @@ pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, bool)
     let succeeded = results.iter().filter(|row| row.succeeded()).count();
     let failed = total - succeeded;
     let count = |n: usize| count(n, noun);
-    let mut output = String::from("\n");
+    let mut output = String::new();
     if failed == 0 {
         output.push_str(&format!(
             "✓ Successfully {} {}\n",
@@ -295,12 +298,12 @@ mod tests {
         let failed = row("ENG-2", BulkOutcome::Failed("Issue not found".to_owned()));
         assert_eq!(
             summary(std::slice::from_ref(&ok), "issue", ARCHIVE),
-            ("\n✓ Successfully archived 1 issue\n".to_owned(), false)
+            ("✓ Successfully archived 1 issue\n".to_owned(), false)
         );
         assert_eq!(
             summary(&[ok, failed.clone()], "issue", ARCHIVE),
             (
-                "\nCompleted: 1/2 issues archived\n  ✓ Succeeded: 1\n  ✗ Failed: 1\n\nFailed operations:\n  - ENG-2 (ENG-2: Title): Issue not found\n"
+                "Completed: 1/2 issues archived\n  ✓ Succeeded: 1\n  ✗ Failed: 1\n\nFailed operations:\n  - ENG-2 (ENG-2: Title): Issue not found\n"
                     .to_owned(),
                 true
             )
@@ -308,7 +311,7 @@ mod tests {
         assert!(
             summary(&[failed], "issue", ARCHIVE)
                 .0
-                .starts_with("\n✗ Failed to archive all 1 issue\n")
+                .starts_with("✗ Failed to archive all 1 issue\n")
         );
     }
 

@@ -163,6 +163,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - `milestone create` without `--project` picks the project from a list on a terminal, like `project view`, and off a terminal is a usage error naming `--project` instead of a clap error
 - prompts read alike: every delete, archive, and unarchive asks `Delete project "Mobile"?` style questions instead of a mix with "Are you sure you want to…", the `issue create -i` wizard asks `What next?` and asks `Start working on this issue now? (y/N)` as a yes/no question, prompt validation errors start with a capital letter, and a lead or owner that is not found is shown under the question asked again (starting from the refused answer) and cleared once it is edited, like an invalid date. `project list` words its DATE column alike (`Start 2026-09-01`, `Target 2026-12-31`, `Completed 3 days ago`)
 - when `gh` (run by `issue pull-request` and `team autolinks`) or the `jj log` of `issue commits` fails, the command fails with status 1 after the tool's own error, instead of passing on its status code (such as `gh`'s 4 for missing authentication); a cancelled or interrupted `gh` exits 130. A mistyped flag's "similar argument" tip names the flag (`--yes`) rather than a hidden alias such as `--confirm`
+- the summary of a `--bulk` run is the first thing on stdout; the blank line that sets it off from the listing and progress is written to stderr
 
 ## [2.6.0] - 2026-09-02
 
