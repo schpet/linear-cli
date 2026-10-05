@@ -58,6 +58,7 @@ impl<'a> Prompter<'a> {
             color: self.color,
             check: &check,
             format: &format,
+            retry: text.retry,
         })?
         .ok_or_else(Error::cancelled)?;
         Ok(text
@@ -97,6 +98,7 @@ impl<'a> Prompter<'a> {
             color: self.color,
             check: &|_| Ok(()),
             format: &str::to_owned,
+            retry: None,
         })?
         .ok_or_else(Error::cancelled)?;
         Ok(answer.trim().to_owned())
@@ -121,6 +123,7 @@ impl<'a> Prompter<'a> {
             color: self.color,
             check: &check,
             format: &format,
+            retry: None,
         })?
         .ok_or_else(Error::cancelled)?;
         Ok(yes_no(&raw, default).expect("the prompt only accepts y or n"))
@@ -285,6 +288,7 @@ pub struct Text<'a> {
     default: Option<&'a str>,
     required: bool,
     check: Option<Check<'a>>,
+    retry: Option<(&'a str, &'a str)>,
 }
 
 impl<'a> Text<'a> {
@@ -294,6 +298,7 @@ impl<'a> Text<'a> {
             default: None,
             required: false,
             check: None,
+            retry: None,
         }
     }
 
@@ -322,6 +327,17 @@ impl<'a> Text<'a> {
     pub fn with_check(self, check: Check<'a>) -> Self {
         Self {
             check: Some(check),
+            ..self
+        }
+    }
+
+    /// Asks again after the answer `input` was refused for `reason` once
+    /// submitted (say, because nothing it names exists): the question takes
+    /// the place of that answer's line, starting from it, with the reason
+    /// shown under it as for an answer the prompt itself refuses.
+    pub fn with_retry(self, input: &'a str, reason: &'a str) -> Self {
+        Self {
+            retry: Some((input, reason)),
             ..self
         }
     }

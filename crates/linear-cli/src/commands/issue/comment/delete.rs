@@ -43,10 +43,7 @@ fn delete(ctx: &Ctx, args: &IssueCommentDelete) -> Result<()> {
 fn question(comment: &CommentForDelete) -> String {
     let start = truncate(&single_line(comment.body.trim()), 40);
     match &comment.issue {
-        Some(issue) => format!(
-            "Are you sure you want to delete the comment on {} (\"{start}\")?",
-            issue.identifier
-        ),
-        None => format!("Are you sure you want to delete the comment \"{start}\"?"),
+        Some(issue) => format!("Delete comment \"{start}\" on {}?", issue.identifier),
+        None => format!("Delete comment \"{start}\"?"),
     }
 }

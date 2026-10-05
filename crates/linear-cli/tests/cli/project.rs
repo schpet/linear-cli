@@ -533,7 +533,7 @@ fn delete_asks_with_the_project_name_after_resolving_it() {
     Cli::for_api(&api)
         .run_tty(
             &["project", "delete", "mobile app"],
-            &[("delete project \"Mobile App\"? (y/N)", "\r")],
+            &[("Delete project \"Mobile App\"? (y/N)", "\r")],
         )
         .success()
         .stdout_has("Canceled.");
@@ -1012,8 +1012,8 @@ fn create_interactive_asks_for_the_lead_again_until_it_is_found() {
         ],
         &[
             ("Lead", "nobody\r"),
-            ("Lead not found: nobody", ""),
-            ("Lead", "ada\r"),
+            // Asked again with the refused answer to edit.
+            ("Lead not found: nobody", "\u{15}ada\r"),
             ("Create project \"Typed\"? (y/N)", "\r"),
         ],
     );

@@ -260,7 +260,7 @@ fn prompt(
         Content::Editor => {
             let body = text_input::edited_body(&ctx.edit_text("")?);
             if let Some(body) = &body {
-                ctx.print(format!(
+                ctx.eprint(format!(
                     "Content entered ({} characters)\n",
                     body.chars().count()
                 ))?;

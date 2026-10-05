@@ -244,7 +244,7 @@ fn relation_delete_asks_first_and_defaults_to_no() {
     Cli::for_api(&api)
         .run_tty(
             &["issue", "relation", "delete", "ENG-1", "blocks", "ENG-2"],
-            &[("delete the relation ENG-1 blocks ENG-2? (y/N)", "\r")],
+            &[("Delete relation ENG-1 blocks ENG-2? (y/N)", "\r")],
         )
         .success()
         .stdout_has("Canceled.");

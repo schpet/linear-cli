@@ -22,13 +22,6 @@ enum Next {
     MoreFields,
 }
 
-fn yes_no<U: Ui>(ui: &mut U, message: &str, default: bool) -> Result<bool, Error> {
-    ui.choose(
-        message,
-        vec![Choice::new("No", false), Choice::new("Yes", true)],
-        usize::from(default),
-    )
-}
 fn project_menu<U: Ui>(
     ui: &mut U,
     team: &crate::refs::team::ResolvedTeam,
@@ -275,7 +268,7 @@ pub async fn prompt<B: Backend, U: Ui>(
         project = project_menu(ui, &team, &projects)?;
     }
     let next = ui.choose(
-        "Next:",
+        "What next?",
         vec![
             Choice::new("Submit issue", Next::Submit),
             Choice::new("Add more fields", Next::MoreFields),
@@ -307,11 +300,7 @@ pub async fn prompt<B: Backend, U: Ui>(
             project = more.project.clone().or(project);
         }
     }
-    let start = yes_no(
-        ui,
-        "Start working on this issue now? (creates branch and updates status)",
-        false,
-    )?;
+    let start = ui.confirm("Start working on this issue now?", false)?;
     let project = project.or_else(|| parent_data.and_then(|Parent { project_id, .. }| project_id));
     Ok(Interactive {
         start,

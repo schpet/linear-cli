@@ -55,10 +55,7 @@ fn delete(ctx: &Ctx, args: &TeamDelete) -> Result<()> {
             team.key,
             team.name
         ),
-        None => format!(
-            "Are you sure you want to delete team \"{}: {}\"?",
-            team.key, team.name
-        ),
+        None => format!("Delete team \"{}: {}\"?", team.key, team.name),
     };
     if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());

@@ -31,7 +31,7 @@ fn delete(ctx: &Ctx, args: &DocumentDelete) -> Result<()> {
             .await?
             .ok_or_else(|| Error::not_found("Document", original))
     })?;
-    let question = format!("Are you sure you want to delete \"{}\"?", document.title);
+    let question = format!("Delete document \"{}\"?", document.title);
     if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }

@@ -205,12 +205,13 @@ pub(super) fn priority_label(priority: i32) -> String {
     }
 }
 
-/// The date that matters for the project's status, like "Started 3 days ago".
+/// The date that matters for the project's status: an event like "Started 3
+/// days ago", or a planned date like "Target 2026-12-31".
 fn display_date(project: &Project, now: SystemTime) -> String {
     let relative = |label: &str, date: &DateTime| {
         format!("{label} {}", ago(date.0, now.into(), &chrono::Local))
     };
-    let planned = |label: &str, date: &TimelessDate| format!("{label}: {date}");
+    let planned = |label: &str, date: &TimelessDate| format!("{label} {date}");
     let updated = || relative("Updated", &project.updated_at);
     let created = || relative("Created", &project.created_at);
     match &project.status.status_type {
@@ -222,7 +223,7 @@ fn display_date(project: &Project, now: SystemTime) -> String {
         ProjectStatusType::Completed => project
             .completed_at
             .as_ref()
-            .map_or_else(updated, |date| relative("Done", date)),
+            .map_or_else(updated, |date| relative("Completed", date)),
         ProjectStatusType::Canceled => project
             .canceled_at
             .as_ref()

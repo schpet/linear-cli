@@ -349,7 +349,7 @@ fn delete_names_the_comment_and_defaults_to_no_on_a_terminal() {
         .run_tty(
             &["issue", "comment", "delete", COMMENT_ID],
             &[(
-                "delete the comment on ENG-7 (\"Looks good Ship it\")? (y/N)",
+                "Delete comment \"Looks good Ship it\" on ENG-7? (y/N)",
                 "\r",
             )],
         )

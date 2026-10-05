@@ -101,7 +101,7 @@ fn confirm_single(ctx: &Ctx, mode: Mode, name: &str) -> Result<bool> {
         Mode::Archive => format!("Archive initiative \"{name}\"?"),
         Mode::Delete => {
             ctx.eprint(PERMANENT)?;
-            format!("Are you sure you want to permanently delete \"{name}\"?")
+            format!("Permanently delete initiative \"{name}\"?")
         }
     };
     if !ctx.confirm(&question, "--yes")? {

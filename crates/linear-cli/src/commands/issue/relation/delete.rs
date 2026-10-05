@@ -19,7 +19,7 @@ fn delete(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
     let label = super::label(args.relation_type, &a, &b);
     let client = ctx.client()?;
     let id = ctx.spin(true, find(client, args.relation_type, &a, &b))?;
-    let question = format!("Are you sure you want to delete the relation {label}?");
+    let question = format!("Delete relation {label}?");
     if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }

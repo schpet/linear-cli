@@ -45,11 +45,7 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
             details.name()
         ));
     }
-    let question = format!(
-        "Are you sure you want to {} \"{}\"?",
-        mode.verb(),
-        details.name()
-    );
+    let question = format!("{} issue \"{}\"?", mode.title(), details.name());
     if !request.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }

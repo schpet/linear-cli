@@ -206,6 +206,10 @@ impl Ui for Prompts<'_> {
         self.ask(|prompter| prompter.multi_select(message, choices))
     }
 
+    fn confirm(&mut self, message: &str, default: bool) -> Result<bool> {
+        self.ask(|prompter| prompter.confirm(message, default))
+    }
+
     fn note(&mut self, text: &str) -> Result<()> {
         let spinning = self.spinner.is_some();
         self.pause();

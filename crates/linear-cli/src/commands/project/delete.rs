@@ -23,10 +23,7 @@ fn delete(ctx: &Ctx, args: &ProjectDelete) -> Result<()> {
             .map_err(|failure| failure.or_not_found("Project", original))?;
         Ok::<_, Error>(data.project)
     })?;
-    let question = format!(
-        "Are you sure you want to delete project \"{}\"?",
-        project.name
-    );
+    let question = format!("Delete project \"{}\"?", project.name);
     if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }

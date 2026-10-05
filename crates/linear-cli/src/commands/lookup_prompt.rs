@@ -34,6 +34,9 @@ where
 
 /// Asks `message` for a user (blank for none) until the answer names
 /// exactly one; `role` names the user in a not-found error, like "Lead".
+/// A failed lookup is shown under the question asked again, which starts
+/// from the refused answer, the way the prompt shows an answer it refuses
+/// itself.
 pub fn ask_user(
     ctx: &Ctx,
     prompter: &Prompter<'_>,
@@ -41,11 +44,25 @@ pub fn ask_user(
     role: &str,
 ) -> Result<Option<String>> {
     let client = ctx.client()?;
-    ask_until_found(
-        ctx,
-        || prompter.parsed(Text::new(message), &str::parse::<UserRef>),
-        |user| async move { refs::user::resolve(client, &user, role).await },
-    )
+    let check = |raw: &str| raw.parse::<UserRef>().map(drop);
+    let mut refused: Option<(String, String)> = None;
+    loop {
+        let mut text = Text::new(message).with_check(&check);
+        if let Some((input, reason)) = &refused {
+            text = text.with_retry(input, reason);
+        }
+        let answer = prompter.text(text)?;
+        if answer.is_empty() {
+            return Ok(None);
+        }
+        let user: UserRef = answer
+            .parse()
+            .expect("the prompt only accepts answers that parse");
+        match ctx.spin(true, refs::user::resolve(client, &user, role)) {
+            Ok(id) => return Ok(Some(id)),
+            Err(error) => refused = Some((answer, error.message().to_owned())),
+        }
+    }
 }
 
 fn show(ctx: &Ctx, error: &Error) -> Result<()> {

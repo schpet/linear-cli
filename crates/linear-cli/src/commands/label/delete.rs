@@ -56,10 +56,7 @@ fn delete(ctx: &Ctx, args: &LabelDelete) -> Result<()> {
         [label] => label.clone(),
         _ => choose(ctx, reference, &labels)?,
     };
-    let question = format!(
-        "Are you sure you want to delete label \"{}\"?",
-        display(&label)
-    );
+    let question = format!("Delete label \"{}\"?", display(&label));
     if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }

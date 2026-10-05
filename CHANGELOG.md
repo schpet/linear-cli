@@ -161,6 +161,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - pickers tell apart choices that share a name: projects in `issue create -i` and in the "did you mean" suggestions for an unknown `--project` show their slug ID, and labels show their team (or `workspace`).
 - a Markdown table on a terminal too narrow for its columns prints one `Header: value` record per row as soon as a grid would split a word, instead of drawing a grid of broken words. Select prompts keep their question short, since a list prompt cannot wrap at words: the "did you mean" project suggestions, the existing-branch choice of `issue start`, and the same-named label choice of `label delete` print their context on a line of their own first
 - `milestone create` without `--project` picks the project from a list on a terminal, like `project view`, and off a terminal is a usage error naming `--project` instead of a clap error
+- prompts read alike: every delete, archive, and unarchive asks `Delete project "Mobile"?` style questions instead of a mix with "Are you sure you want to…", the `issue create -i` wizard asks `What next?` and asks `Start working on this issue now? (y/N)` as a yes/no question, prompt validation errors start with a capital letter, and a lead or owner that is not found is shown under the question asked again (starting from the refused answer) and cleared once it is edited, like an invalid date. `project list` words its DATE column alike (`Start 2026-09-01`, `Target 2026-12-31`, `Completed 3 days ago`)
 
 ## [2.6.0] - 2026-09-02
 

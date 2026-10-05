@@ -230,6 +230,15 @@ impl Ui for Script {
             .map(|(_, choice)| choice.value)
             .collect())
     }
+    fn confirm(&mut self, message: &str, default: bool) -> Result<bool, Error> {
+        self.shown.push(message.into());
+        match self.answers.pop_front().expect("an answer") {
+            "" => Ok(default),
+            "Yes" => Ok(true),
+            "No" => Ok(false),
+            answer => panic!("{answer:?} does not answer a yes/no question"),
+        }
+    }
     fn note(&mut self, text: &str) -> Result<(), Error> {
         self.shown.push(text.into());
         Ok(())
@@ -475,11 +484,7 @@ async fn declining_self_assignment_overrides_the_auto_assignment() {
     .await
     .expect("issue input");
     ui.done();
-    assert_eq!(
-        ui.defaults,
-        [0, 1, 0],
-        "the assignee question defaults to yes"
-    );
+    assert_eq!(ui.defaults, [0, 1], "the assignee question defaults to yes");
     assert!(input(created).get("assigneeId").is_none());
 }
 
@@ -500,7 +505,11 @@ async fn empty_state_and_label_lists_skip_their_selection_prompts() {
     .await
     .expect("issue input");
     ui.done();
-    assert_eq!(ui.menus.len(), 3, "next action, fields and start only");
+    assert_eq!(ui.menus.len(), 2, "next action and fields only");
+    assert_eq!(
+        ui.shown.last().map(String::as_str),
+        Some("Start working on this issue now?")
+    );
     assert!(
         ui.shown
             .contains(&"Team ENG has no workflow states to choose from.\n".to_owned())

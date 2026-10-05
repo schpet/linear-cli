@@ -25,7 +25,7 @@ fn delete(ctx: &Ctx, args: &MilestoneDelete) -> Result<()> {
         .project_milestone
         .ok_or_else(|| Error::not_found("Milestone", id))?;
     let question = format!(
-        "Are you sure you want to delete milestone \"{}\" of project \"{}\"?",
+        "Delete milestone \"{}\" of project \"{}\"?",
         milestone.name, milestone.project.name
     );
     if !confirm::proceed(ctx, args.confirm.yes, &question)? {

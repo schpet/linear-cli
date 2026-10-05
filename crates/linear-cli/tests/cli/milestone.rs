@@ -606,7 +606,7 @@ fn delete_names_the_milestone_and_its_project_on_a_terminal() {
         .run_tty(
             &["milestone", "delete", MILESTONE_ID],
             &[(
-                "delete milestone \"Beta\" of project \"Mobile\"? (y/N)",
+                "Delete milestone \"Beta\" of project \"Mobile\"? (y/N)",
                 "\r",
             )],
         )

@@ -28,7 +28,7 @@ fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
     if detail.archived_at.is_none() {
         return ctx.print(format!("Initiative \"{}\" is not archived.\n", detail.name));
     }
-    let question = format!("Are you sure you want to unarchive \"{}\"?", detail.name);
+    let question = format!("Unarchive initiative \"{}\"?", detail.name);
     if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
         return outcome::canceled(ctx);
     }

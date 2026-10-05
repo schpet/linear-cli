@@ -28,6 +28,10 @@ pub struct LinePrompt<'a> {
     pub check: &'a dyn Fn(&str) -> std::result::Result<(), String>,
     /// The answer as shown once submitted.
     pub format: &'a dyn Fn(&str) -> String,
+    /// An earlier answer to this question that was submitted and then
+    /// refused, with why. The prompt replaces the line that answer left,
+    /// starts with it as the input, and shows the reason until it is edited.
+    pub retry: Option<(&'a str, &'a str)>,
 }
 
 /// Asks `prompt` on the terminal: the raw input submitted, or `None` when
@@ -45,6 +49,14 @@ fn run(prompt: &LinePrompt<'_>) -> io::Result<Option<String>> {
     };
     let mut buffer = LineBuffer::default();
     let mut error: Option<String> = None;
+    if let Some((input, reason)) = prompt.retry {
+        let answered = 2 + prompt.message.width() + 1 + (prompt.format)(input).width();
+        screen.cursor_row = answered.div_ceil(Screen::columns()).max(1);
+        for ch in input.chars() {
+            buffer.apply(Edit::Insert(ch));
+        }
+        error = Some(reason.to_owned());
+    }
     loop {
         screen.draw(&prompt.frame(&buffer, error.as_deref()))?;
         let command = match event::read()? {
@@ -149,7 +161,14 @@ impl LinePrompt<'_> {
             question_width + input_width + 1,
         )];
         if let Some(error) = error {
-            let text = format!("✗ {error}");
+            // Parsers shared with clap word their errors in lowercase, as
+            // clap's own do; under a prompt they read as sentences.
+            let mut chars = error.chars();
+            let sentence: String = chars
+                .next()
+                .map(|first| first.to_uppercase().chain(chars).collect())
+                .unwrap_or_default();
+            let text = format!("✗ {sentence}");
             let width = text.width();
             lines.push((self.paint(&text, Style::new().red().bright()), width));
         }
@@ -456,6 +475,24 @@ mod tests {
 
     fn key(code: KeyCode, modifiers: KeyModifiers) -> Command {
         command(KeyEvent::new(code, modifiers))
+    }
+
+    #[test]
+    fn errors_under_the_input_read_as_sentences() {
+        let prompt = LinePrompt {
+            message: "Due date:",
+            hint: None,
+            placeholder: None,
+            help: None,
+            masked: false,
+            color: false,
+            check: &|_| Ok(()),
+            format: &str::to_owned,
+            retry: None,
+        };
+        let frame = prompt.frame(&typed("soon"), Some("expected a YYYY-MM-DD date"));
+        assert_eq!(frame.lines[0].0, "? Due date: soon ");
+        assert_eq!(frame.lines[1].0, "✗ Expected a YYYY-MM-DD date");
     }
 
     #[test]

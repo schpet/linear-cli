@@ -1091,7 +1091,7 @@ fn run_wizard(api: &MockLinear, last: &str) -> Run {
             &[
                 ("Title:", "Fix it\r"),
                 ("Description (optional", "\r"),
-                ("Next:", "\r"),
+                ("What next?", "\r"),
                 ("Start working on this issue now?", "\r"),
                 ("Create issue \"Fix it\" in ENG? (y/N)", last),
             ],
@@ -1123,7 +1123,7 @@ fn the_create_wizard_offers_every_team_and_workspace_label() {
             &[
                 ("Title:", "Fix it\r"),
                 ("Description (optional", "\r"),
-                ("Next:", &format!("{down}\r")),
+                ("What next?", &format!("{down}\r")),
                 ("More fields:", &format!("{down}{down}{down} \r")),
                 ("Customer", &format!("{down} \r")),
                 ("Start working on this issue now?", "\r"),
