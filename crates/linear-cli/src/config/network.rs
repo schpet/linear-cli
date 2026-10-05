@@ -1,0 +1,96 @@
+//! Network settings read from the process environment at startup.
+//!
+//! Proxy variables are not captured here: reqwest reads `HTTP_PROXY`,
+//! `HTTPS_PROXY`, `ALL_PROXY` and `NO_PROXY` (either case) itself.
+use std::path::PathBuf;
+
+use crate::client::ClientConfig;
+
+use super::runtime::ProcessEnvSnapshot;
+
+/// The process environment values that shape the API client.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct NetworkEnv {
+    ca_bundle: Option<PathBuf>,
+}
+
+impl NetworkEnv {
+    pub fn from_process(process: &ProcessEnvSnapshot) -> Self {
+        let env = |name| {
+            process
+                .inputs
+                .env(name)
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        };
+        // DENO_CERT is a deprecated alias kept for users upgrading from 2.x.
+        let ca_bundle = env("SSL_CERT_FILE").or_else(|| env("DENO_CERT"));
+        Self { ca_bundle }
+    }
+
+    /// The client configuration, with default deadlines and size caps.
+    pub fn client_config(&self) -> ClientConfig {
+        ClientConfig {
+            ca_bundle: self.ca_bundle.clone(),
+            ..ClientConfig::default()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsString;
+    use std::path::Path;
+
+    use super::*;
+    use crate::client::{Deadline, ResponseCap};
+    use crate::config::OsFamily;
+
+    fn client_config(vars: &[(&str, &str)]) -> ClientConfig {
+        let snapshot = ProcessEnvSnapshot::from_vars_os(
+            PathBuf::from("/work"),
+            OsFamily::Unix,
+            vars.iter()
+                .map(|(name, value)| (OsString::from(name), OsString::from(value))),
+        )
+        .expect("process environment");
+        NetworkEnv::from_process(&snapshot).client_config()
+    }
+
+    #[test]
+    fn defaults_apply_without_a_ca_bundle() {
+        for vars in [
+            &[][..],
+            &[("SSL_CERT_FILE", ""), ("DENO_CERT", "")],
+            &[("HTTPS_PROXY", "http://proxy.example:3128")],
+        ] {
+            let config = client_config(vars);
+            assert_eq!(config.ca_bundle, None);
+            assert_eq!(config.deadline, Deadline::DEFAULT);
+            assert_eq!(config.max_response_bytes, ResponseCap::DEFAULT);
+        }
+    }
+
+    #[test]
+    fn ssl_cert_file_adds_a_ca_bundle() {
+        let config = client_config(&[("SSL_CERT_FILE", "certs/ca.pem")]);
+        assert_eq!(config.ca_bundle.as_deref(), Some(Path::new("certs/ca.pem")));
+    }
+
+    #[test]
+    fn the_legacy_cert_variable_is_a_fallback_for_ssl_cert_file() {
+        let config = client_config(&[("DENO_CERT", "/legacy/ca.pem")]);
+        assert_eq!(
+            config.ca_bundle.as_deref(),
+            Some(Path::new("/legacy/ca.pem"))
+        );
+        let config = client_config(&[
+            ("DENO_CERT", "/legacy/ca.pem"),
+            ("SSL_CERT_FILE", "/current/ca.pem"),
+        ]);
+        assert_eq!(
+            config.ca_bundle.as_deref(),
+            Some(Path::new("/current/ca.pem"))
+        );
+    }
+}

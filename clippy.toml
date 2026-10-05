@@ -1,0 +1,4 @@
+# Tests may index, unwrap and panic freely; production code may not (see lib.rs).
+allow-indexing-slicing-in-tests = true
+allow-panic-in-tests = true
+allow-unwrap-in-tests = true

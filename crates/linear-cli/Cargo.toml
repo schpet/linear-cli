@@ -1,0 +1,70 @@
+[package]
+name = "linear"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Work with Linear issues, projects and teams from the command line"
+
+[dependencies]
+linear-schema = { path = "../linear-schema" }
+clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "string", "error-context", "derive", "suggestions", "wrap_help"] }
+clap_complete = { version = "4.6.11", default-features = false, features = ["unstable-dynamic"] }
+unicode-width = "0.2.2"
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
+icu_collator = { version = "2.3.1", default-features = false, features = ["compiled_data"] }
+terminal_size = "0.4.4"
+console = { version = "0.16.6", default-features = false, features = ["std"] }
+pulldown-cmark = { version = "0.13.4", default-features = false }
+gethostname = "1.1.0"
+cynic = { version = "3.14.0", default-features = false, features = ["rkyv"] }
+cynic-introspection = "3.14"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+toml = { version = "1.0.3", default-features = false, features = ["parse", "display", "std", "serde", "preserve_order"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "gzip", "brotli", "deflate"] }
+tokio = { version = "1.47.4", default-features = false, features = ["rt", "time", "macros", "net", "process", "io-util"] }
+
+sha2 = { version = "0.11.0", default-features = false }
+
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+inquire = { version = "0.9", default-features = false, features = ["crossterm"] }
+crossterm = "0.29"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.189"
+signal-hook = { version = "0.3.18", default-features = false }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1.47.4", default-features = false, features = ["process", "io-util"] }
+tokio-rustls = { version = "0.26.5", default-features = false, features = ["ring", "tls12"] }
+
+[lib]
+name = "linear_cli"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "linear"
+path = "src/main.rs"
+
+[build-dependencies]
+cynic-codegen = { version = "3.14.0", features = ["rkyv"] }
+
+[[test]]
+name = "cli"
+path = "tests/cli/main.rs"
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["windows-native"] }
+
+[package.metadata.dist]
+dist = true
+# Ship the third-party license notices next to the README, CHANGELOG and
+# LICENSE that dist includes on its own. Release builds generate the file
+# first (see .github/build-setup.yml); locally run `cargo xtask licenses`.
+include = ["../../THIRD_PARTY_LICENSES.md"]

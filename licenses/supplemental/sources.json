@@ -1,0 +1,55 @@
+{
+  "records": [
+    {
+      "file": "alloc-stdlib-BSD-3-Clause.txt",
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+      "sourceUrl": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "packages": [
+        "alloc-stdlib@0.3.0"
+      ],
+      "reason": "the LICENSE at the upstream commit the crate was published from"
+    },
+    {
+      "file": "cynic-MPL-2.0.txt",
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "sourceUrl": "https://codeberg.org/obmarg/cynic/raw/commit/adc3685ebae599e713e49ee7fa39abebf8c9b676/LICENSE",
+      "packages": [
+        "cynic@3.14.0",
+        "cynic-codegen@3.14.0",
+        "cynic-introspection@3.14.0",
+        "cynic-parser@0.11.2",
+        "cynic-proc-macros@3.14.0"
+      ],
+      "reason": "the LICENSE at the upstream commit these crates were published from"
+    },
+    {
+      "file": "winapi-LICENSE-MIT.txt",
+      "sha256": "ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b",
+      "sourceUrl": "https://raw.githubusercontent.com/retep998/winapi-rs/796a8e6c2971dc2ff1bcff166e6671284f9b5b6b/LICENSE-MIT",
+      "packages": [
+        "winapi-i686-pc-windows-gnu@0.4.0",
+        "winapi-x86_64-pc-windows-gnu@0.4.0"
+      ],
+      "reason": "the winapi repository license, which these support crates declare and share; their packages record no source commit"
+    },
+    {
+      "file": "winapi-LICENSE-APACHE.txt",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "sourceUrl": "https://raw.githubusercontent.com/retep998/winapi-rs/796a8e6c2971dc2ff1bcff166e6671284f9b5b6b/LICENSE-APACHE",
+      "packages": [
+        "winapi-i686-pc-windows-gnu@0.4.0",
+        "winapi-x86_64-pc-windows-gnu@0.4.0"
+      ],
+      "reason": "the winapi repository license, which these support crates declare and share; their packages record no source commit"
+    },
+    {
+      "file": "inquire-LICENSE-MIT.txt",
+      "sha256": "f72340c0a3886a23409003bddfd1aeab6c64acd128582ef4436e1ad5ae2033c8",
+      "sourceUrl": "https://raw.githubusercontent.com/mikaelmello/inquire/3d5b65422a247acc773d767558e34fcb69ab04bf/LICENSE",
+      "packages": [
+        "inquire@0.9.4"
+      ],
+      "reason": "the LICENSE at the upstream commit the crate was published from"
+    }
+  ]
+}

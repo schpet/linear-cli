@@ -1,0 +1,558 @@
+//! The context every command runs in: loaded configuration, lazily resolved
+//! credentials and API client, the async runtime, and the terminal.
+use std::cell::OnceCell;
+use std::future::Future;
+use std::io::{self, IsTerminal};
+use std::num::NonZeroU16;
+use std::path::{Path, PathBuf};
+
+use crate::auth::keyring;
+use crate::auth::{
+    self, ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialStore,
+    CredentialWarning, LookupFailureCategory, WorkspaceChoice,
+};
+use crate::client::{ApiKey, LinearClient};
+use crate::config::{ConfigOptions, ConfigSecret, NetworkEnv, OptionSource, StartupConfig};
+use crate::error::{Error, Result};
+use crate::graphql::operations::user::GetViewer;
+use crate::platform::markdown_terminal::{self, RenderOptions};
+use crate::platform::output::{self, Stdout};
+use crate::platform::prompt::Prompter;
+use crate::platform::spinner::Spinner;
+use crate::platform::{editor, opener, pager, style};
+use crate::refs::WorkspaceScope;
+
+/// Which standard streams are terminals, and whether each gets color.
+#[derive(Clone, Copy, Debug)]
+pub struct Terminal {
+    pub stdin_tty: bool,
+    pub stdout_tty: bool,
+    pub stderr_tty: bool,
+    /// `NO_COLOR` is set to a nonempty value.
+    pub no_color: bool,
+}
+
+impl Terminal {
+    pub fn detect(no_color: bool) -> Self {
+        Self {
+            stdin_tty: io::stdin().is_terminal(),
+            stdout_tty: io::stdout().is_terminal(),
+            stderr_tty: io::stderr().is_terminal(),
+            no_color,
+        }
+    }
+
+    pub fn stdout_color(self) -> bool {
+        self.stdout_tty && !self.no_color
+    }
+
+    pub fn stderr_color(self) -> bool {
+        self.stderr_tty && !self.no_color
+    }
+}
+
+pub struct Ctx {
+    config: StartupConfig,
+    workspace: Option<String>,
+    no_input: bool,
+    cwd: PathBuf,
+    terminal: Terminal,
+    credentials_path: Option<PathBuf>,
+    credentials: OnceCell<CredentialStore>,
+    client: OnceCell<LinearClient>,
+    runtime: tokio::runtime::Runtime,
+    stdout: Stdout,
+}
+
+pub struct CtxInit {
+    pub config: StartupConfig,
+    /// The global `--workspace` flag.
+    pub workspace: Option<String>,
+    /// The global `--no-input` flag.
+    pub no_input: bool,
+    pub cwd: PathBuf,
+    pub terminal: Terminal,
+    pub credentials_path: Option<PathBuf>,
+}
+
+impl Ctx {
+    pub fn new(init: CtxInit) -> Result<Self> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|error| {
+                Error::new(format!("Failed to start the async runtime: {error}")).with_source(error)
+            })?;
+        Ok(Self {
+            config: init.config,
+            workspace: init.workspace,
+            no_input: init.no_input,
+            cwd: init.cwd,
+            terminal: init.terminal,
+            credentials_path: init.credentials_path,
+            credentials: OnceCell::new(),
+            client: OnceCell::new(),
+            runtime,
+            stdout: Stdout::new(),
+        })
+    }
+
+    pub fn config(&self) -> &StartupConfig {
+        &self.config
+    }
+
+    pub fn options(&self) -> &ConfigOptions {
+        &self.config.options
+    }
+
+    /// The global `--workspace` flag.
+    pub fn workspace(&self) -> Option<&str> {
+        self.workspace.as_deref()
+    }
+
+    pub fn cwd(&self) -> &Path {
+        &self.cwd
+    }
+
+    pub fn terminal(&self) -> Terminal {
+        self.terminal
+    }
+
+    pub fn stdin_tty(&self) -> bool {
+        self.terminal.stdin_tty
+    }
+
+    pub fn stdout_tty(&self) -> bool {
+        self.terminal.stdout_tty
+    }
+
+    /// Whether stdout output may be colored.
+    pub fn color(&self) -> bool {
+        self.terminal.stdout_color()
+    }
+
+    pub fn credentials_path(&self) -> Option<&Path> {
+        self.credentials_path.as_deref()
+    }
+
+    /// The credentials file, read on first use. Keyring entries are read
+    /// later, per workspace, when a key is needed.
+    pub fn credentials(&self) -> Result<&CredentialStore> {
+        if let Some(store) = self.credentials.get() {
+            return Ok(store);
+        }
+        let store = auth::file::load(
+            self.credentials_path(),
+            keyring::native(&self.config.child_env),
+        )?;
+        Ok(self.credentials.get_or_init(|| store))
+    }
+
+    /// The workspace-related inputs that decide which credential is used.
+    pub fn selection(&self) -> CredentialSelectionInputs<'_> {
+        selection_inputs(self.options(), self.workspace())
+    }
+
+    /// The workspace Linear URLs are checked against: the workspace of the
+    /// stored credential in use or, with an API key from the environment or
+    /// a config file, the configured `workspace` option (if any).
+    pub fn scope(&self) -> Result<WorkspaceScope<'_>> {
+        let (_, stored) = self.credential()?;
+        let workspace = stored.or_else(|| {
+            self.options()
+                .workspace()
+                .map(|value| value.value().as_str())
+        });
+        Ok(WorkspaceScope::new(
+            workspace,
+            ApiKeyInput::from_options(self.options()),
+        ))
+    }
+
+    /// The authenticated API client, built on first use and shared after.
+    pub fn client(&self) -> Result<&LinearClient> {
+        if let Some(client) = self.client.get() {
+            return Ok(client);
+        }
+        let client = connect(self.options(), self.api_key()?, &self.config.network_env)?;
+        Ok(self.client.get_or_init(|| client))
+    }
+
+    /// The API key commands authenticate with, after reporting any
+    /// credential warnings.
+    pub fn api_key(&self) -> Result<&ConfigSecret> {
+        Ok(self.credential()?.0)
+    }
+
+    /// The key commands authenticate with and the stored workspace it belongs
+    /// to, after reporting any credential warnings.
+    fn credential(&self) -> Result<(&ConfigSecret, Option<&str>)> {
+        let selected = select_credential(&self.selection(), self.credentials()?);
+        self.report_credential_warnings()?;
+        selected
+    }
+
+    /// Prints, once, the warnings reading credentials produced so far: an
+    /// invalid default, or keyring entries that were missing or unreadable.
+    pub fn report_credential_warnings(&self) -> Result<()> {
+        let Some(credentials) = self.credentials.get() else {
+            return Ok(());
+        };
+        for warning in credentials.take_warnings() {
+            let line = style::warning(&credential_warning(&warning), self.terminal.stderr_color());
+            self.eprint(format!("{line}\n"))?;
+        }
+        Ok(())
+    }
+
+    /// Runs `future` to completion on the process's runtime.
+    pub fn block_on<F: Future>(&self, future: F) -> F::Output {
+        self.runtime.block_on(future)
+    }
+
+    /// Like [`Ctx::block_on`], with a spinner on stderr while it runs. Pass
+    /// `show = false` for `--json` output. Nothing is drawn unless stderr is a
+    /// terminal.
+    pub fn spin<F: Future>(&self, show: bool, future: F) -> F::Output {
+        let _spinner = self.spinner(show, "");
+        self.block_on(future)
+    }
+
+    /// Like [`Ctx::spin`], with `message` next to the spinner.
+    pub fn spin_with<F: Future>(&self, message: &str, future: F) -> F::Output {
+        let _spinner = self.spinner(true, message);
+        self.block_on(future)
+    }
+
+    /// A spinner on stderr that stops and clears when dropped.
+    pub fn spinner(&self, show: bool, message: &str) -> Spinner {
+        if show && self.terminal.stderr_tty {
+            Spinner::start(message)
+        } else {
+            Spinner::hidden()
+        }
+    }
+
+    /// Writes to stdout (buffered until the command ends or [`Ctx::flush`]).
+    pub fn print(&self, output: impl AsRef<[u8]>) -> Result<()> {
+        self.stdout.write(output.as_ref())
+    }
+
+    /// Writes to stderr, after flushing stdout so the streams stay in order.
+    pub fn eprint(&self, output: impl AsRef<[u8]>) -> Result<()> {
+        self.flush()?;
+        output::eprint(output.as_ref())
+    }
+
+    pub fn flush(&self) -> Result<()> {
+        self.stdout.flush()
+    }
+
+    /// Shows rendered terminal output, through the pager when `paging` is on
+    /// and it does not fit on the screen.
+    pub fn page(&self, rendered: &str, paging: bool) -> Result<()> {
+        if paging && self.terminal.stdout_tty && pager::too_long(rendered, pager::stdout_size()) {
+            self.flush()?;
+            match pager::page(
+                rendered,
+                self.config.pager.as_deref(),
+                &self.config.child_env,
+            ) {
+                Ok(pager::Paged::Shown) => return Ok(()),
+                Ok(pager::Paged::NoPager) => {}
+                // A failed pager may have shown nothing, so the text is
+                // printed directly rather than lost.
+                Err(error) => self.eprint(format!(
+                    "Warning: {error}, so the output is printed without it. Check PAGER, or pass --no-pager.\n"
+                ))?,
+            }
+        }
+        self.print(rendered)?;
+        if !rendered.ends_with('\n') {
+            self.print("\n")?;
+        }
+        Ok(())
+    }
+
+    /// Prints Markdown: rendered for the terminal (and paged when `paging` is
+    /// on and it is long) when stdout is a terminal, verbatim otherwise.
+    pub fn show_markdown(&self, markdown: &str, paging: bool) -> Result<()> {
+        if !self.terminal.stdout_tty {
+            return self.print(format!("{markdown}\n"));
+        }
+        let rendered = self.render_markdown(markdown);
+        self.page(&rendered, paging)
+    }
+
+    /// Options for the stdout terminal: width or fallback, color, and file links.
+    pub fn render_options(&self) -> RenderOptions {
+        let columns = pager::stdout_size()
+            .and_then(|size| NonZeroU16::new(size.columns))
+            .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
+        let file_link = self.options().hyperlink_format();
+        RenderOptions::for_terminal(columns, self.color(), file_link)
+    }
+
+    /// Renders Markdown for the stdout terminal.
+    pub fn render_markdown(&self, markdown: &str) -> String {
+        markdown_terminal::render(markdown, &self.render_options())
+    }
+
+    /// The `name` subdirectory of the per-user cache, for downloads; `None`
+    /// when there is no cache directory.
+    pub fn cache_dir(&self, name: &str) -> Option<PathBuf> {
+        self.config.cache_dir.as_ref().map(|cache| cache.join(name))
+    }
+
+    /// Opens `initial` in the user's editor and returns the saved text.
+    pub fn edit_text(&self, initial: &str) -> Result<String> {
+        self.flush()?;
+        editor::edit(initial, &self.config.child_env)
+    }
+
+    /// Opens a page of the active workspace (`path` like `issue/ENG-1`) in the
+    /// browser, or in the desktop app with `app`.
+    pub fn open_in_linear(&self, path: &str, app: bool) -> Result<()> {
+        let url = format!("https://linear.app/{}/{path}", self.workspace_url_key()?);
+        self.open_url(&url, app)
+    }
+
+    /// Opens a full Linear URL in the browser, or in the desktop app with `app`.
+    pub fn open_url(&self, url: &str, app: bool) -> Result<()> {
+        let destination = if app { "Linear.app" } else { "web browser" };
+        self.eprint(format!("Opening {url} in {destination}\n"))?;
+        opener::open(url, app)
+    }
+
+    /// The URL key of the active workspace. `--workspace` and the configured
+    /// workspace name it directly; a stored credential is named by its
+    /// workspace; otherwise (an API key from the environment or config) the
+    /// API is asked.
+    pub fn workspace_url_key(&self) -> Result<String> {
+        let configured = self
+            .workspace()
+            .or_else(|| {
+                self.options()
+                    .workspace()
+                    .map(|value| value.value().as_str())
+            })
+            .filter(|value| !value.is_empty());
+        if let Some(workspace) = configured {
+            return Ok(workspace.to_owned());
+        }
+        let stored_default = match ApiKeyInput::from_options(self.options()) {
+            ApiKeyInput::Absent => self.credentials()?.default().map(str::to_owned),
+            ApiKeyInput::Raw { .. } | ApiKeyInput::Sourced { .. } => None,
+        };
+        if let Some(workspace) = stored_default {
+            return Ok(workspace);
+        }
+        let client = self.client()?;
+        let viewer: GetViewer = self.block_on(client.query(()))?;
+        Ok(viewer.viewer.organization.url_key)
+    }
+
+    /// Stdin and stdout are both terminals and `--no-input` is not set. This
+    /// is the one condition under which a command asks questions, whether for
+    /// missing values or for confirmation; with output piped or input
+    /// redirected it never prompts.
+    pub fn interactive(&self) -> bool {
+        !self.no_input && self.terminal.stdin_tty && self.terminal.stdout_tty
+    }
+
+    /// Why [`Ctx::interactive`] is false.
+    fn no_prompts_reason(&self) -> &'static str {
+        if self.no_input {
+            "--no-input is set"
+        } else {
+            "it is not running in a terminal"
+        }
+    }
+
+    /// Whether to also ask for optional fields, which `-i/--interactive`
+    /// requests. The flag contradicts `--no-input` and needs a terminal.
+    pub fn optional_prompts(&self, interactive: bool) -> Result<bool> {
+        if !interactive {
+            return Ok(false);
+        }
+        if self.no_input {
+            return Err(crate::cli::command()
+                .error(
+                    clap::error::ErrorKind::ArgumentConflict,
+                    "the argument '--interactive' cannot be used with '--no-input'",
+                )
+                .into());
+        }
+        if !self.interactive() {
+            return Err(Error::invalid("--interactive needs a terminal")
+                .with_hint("Pass the values as flags instead."));
+        }
+        Ok(true)
+    }
+
+    /// Fails unless the command may ask questions (see [`Ctx::interactive`]).
+    /// `question` completes "This command needs to ask …", and `flag` names
+    /// the way to go on without asking.
+    pub fn require_tty(&self, question: &str, flag: &str) -> Result<()> {
+        if self.interactive() {
+            Ok(())
+        } else {
+            // A usage error, like any value that was needed and not given.
+            Err(Error::invalid(format!(
+                "This command needs to ask {question}, but {}",
+                self.no_prompts_reason()
+            ))
+            .with_hint(format!("Pass {flag} to proceed without a prompt.")))
+        }
+    }
+
+    /// Asks a yes/no question on the terminal, defaulting to no. Without a
+    /// terminal it fails, naming `skip_flag` as the way to proceed.
+    pub fn confirm(&self, message: &str, skip_flag: &str) -> Result<bool> {
+        self.require_tty("for confirmation", skip_flag)?;
+        self.prompter()?.confirm(message, false)
+    }
+
+    /// The usage error for a required value that was not given and cannot be
+    /// asked for. `flags` completes "Pass …"; running in a terminal is
+    /// suggested too, unless `--no-input` is what rules out asking.
+    pub fn missing_value(&self, message: &str, flags: &str) -> Error {
+        let hint = if self.no_input {
+            format!("Pass {flags}.")
+        } else {
+            format!("Pass {flags}, or run in a terminal to be asked.")
+        };
+        Error::invalid(message).with_hint(hint)
+    }
+
+    /// Questions on the terminal. Commands check for a terminal first, with an
+    /// error naming the flags to pass instead; this refusal is the backstop.
+    pub fn prompter(&self) -> Result<Prompter<'_>> {
+        if !self.interactive() {
+            return Err(Error::new(format!(
+                "This command needs to ask questions, but {}",
+                self.no_prompts_reason()
+            ))
+            .with_hint("Pass the values as flags instead."));
+        }
+        Ok(Prompter::new(&self.stdout, self.terminal.stderr_color()))
+    }
+}
+
+pub fn selection_inputs<'a>(
+    options: &'a ConfigOptions,
+    cli_workspace: Option<&'a str>,
+) -> CredentialSelectionInputs<'a> {
+    CredentialSelectionInputs {
+        api_key: ApiKeyInput::from_options(options),
+        cli_workspace,
+        sourced_workspace: options
+            .workspace()
+            .map(|resolved| (resolved.value().as_str(), resolved.source().clone())),
+    }
+}
+
+/// The API key `inputs` select, or why there is none.
+pub fn select_key<'a>(
+    inputs: &CredentialSelectionInputs<'a>,
+    credentials: &'a CredentialStore,
+) -> Result<&'a ConfigSecret> {
+    Ok(select_credential(inputs, credentials)?.0)
+}
+
+/// The API key `inputs` select and the stored workspace it belongs to, or why
+/// there is none.
+fn select_credential<'a>(
+    inputs: &CredentialSelectionInputs<'a>,
+    credentials: &'a CredentialStore,
+) -> Result<(&'a ConfigSecret, Option<&'a str>)> {
+    match auth::resolve(inputs, credentials) {
+        CredentialSelection::Selected { secret, workspace } => Ok((secret, workspace)),
+        CredentialSelection::NoKey => Err(Error::auth("No API key configured").with_hint(
+            "Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
+        )),
+        CredentialSelection::EnvWorkspaceConflict { source } => {
+            let place = match source {
+                OptionSource::ProjectEnv { path } => format!(" in {}", path.display()),
+                OptionSource::Cli
+                | OptionSource::Env
+                | OptionSource::ProjectConfig { .. }
+                | OptionSource::GlobalConfig { .. } => String::new(),
+            };
+            Err(Error::new(format!(
+                "Cannot use --workspace while LINEAR_API_KEY is set{place}"
+            ))
+            .with_hint("Unset LINEAR_API_KEY or remove the --workspace flag."))
+        }
+        CredentialSelection::Unavailable {
+            workspace,
+            choice,
+            stored: true,
+        } => Err(Error::new(format!(
+            "No usable API key for workspace \"{workspace}\"{}",
+            chosen_by(&choice)
+        ))
+        .with_hint(format!(
+            "Run `linear auth login` to store its key again, or `linear auth logout {workspace}` to forget it."
+        ))),
+        CredentialSelection::Unavailable {
+            workspace,
+            choice,
+            stored: false,
+        } => Err(Error::new(format!(
+            "Workspace \"{workspace}\"{} not found in credentials",
+            chosen_by(&choice)
+        ))
+        .with_hint(
+            "Run `linear auth login` to add it, or `linear auth list` to see configured workspaces.",
+        )),
+    }
+}
+
+/// Where a chosen workspace came from, as a phrase after its name.
+fn chosen_by(choice: &WorkspaceChoice) -> String {
+    match choice {
+        WorkspaceChoice::Flag => String::new(),
+        WorkspaceChoice::Configured(source) => format!(" (workspace set in {})", source.label()),
+        WorkspaceChoice::Default => " (the default workspace)".to_owned(),
+    }
+}
+
+/// Builds an API client that authenticates with `secret`.
+pub fn connect(
+    options: &ConfigOptions,
+    secret: &ConfigSecret,
+    network_env: &NetworkEnv,
+) -> Result<LinearClient> {
+    let key = ApiKey::new(secret.expose()).map_err(|error| {
+        Error::new("API key cannot be used as an HTTP header").with_source(error)
+    })?;
+    Ok(LinearClient::new(
+        options.endpoint().value().clone(),
+        key,
+        network_env.client_config(),
+    )?)
+}
+
+fn credential_warning(warning: &CredentialWarning) -> String {
+    match warning {
+        CredentialWarning::InvalidDefault { workspace } => format!(
+            "Warning: Default workspace \"{workspace}\" is not in the workspaces list. Run `linear auth default <workspace>` to set a valid default."
+        ),
+        CredentialWarning::LookupMiss { workspace } => format!(
+            "Warning: No keyring entry for workspace \"{workspace}\". Run `linear auth login` to re-authenticate."
+        ),
+        CredentialWarning::LookupFailed {
+            workspace,
+            category,
+        } => {
+            let reason = match category {
+                LookupFailureCategory::Unavailable => "system keyring unavailable",
+                #[cfg(any(target_os = "linux", target_os = "macos", all(test, unix)))]
+                LookupFailureCategory::Permission => "permission denied",
+                LookupFailureCategory::Other => "lookup failed",
+            };
+            format!("Warning: Failed to read keyring for workspace \"{workspace}\": {reason}")
+        }
+    }
+}

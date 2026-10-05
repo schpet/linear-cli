@@ -1,0 +1,21 @@
+[package]
+name = "linear-schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+cynic = { version = "3.14.0", default-features = false, features = ["rkyv"] }
+
+[build-dependencies]
+cynic-codegen = { version = "3.14.0", features = ["rkyv"] }
+
+[package.metadata.dist]
+dist = false

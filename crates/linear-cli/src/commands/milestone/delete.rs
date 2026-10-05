@@ -1,0 +1,39 @@
+//! `milestone delete`: delete one project milestone after confirmation.
+use crate::cli::milestone::MilestoneDelete;
+use crate::commands::confirm;
+use crate::commands::outcome;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::operations::milestone::{
+    DeleteProjectMilestone, DeleteProjectMilestoneVariables, GetMilestoneName,
+};
+use crate::refs::reject_linear_url;
+
+pub fn run(ctx: &Ctx, args: &MilestoneDelete) -> Result<()> {
+    delete(ctx, args).context("Failed to delete milestone")
+}
+
+fn delete(ctx: &Ctx, args: &MilestoneDelete) -> Result<()> {
+    let id = &args.id;
+    reject_linear_url(id, "a milestone UUID")?;
+    let client = ctx.client()?;
+    let variables = DeleteProjectMilestoneVariables { id: id.clone() };
+    let data: GetMilestoneName = ctx
+        .spin(true, client.query(variables.clone()))
+        .map_err(|failure| failure.or_not_found("Milestone", id))?;
+    let milestone = data
+        .project_milestone
+        .ok_or_else(|| Error::not_found("Milestone", id))?;
+    let question = format!(
+        "Delete milestone \"{}\" of project \"{}\"?",
+        milestone.name, milestone.project.name
+    );
+    if !confirm::proceed(ctx, args.confirm.yes, &question)? {
+        return Ok(());
+    }
+    let result: DeleteProjectMilestone = ctx.spin(true, client.mutate(variables))?;
+    if !result.project_milestone_delete.success {
+        return Err(Error::new("Linear did not delete the milestone"));
+    }
+    ctx.print(outcome::done("Deleted", "milestone", &milestone.name, None))
+}

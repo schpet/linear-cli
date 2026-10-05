@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            optional: false
+          - os: macos-latest
+            optional: false
+          - os: windows-latest
+            optional: true
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v6
+      # rust-toolchain.toml pins the version and components.
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --locked --workspace --no-fail-fast
+      - name: Set up Secret Service
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+          eval "$(dbus-launch --sh-syntax)"
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
+          echo "test-password" | gnome-keyring-daemon --unlock --components=secrets
+      - name: System keyring round trip
+        run: cargo test --locked --workspace --lib -- --ignored system_keyring_round_trip
+      - name: Check skill docs are current
+        if: runner.os == 'Linux'
+        run: |
+          cargo run --locked --example skill_docs
+          if [ -n "$(git status --porcelain skills)" ]; then
+            git status --short skills
+            echo "skills/linear-cli is out of date; run 'just skill-docs'" >&2
+            exit 1
+          fi
+      # Releases generate these notices; this catches a crate without a
+      # license file before release time.
+      - name: Generate third-party license notices
+        if: runner.os == 'Linux'
+        run: cargo xtask licenses --output "$RUNNER_TEMP/THIRD_PARTY_LICENSES.md"
