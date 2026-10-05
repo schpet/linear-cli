@@ -12,16 +12,16 @@ Issues outside this scope may be closed.
 
 ## Development
 
-linear-cli is written in TypeScript and runs on [Deno](https://deno.com).
+linear-cli is written in Rust. The toolchain version is pinned in `rust-toolchain.toml`, which rustup picks up automatically.
 
 ```sh
-deno task test      # run the test suite
-deno task validate  # type check, format, lint
-deno task snapshot  # update snapshot tests
+cargo run -- issue list   # run the CLI from source
+cargo test --workspace    # run the test suite
+just check                # format check, clippy, and tests, as CI runs them
 ```
 
-After editing a GraphQL document, run `deno task codegen` to regenerate types.
+After changing commands, flags, or help text, run `just skill-docs` to regenerate the agent skill documentation.
 
 ## Pull requests
 
-Keep changes focused, and add tests for new behavior. Tests mirror the source layout: `src/commands/issue/issue-view.ts` is tested by `test/commands/issue/issue-view.test.ts`.
+Keep changes focused, and add tests for new behavior. Command behavior is tested in `crates/linear-cli/tests/cli/`, which runs the `linear` binary against a mock Linear API, with one module per command group.

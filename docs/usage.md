@@ -6,13 +6,19 @@ linear cli provides commands to manage linear issues, teams, and projects from t
 
 ### repo configuration
 
-first, configure the cli with your linear api token:
+first, log in with a linear api key (see [authentication](authentication.md)):
+
+```bash
+linear auth login
+```
+
+then configure the repository:
 
 ```bash
 linear config
 ```
 
-this will interactively generate a `.linear.toml` configuration file in the repo.
+this writes the config at the repository root: `.config/linear.toml` when a `.config` directory exists there, otherwise `.linear.toml` (outside a repository, `.linear.toml` in the current directory). it asks for the default team and issue sort unless you pass `--team` and `--sort`, and when you have logged in to more than one workspace it also asks which one to use unless you pass `--workspace`.
 
 ### issues
 
@@ -45,7 +51,7 @@ filter by assignee:
 
 ```bash
 # List issues assigned to you
-linear issue list --assignee self
+linear issue list --assignee @me
 
 # List issues assigned to specific user
 linear issue list --assignee username
@@ -119,10 +125,11 @@ this will move the issue to "in progress" and create a git branch.
 
 #### create an issue
 
-create an issue interactively:
+create an issue interactively; bare `issue create` asks only for the title, and `-i` asks for every field:
 
 ```bash
 linear issue create
+linear issue create -i
 ```
 
 create with specific options:
@@ -132,7 +139,7 @@ create with specific options:
 linear issue create --title "Fix bug" --description "Description here"
 
 # Create and assign to yourself
-linear issue create --assignee self
+linear issue create --assignee @me
 
 # Create with priority (1-4, where 1 is highest)
 linear issue create --priority 1
@@ -246,8 +253,8 @@ linear issue delete TEAM-123
 archive an issue:
 
 ```bash
-linear issue archive TEAM-123 --confirm
-linear issue archive --confirm --bulk TEAM-123 TEAM-124   # several at once; --bulk-file and --bulk-stdin also work
+linear issue archive TEAM-123 --yes
+linear issue archive --yes --bulk TEAM-123 TEAM-124   # several at once; --bulk-file and --bulk-stdin also work
 ```
 
 Archiving is normally something Linear does for you, not something you do by hand. Linear's [delete and archive issues](https://linear.app/docs/delete-archive-issues) docs state that "archiving happens automatically with no option to manually archive items": closed issues are auto-archived after the period set in Team settings, and the manual action Linear offers is delete, which keeps the issue in the trash for 30 days. Linear removed manual archiving from its app in 2021 because "most users used the archive as a trash can", reasoning that "the archive is something that Linear should manage for you while deleting issues is your own choice" ([changelog](https://linear.app/changelog/2021-04-15-auto-archive-cycles-and-projects-and-deleting-issues)). Its official MCP server has no archive tool either.
@@ -257,7 +264,7 @@ Archiving is normally something Linear does for you, not something you do by han
 #### issue comments
 
 ```bash
-# List comments (threads, newest first); --json keeps the GraphQL connection
+# List comments (threads, newest first); --json prints an array of comments
 linear issue comment list TEAM-123
 linear issue comment list TEAM-123 --json
 
@@ -282,7 +289,7 @@ linear team list --json   # machine-readable, e.g. to map a team name to its key
 
 #### get team id
 
-get team id derived from repository name:
+print the configured team key (from `team_id` in `.linear.toml` or `LINEAR_TEAM_ID`):
 
 ```bash
 linear team id
@@ -457,22 +464,26 @@ generate shell completions for better command-line experience:
 # For bash
 source <(linear completions bash)
 
-# For zsh  
+# For zsh
 source <(linear completions zsh)
 
 # For fish
 linear completions fish | source
 ```
 
-add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`).
+add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`). elvish and powershell are supported too; see `linear completions --help`.
+
+the script asks `linear` for candidates as you type, so completions always match the installed version. load it at shell startup as above rather than saving it to a file.
 
 ### global options
 
-most commands support these options:
+every command accepts:
 
-- `--no-pager` - disable automatic paging for long output
-- `--no-color` - disable colored output
+- `--workspace <slug>` - use the stored credentials of another workspace for this command
+- `--no-input` - never prompt; fail instead when a required value is missing
 - `--help` - show help for the command
+
+`issue list`, `issue query`, `issue view`, and `project view` page long output; pass `--no-pager` to disable it. color is used only on a terminal; set `NO_COLOR=1` to turn it off.
 
 ### examples
 
