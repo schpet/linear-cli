@@ -17,7 +17,7 @@ Commands:
   update         Update an issue
   delete         Delete an issue (moves it to the trash)
   archive        Archive an issue
-  start          Start an issue: switch to its branch and mark it started
+  start          Start an issue: check out its git branch or jj change, then mark it started
   id             Print the issue ID of the current branch or jj change
   title          Print an issue's title
   url            Print an issue's URL
@@ -411,28 +411,47 @@ Global options:
 
 ### start
 
-> Start an issue: switch to its branch and mark it started
+> Start an issue: check out its git branch or jj change, then mark it started
 
 ```
-Start an issue: switch to its branch and mark it started
+Start an issue: check out its git branch or jj change, then mark it started
+
+With git, creates the issue's branch (or switches to it if it exists). With jj (`vcs = "jj"` in
+config or LINEAR_VCS=jj), starts a new change, reusing an empty undescribed one, and describes it
+with the issue title and `Linear-issue` trailers; no git branch is created.
 
 Usage: linear issue start [OPTIONS] [ISSUE]
 
 Arguments:
-  [ISSUE]  Issue ID like ENG-123, or a URL; asked for when omitted
+  [ISSUE]
+          Issue ID like ENG-123, or a URL; asked for when omitted
 
 Options:
-      --team <TEAM>      Team to pick from, and the team of a bare issue number (key, name, or ID);
-                         defaults to the configured team
-  -A, --all-assignees    Offer issues of every assignee in the picker
-  -U, --unassigned       Offer only unassigned issues in the picker
-  -f, --from-ref <REF>   Git ref to create the branch from
-  -b, --branch <BRANCH>  Branch name to use instead of the issue's
-  -h, --help             Print help
+      --team <TEAM>
+          Team to pick from, and the team of a bare issue number (key, name, or ID); defaults to the
+          configured team
+
+  -A, --all-assignees
+          Offer issues of every assignee in the picker
+
+  -U, --unassigned
+          Offer only unassigned issues in the picker
+
+  -f, --from-ref <REF>
+          Git ref to create the branch from (git only)
+
+  -b, --branch <BRANCH>
+          Branch name to use instead of the issue's (git only)
+
+  -h, --help
+          Print help (see a summary with '-h')
 
 Global options:
-      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
-      --no-input          Never prompt; fail instead when a required value is missing
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```
 
 ### id

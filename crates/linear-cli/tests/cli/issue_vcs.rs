@@ -293,6 +293,18 @@ fn start_with_jj_makes_a_new_described_change() {
 }
 
 #[test]
+fn start_with_jj_rejects_git_only_flags_before_any_request() {
+    let api = MockLinear::start();
+    let cli = jj(Cli::for_api(&api));
+    for flag in [["--branch", "my-branch"], ["--from-ref", "main"]] {
+        cli.run(&["issue", "start", "ENG-7", flag[0], flag[1]])
+            .usage_error()
+            .stderr_has(&format!("{} only applies to git", flag[0]));
+    }
+    assert!(calls(&cli, "jj").is_empty());
+}
+
+#[test]
 fn start_with_a_bare_number_and_no_team_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = git(Cli::for_api(&api), "main");
