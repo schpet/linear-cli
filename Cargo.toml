@@ -8,7 +8,7 @@ resolver = "3"
 version = "3.0.0-alpha.1"
 edition = "2024"
 rust-version = "1.93"
-license = "MIT"
+license = "ISC"
 repository = "https://github.com/schpet/linear-cli"
 homepage = "https://github.com/schpet/linear-cli"
 
