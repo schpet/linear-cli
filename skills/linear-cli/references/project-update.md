@@ -1,70 +1,95 @@
 # project-update
 
-> Manage project status updates
+> Post and list project status updates
 
 ## Usage
 
 ```
-Usage:   linear project-update
+Post and list project status updates
 
-Description:
-
-  Manage project status updates
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear project-update [OPTIONS] <COMMAND>
 
 Commands:
+  create  Post a status update on a project
+  list    List a project's status updates
+  help    Print this message or the help of the given subcommand(s)
 
-  create, c  <projectId>  - Create a new status update for a project
-  list, l    <projectId>  - List status updates for a project
+Options:
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ## Subcommands
 
 ### create
 
-> Create a new status update for a project
+> Post a status update on a project
 
 ```
-Usage:   linear project-update create <projectId>
+Post a status update on a project
 
-Description:
+Usage: linear project-update create [OPTIONS] <PROJECT>
 
-  Create a new status update for a project                                        
-                                                                                  
-  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
-  and `[Name](url)` do not. Get a person's URL from the `url` field of            
-  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-  Run `linear markdown` for collapsible sections and the full reference.          
+Arguments:
+  <PROJECT>
+          Project ID, slug, or name
 
 Options:
+      --body <TEXT>
+          Update text, in Markdown
 
-  -h, --help                   - Show this help.                                    
-  --workspace        <slug>    - Target workspace (uses credentials)                
-  --body             <body>    - Update content (inline)                            
-  --body-file        <path>    - Read content from file                             
-  --health           <health>  - Project health status (onTrack, atRisk, offTrack)  
-  -i, --interactive            - Interactive mode with prompts
+      --body-file <FILE>
+          Read the update from a Markdown file (- for stdin)
+
+      --health <HEALTH>
+          How the work is going
+          
+          [possible values: on-track, at-risk, off-track]
+
+  -i, --interactive
+          Also prompt for the optional fields
+
+  -y, --yes
+          Do not ask for confirmation
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
 ```
 
 ### list
 
-> List status updates for a project
+> List a project's status updates
 
 ```
-Usage:   linear project-update list <projectId>
+List a project's status updates
 
-Description:
+Usage: linear project-update list [OPTIONS] <PROJECT>
 
-  List status updates for a project
+Arguments:
+  <PROJECT>  Project ID, slug, or name
 
 Options:
+  -j, --json           Print JSON
+      --limit <LIMIT>  Maximum number of updates to show, newest first (a number or `all`) [default:
+                       10]
+  -h, --help           Print help
 
-  -h, --help            - Show this help.                                   
-  --workspace  <slug>   - Target workspace (uses credentials)               
-  --json                - Output as JSON                                    
-  --limit      <limit>  - Limit results                        (Default: 10)
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

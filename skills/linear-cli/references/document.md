@@ -1,230 +1,330 @@
 # document
 
-> Manage Linear documents
+> Manage documents
 
 ## Usage
 
 ```
-Usage:   linear document
+Manage documents
 
-Description:
-
-  Manage Linear documents
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear document [OPTIONS] <COMMAND>
 
 Commands:
+  list     List documents
+  view     Show a document
+  create   Create a document
+  update   Update a document
+  delete   Delete a document (moves it to the trash)
+  comment  Add and list comments on a document
+  help     Print this message or the help of the given subcommand(s)
 
-  list, l                  - List documents                    
-  view, v    <id>          - View a document's content         
-  create, c                - Create a new document             
-  update, u  <documentId>  - Update an existing document       
-  delete, d  [documentId]  - Delete a document (moves to trash)
-  comment                  - Manage document comments
+Options:
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ## Subcommands
-
-### comment
-
-> Manage document comments
-
-```
-Usage:   linear document comment
-
-Description:
-
-  Manage document comments
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-
-Commands:
-
-  add   <document>  - Add a comment or reply to a document (by ID or slug)
-  list  <document>  - List comments on a document (by ID or slug)
-```
-
-#### comment subcommands
-
-##### add
-
-```
-Usage:   linear document comment add <document>
-
-Description:
-
-  Add a comment or reply to a document (by ID or slug)                            
-                                                                                  
-  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
-  and `[Name](url)` do not. Get a person's URL from the `url` field of            
-  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-  Run `linear markdown` for collapsible sections and the full reference.          
-
-Options:
-
-  -h, --help                             - Show this help.                                                   
-  --workspace               <slug>       - Target workspace (uses credentials)                               
-  -b, --body                <text>       - Comment body text                                                 
-  --body-file               <path>       - Read comment body from a file (preferred for markdown content)    
-  -p, --parent, --reply-to  <commentId>  - Reply to a top-level comment by ID (the reply joins that thread)
-```
-
-##### list
-
-```
-Usage:   linear document comment list <document>
-
-Description:
-
-  List comments on a document (by ID or slug)
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -j, --json           - Output as JSON
-```
-
-### create
-
-> Create a new document
-
-```
-Usage:   linear document create
-
-Description:
-
-  Create a new document                                                           
-                                                                                  
-  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
-  and `[Name](url)` do not. Get a person's URL from the `url` field of            
-  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-  Run `linear markdown` for collapsible sections and the full reference.          
-
-Options:
-
-  -h, --help                        - Show this help.                                                                   
-  --workspace         <slug>        - Target workspace (uses credentials)                                               
-  -t, --title         <title>       - Document title (required)                                                         
-  -c, --content       <content>     - Markdown content (inline)                                                         
-  -f, --content-file  <path>        - Read content from file                                                            
-  --project           <project>     - Attach to project (UUID, slug ID, or name)                                        
-  --issue             <issue>       - Attach to issue (identifier like TC-123)                                          
-  --initiative        <initiative>  - Attach to initiative (UUID, slug ID, or name)                                     
-  --team              <team>        - Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead  
-  --cycle             <cycle>       - Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative  
-                                      offset like +1 (team from --team or config)                                       
-  --release           <release>     - Attach to release (UUID, name, or version)                                        
-  --icon              <icon>        - Document icon (emoji)                                                             
-  -i, --interactive                 - Interactive mode with prompts
-```
-
-### delete
-
-> Delete a document (moves to trash)
-
-```
-Usage:   linear document delete [documentId]
-
-Description:
-
-  Delete a document (moves to trash)
-
-Options:
-
-  -h, --help              - Show this help.                                     
-  --workspace   <slug>    - Target workspace (uses credentials)                 
-  -y, --yes               - Skip confirmation prompt                            
-  --bulk        <ids...>  - Delete multiple documents by slug or ID             
-  --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
-  --bulk-stdin            - Read document slugs/IDs from stdin
-```
 
 ### list
 
 > List documents
 
 ```
-Usage:   linear document list
+List documents
 
-Description:
-
-  List documents
+Usage: linear document list [OPTIONS]
 
 Options:
+      --project <PROJECT>        Show this project's documents (ID, slug, or name)
+      --issue <ISSUE>            Show this issue's documents (like ENG-123)
+      --initiative <INITIATIVE>  Show this initiative's documents (ID, slug, or name)
+      --team <TEAM>              Show this team's documents (key, name, or ID); with --cycle, the
+                                 cycle's team
+      --cycle <CYCLE>            Show this cycle's documents: a name, number, `active`, `next`,
+                                 `previous`, or an offset like +1 or -1
+      --release <RELEASE>        Show this release's documents (ID, name, or version)
+  -j, --json                     Print JSON
+      --limit <LIMIT>            Maximum number of documents to show (a number or `all`) [default:
+                                 50]
+  -h, --help                     Print help
 
-  -h, --help                  - Show this help.                                                                                
-  --workspace   <slug>        - Target workspace (uses credentials)                                                            
-  --project     <project>     - Filter by project (UUID, slug ID, or name)                                                     
-  --issue       <issue>       - Filter by issue (identifier like TC-123)                                                       
-  --initiative  <initiative>  - Filter by initiative (UUID, slug ID, or name)                                                  
-  --team        <team>        - Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead               
-  --cycle       <cycle>       - Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative               
-                                offset like +1 (team from --team or config)                                                    
-  --release     <release>     - Filter by release (UUID, name, or version)                                                     
-  --json                      - Output as JSON                                                                                 
-  --limit       <limit>       - Limit results                                                                     (Default: 50)
-```
-
-### update
-
-> Update an existing document
-
-```
-Usage:   linear document update <documentId>
-
-Description:
-
-  Update an existing document                                                     
-                                                                                  
-  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
-  and `[Name](url)` do not. Get a person's URL from the `url` field of            
-  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-  Run `linear markdown` for collapsible sections and the full reference.          
-
-Options:
-
-  -h, --help                        - Show this help.                                                                   
-  --workspace         <slug>        - Target workspace (uses credentials)                                               
-  -t, --title         <title>       - New title for the document                                                        
-  -c, --content       <content>     - New markdown content (inline)                                                     
-  -f, --content-file  <path>        - Read new content from file                                                        
-  --icon              <icon>        - New icon (emoji)                                                                  
-  --project           <project>     - Re-point to project (UUID, slug ID, or name); replaces the current attachment     
-  --issue             <issue>       - Re-point to issue (identifier like TC-123); replaces the current attachment       
-  --initiative        <initiative>  - Re-point to initiative (UUID, slug ID, or name); replaces the current attachment  
-  --team              <team>        - Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup        
-                                      instead                                                                           
-  --cycle             <cycle>       - Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a         
-                                      relative offset like +1 (team from --team or config)                              
-  --release           <release>     - Re-point to release (UUID, name, or version); replaces the current attachment     
-  -e, --edit                        - Open current content in $EDITOR for editing                                       
-  --force                           - Update content even when document comments may lose inline anchors
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ### view
 
-> View a document's content
+> Show a document
 
 ```
-Usage:   linear document view <id>
+Show a document
 
-Description:
+Usage: linear document view [OPTIONS] <DOCUMENT>
 
-  View a document's content
+Arguments:
+  <DOCUMENT>  Document ID or slug
 
 Options:
+      --raw          Print the Markdown source instead of rendering it
+  -w, --web          Open the document in the browser
+  -j, --json         Print JSON
+      --no-pager     Do not page long output
+      --no-download  Keep remote image and file URLs instead of downloading them
+  -h, --help         Print help
 
-  -h, --help             - Show this help.                                
-  --workspace    <slug>  - Target workspace (uses credentials)            
-  --raw                  - Output raw markdown without rendering          
-  -w, --web              - Open document in browser                       
-  --json                 - Output full document as JSON                   
-  --no-download          - Keep remote URLs instead of downloading files
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### create
+
+> Create a document
+
+```
+Create a document
+
+Usage: linear document create [OPTIONS]
+
+Options:
+  -t, --title <TITLE>
+          Document title
+
+  -c, --content <MARKDOWN>
+          Document text, in Markdown
+
+  -f, --content-file <FILE>
+          Read the document from a Markdown file (- for stdin)
+
+      --project <PROJECT>
+          Attach the document to a project (ID, slug, or name)
+
+      --issue <ISSUE>
+          Attach the document to an issue (like ENG-123)
+
+      --initiative <INITIATIVE>
+          Attach the document to an initiative (ID, slug, or name)
+
+      --team <TEAM>
+          Attach the document to a team (key, name, or ID); with --cycle, the cycle's team
+
+      --cycle <CYCLE>
+          Attach the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset
+          like +1 or -1
+
+      --release <RELEASE>
+          Attach the document to a release (ID, name, or version)
+
+      --icon <ICON>
+          Document icon (an emoji)
+
+  -i, --interactive
+          Also prompt for the optional fields
+
+  -y, --yes
+          Do not ask for confirmation
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
+```
+
+### update
+
+> Update a document
+
+```
+Update a document
+
+Usage: linear document update [OPTIONS] <DOCUMENT>
+
+Arguments:
+  <DOCUMENT>
+          Document ID or slug
+
+Options:
+  -t, --title <TITLE>
+          New title
+
+  -c, --content <MARKDOWN>
+          New text, in Markdown
+
+  -f, --content-file <FILE>
+          Read the new text from a Markdown file (- for stdin)
+
+      --icon <ICON>
+          New icon (an emoji)
+
+      --project <PROJECT>
+          Move the document to a project (ID, slug, or name)
+
+      --issue <ISSUE>
+          Move the document to an issue (like ENG-123)
+
+      --initiative <INITIATIVE>
+          Move the document to an initiative (ID, slug, or name)
+
+      --team <TEAM>
+          Move the document to a team (key, name, or ID); with --cycle, the cycle's team
+
+      --cycle <CYCLE>
+          Move the document to a cycle: a name, number, `active`, `next`, `previous`, or an offset
+          like +1 or -1
+
+      --release <RELEASE>
+          Move the document to a release (ID, name, or version)
+
+  -e, --edit
+          Edit the current text in $EDITOR
+
+      --force
+          Replace the text even if inline comments may lose their anchors
+
+  -y, --yes
+          Do not ask for confirmation
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
+```
+
+### delete
+
+> Delete a document (moves it to the trash)
+
+```
+Delete a document (moves it to the trash)
+
+Usage: linear document delete [OPTIONS] [DOCUMENT]
+
+Arguments:
+  [DOCUMENT]  Document ID or slug
+
+Options:
+  -y, --yes               Do not ask for confirmation
+      --bulk [<IDS>...]   Act on several at once instead of one
+      --bulk-file <FILE>  Read the IDs from a file, one per line
+      --bulk-stdin        Read the IDs from stdin, one per line
+  -h, --help              Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+### comment
+
+> Add and list comments on a document
+
+```
+Add and list comments on a document
+
+Usage: linear document comment [OPTIONS] <COMMAND>
+
+Commands:
+  add   Comment on a document, or reply to a comment
+  list  List a document's comments
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
+```
+
+#### comment subcommands
+
+##### add
+
+> Comment on a document, or reply to a comment
+
+```
+Comment on a document, or reply to a comment
+
+Usage: linear document comment add [OPTIONS] <DOCUMENT>
+
+Arguments:
+  <DOCUMENT>
+          Document ID or slug
+
+Options:
+  -b, --body <TEXT>
+          Comment text, in Markdown
+
+      --body-file <FILE>
+          Read the comment from a Markdown file (- for stdin)
+
+  -p, --reply-to <COMMENT>
+          Reply to this top-level comment (by ID)
+          
+          [alias: --parent]
+
+  -y, --yes
+          Do not ask for confirmation
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
+```
+
+##### list
+
+> List a document's comments
+
+```
+List a document's comments
+
+Usage: linear document comment list [OPTIONS] <DOCUMENT>
+
+Arguments:
+  <DOCUMENT>  Document ID or slug
+
+Options:
+      --limit <LIMIT>  Maximum number of comments to show (a number or `all`) [default: all]
+  -j, --json           Print JSON
+      --no-pager       Do not page long output
+  -h, --help           Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```

@@ -1,18 +1,32 @@
 # config
 
-> Interactively generate .linear.toml configuration
+> Write a .linear.toml for the current repository
 
 ## Usage
 
 ```
-Usage:   linear config
+Write a .linear.toml for the current repository
 
-Description:
+Asks for the settings the flags leave out.
 
-  Interactively generate .linear.toml configuration
+Usage: linear config [OPTIONS]
 
 Options:
+      --team <TEAM>
+          Default team (key, name, or ID); asked for when omitted
 
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+      --sort <SORT>
+          Default issue sort order; asked for when omitted
+          
+          [possible values: manual, priority]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```

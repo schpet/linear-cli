@@ -1,70 +1,95 @@
 # initiative-update
 
-> Manage initiative status updates (timeline posts)
+> Post and list initiative status updates
 
 ## Usage
 
 ```
-Usage:   linear initiative-update
+Post and list initiative status updates
 
-Description:
-
-  Manage initiative status updates (timeline posts)
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear initiative-update [OPTIONS] <COMMAND>
 
 Commands:
+  create  Post a status update on an initiative
+  list    List an initiative's status updates
+  help    Print this message or the help of the given subcommand(s)
 
-  create, c    <initiativeId>  - Create a new status update for an initiative
-  list, l, ls  <initiativeId>  - List status updates for an initiative
+Options:
+  -h, --help  Print help
+
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
 
 ## Subcommands
 
 ### create
 
-> Create a new status update for an initiative
+> Post a status update on an initiative
 
 ```
-Usage:   linear initiative-update create <initiativeId>
+Post a status update on an initiative
 
-Description:
+Usage: linear initiative-update create [OPTIONS] <INITIATIVE>
 
-  Create a new status update for an initiative                                    
-                                                                                  
-  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
-  and `[Name](url)` do not. Get a person's URL from the `url` field of            
-  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-  Run `linear markdown` for collapsible sections and the full reference.          
+Arguments:
+  <INITIATIVE>
+          Initiative ID, slug, or name
 
 Options:
+      --body <TEXT>
+          Update text, in Markdown
 
-  -h, --help                   - Show this help.                            
-  --workspace        <slug>    - Target workspace (uses credentials)        
-  --body             <body>    - Update content (markdown)                  
-  --body-file        <path>    - Read content from file                     
-  --health           <health>  - Health status (onTrack, atRisk, offTrack)  
-  -i, --interactive            - Interactive mode with prompts
+      --body-file <FILE>
+          Read the update from a Markdown file (- for stdin)
+
+      --health <HEALTH>
+          How the work is going
+          
+          [possible values: on-track, at-risk, off-track]
+
+  -i, --interactive
+          Also prompt for the optional fields
+
+  -y, --yes
+          Do not ask for confirmation
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
 ```
 
 ### list
 
-> List status updates for an initiative
+> List an initiative's status updates
 
 ```
-Usage:   linear initiative-update list <initiativeId>
+List an initiative's status updates
 
-Description:
+Usage: linear initiative-update list [OPTIONS] <INITIATIVE>
 
-  List status updates for an initiative
+Arguments:
+  <INITIATIVE>  Initiative ID, slug, or name
 
 Options:
+  -j, --json           Print JSON
+      --limit <LIMIT>  Maximum number of updates to show, newest first (a number or `all`) [default:
+                       10]
+  -h, --help           Print help
 
-  -h, --help            - Show this help.                                   
-  --workspace  <slug>   - Target workspace (uses credentials)               
-  -j, --json            - Output as JSON                                    
-  --limit      <limit>  - Limit results                        (Default: 10)
+Global options:
+      --workspace <SLUG>  Workspace to use, by the name its credential is stored under
+      --no-input          Never prompt; fail instead when a required value is missing
 ```
