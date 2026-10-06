@@ -66,6 +66,8 @@ pub struct IssueCreateInput {
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub assignee_id: Edit<String>,
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
+    pub delegate_id: Edit<String>,
+    #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub due_date: Edit<TimelessDate>,
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub parent_id: Edit<String>,
@@ -462,6 +464,8 @@ pub struct IssueUpdateInput {
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub assignee_id: Edit<String>,
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
+    pub delegate_id: Edit<String>,
+    #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub due_date: Edit<TimelessDate>,
     #[cynic(skip_serializing_if = "Edit::is_unchanged")]
     pub parent_id: Edit<String>,
@@ -577,6 +581,7 @@ mod tests {
     fn clear_sends_an_explicit_null_for_each_cleared_field() {
         let variables = value(IssueUpdateInput {
             assignee_id: Edit::Clear,
+            delegate_id: Edit::Clear,
             due_date: Edit::Clear,
             parent_id: Edit::Clear,
             estimate: Edit::Clear,
@@ -594,6 +599,7 @@ mod tests {
                 "id": "issue-1",
                 "input": {
                     "assigneeId": null,
+                    "delegateId": null,
                     "dueDate": null,
                     "parentId": null,
                     "estimate": null,

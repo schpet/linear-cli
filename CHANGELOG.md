@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `issue create --delegate` and `issue update --delegate` hand an issue to an agent, named by its username, email, name, or ID, and `issue update --clear-delegate` takes it back. `issue view` shows the delegate, and `issue view --json` includes `delegate` ([#296](https://github.com/schpet/linear-cli/issues/296); thanks @christopher-buss)
+
 ## [3.0.0] - 2026-10-06
 
 ### Upgrading from 2.x

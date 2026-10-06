@@ -12,6 +12,7 @@ fn issue(comments: bool) -> Value {
         "branchName": "eng-1-fix-the-widget",
         "state": { "name": "Started", "color": "#123456" },
         "assignee": { "name": "alice", "displayName": "Alice Example" },
+        "delegate": null,
         "priority": 2,
         "project": { "name": "Launch" },
         "projectMilestone": { "name": "Beta" },
@@ -163,6 +164,39 @@ fn view_text_without_comments() {
         .success()
         .stdout_has("Fix the widget");
     assert_eq!(api.operations(), ["GetIssueDetails"]);
+}
+
+#[test]
+fn view_shows_the_delegate_only_when_there_is_one() {
+    for (operation, comments) in [
+        ("GetIssueDetailsWithComments", true),
+        ("GetIssueDetails", false),
+    ] {
+        let mut delegated = issue(comments);
+        delegated["delegate"] = json!({ "name": "Linear", "displayName": "linear" });
+        let api = MockLinear::start();
+        api.on(operation, details(delegated.clone()))
+            .on(operation, details(delegated.clone()))
+            .on(operation, details(issue(comments)));
+        let cli = Cli::for_api(&api);
+        let mut args = vec!["issue", "view", "ENG-1", "--no-download", "--no-pager"];
+        if !comments {
+            args.push("--no-comments");
+        }
+        let json = cli
+            .run(&[args.as_slice(), &["--json"]].concat())
+            .success()
+            .json();
+        assert_json(&json, &delegated);
+        cli.run(&args)
+            .success()
+            .stdout_has("**Assignee:** @Alice Example | **Delegate:** @linear |");
+        let plain = cli.run(&args);
+        assert!(!plain.success().stdout.contains("Delegate"), "{plain}");
+        for request in api.requests() {
+            assert!(request.query.contains("delegate {"), "{}", request.query);
+        }
+    }
 }
 
 #[test]

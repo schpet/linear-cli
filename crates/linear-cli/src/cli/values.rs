@@ -25,7 +25,7 @@ impl FromStr for UserRef {
 
     fn from_str(value: &str) -> Result<Self, String> {
         match value {
-            "" => Err("expected a user".to_owned()),
+            _ if value.trim().is_empty() => Err("expected a user".to_owned()),
             "@me" | "self" => Ok(Self::Me),
             _ => {
                 reject_linear_url(value, "an email, username, name, or @me")
@@ -245,7 +245,7 @@ mod tests {
             "ada@example.com".parse(),
             Ok(UserRef::Query("ada@example.com".to_owned()))
         );
-        for invalid in ["", "https://linear.app/acme/profiles/ada"] {
+        for invalid in ["", "  ", "https://linear.app/acme/profiles/ada"] {
             assert!(invalid.parse::<UserRef>().is_err(), "{invalid}");
         }
     }

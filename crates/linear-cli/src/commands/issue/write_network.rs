@@ -83,6 +83,9 @@ impl Backend for NetworkBackend {
     async fn user(&self, user: UserRef) -> Result<String, Error> {
         refs::user::resolve(&self.client, &user, "User").await
     }
+    async fn agent(&self, user: UserRef) -> Result<String, Error> {
+        refs::user::resolve_agent(&self.client, &user).await
+    }
     async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
         let states = refs::workflow_states::fetch(&self.client, team_key).await?;
         Ok(states
