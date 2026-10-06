@@ -55,7 +55,7 @@ pub fn read_file(path: &Path) -> Result<Option<String>> {
 pub fn read_source(source: &TextSource) -> Result<Option<String>> {
     text_input::read_source(source).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            Error::not_found("File", &source.to_string())
+            Error::new(format!("File not found: {source}"))
         } else {
             Error::new(format!("Failed to read {source}: {error}")).with_source(error)
         }

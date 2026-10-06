@@ -147,7 +147,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     };
     ctx.eprint(bulk::preview(&found, &missing, "initiative", verb))?;
     if found.is_empty() {
-        return Err(Error::new("None of the listed initiatives could be found"));
+        return Err(bulk::none_found(&missing, "initiatives"));
     }
     if mode == Mode::Delete {
         ctx.eprint(PERMANENT)?;
@@ -194,14 +194,8 @@ async fn look_up_item(
             },
             item: details,
         }),
-        Ok(None) => Err(Skipped {
-            original,
-            reason: "Initiative not found".to_owned(),
-        }),
-        Err(error) => Err(Skipped {
-            original,
-            reason: error.message().to_owned(),
-        }),
+        Ok(None) => Err(Skipped::not_found(original, "Initiative")),
+        Err(error) => Err(Skipped::failed(original, &error)),
     }
 }
 

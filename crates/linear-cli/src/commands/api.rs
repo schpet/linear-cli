@@ -1,12 +1,14 @@
 //! `linear api`: send a user-written GraphQL document and print the response.
-use crate::client::LinearClient;
+use crate::client::{LinearClient, classify_failure};
+use crate::graphql::envelope::ResponseGraphQlError;
 use crate::graphql::pagination::{Page, PageInfo, Pages};
 use crate::{
     cli::api::Api,
     commands::text_input,
     ctx::Ctx,
-    error::{Error, Result, ResultExt},
+    error::{Error, Failure, Result, ResultExt},
 };
+use reqwest::StatusCode;
 use serde_json::{Map, Number, Value};
 
 pub fn run(ctx: &Ctx, args: &Api) -> Result<()> {
@@ -25,24 +27,23 @@ fn request_and_print(ctx: &Ctx, args: &Api) -> Result<()> {
         ctx.stdout_tty(),
     ))?;
     // The response is printed either way; the exit status says whether it
-    // was a success.
-    let (text, succeeded) = match response {
-        Response::Data(text) => (text, true),
-        Response::Errors(text) => (text, false),
-        Response::HttpError(body) => {
+    // was a success and, if not, the failure's class.
+    let (text, failure) = match response {
+        Response::Data(text) => (text, None),
+        Response::Errors(text, failure) => (text, Some(failure)),
+        Response::HttpError(body, failure) => {
             if !args.silent {
                 ctx.eprint(body)?;
             }
-            return Err(Error::reported());
+            return Err(Error::reported(failure));
         }
     };
     if !args.silent {
         ctx.print(text)?;
     }
-    if succeeded {
-        Ok(())
-    } else {
-        Err(Error::reported())
+    match failure {
+        None => Ok(()),
+        Some(failure) => Err(Error::reported(failure)),
     }
 }
 
@@ -51,7 +52,7 @@ fn decode(text: &str) -> Option<Value> {
     serde_json::from_str(text).ok()
 }
 fn no_query() -> Error {
-    Error::new("No query provided").with_hint("Provide a query as an argument: linear api '{ viewer { id } }'\n  Or pipe from stdin: echo '{ viewer { id } }' | linear api")
+    Error::invalid("No query provided").with_hint("Provide a query as an argument: linear api '{ viewer { id } }'\n  Or pipe from stdin: echo '{ viewer { id } }' | linear api")
 }
 fn stdin_all() -> Result<String> {
     Ok(text_input::read_stdin(std::io::stdin().lock())?
@@ -88,7 +89,7 @@ fn plain(text: &str) -> Result<Value> {
     }
     if text.parse::<f64>().is_ok_and(|number| !number.is_finite()) {
         return Err(
-            Error::new(format!("Variable value {text} is not a finite number"))
+            Error::invalid(format!("Variable value {text} is not a finite number"))
                 .with_hint("Pass a finite number, or a JSON string through --variables-json."),
         );
     }
@@ -101,7 +102,7 @@ fn variables(action: &Api) -> Result<Map<String, Value>> {
     let mut variables = Map::new();
     if let Some(text) = action.variables_json.as_deref().filter(|s| !s.is_empty()) {
         let value = decode(text).ok_or_else(|| {
-            Error::new(format!("Invalid JSON for --variables-json: {text}")).with_hint(
+            Error::invalid(format!("Invalid JSON for --variables-json: {text}")).with_hint(
                 "Provide a valid JSON object, e.g. --variables-json '{\"key\": \"value\"}'",
             )
         })?;
@@ -117,7 +118,7 @@ fn variables(action: &Api) -> Result<Map<String, Value>> {
             Value::Array(_) => Some("array"),
         };
         if let Some(kind) = kind {
-            return Err(Error::new(format!(
+            return Err(Error::invalid(format!(
                 "--variables-json must be a JSON object, got {kind}"
             ))
             .with_hint("Provide a JSON object, e.g. --variables-json '{\"key\": \"value\"}'"));
@@ -128,7 +129,7 @@ fn variables(action: &Api) -> Result<Map<String, Value>> {
         let value = if raw == "@-" {
             let text = stdin_all()?;
             if text.is_empty() {
-                return Err(Error::new("No data on stdin for @- value"));
+                return Err(Error::invalid("No data on stdin for @- value"));
             }
             parsed_or_string(text)
         } else if let Some(path) = raw.strip_prefix('@') {
@@ -158,10 +159,10 @@ fn request(query: &str, variables: &Map<String, Value>) -> String {
 enum Response {
     /// The response body as printed.
     Data(String),
-    /// GraphQL errors, or a body that is not JSON, as printed.
-    Errors(String),
-    /// A failed HTTP status, with the body for stderr.
-    HttpError(String),
+    /// GraphQL errors, or a body that is not JSON, as printed, and their class.
+    Errors(String, Failure),
+    /// A failed HTTP status, with the body for stderr, and its class.
+    HttpError(String, Failure),
 }
 
 /// The response as printed: pretty on a terminal, compact when piped, and
@@ -181,6 +182,17 @@ fn has_errors(value: &Value) -> bool {
         .get("errors")
         .and_then(Value::as_array)
         .is_some_and(|errors| !errors.is_empty())
+}
+/// The class of a response with `status` and body `parsed`, read like a typed
+/// operation's (see [`classify_failure`]). An `errors` array that does not
+/// have GraphQL's error shape counts as no recognizable errors.
+fn failure(status: StatusCode, parsed: Option<&Value>) -> Failure {
+    let errors: Vec<ResponseGraphQlError> = parsed
+        .and_then(|value| value.get("errors"))
+        .cloned()
+        .and_then(|errors| serde_json::from_value(errors).ok())
+        .unwrap_or_default();
+    classify_failure(status, &errors)
 }
 fn is_connection(object: &Map<String, Value>) -> bool {
     object.contains_key("nodes") && object.contains_key("pageInfo")
@@ -245,11 +257,12 @@ async fn execute(
             );
         }
         let (status, text) = client.fetch_api(request(query, &vars)).await?;
-        if status >= 400 {
-            return Ok(Response::HttpError(format!("{text}\n")));
+        if status.as_u16() >= 400 {
+            let failure = failure(status, decode(&text).as_ref());
+            return Ok(Response::HttpError(format!("{text}\n"), failure));
         }
         let Some(parsed) = decode(&text) else {
-            return Ok(Response::Errors(format!("{text}\n")));
+            return Ok(Response::Errors(format!("{text}\n"), Failure::General));
         };
         if parsed.is_null() {
             if paginate {
@@ -258,7 +271,8 @@ async fn execute(
             return Ok(Response::Data(format!("{text}\n")));
         }
         if has_errors(&parsed) {
-            return Ok(Response::Errors(json_output(&parsed, &text, tty)));
+            let failure = failure(status, Some(&parsed));
+            return Ok(Response::Errors(json_output(&parsed, &text, tty), failure));
         }
         if !paginate {
             return Ok(Response::Data(json_output(&parsed, &text, tty)));

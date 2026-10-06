@@ -75,7 +75,7 @@ fn missing_document_fails_before_any_request() {
     let api = MockLinear::start();
     Cli::for_api(&api)
         .run(&["api"])
-        .failure()
+        .usage_error()
         .stderr_has("No query");
     assert!(api.requests().is_empty());
 }
@@ -85,10 +85,10 @@ fn invalid_variables_json_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = Cli::for_api(&api);
     cli.run(&["api", QUERY, "--variables-json", "{nope"])
-        .failure()
+        .usage_error()
         .stderr_has("--variables-json");
     cli.run(&["api", QUERY, "--variables-json", "[1]"])
-        .failure()
+        .usage_error()
         .stderr_has("object");
     cli.run(&["api", QUERY, "--variable", "body=@missing.md"])
         .failure()
@@ -128,6 +128,64 @@ fn silent_suppresses_output_but_keeps_the_exit_status() {
     let run = cli.run(&["api", QUERY, "--silent"]);
     run.failure();
     assert_eq!(run.stdout, "");
+}
+
+#[test]
+fn the_exit_status_names_the_failure_class() {
+    let unauthenticated = r#"{"errors":[{"message":"Authentication required, not authenticated","extensions":{"code":"AUTHENTICATION_ERROR","userPresentableMessage":"You need to authenticate to access this operation."}}]}"#;
+    let missing = r#"{"errors":[{"message":"Entity not found: Issue","path":["issue"],"extensions":{"code":"INPUT_ERROR","userPresentableMessage":"Could not find referenced Issue."}}],"data":null}"#;
+    let invalid = r#"{"errors":[{"message":"Cannot query field \"nope\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}"#;
+    let limited =
+        r#"{"errors":[{"message":"Rate limit exceeded","extensions":{"code":"RATELIMITED"}}]}"#;
+    let api = MockLinear::start();
+    api.on_raw("Probe", 401, unauthenticated)
+        .on_raw("Probe", 200, missing)
+        .on_raw("Probe", 400, invalid)
+        .on_raw("Probe", 400, limited)
+        .on_text("Probe", 502, "text/html", "<html>bad gateway</html>")
+        .on_raw("Probe", 401, unauthenticated);
+    let cli = Cli::for_api(&api);
+    cli.run(&["api", QUERY])
+        .auth_failure()
+        .stderr_has("AUTHENTICATION_ERROR");
+    let run = cli.run(&["api", QUERY]);
+    run.not_found();
+    assert_eq!(
+        run.json()["errors"][0]["message"],
+        "Entity not found: Issue"
+    );
+    cli.run(&["api", QUERY])
+        .failure()
+        .stderr_has("GRAPHQL_VALIDATION_FAILED");
+    cli.run(&["api", QUERY]).unavailable();
+    cli.run(&["api", QUERY]).unavailable();
+    let run = cli.run(&["api", QUERY, "--silent"]);
+    run.auth_failure();
+    assert_eq!((run.stdout.as_str(), run.stderr.as_str()), ("", ""));
+}
+
+#[test]
+fn an_unreachable_endpoint_exits_5() {
+    Cli::new()
+        .env("LINEAR_API_KEY", API_KEY)
+        .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+        .run(&["api", QUERY])
+        .unavailable()
+        .stderr_has("127.0.0.1:1");
+}
+
+#[test]
+fn a_failed_later_page_keeps_its_class() {
+    const ISSUES: &str = "query Issues($after: String) { issues(first: 1, after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }";
+    let api = MockLinear::start();
+    api.on(
+        "Issues",
+        json!({ "issues": { "nodes": [{ "id": "a" }], "pageInfo": { "hasNextPage": true, "endCursor": "c1" } } }),
+    )
+    .on_text("Issues", 503, "text/plain", "maintenance");
+    Cli::for_api(&api)
+        .run(&["api", ISSUES, "--paginate", "--silent"])
+        .unavailable();
 }
 
 #[test]
@@ -178,10 +236,10 @@ fn responses_that_are_not_graphql_json_are_printed_raw_and_fail() {
     run.failure();
     assert_eq!(run.stdout, " not json \n");
     let run = cli.run(&["api", QUERY]);
-    run.failure().stderr_has("upstream exploded");
+    run.unavailable().stderr_has("upstream exploded");
     assert_eq!(run.stdout, "");
     let run = cli.run(&["api", QUERY, "--silent"]);
-    run.failure();
+    run.unavailable();
     assert_eq!((run.stdout.as_str(), run.stderr.as_str()), ("", ""));
 }
 

@@ -10,7 +10,7 @@ use crate::commands::outcome;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{confirm, lookup_prompt};
 use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
+use crate::error::{Error, Failure, Result, ResultExt};
 use crate::graphql::operations::project::ProjectStatusType;
 use crate::graphql::operations::project::{
     AddProjectToInitiative, CreateProject, CreateProjectVariables, CreatedProject,
@@ -191,7 +191,7 @@ fn create(ctx: &Ctx, args: &ProjectCreate) -> Result<()> {
                     color
                 ),
             ))?;
-            Err(Error::reported())
+            Err(Error::reported(error.failure().unwrap_or(Failure::General)))
         }
     }
 }

@@ -6,7 +6,7 @@ use futures_util::{StreamExt, stream};
 
 use crate::cli::BulkArgs;
 use crate::ctx::Ctx;
-use crate::error::{Error, Result};
+use crate::error::{Error, Failure, Result};
 
 pub struct BulkInput<'a> {
     pub argv: Option<&'a [String]>,
@@ -39,7 +39,7 @@ pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<S
     if let Some(path) = input.file {
         let bytes = std::fs::read(path).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
-                Error::not_found("File", &path.display().to_string())
+                Error::new(format!("File not found: {}", path.display()))
             } else {
                 Error::new(format!("Failed to read bulk file: {}", path.display()))
                     .with_source(error)
@@ -72,7 +72,24 @@ pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<S
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BulkOutcome {
     Succeeded,
-    Failed(String),
+    Failed { message: String, failure: Failure },
+}
+
+impl BulkOutcome {
+    /// The outcome of an item that failed with `error`. Rows show only the
+    /// error's message, not its suggestion or context.
+    pub fn failed(error: &Error) -> Self {
+        Self::Failed {
+            message: error.message().to_owned(),
+            failure: item_failure(error),
+        }
+    }
+}
+
+/// The class a failed item counts as: its runtime class, or general for an
+/// item that could not be used at all, such as an ID that does not parse.
+fn item_failure(error: &Error) -> Failure {
+    error.failure().unwrap_or(Failure::General)
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BulkResult {
@@ -110,16 +127,37 @@ impl<T> Found<T> {
             name: Some(self.name.clone()),
             outcome: match outcome {
                 Ok(()) => BulkOutcome::Succeeded,
-                Err(error) => BulkOutcome::Failed(error.message().to_owned()),
+                Err(error) => BulkOutcome::failed(&error),
             },
         }
     }
 }
 
-/// A listed item that could not be looked up, and why.
+/// A listed item that could not be looked up, why, and the failure's class.
 pub struct Skipped {
     pub original: String,
     pub reason: String,
+    pub failure: Failure,
+}
+
+impl Skipped {
+    /// `original` names no `entity`, as in `Issue not found`.
+    pub fn not_found(original: String, entity: &str) -> Self {
+        Self {
+            original,
+            reason: format!("{entity} not found"),
+            failure: Failure::NotFound,
+        }
+    }
+
+    /// Looking up `original` failed with `error`.
+    pub fn failed(original: String, error: &Error) -> Self {
+        Self {
+            original,
+            reason: error.message().to_owned(),
+            failure: item_failure(error),
+        }
+    }
 }
 
 impl From<Skipped> for BulkResult {
@@ -127,9 +165,27 @@ impl From<Skipped> for BulkResult {
         Self {
             id: skipped.original,
             name: None,
-            outcome: BulkOutcome::Failed(skipped.reason),
+            outcome: BulkOutcome::Failed {
+                message: skipped.reason,
+                failure: skipped.failure,
+            },
         }
     }
+}
+
+/// The error when none of the listed `noun`s (plural) could be looked up:
+/// "could not be found" only when every one was missing, otherwise the most
+/// serious failure among `skipped`, which must not be empty.
+pub fn none_found(skipped: &[Skipped], noun: &str) -> Error {
+    let failure = Failure::fold(skipped.iter().map(|skipped| skipped.failure))
+        .expect("an empty lookup skipped at least one listed item");
+    Error::failed(
+        failure,
+        format!(
+            "None of the listed {noun} could be {}",
+            skip_reason(skipped)
+        ),
+    )
 }
 
 /// Looks up every listed item, five at a time behind a spinner, before
@@ -167,14 +223,25 @@ pub fn preview<T>(found: &[Found<T>], missing: &[Skipped], noun: &str, verb: Ver
     }
     if !missing.is_empty() {
         output.push_str(&format!(
-            "Skipping {} that could not be found:\n",
-            count(missing.len(), noun)
+            "Skipping {} that could not be {}:\n",
+            count(missing.len(), noun),
+            skip_reason(missing)
         ));
         for skipped in missing {
             output.push_str(&format!("  {}: {}\n", skipped.original, skipped.reason));
         }
     }
     output
+}
+
+/// What could not be done for `skipped` items: "found" only when every one
+/// is missing, since a lookup that failed says nothing about whether the item
+/// exists; otherwise "looked up".
+fn skip_reason(skipped: &[Skipped]) -> &'static str {
+    match Failure::fold(skipped.iter().map(|skipped| skipped.failure)) {
+        Some(Failure::NotFound) | None => "found",
+        Some(Failure::General | Failure::Auth | Failure::Unavailable) => "looked up",
+    }
 }
 
 /// `count` of `noun`, as in `1 issue` or `3 issues`.
@@ -217,15 +284,15 @@ pub fn report(ctx: &Ctx, results: &[BulkResult], noun: &str, verb: Verb) -> Resu
     // stderr; on stdout it would be the first line a script reads.
     ctx.eprint("\n")?;
     ctx.print(summary)?;
-    if failed {
-        return Err(Error::reported());
+    match failed {
+        Some(failure) => Err(Error::reported(failure)),
+        None => Ok(()),
     }
-    Ok(())
 }
 
-/// The summary after a bulk run, and whether anything failed. `noun` is
-/// singular, as in `issue`.
-pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, bool) {
+/// The summary after a bulk run, and the combined class of its failures
+/// (`None` when nothing failed). `noun` is singular, as in `issue`.
+pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, Option<Failure>) {
     let total = results.len();
     let succeeded = results.iter().filter(|row| row.succeeded()).count();
     let failed = total - succeeded;
@@ -237,7 +304,7 @@ pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, bool)
             verb.past,
             count(succeeded)
         ));
-        return (output, false);
+        return (output, None);
     }
     if succeeded == 0 {
         output.push_str(&format!(
@@ -254,7 +321,7 @@ pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, bool)
     }
     output.push_str("\nFailed operations:\n");
     for row in results {
-        if let BulkOutcome::Failed(error) = &row.outcome {
+        if let BulkOutcome::Failed { message: error, .. } = &row.outcome {
             let name = row
                 .name
                 .as_deref()
@@ -263,7 +330,11 @@ pub fn summary(results: &[BulkResult], noun: &str, verb: Verb) -> (String, bool)
             output.push_str(&format!("  - {}{name}: {error}\n", row.id));
         }
     }
-    (output, true)
+    let failure = Failure::fold(results.iter().filter_map(|row| match &row.outcome {
+        BulkOutcome::Succeeded => None,
+        BulkOutcome::Failed { failure, .. } => Some(*failure),
+    }));
+    (output, failure)
 }
 
 fn progress(completed: usize, total: usize, succeeded: usize) -> String {
@@ -278,6 +349,7 @@ fn progress(completed: usize, total: usize, succeeded: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::{BulkInput, BulkOutcome, BulkResult, Verb, collect_ids, summary};
+    use crate::error::Failure;
 
     const ARCHIVE: Verb = Verb {
         present: "archive",
@@ -292,20 +364,30 @@ mod tests {
         }
     }
 
+    fn failed(id: &str, message: &str, failure: Failure) -> BulkResult {
+        row(
+            id,
+            BulkOutcome::Failed {
+                message: message.to_owned(),
+                failure,
+            },
+        )
+    }
+
     #[test]
     fn summaries_count_successes_and_list_failures() {
         let ok = row("ENG-1", BulkOutcome::Succeeded);
-        let failed = row("ENG-2", BulkOutcome::Failed("Issue not found".to_owned()));
+        let failed = failed("ENG-2", "Issue not found", Failure::NotFound);
         assert_eq!(
             summary(std::slice::from_ref(&ok), "issue", ARCHIVE),
-            ("✓ Successfully archived 1 issue\n".to_owned(), false)
+            ("✓ Successfully archived 1 issue\n".to_owned(), None)
         );
         assert_eq!(
             summary(&[ok, failed.clone()], "issue", ARCHIVE),
             (
                 "Completed: 1/2 issues archived\n  ✓ Succeeded: 1\n  ✗ Failed: 1\n\nFailed operations:\n  - ENG-2 (ENG-2: Title): Issue not found\n"
                     .to_owned(),
-                true
+                Some(Failure::NotFound)
             )
         );
         assert!(

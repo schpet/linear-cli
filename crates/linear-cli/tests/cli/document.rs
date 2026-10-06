@@ -179,7 +179,7 @@ fn view_missing_document_fails() {
     api.on("GetDocument", json!({ "document": null }));
     Cli::for_api(&api)
         .run(&["document", "view", "gone123", "--raw"])
-        .failure();
+        .not_found();
 }
 
 #[test]
@@ -636,7 +636,7 @@ fn comment_add_reports_a_missing_document() {
     api.on_error("GetDocumentCommentTarget", "Entity not found: Document");
     Cli::for_api(&api)
         .run(&["document", "comment", "add", "gone", "--body", "Hi"])
-        .failure()
+        .not_found()
         .stderr_has("Document not found: gone");
     assert_eq!(api.operations(), ["GetDocumentCommentTarget"]);
 }
@@ -1000,7 +1000,7 @@ fn delete_bulk_lists_the_documents_before_deleting_and_skips_missing_ones() {
     run.failure()
         .stderr_has("1 document to delete:\n  Design notes\n")
         .stderr_has(
-            "Skipping 1 document that could not be found:\n  https://linear.app/acme/issue/ENG-1: ",
+            "Skipping 1 document that could not be looked up:\n  https://linear.app/acme/issue/ENG-1: ",
         );
     assert_eq!(api.operations(), ["GetDocumentForDelete", "DeleteDocument"]);
 }
@@ -1051,7 +1051,7 @@ fn create_on_a_terminal_checks_the_attachment_flag_before_the_editor() {
         &["document", "create", "-t", "Notes", "--project", "nope"],
         &[],
     );
-    assert_eq!(run.code, 1, "{run}");
+    assert_eq!(run.code, 3, "{run}");
     assert!(run.stdout.contains("Project not found: nope"), "{run}");
     assert!(cli.calls("editor").is_empty());
 }

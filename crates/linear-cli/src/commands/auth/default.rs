@@ -22,7 +22,7 @@ fn set_default(ctx: &Ctx, args: &AuthDefault) -> Result<()> {
     let target = match super::named_workspace(ctx, args.workspace_name.as_deref())? {
         Some(target) => {
             if !credentials.has_workspace(target) {
-                return Err(Error::not_found("Workspace", target)
+                return Err(Error::invalid(format!("Workspace not found: {target}"))
                     .with_hint(format!("Available workspaces: {}", workspaces.join(", "))));
             }
             target.to_owned()

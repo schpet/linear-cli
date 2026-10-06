@@ -338,7 +338,7 @@ fn view_of_a_missing_url_never_falls_back_to_a_name() {
     api.on("ResolveInitiativeBySlug", none());
     Cli::for_api(&api)
         .run(&["initiative", "view", URL])
-        .failure()
+        .not_found()
         .stderr_has("Initiative not found")
         .stderr_has("may have been deleted");
     assert_eq!(api.operations(), ["ResolveInitiativeBySlug"]);
@@ -351,7 +351,7 @@ fn view_unknown_initiative_fails() {
         .on("ResolveInitiativeByName", none());
     Cli::for_api(&api)
         .run(&["initiative", "view", "nothing-here"])
-        .failure()
+        .not_found()
         .stderr_has("nothing-here");
 }
 

@@ -296,7 +296,7 @@ fn create_reports_an_unknown_template_id_as_not_found() {
     Cli::for_api(&api)
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&["issue", "create", "--no-interactive", "--template", id])
-        .failure()
+        .not_found()
         .stderr_has(&format!("Template not found: {id}"));
 }
 
@@ -319,7 +319,7 @@ fn create_fails_on_an_unknown_label_without_creating() {
             "-l",
             "missing",
         ])
-        .failure()
+        .not_found()
         .stderr_has("missing");
     assert_eq!(
         api.variables("GetIssueLabelIdByNameForTeam"),
@@ -580,7 +580,7 @@ fn update_of_a_missing_issue_names_it_and_prints_nothing_first() {
         r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#,
     );
     let run = Cli::for_api(&api).run(&["issue", "update", "ENG-9999", "-t", "x"]);
-    run.failure().stderr_has("Issue not found: ENG-9999");
+    run.not_found().stderr_has("Issue not found: ENG-9999");
     assert_eq!(run.stdout, "", "{run}");
 }
 
@@ -705,7 +705,7 @@ fn delete_reports_a_missing_issue() {
     );
     Cli::for_api(&api)
         .run(&["issue", "delete", "ENG-404", "-y"])
-        .failure()
+        .not_found()
         .stderr_has("Issue not found: ENG-404");
 }
 
@@ -845,7 +845,7 @@ fn missing_state_hints_quote_names_before_issue_mutations() {
             vec!["issue", "update", "ENG-1", "--state", "Absent"]
         };
         let run = Cli::for_api(&api).run(&argv);
-        run.failure()
+        run.not_found()
             .stderr_has("Workflow state not found: 'Absent' in team ENG")
             .stderr_has(r#"Valid states: "Bell\u0007" (unstarted), "Say \"hi\"" (started)."#);
         assert!(!run.stderr.contains('\u{7}'));
@@ -942,7 +942,7 @@ fn create_reports_a_missing_parent_without_mutating() {
             "--parent",
             "ENG-404",
         ])
-        .failure()
+        .not_found()
         .stderr_has("Parent issue not found: ENG-404");
     assert_eq!(api.operations(), ["ResolveTeam", "GetIssueId"]);
     assert_eq!(api.variables("GetIssueId"), json!({"id": "ENG-404"}));
@@ -956,7 +956,7 @@ fn update_reports_a_missing_parent_without_mutating() {
     Cli::for_api(&api)
         .env("LINEAR_TEAM_ID", "ENG")
         .run(&["issue", "update", "ENG-1", "--parent", "ENG-404"])
-        .failure()
+        .not_found()
         .stderr_has("Parent issue not found: ENG-404");
     assert_eq!(api.operations(), ["GetIssueId"]);
     assert_eq!(api.variables("GetIssueId"), json!({"id": "ENG-404"}));
@@ -1278,7 +1278,7 @@ fn bulk_delete_lists_what_it_found_and_skips_before_asking() {
     );
     assert_eq!(run.code, 1, "{run}");
     let listed = "1 issue to delete:\n  ENG-1: Fix login\n\
-                  Skipping 1 issue that could not be found:\n  3: Issue number 3 needs a team";
+                  Skipping 1 issue that could not be looked up:\n  3: Issue number 3 needs a team";
     assert!(run.stdout.contains(listed), "{run}");
     assert!(
         run.stdout.contains("Completed: 1/2 issues deleted"),
@@ -1287,12 +1287,69 @@ fn bulk_delete_lists_what_it_found_and_skips_before_asking() {
     assert_eq!(api.operations(), ["GetIssueSummary", "DeleteIssue"]);
 }
 
+fn summary(id: &str) -> Value {
+    json!({ "issue": { "identifier": id, "title": "t", "archivedAt": null } })
+}
+
+#[test]
+fn a_bulk_run_with_a_missing_issue_exits_3_after_archiving_the_rest() {
+    let api = MockLinear::start();
+    api.on("GetIssueSummary", summary("ENG-1"))
+        .on_raw("GetIssueSummary", 200, MISSING_ISSUE)
+        .on(
+            "ArchiveIssue",
+            json!({ "issueArchive": { "success": true } }),
+        );
+    Cli::for_api(&api)
+        .run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-404"])
+        .not_found()
+        .stdout_has("Completed: 1/2 issues archived");
+}
+
+#[test]
+fn a_bulk_run_exits_with_its_most_serious_failure() {
+    let api = MockLinear::start();
+    api.on_raw("GetIssueSummary", 200, MISSING_ISSUE).on_text(
+        "GetIssueSummary",
+        503,
+        "text/plain",
+        "maintenance",
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-2"])
+        .unavailable()
+        .stderr_has("None of the listed issues could be looked up");
+
+    let api = MockLinear::start();
+    let refused = r#"{"errors":[{"message":"Authentication required","extensions":{"code":"AUTHENTICATION_ERROR"}}]}"#;
+    api.on_raw("GetIssueSummary", 401, refused)
+        .on_raw("GetIssueSummary", 401, refused);
+    Cli::for_api(&api)
+        .run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-2"])
+        .auth_failure()
+        .stderr_has("Skipping 2 issues that could not be looked up:");
+    assert_eq!(api.operations(), ["GetIssueSummary", "GetIssueSummary"]);
+
+    let api = MockLinear::start();
+    api.on("GetIssueSummary", summary("ENG-1"))
+        .on("GetIssueSummary", summary("ENG-2"))
+        .on(
+            "ArchiveIssue",
+            json!({ "issueArchive": { "success": true } }),
+        )
+        .on_text("ArchiveIssue", 503, "text/plain", "maintenance");
+    Cli::for_api(&api)
+        .run(&["issue", "archive", "--yes", "--bulk", "ENG-1", "ENG-2"])
+        .unavailable()
+        .stdout_has("Completed: 1/2 issues archived");
+}
+
 #[test]
 fn bulk_archive_with_nothing_found_asks_nothing() {
     let api = MockLinear::start();
     api.on_raw("GetIssueSummary", 200, MISSING_ISSUE);
     let run = Cli::for_api(&api).run_tty(&["issue", "archive", "--bulk", "ENG-404"], &[]);
-    assert_eq!(run.code, 1, "{run}");
+    assert_eq!(run.code, 3, "{run}");
     assert!(run.stdout.contains("ENG-404: Issue not found"), "{run}");
     assert!(
         run.stdout

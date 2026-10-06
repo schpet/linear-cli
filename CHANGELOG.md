@@ -4,7 +4,7 @@
 
 ### Upgrading from 2.x
 
-3.0 is a rewrite in Rust. Commands, credentials, and config files carry over, but several 2.x quirks are gone, `--json` output has one consistent shape, and invalid input is rejected before anything is sent to Linear. Script authors should read the JSON output and command line sections.
+3.0 is a rewrite in Rust. Commands, credentials, and config files carry over, but several 2.x quirks are gone, `--json` output has one consistent shape, invalid input is rejected before anything is sent to Linear, and the exit status tells failures apart. Script authors should read the JSON output and command line sections.
 
 #### Installation and runtime
 
@@ -79,7 +79,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - terminal Markdown wraps long lines at spaces to the terminal width, keeping list and quote indentation on continuation lines. Tables wider than the terminal shrink their columns and wrap cell text, and print one `Header: value` record per row when the terminal is too narrow for a grid
 - success messages share one form, `✓ Created issue ENG-123: Title` followed by the URL on its own line. Declining a confirmation prints `Canceled.` on stderr and exits 0
 - errors read `✗ <what failed>: <why>`, often with a hint line underneath, and `LINEAR_DEBUG=1` adds the underlying causes. HTTP errors include a short excerpt of the response body. An ambiguous team, project, initiative, release, template, or user name lists the candidates. When a create's outcome is unknown, for example after a dropped connection, the error says the entity "may already exist"
-- exit codes: `0` success, `1` error, `2` usage error (bad flags or values, a required value that is missing or empty, a confirmation or question that cannot be asked without a terminal, missing subcommand), `130` cancelled. A closed pipe (`linear issue list | head`) exits quietly
+- exit codes: `0` success, `1` error, `2` usage error (bad flags or values, a required value that is missing or empty, a confirmation or question that cannot be asked without a terminal, missing subcommand), `3` not found (an issue, team, or other entity the command looked up), `4` authentication (no usable API key, or Linear rejected it), `5` unavailable (Linear could not be reached, timed out, rate limited the request, or failed with a server error; a create or update may still have taken effect), `130` cancelled. 2.x exited 1 for all of these, so a revoked key looked the same as a missing issue. `linear api` exits the same way for its response (GraphQL errors other than these stay `1`), and invalid input to it (no query, bad `--variables-json`) is now a usage error. A bulk command exits with the first of `4`, `5`, `1`, `3` among its failures, and says items "could not be found" only when they are all missing ("could not be looked up" otherwise). `linear --help` lists the statuses. A closed pipe (`linear issue list | head`) exits quietly ([#293](https://github.com/schpet/linear-cli/issues/293); thanks @sethfitz for the report)
 
 #### Security
 
@@ -92,7 +92,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 
 #### Bug fixes
 
-- `issue start` takes the team from the issue itself, so a full ID or URL works without a configured team. An argument that is not an issue ID errors instead of opening the picker, and a failed state update exits 1 (the branch or jj change is still prepared) instead of reporting success
+- `issue start` takes the team from the issue itself, so a full ID or URL works without a configured team. An argument that is not an issue ID errors instead of opening the picker, and a failed state update exits nonzero (the branch or jj change is still prepared) instead of reporting success
 - finding the current issue from jj trailers reads one trailer per line. 2.x joined neighboring trailers (`Fixes A-1Fixes B-2`) and could pick the wrong issue. `issue commits` matches whole IDs, so `ENG-1` no longer matches `ENG-10`
 - `issue view` shows every label, child, attachment, document, and comment instead of the first page. `milestone view`, `team states`, issue state lookups, `linear config`'s team list, milestone names, agent session activities, `initiative view`'s projects, and the relations `issue relation list` shows and `issue relation delete` searches also read every page
 - `team delete --move-issues` reports a partial failure honestly and keeps the team, and bulk deletes skip items whose lookup failed instead of sending the mutation anyway

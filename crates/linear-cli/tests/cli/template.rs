@@ -146,7 +146,7 @@ fn view_unknown_name_fails() {
     api.on("GetTemplates", all_templates());
     Cli::for_api(&api)
         .run(&["template", "view", "Nonexistent"])
-        .failure()
+        .not_found()
         .stderr_has("Nonexistent");
 }
 
@@ -213,7 +213,7 @@ fn view_unknown_id_is_not_found() {
         .on("GetTemplates", json!({ "templates": [] }));
     Cli::for_api(&api)
         .run(&["template", "view", BUG_ID])
-        .failure()
+        .not_found()
         .stderr_has(&format!("Template not found: {BUG_ID}"))
         .stderr_has("linear template list");
 }

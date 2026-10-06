@@ -101,7 +101,7 @@ fn list_of_a_missing_project_is_not_found() {
     api.on("GetProjectMilestones", json!({ "project": null }));
     Cli::for_api(&api)
         .run(&["milestone", "list", "--project", PROJECT_ID])
-        .failure()
+        .not_found()
         .stderr_has("Failed to list milestones: Project not found");
 }
 
@@ -458,7 +458,7 @@ fn create_with_unknown_project_fails_without_creating() {
         .on("GetProjectIdBySlugId", project_ids(&[]));
     Cli::for_api(&api)
         .run(&["milestone", "create", "--project", "Nope", "--name", "Beta"])
-        .failure();
+        .not_found();
 }
 
 #[test]
@@ -621,6 +621,6 @@ fn delete_reports_an_unknown_milestone_without_asking() {
     api.on("GetMilestoneName", json!({ "projectMilestone": null }));
     Cli::for_api(&api)
         .run(&["milestone", "delete", MILESTONE_ID])
-        .failure()
+        .not_found()
         .stderr_has(&format!("Milestone not found: {MILESTONE_ID}"));
 }

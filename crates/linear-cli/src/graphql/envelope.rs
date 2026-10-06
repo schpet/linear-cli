@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json::error::Category;
 
-use crate::error::Error;
+use crate::error::{Error, Failure};
 
 /// The JSON body sent for one GraphQL operation.
 ///
@@ -160,7 +160,11 @@ impl From<ResponseError> for Error {
             // Valid JSON that contradicts the schema the types were compiled
             // against is a broken contract, not a network or GraphQL failure.
             ResponseError::UnexpectedShape(source) => Error::new(message).with_source(source),
-            ResponseError::GraphQl { .. } | ResponseError::MissingData => Error::new(message),
+            ResponseError::GraphQl { errors, .. } => Error::failed(
+                graphql_failure(&errors).expect("a GraphQl error carries at least one error"),
+                message,
+            ),
+            ResponseError::MissingData => Error::new(message),
         }
     }
 }
@@ -218,7 +222,33 @@ pub fn graphql_message(errors: &[ResponseGraphQlError]) -> Option<String> {
     })
 }
 
-/// Whether GraphQL errors describe a missing entity.
+/// The failure class of a non-empty set of GraphQL errors, combined with
+/// [`Failure::combine`]; `None` when there are no errors.
+///
+/// Each error is classified on its own: Linear's `AUTHENTICATION_ERROR` and
+/// `FORBIDDEN` codes are [`Failure::Auth`], `RATELIMITED` (sent with HTTP 400)
+/// is [`Failure::Unavailable`], a missing entity is [`Failure::NotFound`], and
+/// anything else is [`Failure::General`]. So errors describe a missing entity
+/// only when every one of them does.
+pub fn graphql_failure(errors: &[ResponseGraphQlError]) -> Option<Failure> {
+    Failure::fold(errors.iter().map(error_failure))
+}
+
+fn error_failure(error: &ResponseGraphQlError) -> Failure {
+    let code = error
+        .extensions
+        .as_ref()
+        .and_then(|extensions| extensions.get("code"))
+        .and_then(Value::as_str);
+    match code {
+        Some("AUTHENTICATION_ERROR" | "FORBIDDEN") => Failure::Auth,
+        Some("RATELIMITED") => Failure::Unavailable,
+        _ if names_missing_entity(error) => Failure::NotFound,
+        _ => Failure::General,
+    }
+}
+
+/// Whether an error says the entity it refers to does not exist.
 ///
 /// Linear reports a missing entity with the same `INVALID_INPUT` code as any
 /// other bad argument, so the message is the only signal: the raw message is
@@ -227,11 +257,20 @@ pub fn graphql_message(errors: &[ResponseGraphQlError]) -> Option<String> {
 /// text; commands go through [`RequestError::is_not_found`].
 ///
 /// [`RequestError::is_not_found`]: crate::client::RequestError::is_not_found
-pub fn is_not_found(errors: &[ResponseGraphQlError]) -> bool {
-    graphql_message(errors).is_some_and(|message| {
-        let message = message.to_lowercase();
-        message.contains("not found") || message.contains("could not find")
-    })
+fn names_missing_entity(error: &ResponseGraphQlError) -> bool {
+    let presentable = error
+        .extensions
+        .as_ref()
+        .and_then(|extensions| extensions.get("userPresentableMessage"))
+        .and_then(Value::as_str);
+    [Some(error.message.as_str()), presentable]
+        .into_iter()
+        .flatten()
+        .any(|message| {
+            let message = message.to_lowercase();
+            message.starts_with("entity not found")
+                || message.starts_with("could not find referenced")
+        })
 }
 
 #[cfg(test)]

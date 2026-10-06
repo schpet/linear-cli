@@ -479,7 +479,7 @@ fn select_credential<'a>(
                 | OptionSource::ProjectConfig { .. }
                 | OptionSource::GlobalConfig { .. } => String::new(),
             };
-            Err(Error::new(format!(
+            Err(Error::invalid(format!(
                 "Cannot use --workspace while LINEAR_API_KEY is set{place}"
             ))
             .with_hint("Unset LINEAR_API_KEY or remove the --workspace flag."))
@@ -488,7 +488,7 @@ fn select_credential<'a>(
             workspace,
             choice,
             stored: true,
-        } => Err(Error::new(format!(
+        } => Err(Error::auth(format!(
             "No usable API key for workspace \"{workspace}\"{}",
             chosen_by(&choice)
         ))
@@ -499,7 +499,7 @@ fn select_credential<'a>(
             workspace,
             choice,
             stored: false,
-        } => Err(Error::new(format!(
+        } => Err(Error::auth(format!(
             "Workspace \"{workspace}\"{} not found in credentials",
             chosen_by(&choice)
         ))
@@ -525,7 +525,7 @@ pub fn connect(
     network_env: &NetworkEnv,
 ) -> Result<LinearClient> {
     let key = ApiKey::new(secret.expose()).map_err(|error| {
-        Error::new("API key cannot be used as an HTTP header").with_source(error)
+        Error::auth("API key cannot be used as an HTTP header").with_source(error)
     })?;
     Ok(LinearClient::new(
         options.endpoint().value().clone(),

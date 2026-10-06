@@ -457,9 +457,14 @@ async fn apply(
             Err(error) => (FailedWrite::Rejected, Error::from(error)),
         };
         let diagnostic = collections::partial_diagnostic(changes, applied, outcome, updated_fields);
-        return Err(Error::new(format!("{} Cause: {cause}", diagnostic.message))
-            .with_hint(diagnostic.suggestion)
-            .with_source(cause));
+        let failure = cause
+            .failure()
+            .expect("a failed write is a runtime failure");
+        return Err(
+            Error::failed(failure, format!("{} Cause: {cause}", diagnostic.message))
+                .with_hint(diagnostic.suggestion)
+                .with_source(cause),
+        );
     }
     Ok(())
 }

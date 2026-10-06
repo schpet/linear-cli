@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Command, ExitStatus, Output, Stdio};
 
 use crate::config::ChildEnvOverlay;
-use crate::error::{Error, Result};
+use crate::error::{Error, Failure, Result};
 
 /// `program` run in `cwd` with the configured child environment on top of
 /// this process's own, and with stdin closed.
@@ -74,7 +74,7 @@ pub fn check_attached(status: ExitStatus) -> Result<()> {
             .and_then(|code| u8::try_from(code).ok())
             .and_then(NonZeroU8::new),
     };
-    Err(interrupted.map_or_else(Error::reported, Error::exit))
+    Err(interrupted.map_or_else(|| Error::reported(Failure::General), Error::exit))
 }
 
 #[cfg(unix)]

@@ -1,8 +1,6 @@
 //! `auth login`: check an API key with Linear, then store it.
 use std::io::Read;
 
-use reqwest::StatusCode;
-
 use crate::auth::keyring::Keyring;
 use crate::auth::mutation::Credentials;
 use crate::auth::{ApiKeyInput, CredentialFormat};
@@ -10,8 +8,7 @@ use crate::cli::auth::AuthLogin;
 use crate::client::{ApiKey, LinearClient, RequestError};
 use crate::config::ConfigSecret;
 use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
-use crate::graphql::envelope::ResponseGraphQlError;
+use crate::error::{Error, Failure, Result, ResultExt};
 use crate::graphql::operations::user::GetViewerAccount;
 use crate::platform::style;
 
@@ -38,7 +35,7 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     let client = LinearClient::new(
         ctx.options().endpoint().value().clone(),
         ApiKey::new(key.expose()).map_err(|error| {
-            Error::new("API key cannot be used as an HTTP header").with_source(error)
+            Error::auth("API key cannot be used as an HTTP header").with_source(error)
         })?,
         ctx.config().network_env.client_config(),
     )?;
@@ -125,37 +122,12 @@ fn clean_key(key: ConfigSecret) -> Result<ConfigSecret> {
 
 /// Linear refused the key: HTTP 401/403 or an authentication error.
 fn rejected_key(failure: RequestError) -> Error {
-    let refused = match &failure {
-        RequestError::GraphQl { status, errors, .. } => {
-            refused_status(*status) || errors.iter().any(authentication_error)
-        }
-        RequestError::Http { response, .. } => refused_status(response.status),
-        RequestError::ResponseTooLarge { status, .. } => refused_status(*status),
-        RequestError::RequestBody(_)
-        | RequestError::Response(_)
-        | RequestError::Timeout { .. }
-        | RequestError::Network { .. } => false,
-    };
-    if refused {
-        Error::auth("Invalid API key")
+    match failure.failure() {
+        Failure::Auth => Error::auth("Invalid API key")
             .with_hint("Check that your API key is correct and not expired.")
-            .with_source(failure)
-    } else {
-        Error::from(failure)
+            .with_source(failure),
+        Failure::General | Failure::NotFound | Failure::Unavailable => Error::from(failure),
     }
-}
-
-fn refused_status(status: StatusCode) -> bool {
-    status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN
-}
-
-fn authentication_error(error: &ResponseGraphQlError) -> bool {
-    error
-        .extensions
-        .as_ref()
-        .and_then(|extensions| extensions.get("code"))
-        .and_then(serde_json::Value::as_str)
-        == Some("AUTHENTICATION_ERROR")
 }
 
 /// Offers to move plaintext keys to the keyring. Only asked on a terminal;

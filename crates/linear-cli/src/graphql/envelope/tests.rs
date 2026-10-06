@@ -1,4 +1,5 @@
-use super::{GraphQlRequest, ResponseError, graphql_message, is_not_found, parse_response};
+use super::{GraphQlRequest, ResponseError, graphql_failure, graphql_message, parse_response};
+use crate::error::Failure;
 use crate::graphql::operations::agent_session::GetAgentSessionDetails;
 use crate::graphql::operations::issue::UpdateIssue;
 use serde_json::Value;
@@ -37,7 +38,7 @@ fn errors_only_classify_as_graphql_without_partial_data() {
                 graphql_message(errors).as_deref(),
                 Some("Could not find referenced Issue.")
             );
-            assert!(is_not_found(errors));
+            assert_eq!(graphql_failure(errors), Some(Failure::NotFound));
         }
         other => panic!("expected GraphQl, got {other:?}"),
     }
@@ -60,7 +61,7 @@ fn errors_with_partial_data_are_still_errors() {
                 graphql_message(&errors).as_deref(),
                 Some("Something failed")
             );
-            assert!(!is_not_found(&errors));
+            assert_eq!(graphql_failure(&errors), Some(Failure::General));
         }
         other => panic!("expected GraphQl, got {other:?}"),
     }
@@ -108,7 +109,7 @@ fn errors_with_null_root_field_incompatible_with_the_type_are_graphql_errors() {
         } => {
             assert!(partial_data);
             assert_eq!(errors.len(), 1);
-            assert!(is_not_found(errors));
+            assert_eq!(graphql_failure(errors), Some(Failure::NotFound));
         }
         other => panic!("expected GraphQl, got {other:?}"),
     }
@@ -123,7 +124,7 @@ fn errors_with_null_root_field_incompatible_with_the_type_are_graphql_errors() {
         } => {
             assert!(partial_data);
             assert_eq!(errors[0].message, "Entity not found: AgentSession");
-            assert!(is_not_found(errors));
+            assert_eq!(graphql_failure(errors), Some(Failure::NotFound));
         }
         other => panic!("expected GraphQl, got {other:?}"),
     }

@@ -40,7 +40,7 @@ fn failures_show_the_first_nonempty_graphql_message_or_the_http_status() {
         .stderr_has("boom");
     assert_eq!(run.stdout, "");
     let run = cli.run(&args);
-    run.failure()
+    run.unavailable()
         .stderr_has("✗ Failed to query issues: ")
         .stderr_has("500");
     assert_eq!(run.stdout, "");
@@ -57,7 +57,7 @@ fn network_failures_show_a_cause_chain_without_secrets() {
         )
         .env("LINEAR_DEBUG", "1")
         .run(&["auth", "whoami"]);
-    run.failure()
+    run.unavailable()
         .stderr_has("✗ ")
         .stderr_has("http://127.0.0.1:1")
         .stderr_has("  caused by: ");
@@ -79,7 +79,7 @@ fn http_failures_show_a_sanitized_body_excerpt() {
 
     let plain = Cli::for_api(&api).run(&["auth", "whoami"]);
     plain
-        .failure()
+        .unavailable()
         .stderr_has("unexpected HTTP status 500 Internal Server Error: upstream [31mexploded[0m key=<redacted> xxx")
         .stderr_has("x…");
     assert!(!plain.stderr.contains('\x1b'), "{plain}");
@@ -90,13 +90,13 @@ fn http_failures_show_a_sanitized_body_excerpt() {
         .env("LINEAR_DEBUG", "1")
         .run(&["auth", "whoami"]);
     debug
-        .failure()
+        .unavailable()
         .stderr_has("  debug: HTTP 500 Internal Server Error body: upstream")
         .stderr_has(&"x".repeat(300));
     assert!(!debug.stderr.contains(crate::support::API_KEY), "{debug}");
 
     let html = Cli::for_api(&api).run(&["auth", "whoami"]);
-    html.failure()
+    html.unavailable()
         .stderr_has("unexpected HTTP status 502 Bad Gateway\n");
     assert!(!html.stderr.contains("<html>"), "{html}");
 }
@@ -107,7 +107,7 @@ fn missing_credentials_fail_with_a_login_hint() {
     Cli::new()
         .endpoint(&api)
         .run(&["team", "list"])
-        .failure()
+        .auth_failure()
         .stderr_has("No API key configured")
         .stderr_has("linear auth login");
     assert!(api.requests().is_empty());
@@ -147,4 +147,108 @@ fn a_closed_stdout_ends_the_command_quietly() {
         .expect("run linear");
     assert_eq!(output.status.code(), Some(0));
     assert!(output.stderr.is_empty(), "{output:?}");
+}
+
+/// Linear's answer to a revoked or mistyped API key.
+const UNAUTHENTICATED: &str = r#"{"errors":[{"message":"Authentication required, not authenticated","extensions":{"type":"authentication error","code":"AUTHENTICATION_ERROR","statusCode":401,"userError":true,"userPresentableMessage":"You need to authenticate to access this operation.","meta":{},"http":{"status":401}}}]}"#;
+const ISSUE_NOT_FOUND: &str = r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"type":"invalid input","code":"INPUT_ERROR","statusCode":400,"userError":true,"userPresentableMessage":"Could not find referenced Issue."}}],"data":null}"#;
+const RATE_LIMITED: &str =
+    r#"{"errors":[{"message":"Rate limit exceeded","extensions":{"code":"RATELIMITED"}}]}"#;
+
+const VIEW: [&str; 4] = ["issue", "view", "ENG-1", "--json"];
+const VIEW_OP: &str = "GetIssueDetailsWithComments";
+
+#[test]
+fn a_rejected_api_key_exits_4() {
+    let api = MockLinear::start();
+    api.on_raw(VIEW_OP, 401, UNAUTHENTICATED)
+        .on_raw(VIEW_OP, 403, r#"{"errors":[{"message":"Forbidden"}]}"#)
+        .on_raw(VIEW_OP, 200, UNAUTHENTICATED);
+    let cli = Cli::for_api(&api);
+    cli.run(&VIEW)
+        .auth_failure()
+        .stderr_has("You need to authenticate");
+    cli.run(&VIEW).auth_failure();
+    cli.run(&VIEW).auth_failure();
+}
+
+#[test]
+fn missing_credentials_exit_4() {
+    Cli::new()
+        .run(&VIEW)
+        .auth_failure()
+        .stderr_has("No API key configured");
+    Cli::new()
+        .credentials("default = \"acme\"\nacme = \"lin_api_x\"\n")
+        .run(&["--workspace", "other", "issue", "view", "ENG-1"])
+        .auth_failure()
+        .stderr_has("not found in credentials");
+}
+
+#[test]
+fn a_missing_issue_exits_3() {
+    let api = MockLinear::start();
+    api.on_raw(VIEW_OP, 200, ISSUE_NOT_FOUND);
+    Cli::for_api(&api)
+        .run(&VIEW)
+        .not_found()
+        .stderr_has("Issue not found: ENG-1");
+}
+
+#[test]
+fn a_missing_entity_alongside_a_rejected_key_is_an_authentication_failure() {
+    let both = r#"{"errors":[{"message":"Entity not found: Issue"},{"message":"Authentication required","extensions":{"code":"AUTHENTICATION_ERROR"}}]}"#;
+    let api = MockLinear::start();
+    api.on_raw(VIEW_OP, 200, both);
+    Cli::for_api(&api).run(&VIEW).auth_failure();
+}
+
+#[test]
+fn an_unreachable_or_struggling_api_exits_5() {
+    // Nothing listens on port 1, so the connection is refused.
+    Cli::new()
+        .env("LINEAR_API_KEY", crate::support::API_KEY)
+        .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+        .run(&VIEW)
+        .unavailable();
+    let api = MockLinear::start();
+    api.on_text(VIEW_OP, 503, "text/plain", "maintenance")
+        .on_text(VIEW_OP, 429, "text/plain", "slow down")
+        .on_raw(VIEW_OP, 400, RATE_LIMITED);
+    let cli = Cli::for_api(&api);
+    cli.run(&VIEW).unavailable();
+    cli.run(&VIEW).unavailable();
+    cli.run(&VIEW)
+        .unavailable()
+        .stderr_has("Rate limit exceeded");
+}
+
+#[test]
+fn other_graphql_errors_and_unexpected_statuses_exit_1() {
+    let api = MockLinear::start();
+    api.on_raw(
+        VIEW_OP,
+        400,
+        r#"{"errors":[{"message":"Argument invalid","extensions":{"code":"INPUT_ERROR"}}]}"#,
+    )
+    .on_text(VIEW_OP, 404, "text/plain", "no such route")
+    .on_raw(
+        VIEW_OP,
+        200,
+        r#"{"errors":[{"message":"Entity not found: Issue"},{"message":"Something else broke"}]}"#,
+    );
+    let cli = Cli::for_api(&api);
+    cli.run(&VIEW).failure();
+    cli.run(&VIEW).failure();
+    cli.run(&VIEW).failure();
+}
+
+#[test]
+fn root_help_documents_the_exit_statuses() {
+    let run = Cli::new().run(&["--help"]);
+    run.success()
+        .stdout_has("Exit status:")
+        .stdout_has("3  ")
+        .stdout_has("4  ")
+        .stdout_has("5  ");
 }

@@ -485,6 +485,20 @@ every command accepts:
 
 `issue list`, `issue query`, `issue view`, and `project view` page long output; pass `--no-pager` to disable it. color is used only on a terminal; set `NO_COLOR=1` to turn it off.
 
+### exit status
+
+| status | meaning |
+| ------ | ------- |
+| `0`    | success |
+| `1`    | any other failure, including GraphQL errors such as an invalid query in `linear api` |
+| `2`    | usage error: bad flags or values, rejected before anything is sent to Linear |
+| `3`    | not found: an issue, team, project, or other entity the command looked up does not exist |
+| `4`    | authentication: no usable API key, or Linear rejected it (revoked, mistyped, or lacking access) |
+| `5`    | unavailable: Linear could not be reached, timed out, rate limited the request, or failed with a server error. Retrying later may work, but a create or update may still have taken effect |
+| `130`  | cancelled at a prompt or in the editor |
+
+a bulk command that fails for several reasons exits with the first of `4`, `5`, `1`, `3` among them.
+
 ### examples
 
 common workflows:

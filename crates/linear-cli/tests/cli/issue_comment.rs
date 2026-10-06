@@ -364,7 +364,7 @@ fn delete_reports_an_unknown_comment_before_asking() {
     api.on_error("GetCommentForDelete", "Entity not found: Comment");
     Cli::for_api(&api)
         .run(&["issue", "comment", "delete", COMMENT_ID, "--yes"])
-        .failure()
+        .not_found()
         .stderr_has(&format!("Comment not found: {COMMENT_ID}"));
     assert_eq!(api.operations(), ["GetCommentForDelete"]);
 }
@@ -611,7 +611,7 @@ fn add_on_a_terminal_does_not_open_the_editor_for_a_missing_issue() {
         .stub_bin("editor", APPENDING_EDITOR)
         .env("VISUAL", "editor");
     cli.run_tty(&["issue", "comment", "add", "ENG-404"], &[])
-        .failure()
+        .not_found()
         .stdout_has("Issue not found: ENG-404");
     assert!(cli.calls("editor").is_empty());
 }
@@ -700,7 +700,7 @@ fn add_on_a_terminal_checks_the_parent_before_the_editor() {
         &["issue", "comment", "add", "ENG-1", "--reply-to", PARENT_ID],
         &[],
     )
-    .failure()
+    .not_found()
     .stdout_has(&format!("Comment not found: {PARENT_ID}"));
     assert!(cli.calls("editor").is_empty());
 }

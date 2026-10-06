@@ -257,7 +257,7 @@ fn view_unknown_project_fails() {
         .on("GetProjectIdBySlugId", no_ids());
     Cli::for_api(&api)
         .run(&["project", "view", "nosuchproject", "--json"])
-        .failure()
+        .not_found()
         .stderr_has("nosuchproject");
 }
 
@@ -547,7 +547,7 @@ fn delete_reports_an_unknown_project_without_asking() {
         .on("GetProjectIdBySlugId", no_ids());
     Cli::for_api(&api)
         .run(&["project", "delete", "Nope"])
-        .failure()
+        .not_found()
         .stderr_has("not found");
     assert_eq!(
         api.operations(),
@@ -771,6 +771,28 @@ fn update_without_changes_fails_before_any_request() {
 }
 
 #[test]
+fn update_keeps_the_class_of_a_failed_initiative_link() {
+    let first = "00000000-0000-4000-9000-00000000000a";
+    let api = MockLinear::start();
+    api.on(
+        "GetInitiativeByIdForUpdate",
+        json!({ "initiatives": { "nodes": [{ "id": first, "name": "Alpha" }] } }),
+    )
+    .on(
+        "GetProjectInitiativeLinksForUpdate",
+        json!({ "project": {
+            "id": ID, "name": "Mobile App", "url": "https://linear.app/acme/project/mobile",
+            "initiativeToProjects": page(json!([]))
+        } }),
+    )
+    .on_text("AddProjectToInitiative", 503, "text/plain", "maintenance");
+    Cli::for_api(&api)
+        .run(&["project", "update", ID, "--add-initiative", first])
+        .unavailable()
+        .stderr_has("503");
+}
+
+#[test]
 fn update_reports_partially_applied_initiative_links() {
     let first = "00000000-0000-4000-9000-00000000000a";
     let second = "00000000-0000-4000-9000-00000000000b";
@@ -831,7 +853,7 @@ fn create_fails_before_creating_when_the_initiative_is_unknown() {
             "--initiative",
             "Nope",
         ])
-        .failure()
+        .not_found()
         .stderr_has("Nope");
     assert!(!api.operations().contains(&"CreateProject".to_owned()));
 }
@@ -858,6 +880,28 @@ fn create_reports_a_failed_initiative_link_after_creating() {
         .stdout_has("✓ Created project Fixture project")
         .stderr_has("Initiative is archived")
         .stderr_has("--add-initiative");
+}
+
+#[test]
+fn an_unavailable_initiative_link_exits_5_after_creating() {
+    let initiative = "00000000-0000-4000-9000-000000002509";
+    let api = MockLinear::start();
+    api.on("ResolveTeam", team("SRC", TEAM_ID))
+        .on("CreateProject", created())
+        .on_text("AddProjectToInitiative", 503, "text/plain", "maintenance");
+    Cli::for_api(&api)
+        .run(&[
+            "project",
+            "create",
+            "-n",
+            "X",
+            "-t",
+            "SRC",
+            "--initiative",
+            initiative,
+        ])
+        .unavailable()
+        .stdout_has("✓ Created project Fixture project");
 }
 
 #[test]
@@ -953,7 +997,7 @@ fn comment_add_on_a_terminal_resolves_the_project_before_the_editor() {
         .stub_bin("editor", "printf 'Hi' > \"$1\"")
         .env("VISUAL", "editor");
     cli.run_tty(&["project", "comment", "add", "Nope"], &[])
-        .failure()
+        .not_found()
         .stdout_has("Project not found: Nope");
     assert!(cli.calls("editor").is_empty());
 }

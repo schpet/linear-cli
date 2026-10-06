@@ -374,6 +374,27 @@ impl Run {
         self
     }
 
+    /// Something the command looked up in Linear does not exist: status 3.
+    #[track_caller]
+    pub fn not_found(&self) -> &Self {
+        assert_eq!(self.code, 3, "expected a not-found failure\n{self}");
+        self
+    }
+
+    /// No usable credentials, or Linear rejected them: status 4.
+    #[track_caller]
+    pub fn auth_failure(&self) -> &Self {
+        assert_eq!(self.code, 4, "expected an authentication failure\n{self}");
+        self
+    }
+
+    /// Linear could not be reached or could not serve the request: status 5.
+    #[track_caller]
+    pub fn unavailable(&self) -> &Self {
+        assert_eq!(self.code, 5, "expected an unavailable failure\n{self}");
+        self
+    }
+
     /// A usage error: from clap, or a value the command rejected after
     /// parsing, such as a missing required value: status 2.
     #[track_caller]

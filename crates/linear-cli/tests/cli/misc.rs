@@ -121,7 +121,7 @@ fn config_without_credentials_fails_before_any_request() {
     Cli::new()
         .endpoint(&api)
         .run(&["config"])
-        .failure()
+        .auth_failure()
         .stderr_has("linear auth login");
     assert!(api.requests().is_empty());
 }

@@ -212,7 +212,7 @@ fn an_unknown_team_lists_every_team_key() {
         );
     Cli::for_api(&api)
         .run(&["team", "members", "nope"])
-        .failure()
+        .not_found()
         .stderr_has("Team not found: nope")
         .stderr_has("Valid team keys: ABC (Alpha), ZED (Zed).");
 }
@@ -563,6 +563,24 @@ fn delete_keeps_the_team_when_some_issues_fail_to_move() {
         .stdout_has(": Linear did not move the issue")
         .stderr_has("2 issue(s) could not be moved, so team SRC was not deleted");
     assert_eq!(move_variables(&api).len(), 3);
+    assert!(!api.operations().contains(&"DeleteTeam".to_owned()));
+}
+
+#[test]
+fn delete_exits_5_when_linear_is_unavailable_for_a_move() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved("t-src", "SRC", "Source"))
+        .on("ResolveTeam", resolved("t-dest", "DEST", "Destination"))
+        .on(
+            "GetTeamIssuesForMove",
+            issue_page(&["SRC-1", "SRC-2"], Value::Null, false),
+        )
+        .on("MoveIssueToTeam", moved(true))
+        .on_text("MoveIssueToTeam", 503, "text/plain", "maintenance");
+    Cli::for_api(&api)
+        .run(&["team", "delete", "SRC", "--yes", "--move-issues", "DEST"])
+        .unavailable()
+        .stderr_has("1 issue(s) could not be moved, so team SRC was not deleted");
     assert!(!api.operations().contains(&"DeleteTeam".to_owned()));
 }
 

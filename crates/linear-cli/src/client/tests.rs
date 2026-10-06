@@ -20,6 +20,7 @@ use super::{
     ApiKey, CONTENT_TYPE_VALUE, ClientBuildError, ClientConfig, Deadline, EndpointUrl,
     HttpBodyShape, LinearClient, RawHttpResponse, RequestError, ResponseCap, classify_typed,
 };
+use crate::error::Failure;
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
 use crate::graphql::operations::team::{GetTeams, GetTeamsVariables};
 
@@ -768,6 +769,7 @@ async fn raw_document_without_variables_returns_exact_bytes() {
 async fn raw_api_requests_stop_at_the_api_cap_and_deadline() {
     let server = Server::start(vec![
         Reply::status(200, "application/json", vec![b' '; 8192]),
+        Reply::status(401, "application/json", vec![b' '; 8192]),
         Reply::Stall,
     ]);
     let client = client_for(
@@ -783,6 +785,12 @@ async fn raw_api_requests_stop_at_the_api_cap_and_deadline() {
         "Failed to read API response; the request was sent and may have taken effect: \
          response exceeds the 4096 byte limit"
     );
+    assert_eq!(error.failure(), Some(Failure::General));
+    let error = client
+        .fetch_api("{}".to_owned())
+        .await
+        .expect_err("too large");
+    assert_eq!(error.failure(), Some(Failure::Auth));
     let started = Instant::now();
     let error = client
         .fetch_api("{}".to_owned())
@@ -793,6 +801,57 @@ async fn raw_api_requests_stop_at_the_api_cap_and_deadline() {
         "{}",
         error.message()
     );
+    assert_eq!(error.failure(), Some(Failure::Unavailable));
     assert!(started.elapsed() < Duration::from_secs(30));
     server.finish();
+}
+
+#[test]
+fn failures_are_classified_by_status_and_graphql_error() {
+    use super::classify_failure;
+    use crate::graphql::envelope::ResponseGraphQlError;
+    use Failure::{Auth, General, NotFound, Unavailable};
+    let errors = |body: Value| -> Vec<ResponseGraphQlError> {
+        serde_json::from_value(body).expect("GraphQL errors")
+    };
+    let missing = json!({ "message": "Entity not found: Issue" });
+    let presentable_missing = json!({
+        "message": "Argument Validation Error",
+        "extensions": { "userPresentableMessage": "Could not find referenced Issue." },
+    });
+    let auth = json!({ "message": "x", "extensions": { "code": "AUTHENTICATION_ERROR" } });
+    let forbidden = json!({ "message": "x", "extensions": { "code": "FORBIDDEN" } });
+    let limited = json!({ "message": "x", "extensions": { "code": "RATELIMITED" } });
+    let other = json!({ "message": "Team not found in this workspace's settings page" });
+    let input = json!({ "message": "Argument invalid", "extensions": { "code": "INVALID_INPUT" } });
+    for (status, body, expected) in [
+        (200, json!([missing]), NotFound),
+        (400, json!([missing, presentable_missing]), NotFound),
+        (200, json!([auth]), Auth),
+        (200, json!([forbidden]), Auth),
+        (400, json!([limited]), Unavailable),
+        (200, json!([other]), General),
+        (400, json!([input]), General),
+        (200, json!([missing, other]), General),
+        (200, json!([other, missing]), General),
+        (200, json!([missing, limited]), Unavailable),
+        (200, json!([limited, auth]), Auth),
+        (401, json!([missing]), Auth),
+        (503, json!([missing]), Unavailable),
+        (401, json!([]), Auth),
+        (403, json!([]), Auth),
+        (408, json!([]), Unavailable),
+        (429, json!([]), Unavailable),
+        (502, json!([]), Unavailable),
+        (404, json!([]), General),
+        (400, json!([]), General),
+        (200, json!([]), General),
+    ] {
+        let status = StatusCode::from_u16(status).expect("status");
+        assert_eq!(
+            classify_failure(status, &errors(body.clone())),
+            expected,
+            "{status} {body}"
+        );
+    }
 }

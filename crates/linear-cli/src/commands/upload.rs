@@ -83,7 +83,7 @@ pub fn resolve_public(content_type: &str, requested: bool) -> Result<bool, Error
 pub fn validate_file(path: &Path) -> Result<std::fs::Metadata, Error> {
     let info = std::fs::metadata(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            Error::not_found("File", &path.to_string_lossy())
+            Error::new(format!("File not found: {}", path.to_string_lossy()))
         } else {
             Error::new(format!("Failed to read file metadata: {}", path.display()))
                 .with_source(error)
