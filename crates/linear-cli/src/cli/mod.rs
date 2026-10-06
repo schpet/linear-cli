@@ -46,7 +46,21 @@ Environment:
   LINEAR_IGNORE_ENV_FILE=1  Do not load .env files
 
 Every .linear.toml setting can also be set with a LINEAR_* variable; run
-`linear config` to write one for the current repository.";
+`linear config` to write one for the current repository.
+
+Exit status:
+  0    Success
+  1    Any other failure, including GraphQL errors such as an invalid query
+  2    Usage error: bad flags or values, rejected before anything is sent
+  3    Not found: an issue, team, or other entity the command looked up
+  4    Authentication: no usable API key, or Linear rejected it
+  5    Unavailable: Linear could not be reached, timed out, rate limited
+       the request, or failed with a server error. A create or update may
+       still have taken effect
+  130  Cancelled at a prompt or in the editor
+
+A bulk command that fails for several reasons exits with the first of 4, 5,
+1, 3 among them.";
 
 /// Work with Linear from the command line
 #[derive(Debug, Parser)]

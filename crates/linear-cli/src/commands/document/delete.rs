@@ -62,7 +62,7 @@ fn delete_bulk(ctx: &Ctx, args: &DocumentDelete, input: &BulkInput<'_>) -> Resul
     };
     ctx.eprint(bulk::preview(&found, &missing, "document", verb))?;
     if found.is_empty() {
-        return Err(Error::new("None of the listed documents could be found"));
+        return Err(bulk::none_found(&missing, "documents"));
     }
     let question = format!("Delete {}?", bulk::count(found.len(), "document"));
     if !args.confirm.yes && !ctx.confirm(&question, "--yes")? {
@@ -89,14 +89,8 @@ async fn look_up_item(
             name: document.title,
             item: document.id.into_inner(),
         }),
-        Ok(None) => Err(Skipped {
-            original,
-            reason: "Document not found".to_owned(),
-        }),
-        Err(error) => Err(Skipped {
-            original,
-            reason: error.message().to_owned(),
-        }),
+        Ok(None) => Err(Skipped::not_found(original, "Document")),
+        Err(error) => Err(Skipped::failed(original, &error)),
     }
 }
 

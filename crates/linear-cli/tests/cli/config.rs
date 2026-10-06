@@ -70,7 +70,7 @@ fn project_config_is_found_at_the_repository_root() {
 #[test]
 fn dotenv_supplies_linear_variables_unless_ignored() {
     let cli = Cli::new().file("cwd/.env", "LINEAR_API_KEY=key-dotenv\n");
-    cli.run(&["auth", "token"]).failure();
+    cli.run(&["auth", "token"]).auth_failure();
     let cli = cli.env_remove("LINEAR_IGNORE_ENV_FILE");
     assert_eq!(stdout(&cli, &["auth", "token"]), "key-dotenv");
     let cli = cli.env("LINEAR_API_KEY", "key-env");
@@ -84,7 +84,7 @@ fn dotenv_never_sends_a_variable_reference_as_the_key() {
         .env_remove("LINEAR_IGNORE_ENV_FILE")
         .env("SECRET_KEY", "key-secret");
     cli.run(&["auth", "token"])
-        .failure()
+        .auth_failure()
         .stderr_has("Ignoring LINEAR_API_KEY")
         .stderr_has("${SECRET_KEY} would be used literally")
         .stderr_has("single-quote");
@@ -198,6 +198,6 @@ fn config_without_a_terminal_names_the_missing_flags() {
 fn config_without_credentials_points_to_login() {
     Cli::new()
         .run(&["config"])
-        .failure()
+        .auth_failure()
         .stderr_has("linear auth login");
 }

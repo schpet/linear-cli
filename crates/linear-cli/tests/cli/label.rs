@@ -320,7 +320,7 @@ fn delete_missing_label_is_not_found() {
     api.on("GetLabelByName", by_name(vec![]));
     Cli::for_api(&api)
         .run(&["label", "delete", "Nope", "--yes"])
-        .failure()
+        .not_found()
         .stderr_has("Label not found: Nope");
 }
 

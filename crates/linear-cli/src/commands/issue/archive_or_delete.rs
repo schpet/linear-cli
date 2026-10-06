@@ -75,7 +75,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     };
     ctx.eprint(bulk::preview(&found, &missing, "issue", verb))?;
     if found.is_empty() {
-        return Err(Error::new("None of the listed issues could be found"));
+        return Err(bulk::none_found(&missing, "issues"));
     }
     let question = format!("{} {}?", mode.title(), bulk::count(found.len(), "issue"));
     if !request.yes && !ctx.confirm(&question, "--yes")? {
@@ -200,15 +200,11 @@ struct Listed {
 }
 
 async fn look_up_item(client: &LinearClient, target: Target) -> Result<Found<Listed>, Skipped> {
-    let skipped = |reason: String| Skipped {
-        original: target.original.clone(),
-        reason,
-    };
+    let not_found = || Skipped::not_found(target.original.clone(), "Issue");
     let id = match target.reference {
         ReferenceOutcome::Resolved(id) => id,
-        ReferenceOutcome::Unresolved => return Err(skipped("Issue not found".to_owned())),
-        // Rows show only the error message, not its suggestion or context.
-        ReferenceOutcome::Failed(error) => return Err(skipped(error.message().to_owned())),
+        ReferenceOutcome::Unresolved => return Err(not_found()),
+        ReferenceOutcome::Failed(error) => return Err(Skipped::failed(target.original, &error)),
     };
     match summary(client, &id).await {
         Ok(Some(details)) => Ok(Found {
@@ -223,8 +219,8 @@ async fn look_up_item(client: &LinearClient, target: Target) -> Result<Found<Lis
                 archived: details.archived,
             },
         }),
-        Ok(None) => Err(skipped("Issue not found".to_owned())),
-        Err(error) => Err(skipped(error.message().to_owned())),
+        Ok(None) => Err(not_found()),
+        Err(error) => Err(Skipped::failed(target.original, &error)),
     }
 }
 

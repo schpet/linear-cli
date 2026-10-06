@@ -180,6 +180,18 @@ Markdown content that is initially hidden.
 
 The square brackets around the title and the closing `+++` are required.
 
+## Exit Status
+
+The exit status says why a command failed, so scripts need not parse stderr:
+
+- `0` success
+- `1` any other failure, including GraphQL errors from `linear api`
+- `2` usage error: fix the flags or values; nothing was sent
+- `3` not found: the issue, team, or other entity does not exist
+- `4` authentication: no usable API key, or Linear rejected it; retrying will not help
+- `5` unavailable: network failure, timeout, rate limit, or server error; retry later, but a create or update may already have happened
+- `130` cancelled
+
 ## Available Commands
 
 Compact command list, generated from `linear --help`:

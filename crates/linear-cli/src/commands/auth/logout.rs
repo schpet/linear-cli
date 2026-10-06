@@ -17,7 +17,7 @@ fn logout(ctx: &Ctx, args: &AuthLogout) -> Result<()> {
     let named = super::named_workspace(ctx, args.workspace_name.as_deref())?;
     let workspace = match (named, credentials.workspaces()) {
         (Some(name), _) if !credentials.has_workspace(name) => {
-            return Err(Error::not_found("Workspace", name));
+            return Err(Error::invalid(format!("Workspace not found: {name}")));
         }
         (Some(name), _) => name.to_owned(),
         (None, [only]) => only.clone(),

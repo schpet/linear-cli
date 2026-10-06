@@ -118,7 +118,7 @@ fn an_unrelated_ca_bundle_fails_the_handshake() {
     cli(&format!("https://localhost:{port}/graphql"))
         .env("SSL_CERT_FILE", &tls_fixture("wrong-ca.pem"))
         .run(&["api", QUERY])
-        .failure()
+        .unavailable()
         .stderr_has("certificate");
     assert!(!server.join().expect("TLS server").handshake);
 }
@@ -155,7 +155,7 @@ fn a_redirect_from_https_to_plain_http_is_refused() {
     cli(&format!("https://localhost:{port}/graphql"))
         .env("SSL_CERT_FILE", &tls_fixture("test-ca.pem"))
         .run(&["api", QUERY])
-        .failure()
+        .unavailable()
         .stderr_has("refusing to follow a redirect from HTTPS to plain HTTP");
     assert!(server.join().expect("TLS server").handshake);
     assert!(api.requests().is_empty());
@@ -176,6 +176,6 @@ fn no_proxy_bypasses_the_proxy_for_listed_hosts() {
     Cli::for_api(&api)
         .env("HTTP_PROXY", dead_proxy)
         .run(&["api", QUERY])
-        .failure();
+        .unavailable();
     assert_eq!(api.operations(), ["Probe"]);
 }

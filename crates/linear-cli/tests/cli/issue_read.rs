@@ -194,10 +194,10 @@ fn view_and_title_name_a_missing_issue() {
         .on_raw("GetIssueDetails", 200, ISSUE_NOT_FOUND);
     let cli = Cli::for_api(&api);
     cli.run(&["issue", "view", "ENG-9999"])
-        .failure()
+        .not_found()
         .stderr_has("Issue not found: ENG-9999");
     let run = cli.run(&["issue", "title", "ENG-9999"]);
-    run.failure().stderr_has("Issue not found: ENG-9999");
+    run.not_found().stderr_has("Issue not found: ENG-9999");
     assert!(!run.stderr.contains("Could not find"), "{run}");
 }
 
@@ -489,14 +489,14 @@ fn list_and_query_reject_a_label_the_issues_cannot_have() {
         .on("GetLabelByName", json!({ "issueLabels": { "nodes": [] } }));
     let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG");
     cli.run(&["issue", "list", "--label", "nope"])
-        .failure()
+        .not_found()
         .stderr_has("Issue label not found: nope")
         .stderr_has("linear label list --team ENG");
     cli.run(&["issue", "list", "--label", "Bug"])
-        .failure()
+        .not_found()
         .stderr_has("Issue label not found: Bug");
     cli.run(&["issue", "query", "--all-teams", "--label", "nope"])
-        .failure()
+        .not_found()
         .stderr_has("Issue label not found: nope")
         .stderr_has("linear label list --all-teams");
     assert_eq!(
@@ -914,7 +914,7 @@ fn query_unknown_state_fails() {
     );
     Cli::for_api(&api)
         .run(&["issue", "query", "--all-teams", "--state", "Absent"])
-        .failure()
+        .not_found()
         .stderr_has("Absent");
     assert_eq!(
         api.variables("GetWorkflowStatesInScope"),
@@ -953,7 +953,7 @@ fn query_reports_api_errors() {
     );
     Cli::for_api(&api)
         .run(&["issue", "query", "--all-teams", "--json"])
-        .failure();
+        .unavailable();
 }
 
 /// An issue whose description embeds an image served by `api`.
@@ -1109,7 +1109,7 @@ fn view_of_a_missing_issue_is_not_found() {
     api.on("GetIssueDetailsWithComments", json!({ "issue": null }));
     Cli::for_api(&api)
         .run(&["issue", "view", "ENG-404", "--json"])
-        .failure()
+        .not_found()
         .stderr_has("Issue not found: ENG-404");
 }
 
@@ -1323,7 +1323,7 @@ fn missing_state_hints_quote_names_in_single_and_multiple_team_scopes() {
         argv.extend(scope);
         let run = Cli::for_api(&api).run(&argv);
         if command == "list" {
-            run.failure()
+            run.not_found()
                 .stderr_has("Workflow state not found: 'Absent' in team ENG");
         }
         let expected = if command == "list" {
@@ -1331,7 +1331,7 @@ fn missing_state_hints_quote_names_in_single_and_multiple_team_scopes() {
         } else {
             r#"Valid states: "Bell\u0007" (unstarted, ENG), "Say \"hi\"" (started, OPS)."#
         };
-        run.failure().stderr_has(expected);
+        run.not_found().stderr_has(expected);
         assert!(!run.stderr.contains('\u{7}'));
         assert!(
             api.operations()

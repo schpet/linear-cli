@@ -2,19 +2,72 @@
 //!
 //! An [`Error`] is a message plus an optional chain of context ("Failed to list
 //! cycles"), a hint line, and a source error shown under `LINEAR_DEBUG`. Its
-//! [`ErrorKind`] exists only where the process must behave differently.
+//! [`ErrorKind`] exists only where the process must behave differently, and a
+//! runtime failure's [`Failure`] class picks its exit status.
 use std::error::Error as StdError;
 use std::fmt;
 use std::num::NonZeroU8;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Why a command failed at run time, which scripts read from the exit status.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Failure {
+    /// Anything not below: Linear rejected the input, a response could not be
+    /// used, a local file could not be read. Exit status 1.
+    General,
+    /// Something the command looked up in Linear does not exist. Exit status 3.
+    NotFound,
+    /// No usable API key, or Linear rejected the key. Exit status 4.
+    Auth,
+    /// Linear could not be reached or could not serve the request now (a
+    /// network failure, a timeout, rate limiting, a server error). Exit status 5.
+    Unavailable,
+}
+
+impl Failure {
+    pub fn exit_code(self) -> u8 {
+        match self {
+            Self::General => 1,
+            Self::NotFound => 3,
+            Self::Auth => 4,
+            Self::Unavailable => 5,
+        }
+    }
+
+    /// The class that describes both failures: the one that needs attention
+    /// first. Authentication outranks unavailability, which outranks a general
+    /// failure, which outranks a missing entity, so a run reports "not found"
+    /// only when nothing worse happened.
+    pub fn combine(self, other: Self) -> Self {
+        if self.rank() >= other.rank() {
+            self
+        } else {
+            other
+        }
+    }
+
+    /// The combined class of `failures`, or `None` when there are none.
+    pub fn fold(failures: impl IntoIterator<Item = Self>) -> Option<Self> {
+        failures.into_iter().reduce(Self::combine)
+    }
+
+    fn rank(self) -> u8 {
+        match self {
+            Self::NotFound => 0,
+            Self::General => 1,
+            Self::Unavailable => 2,
+            Self::Auth => 3,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ErrorKind {
-    /// An ordinary failure: `✗ message`, exit status 1.
-    Other,
+    /// A runtime failure: `✗ message`, with its class's exit status.
+    Failed(Failure),
     /// Input that parsed but cannot be used, such as a missing required value
-    /// or an empty field: reported like [`ErrorKind::Other`], exit status 2
+    /// or an empty field: reported like [`ErrorKind::Failed`], exit status 2
     /// like any usage error.
     Invalid,
     /// A command-line usage error, rendered and given its exit status by clap.
@@ -22,7 +75,11 @@ pub enum ErrorKind {
     /// The user cancelled a prompt (Ctrl-C or Esc) or the editor: exit status
     /// 130 after `Canceled.`.
     Cancelled,
-    /// The command already reported its failure: exit with this status, no message.
+    /// The command already reported this failure itself: its class's exit
+    /// status, no message.
+    Reported(Failure),
+    /// A child process's status passed on, such as 143 after SIGTERM: exit
+    /// with it, no message.
     Exit(NonZeroU8),
     /// Stdout was closed by its reader: stop quietly with success.
     BrokenPipe,
@@ -52,8 +109,14 @@ impl Error {
         }
     }
 
+    /// A [`Failure::General`] runtime failure.
     pub fn new(message: impl Into<String>) -> Self {
-        Self::with_kind(ErrorKind::Other, message.into())
+        Self::failed(Failure::General, message)
+    }
+
+    /// A runtime failure of class `failure`.
+    pub fn failed(failure: Failure, message: impl Into<String>) -> Self {
+        Self::with_kind(ErrorKind::Failed(failure), message.into())
     }
 
     /// A usage error found after parsing; see [`ErrorKind::Invalid`].
@@ -63,25 +126,33 @@ impl Error {
 
     /// Missing or rejected credentials, with a hint to log in.
     pub fn auth(message: impl Into<String>) -> Self {
-        Self::new(message).with_hint(LOGIN_HINT)
+        Self::failed(Failure::Auth, message).with_hint(LOGIN_HINT)
     }
 
+    /// A Linear entity (issue, team, label…) that does not exist. Not for
+    /// local things such as files, which fail with [`Error::new`].
     pub fn not_found(entity: &str, identifier: &str) -> Self {
-        Self::new(format!("{entity} not found: {identifier}"))
+        Self::failed(
+            Failure::NotFound,
+            format!("{entity} not found: {identifier}"),
+        )
     }
 
     pub fn cancelled() -> Self {
         Self::with_kind(ErrorKind::Cancelled, "Cancelled".to_owned())
     }
 
-    /// The command printed its own failure report; exit with `status`.
+    /// Exit with a child process's `status`, which already reported itself.
     pub fn exit(status: NonZeroU8) -> Self {
         Self::with_kind(ErrorKind::Exit(status), format!("exit status {status}"))
     }
 
-    /// Exit status 1 after the command printed its own failure report.
-    pub fn reported() -> Self {
-        Self::exit(NonZeroU8::MIN)
+    /// The command printed its own report of a `failure`; exit with its status.
+    pub fn reported(failure: Failure) -> Self {
+        Self::with_kind(
+            ErrorKind::Reported(failure),
+            format!("exit status {}", failure.exit_code()),
+        )
     }
 
     pub(crate) fn broken_pipe(source: std::io::Error) -> Self {
@@ -90,6 +161,19 @@ impl Error {
 
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
+    }
+
+    /// The runtime failure class, or `None` for usage errors, cancellation,
+    /// passed-on child statuses and a closed stdout.
+    pub fn failure(&self) -> Option<Failure> {
+        match &self.kind {
+            ErrorKind::Failed(failure) | ErrorKind::Reported(failure) => Some(*failure),
+            ErrorKind::Invalid
+            | ErrorKind::Usage(_)
+            | ErrorKind::Cancelled
+            | ErrorKind::Exit(_)
+            | ErrorKind::BrokenPipe => None,
+        }
     }
 
     /// The message without context.
@@ -134,7 +218,7 @@ impl Error {
     /// The process exit status this error ends with.
     pub fn exit_code(&self) -> u8 {
         match &self.kind {
-            ErrorKind::Other => 1,
+            ErrorKind::Failed(failure) | ErrorKind::Reported(failure) => failure.exit_code(),
             ErrorKind::Invalid => 2,
             ErrorKind::Usage(error) => u8::try_from(error.exit_code()).unwrap_or(2),
             ErrorKind::Cancelled => 130,
@@ -189,3 +273,6 @@ impl<T, E: Into<Error>> ResultExt<T> for std::result::Result<T, E> {
         self.map_err(|error| error.into().context(context))
     }
 }
+
+#[cfg(test)]
+mod tests;

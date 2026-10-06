@@ -28,7 +28,7 @@ fn show_commits(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
         "commit_id",
     ]))?;
     if process::text(&probe.stdout).is_empty() {
-        return Err(Error::not_found("Commits", &identifier));
+        return Err(Error::new(format!("Commits not found: {identifier}")));
     }
     // jj reports its own failures, so its exit status becomes ours.
     process::check_attached(process::status(jj().args([

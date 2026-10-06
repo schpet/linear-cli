@@ -1,13 +1,12 @@
 //! `auth list`: every stored workspace with the organization and user its
 //! key belongs to, checked with one request per key, all at once.
 use futures_util::future::join_all;
-use reqwest::StatusCode;
 
 use crate::auth::CredentialStore;
 use crate::client::{ApiKey, LinearClient, RequestError};
 use crate::commands::table::{Cell, Column, Table};
 use crate::ctx::Ctx;
-use crate::error::{Result, ResultExt};
+use crate::error::{Failure, Result, ResultExt};
 use crate::graphql::envelope::graphql_message;
 use crate::graphql::operations::user::GetViewerAccount;
 use crate::platform::style;
@@ -96,21 +95,11 @@ async fn check(check: &Check) -> Outcome {
     }
 }
 
-fn rejected(status: StatusCode) -> bool {
-    status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN
-}
-
-/// A short cell for a failed check. A 401 or 403 means the key was refused.
+/// A short cell for a failed check: a key Linear refused (see
+/// [`Failure::Auth`]) is "invalid credentials".
 fn failure_cell(failure: &RequestError) -> String {
     match failure {
-        RequestError::GraphQl { status, .. } | RequestError::ResponseTooLarge { status, .. }
-            if rejected(*status) =>
-        {
-            "invalid credentials".to_owned()
-        }
-        RequestError::Http { response, .. } if rejected(response.status) => {
-            "invalid credentials".to_owned()
-        }
+        failure if failure.failure() == Failure::Auth => "invalid credentials".to_owned(),
         RequestError::GraphQl { errors, .. } => {
             graphql_message(errors).unwrap_or_else(|| failure.to_string())
         }

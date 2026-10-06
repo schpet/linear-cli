@@ -26,7 +26,7 @@ fn env_key_is_used() {
 fn missing_key_fails_with_guidance() {
     Cli::new()
         .run(&["auth", "token"])
-        .failure()
+        .auth_failure()
         .stderr_has("No API key configured")
         .stderr_has("linear auth login");
 }
@@ -50,7 +50,7 @@ fn unknown_workspace_fails() {
     Cli::new()
         .credentials(INLINE)
         .run(&["auth", "token", "--workspace", "nope"])
-        .failure()
+        .auth_failure()
         .stderr_has("\"nope\"");
 }
 
@@ -60,7 +60,7 @@ fn env_key_conflicts_with_workspace_flag() {
         .credentials(INLINE)
         .env("LINEAR_API_KEY", "lin_env")
         .run(&["auth", "token", "--workspace", "acme"])
-        .failure()
+        .usage_error()
         .stderr_has("--workspace");
 }
 
@@ -155,7 +155,7 @@ fn rejected_login_key_is_not_saved() {
     );
     let cli = Cli::new().endpoint(&api);
     cli.run(&["auth", "login", "--key", "lin_bad", "--plaintext"])
-        .failure();
+        .auth_failure();
     assert!(!cli.path("home/.config/linear/credentials.toml").exists());
 }
 
@@ -166,7 +166,7 @@ fn default_switches_the_default_workspace() {
         .success()
         .stdout_has("acme");
     assert_eq!(token(&cli, &[]), "key-acme");
-    cli.run(&["auth", "default", "nope"]).failure();
+    cli.run(&["auth", "default", "nope"]).usage_error();
 }
 
 #[test]
@@ -265,7 +265,7 @@ fn login_reports_an_authentication_error_as_an_invalid_key() {
     );
     let cli = Cli::new().endpoint(&api);
     cli.run(&["auth", "login", "--key", "lin_bad", "--plaintext"])
-        .failure()
+        .auth_failure()
         .stderr_has("Invalid API key");
     assert!(!cli.path(CREDENTIALS).exists());
 }
@@ -433,7 +433,7 @@ fn a_configured_workspace_without_credentials_never_falls_back_to_the_default() 
         .credentials(INLINE)
         .file("cwd/.linear.toml", "workspace = \"ghost\"\n");
     let run = cli.run(&["auth", "token"]);
-    run.failure()
+    run.auth_failure()
         .stderr_has("Workspace \"ghost\" (workspace set in project config")
         .stderr_has("not found in credentials");
     assert!(!run.stdout.contains("key-beta"), "{run}");
@@ -441,7 +441,7 @@ fn a_configured_workspace_without_credentials_never_falls_back_to_the_default() 
         .credentials(INLINE)
         .env("LINEAR_WORKSPACE", "ghost")
         .run(&["auth", "token"]);
-    run.failure()
+    run.auth_failure()
         .stderr_has("(workspace set in process environment)");
 }
 
@@ -452,7 +452,7 @@ fn a_dotenv_api_key_conflict_names_the_file() {
         .file("cwd/.env", "LINEAR_API_KEY=lin_env\n")
         .env_remove("LINEAR_IGNORE_ENV_FILE")
         .run(&["auth", "token", "--workspace", "acme"])
-        .failure()
+        .usage_error()
         .stderr_has("Cannot use --workspace while LINEAR_API_KEY is set in ")
         .stderr_has(".env");
 }

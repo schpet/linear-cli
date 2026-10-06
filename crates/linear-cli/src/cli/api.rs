@@ -19,7 +19,8 @@ pub struct Api {
     /// Follow the cursor of the one connection in the response and print every page
     #[arg(long)]
     pub paginate: bool,
-    /// Print nothing; the exit status still reports errors
+    /// Print nothing; the exit status still says whether and why it failed
+    /// (see `linear --help`)
     #[arg(long)]
     pub silent: bool,
 }

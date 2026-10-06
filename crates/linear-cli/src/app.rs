@@ -78,11 +78,11 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
 /// `LINEAR_DEBUG` the debug detail and source chain.
 fn report(error: &Error, settings: DisplaySettings) {
     let lines = match error.kind() {
-        ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
+        ErrorKind::Reported(_) | ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
         // The same word as declining a confirmation, though the status differs.
         ErrorKind::Cancelled => "Canceled.\n".to_owned(),
         ErrorKind::Usage(usage) => usage.render().to_string(),
-        ErrorKind::Other | ErrorKind::Invalid => {
+        ErrorKind::Failed(_) | ErrorKind::Invalid => {
             let terminal = Terminal::detect(settings.no_color);
             let color = terminal.stderr_color();
             // On a terminal, lines wrap at spaces with their indent kept.

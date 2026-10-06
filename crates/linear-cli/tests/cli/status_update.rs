@@ -337,7 +337,7 @@ fn project_list_unknown_project_fails() {
     api.on("ListProjectUpdates", json!({ "project": null }));
     Cli::for_api(&api)
         .run(&["project-update", "list", PROJECT_ID])
-        .failure()
+        .not_found()
         .stderr_has(PROJECT_ID);
 }
 

@@ -9,9 +9,9 @@ use reqwest::header::HeaderMap;
 
 use super::config::{Deadline, ResponseCap};
 use super::content_type;
-use crate::error::Error;
+use crate::error::{Error, Failure};
 use crate::graphql::envelope::{
-    ResponseError, ResponseGraphQlError, graphql_message, is_not_found,
+    ResponseError, ResponseGraphQlError, graphql_failure, graphql_message,
 };
 
 /// A `reqwest::Error` with its URL removed before it is stored or chained.
@@ -313,6 +313,24 @@ impl StdError for RequestError {
     }
 }
 
+/// The failure class of a response with `status` and GraphQL `errors`
+/// (empty when the body had none or could not be read).
+///
+/// HTTP 401 and 403 are [`Failure::Auth`] and HTTP 408, 429 and 5xx are
+/// [`Failure::Unavailable`], combined with the class of the errors; another
+/// status, such as a 404 from a misconfigured endpoint, adds nothing beyond
+/// [`Failure::General`]. A recognized missing entity under HTTP 400 is still
+/// [`Failure::NotFound`].
+pub fn classify_failure(status: StatusCode, errors: &[ResponseGraphQlError]) -> Failure {
+    let by_status = match status {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Some(Failure::Auth),
+        StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS => Some(Failure::Unavailable),
+        status if status.is_server_error() => Some(Failure::Unavailable),
+        _ => None,
+    };
+    Failure::fold(by_status.into_iter().chain(graphql_failure(errors))).unwrap_or(Failure::General)
+}
+
 impl RequestError {
     /// Whether the request may have reached Linear and taken effect anyway: a
     /// timeout, a network failure after connecting (a reset after the request
@@ -327,9 +345,21 @@ impl RequestError {
         }
     }
 
-    /// Whether Linear answered that the requested entity does not exist.
+    /// The failure class this ends a command with.
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::GraphQl { status, errors, .. } => classify_failure(*status, errors),
+            Self::Http { response, .. } => classify_failure(response.status, &[]),
+            Self::ResponseTooLarge { status, .. } => classify_failure(*status, &[]),
+            Self::Timeout { .. } | Self::Network { .. } => Failure::Unavailable,
+            Self::RequestBody(_) | Self::Response(_) => Failure::General,
+        }
+    }
+
+    /// Whether Linear answered that the requested entity does not exist, and
+    /// nothing worse: a missing entity next to a rejected key is not "absent".
     pub fn is_not_found(&self) -> bool {
-        matches!(self, Self::GraphQl { errors, .. } if is_not_found(errors))
+        self.failure() == Failure::NotFound
     }
 
     /// [`Error::not_found`] for `entity` `identifier` when Linear answered
@@ -357,8 +387,10 @@ impl RequestError {
 impl From<RequestError> for Error {
     fn from(failure: RequestError) -> Self {
         let message = failure.to_string();
+        let class = failure.failure();
+        let error = |message| Error::failed(class, message);
         match failure {
-            RequestError::RequestBody(source) => Error::new(message).with_source(source),
+            RequestError::RequestBody(source) => error(message).with_source(source),
             RequestError::GraphQl {
                 status,
                 errors,
@@ -367,14 +399,15 @@ impl From<RequestError> for Error {
             } => {
                 // The summary omits arbitrary response extensions, headers and
                 // the request URL.
-                Error::new(message).with_debug_detail(format!(
+                error(message).with_debug_detail(format!(
                     "GraphQL HTTP {status}; errors={}; partial_data={partial_data}",
                     errors.len()
                 ))
             }
+            // Only a 2xx body that is not usable data: always general.
             RequestError::Response(source) => Error::from(source),
             RequestError::Http { response, body } => {
-                let error = Error::new(message).with_debug_detail(format!(
+                let error = error(message).with_debug_detail(format!(
                     "HTTP {} body: {}",
                     response.status,
                     response.body_text()
@@ -384,10 +417,8 @@ impl From<RequestError> for Error {
                     HttpBodyShape::Data => error,
                 }
             }
-            RequestError::ResponseTooLarge { .. } | RequestError::Timeout { .. } => {
-                Error::new(message)
-            }
-            RequestError::Network { source, .. } => Error::new(message).with_source(source),
+            RequestError::ResponseTooLarge { .. } | RequestError::Timeout { .. } => error(message),
+            RequestError::Network { source, .. } => error(message).with_source(source),
         }
     }
 }

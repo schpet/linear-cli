@@ -362,6 +362,22 @@ settings are read from two config files, a project file and a global file. each 
 
 so the global file can hold defaults such as `issue_sort`, and a repository's `.linear.toml` overrides them for that project. every value is validated, even one a higher tier overrides, and an invalid value is an error naming its file and key.
 
+## exit status
+
+scripts can tell why a command failed from its exit status, without parsing the error message:
+
+| status | meaning |
+| ------ | ------- |
+| `0`    | success |
+| `1`    | any other failure, including GraphQL errors such as an invalid query in `linear api` |
+| `2`    | usage error: bad flags or values, rejected before anything is sent to Linear |
+| `3`    | not found: an issue, team, project, or other entity the command looked up does not exist |
+| `4`    | authentication: no usable API key, or Linear rejected it (revoked, mistyped, or lacking access) |
+| `5`    | unavailable: Linear could not be reached, timed out, rate limited the request, or failed with a server error. Retrying later may work, but a create or update may still have taken effect |
+| `130`  | cancelled at a prompt or in the editor |
+
+a bulk command (`--bulk`) that fails for several reasons exits with the first of `4`, `5`, `1`, `3` among them, so `3` means every failure was a missing item. `linear --help` lists the statuses too.
+
 ## skills
 
 linear-cli includes a skill that helps AI agents use the CLI effectively. for use cases outside the CLI, it includes instructions to interact directly with the graphql api, including authentication.

@@ -30,7 +30,7 @@ Options:
           Follow the cursor of the one connection in the response and print every page
 
       --silent
-          Print nothing; the exit status still reports errors
+          Print nothing; the exit status still says whether and why it failed (see `linear --help`)
 
   -h, --help
           Print help (see a summary with '-h')

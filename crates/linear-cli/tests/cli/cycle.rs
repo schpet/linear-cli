@@ -158,7 +158,7 @@ fn view_unknown_cycle_fails_without_fetching_details() {
         .on("GetTeamCyclesForLookup", lookup(Value::Null));
     Cli::for_api(&api)
         .run(&["cycle", "view", "42", "--team", "ENG"])
-        .failure()
+        .not_found()
         .stderr_has("42");
 }
 

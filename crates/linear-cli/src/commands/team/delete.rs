@@ -154,8 +154,8 @@ fn move_issues(
         };
         let outcome = match client.mutate::<MoveIssueToTeam, _>(variables).await {
             Ok(result) if result.issue_update.success => BulkOutcome::Succeeded,
-            Ok(_) => BulkOutcome::Failed("Linear did not move the issue".to_owned()),
-            Err(error) => BulkOutcome::Failed(Error::from(error).to_string()),
+            Ok(_) => BulkOutcome::failed(&Error::new("Linear did not move the issue")),
+            Err(error) => BulkOutcome::failed(&Error::from(error)),
         };
         BulkResult {
             id: issue.identifier.clone(),
@@ -167,14 +167,18 @@ fn move_issues(
         present: "move",
         past: "moved",
     };
-    ctx.print(bulk::summary(&results, "issue", moved).0)?;
-    let failed = results.iter().filter(|row| !row.succeeded()).count();
-    if failed == 0 {
+    let (summary, failure) = bulk::summary(&results, "issue", moved);
+    ctx.print(summary)?;
+    let Some(failure) = failure else {
         return Ok(());
-    }
-    Err(Error::new(format!(
-        "{failed} issue(s) could not be moved, so team {} was not deleted",
-        team.key
-    ))
+    };
+    let failed = results.iter().filter(|row| !row.succeeded()).count();
+    Err(Error::failed(
+        failure,
+        format!(
+            "{failed} issue(s) could not be moved, so team {} was not deleted",
+            team.key
+        ),
+    )
     .with_hint("Run the command again to retry."))
 }

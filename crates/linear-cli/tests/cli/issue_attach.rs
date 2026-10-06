@@ -171,7 +171,7 @@ fn link_to_a_missing_issue_fails() {
     api.on_error("GetIssueId", "Entity not found: Issue");
     Cli::for_api(&api)
         .run(&["issue", "link", "ENG-1", "https://example.com/a"])
-        .failure()
+        .not_found()
         .stderr_has("ENG-1");
 }
 
@@ -334,7 +334,7 @@ fn relation_delete_fails_when_no_relation_matches() {
         .run(&[
             "issue", "relation", "delete", "ENG-1", "blocks", "ENG-2", "--yes",
         ])
-        .failure()
+        .not_found()
         .stderr_has("not found");
 }
 

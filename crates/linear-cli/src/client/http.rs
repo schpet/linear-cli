@@ -8,9 +8,9 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 use reqwest::{StatusCode, Url};
 
 use super::config::{Deadline, EndpointUrl, ResponseCap};
-use super::error::{NetworkPhase, RawHttpResponse, SanitizedReqwestError};
+use super::error::{NetworkPhase, RawHttpResponse, SanitizedReqwestError, classify_failure};
 use super::{CONTENT_TYPE_VALUE, LinearClient};
-use crate::error::Error;
+use crate::error::{Error, Failure};
 
 /// A failure below HTTP classification, before the client attaches its
 /// origin.
@@ -73,20 +73,46 @@ pub(super) async fn collect(
     })
 }
 
-/// A short, display-safe description of a failed non-GraphQL request.
+/// A short, display-safe description of a failed non-GraphQL request. A
+/// timeout or network failure is [`Failure::Unavailable`]; an oversized body
+/// is classified by its status.
 fn bounded_failure(prefix: &str, failure: ExchangeFailure, deadline: Deadline) -> Error {
     match failure {
-        ExchangeFailure::ResponseTooLarge { limit, .. } => Error::new(format!(
-            "{prefix}: response exceeds the {} byte limit",
-            limit.bytes()
-        )),
-        ExchangeFailure::Timeout => Error::new(format!(
-            "{prefix}: did not complete within {:?}",
-            deadline.duration()
-        )),
-        ExchangeFailure::Network { source, .. } => {
-            Error::new(format!("{prefix}: {}", source.root_message())).with_source(source)
-        }
+        ExchangeFailure::ResponseTooLarge { status, limit } => Error::failed(
+            status_failure(status),
+            format!(
+                "{prefix}: response exceeds the {} byte limit",
+                limit.bytes()
+            ),
+        ),
+        ExchangeFailure::Timeout => Error::failed(
+            Failure::Unavailable,
+            format!(
+                "{prefix}: did not complete within {:?}",
+                deadline.duration()
+            ),
+        ),
+        ExchangeFailure::Network { source, .. } => Error::failed(
+            Failure::Unavailable,
+            format!("{prefix}: {}", source.root_message()),
+        )
+        .with_source(source),
+    }
+}
+
+/// The failure class of a response with `status` and no usable body.
+fn status_failure(status: StatusCode) -> Failure {
+    classify_failure(status, &[])
+}
+
+/// The failure class of a download or signed upload that got `status` from a
+/// host other than the API: unavailable for 408, 429 and 5xx, otherwise
+/// general. A 401 or 403 there is the URL's own access, which logging in to
+/// Linear again does not fix.
+fn storage_failure(status: StatusCode) -> Failure {
+    match status_failure(status) {
+        Failure::Unavailable => Failure::Unavailable,
+        Failure::General | Failure::NotFound | Failure::Auth => Failure::General,
     }
 }
 
@@ -140,7 +166,10 @@ impl LinearClient {
             .map_err(|error| failed(classify_network(error)))?;
         let status = response.status();
         if !status.is_success() {
-            return Err(Error::new(format!("{failure_prefix}: {status}")));
+            return Err(Error::failed(
+                storage_failure(status),
+                format!("{failure_prefix}: {status}"),
+            ));
         }
         let response = collect(response, self.max_download_bytes)
             .await
@@ -150,7 +179,7 @@ impl LinearClient {
 
     /// POSTs a raw GraphQL body for the `api` command and returns the status
     /// and body text unclassified, within the API deadline and size cap.
-    pub async fn fetch_api(&self, body: String) -> Result<(u16, String), Error> {
+    pub async fn fetch_api(&self, body: String) -> Result<(StatusCode, String), Error> {
         let response = self
             .http
             .post(self.endpoint.url.clone())
@@ -177,7 +206,7 @@ impl LinearClient {
                 )
             })?;
         Ok((
-            response.status.as_u16(),
+            response.status,
             String::from_utf8_lossy(&response.body).into_owned(),
         ))
     }
@@ -195,11 +224,14 @@ impl LinearClient {
         let mut url = Url::parse(url).map_err(|_| invalid())?;
         url.set_fragment(None);
         let target = EndpointUrl::from_url(url).map_err(|_| invalid())?;
-        let failed = |reason: String| {
-            Error::new(format!(
-                "Signed upload to {target} failed: {reason}; the object may already be \
+        let failed = |failure: Failure, reason: String| {
+            Error::failed(
+                failure,
+                format!(
+                    "Signed upload to {target} failed: {reason}; the object may already be \
                      stored remotely; no comment or attachment was created"
-            ))
+                ),
+            )
         };
         let response = self
             .http
@@ -210,27 +242,32 @@ impl LinearClient {
             .await
             .map_err(|error| {
                 let error = SanitizedReqwestError::new(error);
-                failed(error.root_message()).with_source(error)
+                failed(Failure::Unavailable, error.root_message()).with_source(error)
             })?;
-        if response.status().is_success() {
+        let status = response.status();
+        if status.is_success() {
             return Ok(());
         }
         let response = collect(response, self.max_response_bytes)
             .await
             .map_err(|failure| match failure {
-                ExchangeFailure::ResponseTooLarge { limit, .. } => {
-                    failed(format!("response exceeded {} bytes", limit.bytes()))
-                }
-                ExchangeFailure::Timeout => failed("timed out".to_owned()),
+                ExchangeFailure::ResponseTooLarge { limit, .. } => failed(
+                    storage_failure(status),
+                    format!("response exceeded {} bytes", limit.bytes()),
+                ),
+                ExchangeFailure::Timeout => failed(Failure::Unavailable, "timed out".to_owned()),
                 ExchangeFailure::Network { source, .. } => {
-                    failed(source.root_message()).with_source(source)
+                    failed(Failure::Unavailable, source.root_message()).with_source(source)
                 }
             })?;
-        Err(Error::new(format!(
-            "Failed to upload file: {} - {}",
-            response.status,
-            String::from_utf8_lossy(&response.body)
-        )))
+        Err(Error::failed(
+            storage_failure(response.status),
+            format!(
+                "Failed to upload file: {} - {}",
+                response.status,
+                String::from_utf8_lossy(&response.body)
+            ),
+        ))
     }
 }
 
