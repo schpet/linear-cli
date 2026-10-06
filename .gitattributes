@@ -1,2 +1,5 @@
 graphql/schema.graphql linguist-generated=true
 graphql/** -diff linguist-generated=true
+
+# Preserve pinned license bytes for SHA-256 verification on every platform.
+licenses/supplemental/*.txt -text
