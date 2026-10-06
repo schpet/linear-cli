@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-06
+
 ### Upgrading from 2.x
 
 3.0 is a rewrite in Rust. Commands, credentials, and config files carry over, but several 2.x quirks are gone, `--json` output has one consistent shape, invalid input is rejected before anything is sent to Linear, and the exit status tells failures apart. Script authors should read the JSON output and command line sections.
@@ -720,7 +722,8 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/schpet/linear-cli/compare/v2.6.0...v3.0.0
 [2.6.0]: https://github.com/schpet/linear-cli/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/schpet/linear-cli/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/schpet/linear-cli/compare/v2.3.1...v2.4.0
