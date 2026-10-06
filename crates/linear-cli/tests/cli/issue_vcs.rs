@@ -10,7 +10,7 @@ fn details() -> Value {
     json!({ "issue": {
         "identifier": "ENG-7", "title": "Repair the widget", "description": null,
         "url": URL, "branchName": "eng-7-repair-the-widget",
-        "state": { "name": "Todo", "color": "#123456" }, "assignee": null, "priority": 2,
+        "state": { "name": "Todo", "color": "#123456" }, "assignee": null, "delegate": null, "priority": 2,
         "project": null, "projectMilestone": null, "cycle": null,
         "team": { "key": "ENG", "activeCycle": null }, "labels": { "nodes": [], "pageInfo": last }, "parent": null,
         "children": { "nodes": [], "pageInfo": last },

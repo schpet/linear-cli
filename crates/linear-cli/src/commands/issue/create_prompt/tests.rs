@@ -67,6 +67,9 @@ impl Backend for Linear {
     async fn user(&self, _: UserRef) -> Result<String, Error> {
         unreachable!("user")
     }
+    async fn agent(&self, _: UserRef) -> Result<String, Error> {
+        unreachable!("agent")
+    }
     async fn states(&self, _: String) -> Result<Vec<State>, Error> {
         if self.empty_states {
             return Ok(Vec::new());

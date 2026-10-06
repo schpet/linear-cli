@@ -176,6 +176,11 @@ Options:
   -a, --assignee <USER>
           Assignee: a username, email, name, or @me
 
+      --delegate <AGENT>
+          Delegate the issue to an agent: its username, email, name, or ID
+          
+          The delegate is an agent user working on the issue, separate from the assignee.
+
   -s, --state <STATE>
           Workflow state, by name or type
 
@@ -273,6 +278,14 @@ Options:
 
       --unassign
           Remove the assignee
+
+      --delegate <AGENT>
+          Delegate the issue to an agent: its username, email, name, or ID
+          
+          The delegate is an agent user working on the issue, separate from the assignee.
+
+      --clear-delegate
+          Remove the delegate
 
   -s, --state <STATE>
           Workflow state, by name or type

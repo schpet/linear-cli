@@ -181,3 +181,44 @@ pub struct LookupUserNode {
     pub display_name: String,
     pub name: String,
 }
+
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct ListAgentUsersVariables {
+    pub first: i32,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
+}
+
+/// The workspace's agent (app) users, the only users an issue can be
+/// delegated to.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "ListAgentUsersVariables"
+)]
+pub struct ListAgentUsers {
+    #[arguments(filter: { app: { eq: true } }, first: $first, after: $after)]
+    pub users: AgentUsers,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "UserConnection",
+    variables = "ListAgentUsersVariables"
+)]
+pub struct AgentUsers {
+    pub nodes: Vec<AgentUser>,
+    pub page_info: PageInfo,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "User")]
+pub struct AgentUser {
+    pub id: cynic::Id,
+    pub name: String,
+    pub display_name: String,
+    pub email: String,
+    pub is_me: bool,
+}

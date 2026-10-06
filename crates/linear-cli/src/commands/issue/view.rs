@@ -109,6 +109,7 @@ impl Fetched {
                 branch_name: i.branch_name,
                 state: i.state,
                 assignee: i.assignee,
+                delegate: i.delegate,
                 priority: i.priority,
                 project: i.project,
                 project_milestone: i.project_milestone,
@@ -419,6 +420,9 @@ fn body(issue: &Issue) -> Result<String, Error> {
                 .unwrap_or_else(|| "Unassigned".to_owned())
         ),
     ];
+    if let Some(delegate) = &issue.delegate {
+        parts.push(format!("**Delegate:** @{}", delegate.display_name));
+    }
     if let Some(project) = &issue.project {
         parts.push(format!("**Project:** {}", project.name));
     }

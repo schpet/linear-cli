@@ -31,6 +31,8 @@ pub struct Fields {
     pub title: Option<String>,
     pub assignee: Option<UserRef>,
     pub unassign: bool,
+    pub delegate: Option<UserRef>,
+    pub clear_delegate: bool,
     pub due_date: Option<NaiveDate>,
     pub clear_due_date: bool,
     pub parent: Option<String>,
@@ -68,6 +70,8 @@ impl Fields {
             title,
             assignee,
             unassign,
+            delegate,
+            clear_delegate,
             due_date,
             clear_due_date,
             parent,
@@ -92,6 +96,8 @@ impl Fields {
         title.is_none()
             && assignee.is_none()
             && !unassign
+            && delegate.is_none()
+            && !clear_delegate
             && due_date.is_none()
             && !clear_due_date
             && parent.is_none()
@@ -126,6 +132,11 @@ impl Fields {
                 self.unassign && self.assignee.is_some(),
                 "Cannot specify both --assignee and --unassign",
                 "Use --assignee <user> to set an assignee, or --unassign on its own to clear it.",
+            ),
+            (
+                self.clear_delegate && self.delegate.is_some(),
+                "Cannot specify both --delegate and --clear-delegate",
+                "Use --delegate <agent> to delegate the issue, or --clear-delegate on its own to remove the delegate.",
             ),
             (
                 self.clear_cycle && self.cycle.is_some(),
@@ -244,6 +255,10 @@ pub async fn input<B: Backend>(
         }
         None => None,
     };
+    let delegate = match &fields.delegate {
+        Some(agent) => Some(backend.agent(agent.clone()).await?),
+        None => None,
+    };
     let replacements = labels(backend, team_key, fields.labels.as_deref()).await?;
     let added = labels(backend, team_key, fields.add_labels.as_deref()).await?;
     let removed = labels(backend, team_key, fields.remove_labels.as_deref()).await?;
@@ -293,6 +308,7 @@ pub async fn input<B: Backend>(
     Ok(IssueUpdateInput {
         title: Edit::set_or_unchanged(fields.title.clone()),
         assignee_id: shared::edit(fields.unassign, assignee),
+        delegate_id: shared::edit(fields.clear_delegate, delegate),
         due_date: shared::edit(
             fields.clear_due_date,
             fields.due_date.map(TimelessDate::from),
@@ -330,6 +346,8 @@ impl From<&crate::cli::issue::IssueUpdate> for Fields {
             title: action.title.clone(),
             assignee: action.assignee.clone(),
             unassign: action.unassign,
+            delegate: action.delegate.clone(),
+            clear_delegate: action.clear_delegate,
             due_date: action.due_date,
             clear_due_date: action.clear_due_date,
             parent: action.parent.clone(),

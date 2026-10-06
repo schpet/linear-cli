@@ -165,6 +165,8 @@ pub trait Backend: Clone + Send + 'static {
     fn viewer(&self) -> impl Future<Output = Result<String, Error>> + Send;
     fn auto_assign(&self) -> impl Future<Output = Result<bool, Error>> + Send;
     fn user(&self, user: UserRef) -> impl Future<Output = Result<String, Error>> + Send;
+    /// The agent `user` names, for the issue's delegate.
+    fn agent(&self, user: UserRef) -> impl Future<Output = Result<String, Error>> + Send;
     fn states(&self, team_key: String) -> impl Future<Output = Result<Vec<State>, Error>> + Send;
     fn state(
         &self,

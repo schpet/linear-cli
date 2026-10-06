@@ -308,6 +308,7 @@ pub async fn prompt<B: Backend, U: Ui>(
         input: Input {
             title: Edit::Set(title.clone()),
             assignee_id: Edit::set_or_unchanged(more.assignee),
+            delegate_id: Edit::Unchanged,
             due_date: Edit::Unchanged,
             parent_id: Edit::set_or_unchanged(parent_id),
             priority: Edit::set_or_unchanged(more.priority),

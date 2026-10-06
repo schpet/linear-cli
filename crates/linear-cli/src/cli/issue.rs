@@ -340,6 +340,12 @@ pub struct IssueCreate {
     /// Assignee: a username, email, name, or @me
     #[arg(long, short, value_name = "USER")]
     pub assignee: Option<UserRef>,
+    /// Delegate the issue to an agent: its username, email, name, or ID
+    ///
+    /// The delegate is an agent user working on the issue, separate from
+    /// the assignee.
+    #[arg(long, value_name = "AGENT")]
+    pub delegate: Option<UserRef>,
     /// Workflow state, by name or type
     #[arg(long, short, value_parser = NonBlank)]
     pub state: Option<String>,
@@ -386,7 +392,7 @@ pub struct IssueCreate {
     ///
     /// Only --parent and --project can be combined with it.
     #[arg(long, short, conflicts_with_all = [
-        "title", "description", "description_file", "team", "assignee", "state", "priority",
+        "title", "description", "description_file", "team", "assignee", "delegate", "state", "priority",
         "estimate", "label", "due_date", "milestone", "cycle", "template", "start",
     ])]
     pub interactive: bool,
@@ -417,6 +423,15 @@ pub struct IssueUpdate {
     /// Remove the assignee
     #[arg(long)]
     pub unassign: bool,
+    /// Delegate the issue to an agent: its username, email, name, or ID
+    ///
+    /// The delegate is an agent user working on the issue, separate from
+    /// the assignee.
+    #[arg(long, value_name = "AGENT")]
+    pub delegate: Option<UserRef>,
+    /// Remove the delegate
+    #[arg(long, alias = "undelegate")]
+    pub clear_delegate: bool,
     /// Workflow state, by name or type
     #[arg(long, short, value_parser = NonBlank)]
     pub state: Option<String>,

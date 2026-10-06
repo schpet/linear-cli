@@ -237,6 +237,7 @@ pub struct Fields {
     pub title: Option<String>,
     pub start: bool,
     pub assignee: Option<UserRef>,
+    pub delegate: Option<UserRef>,
     pub due_date: Option<NaiveDate>,
     pub parent: Option<String>,
     pub priority: Option<Priority>,
@@ -378,6 +379,10 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
     if let Some(user) = assignee {
         assignee_id = Some(backend.user(user).await?)
     }
+    let delegate_id = match &fields.delegate {
+        Some(agent) => Some(backend.agent(agent.clone()).await?),
+        None => None,
+    };
     let mut label_ids = Vec::new();
     for value in &fields.labels {
         let mut id = backend.label(team_reference.clone(), value.clone()).await?;
@@ -424,6 +429,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         input: Input {
             title: Edit::set_or_unchanged(fields.title.clone()),
             assignee_id: Edit::set_or_unchanged(assignee_id),
+            delegate_id: Edit::set_or_unchanged(delegate_id),
             due_date: Edit::set_or_unchanged(fields.due_date.map(TimelessDate::from)),
             parent_id: Edit::set_or_unchanged(parent_id),
             priority: Edit::set_or_unchanged(fields.priority.map(Priority::number)),
@@ -482,6 +488,7 @@ impl From<&crate::cli::issue::IssueCreate> for Fields {
             title: action.title.clone(),
             start: action.start,
             assignee: action.assignee.clone(),
+            delegate: action.delegate.clone(),
             due_date: action.due_date,
             parent: action.parent.clone(),
             priority: action.priority,

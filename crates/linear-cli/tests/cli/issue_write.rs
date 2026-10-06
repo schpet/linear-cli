@@ -528,6 +528,7 @@ fn update_conflicting_flags_fail_before_any_request() {
         ["--due-date", "2026-01-01", "--clear-due-date"],
         ["--project", "Roadmap", "--clear-project"],
         ["--estimate", "2", "--clear-estimate"],
+        ["--delegate", "linear", "--clear-delegate"],
     ] {
         let mut argv = vec!["issue", "update", "ENG-1"];
         argv.extend(args);
@@ -1358,4 +1359,212 @@ fn bulk_archive_with_nothing_found_asks_nothing() {
     );
     assert!(!run.stdout.contains("(y/N)"), "{run}");
     assert_eq!(api.operations(), ["GetIssueSummary"]);
+}
+
+const AGENT_ID: &str = "6a1e0b2c-3d4f-4a5b-8c6d-7e8f9a0b1c2d";
+
+fn agent(id: &str, name: &str, display_name: &str, is_me: bool) -> Value {
+    json!({
+        "id": id, "name": name, "displayName": display_name,
+        "email": format!("{display_name}@agents.linear.app"), "isMe": is_me
+    })
+}
+
+fn agents(nodes: Value, next: Option<&str>) -> Value {
+    json!({ "users": {
+        "nodes": nodes,
+        "pageInfo": { "hasNextPage": next.is_some(), "endCursor": next }
+    } })
+}
+
+/// The Linear agent, and another whose name contains "linear".
+fn two_agents() -> Value {
+    agents(
+        json!([
+            agent(AGENT_ID, "Linear", "linear", false),
+            agent("agent-helper", "Linear Helper", "helper", false),
+        ]),
+        None,
+    )
+}
+
+#[test]
+fn create_delegates_to_the_agent_with_that_username() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("ListAgentUsers", two_agents())
+        .on("CreateIssue", created("ENG-8"));
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&[
+            "issue",
+            "create",
+            "--no-interactive",
+            "-t",
+            "Hand off",
+            "--delegate",
+            "linear",
+        ])
+        .success();
+    let lookup = api.request("ListAgentUsers");
+    assert!(lookup.query.contains("app: {eq: true}"), "{}", lookup.query);
+    let input = input(&api, "CreateIssue");
+    assert_eq!(input["delegateId"], AGENT_ID);
+    assert!(input.get("assigneeId").is_none(), "{input}");
+}
+
+#[test]
+fn update_delegates_by_agent_id_email_or_name_alongside_the_assignee() {
+    for reference in [AGENT_ID, "LINEAR@agents.linear.app", "Linear"] {
+        let api = MockLinear::start();
+        api.on(
+            "LookupUser",
+            json!({ "users": { "nodes": [{
+                "id": "user-ada", "email": "ada@example.com", "displayName": "ada", "name": "Ada Lovelace"
+            }] } }),
+        )
+        .on("ListAgentUsers", two_agents())
+        .on("UpdateIssue", updated("ENG-1", "Same"));
+        Cli::for_api(&api)
+            .run(&[
+                "issue",
+                "update",
+                "ENG-1",
+                "--assignee",
+                "ada",
+                "--delegate",
+                reference,
+            ])
+            .success();
+        assert_eq!(
+            update_input(&api),
+            json!({ "assigneeId": "user-ada", "delegateId": AGENT_ID }),
+            "{reference}"
+        );
+    }
+}
+
+#[test]
+fn update_clears_the_delegate_under_either_spelling() {
+    for flag in ["--clear-delegate", "--undelegate"] {
+        let api = MockLinear::start();
+        api.on("UpdateIssue", updated("ENG-1", "Same"));
+        Cli::for_api(&api)
+            .run(&["issue", "update", "ENG-1", flag])
+            .success();
+        assert_eq!(update_input(&api), json!({ "delegateId": null }), "{flag}");
+        assert_eq!(api.operations(), ["UpdateIssue"]);
+    }
+}
+
+#[test]
+fn delegating_to_someone_who_is_not_an_agent_fails_without_mutating() {
+    let api = MockLinear::start();
+    api.on("ListAgentUsers", two_agents());
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--delegate", "ada"])
+        .not_found()
+        .stderr_has("Delegate not found: ada")
+        .stderr_has("use --assignee for people")
+        .stderr_has("Agents in this workspace: Linear (linear), Linear Helper (helper).");
+    assert_eq!(api.operations(), ["ListAgentUsers"]);
+}
+
+#[test]
+fn delegating_without_any_agents_says_so() {
+    let api = MockLinear::start();
+    api.on("ListAgentUsers", agents(json!([]), None));
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--delegate", "linear"])
+        .not_found()
+        .stderr_has("This workspace has no agent users.");
+    assert_eq!(api.operations(), ["ListAgentUsers"]);
+}
+
+#[test]
+fn delegating_to_an_ambiguous_partial_name_lists_the_matches() {
+    let api = MockLinear::start();
+    api.on(
+        "ListAgentUsers",
+        agents(
+            json!([
+                agent("agent-code", "Claude Code", "claude-code", false),
+                agent("agent-review", "Claude Review", "claude-review", false),
+            ]),
+            None,
+        ),
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--delegate", "claude"])
+        .failure()
+        .stderr_has("Delegate \"claude\" is ambiguous")
+        .stderr_has("Claude Review (claude-review, claude-review@agents.linear.app, agent-review)")
+        .stderr_has("Pass the agent's email or ID instead.");
+    assert_eq!(api.operations(), ["ListAgentUsers"]);
+}
+
+#[test]
+fn delegating_finds_agents_on_later_pages() {
+    let api = MockLinear::start();
+    api.on(
+        "ListAgentUsers",
+        agents(
+            json!([agent("agent-other", "Other", "other", false)]),
+            Some("page-2"),
+        ),
+    )
+    .on("ListAgentUsers", two_agents())
+    .on("UpdateIssue", updated("ENG-1", "Same"));
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--delegate", "linear"])
+        .success();
+    let afters: Vec<Value> = api
+        .requests()
+        .iter()
+        .filter(|request| request.operation.as_deref() == Some("ListAgentUsers"))
+        .map(|request| request.variables["after"].clone())
+        .collect();
+    assert_eq!(afters, [Value::Null, json!("page-2")]);
+    assert_eq!(update_input(&api), json!({ "delegateId": AGENT_ID }));
+}
+
+#[test]
+fn delegating_to_me_needs_the_viewer_to_be_an_agent() {
+    let api = MockLinear::start();
+    api.on("ListAgentUsers", two_agents());
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--delegate", "@me"])
+        .usage_error()
+        .stderr_has("Cannot delegate to @me: you are not an agent user")
+        .stderr_has("Use --assignee @me to assign yourself.");
+    assert_eq!(api.operations(), ["ListAgentUsers"]);
+
+    let api = MockLinear::start();
+    api.on(
+        "ListAgentUsers",
+        agents(
+            json!([
+                agent(AGENT_ID, "Linear", "linear", false),
+                agent("agent-me", "Me Bot", "me-bot", true),
+            ]),
+            None,
+        ),
+    )
+    .on("UpdateIssue", updated("ENG-1", "Same"));
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--delegate", "@me"])
+        .success();
+    assert_eq!(update_input(&api), json!({ "delegateId": "agent-me" }));
+}
+
+#[test]
+fn delegate_cannot_be_blank_or_combined_with_interactive_create() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    cli.run(&["issue", "update", "ENG-1", "--delegate", "  "])
+        .usage_error()
+        .stderr_has("expected a user");
+    cli.run(&["issue", "create", "--interactive", "--delegate", "linear"])
+        .usage_error();
+    assert!(api.requests().is_empty(), "{:?}", api.operations());
 }
