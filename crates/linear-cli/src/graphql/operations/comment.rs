@@ -1,4 +1,5 @@
-//! Comment operations: lists for every commentable entity, create, update and delete.
+//! Comment operations: lists for every commentable entity, create, update,
+//! delete, resolve and unresolve.
 
 use serde::Serialize;
 
@@ -207,6 +208,10 @@ pub struct CommentNode {
     pub external_user: Option<CommentExternalUser>,
     pub bot_actor: Option<CommentBotActor>,
     pub parent: Option<CommentParent>,
+    /// Set only on a resolved thread's top-level comment.
+    pub resolved_at: Option<DateTime>,
+    pub resolving_comment_id: Option<String>,
+    pub resolving_user: Option<UserRef>,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
@@ -230,10 +235,13 @@ pub struct CommentBotActor {
     pub sub_type: Option<String>,
 }
 
+/// A reply's top-level comment; its `resolved_at` is the reply's thread state.
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Comment")]
+#[serde(rename_all = "camelCase")]
 pub struct CommentParent {
     pub id: cynic::Id,
+    pub resolved_at: Option<DateTime>,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
@@ -368,4 +376,74 @@ pub struct CommentForDelete {
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct CommentForDeleteIssue {
     pub identifier: String,
+}
+
+/// What `issue comment resolve` and `unresolve` check before changing a
+/// thread: whether the comment is a reply, what it is on, and its state.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetCommentVariables"
+)]
+pub struct GetCommentForResolution {
+    #[arguments(id: $id)]
+    pub comment: Option<CommentForResolution>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Comment")]
+pub struct CommentForResolution {
+    pub url: String,
+    pub parent_id: Option<String>,
+    pub resolved_at: Option<DateTime>,
+    pub resolving_comment_id: Option<String>,
+    pub issue: Option<CommentForDeleteIssue>,
+}
+
+#[derive(cynic::QueryVariables, Clone, Debug)]
+pub struct ResolveCommentVariables {
+    pub id: String,
+    #[cynic(skip_serializing_if = "Option::is_none")]
+    pub resolving_comment_id: Option<String>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Mutation",
+    variables = "ResolveCommentVariables"
+)]
+pub struct ResolveComment {
+    #[arguments(id: $id, resolvingCommentId: $resolving_comment_id)]
+    pub comment_resolve: ResolutionPayload,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Mutation",
+    variables = "GetCommentVariables"
+)]
+pub struct UnresolveComment {
+    #[arguments(id: $id)]
+    pub comment_unresolve: ResolutionPayload,
+}
+
+/// `comment` is non-null in the schema; a null or missing comment is a decode
+/// failure.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "CommentPayload")]
+pub struct ResolutionPayload {
+    pub success: bool,
+    pub comment: ResolvedComment,
+}
+
+/// The thread's top-level comment after the change.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Comment")]
+pub struct ResolvedComment {
+    pub id: cynic::Id,
+    pub resolved_at: Option<DateTime>,
+    pub resolving_comment_id: Option<String>,
 }

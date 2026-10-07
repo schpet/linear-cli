@@ -648,7 +648,8 @@ fn listed_comment(id: &str, body: &str, parent: Option<&str>) -> Value {
         "editedAt": null, "url": format!("https://linear.app/acme/comment/{id}"),
         "user": { "id": "user-1", "name": "ada", "displayName": "Ada" },
         "externalUser": null, "botActor": null,
-        "parent": parent.map(|id| json!({ "id": id }))
+        "parent": parent.map(|id| json!({ "id": id, "resolvedAt": null })),
+        "resolvedAt": null, "resolvingCommentId": null, "resolvingUser": null
     })
 }
 

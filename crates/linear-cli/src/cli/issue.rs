@@ -507,7 +507,29 @@ pub enum IssueCommentCommand {
     Update(IssueCommentUpdate),
     /// Delete a comment
     Delete(IssueCommentDelete),
+    /// Resolve comment threads
+    ///
+    /// Name each thread by its top-level comment's ID, as `issue comment list
+    /// --json` shows it. A reply's ID is refused, and the error names its
+    /// thread's top-level comment. Nothing is asked before resolving. A thread
+    /// that is already resolved is left as it is, unless --with names a
+    /// different reply.
+    #[command(mut_arg("bulk", |arg| arg.help(BULK_COMMENTS_HELP)))]
+    Resolve(IssueCommentResolve),
+    /// Reopen resolved comment threads
+    ///
+    /// Name each thread by its top-level comment's ID, as `issue comment list
+    /// --json` shows it. A reply's ID is refused, and the error names its
+    /// thread's top-level comment. A thread that is already open is left as
+    /// it is.
+    #[command(
+        visible_alias = "reopen",
+        mut_arg("bulk", |arg| arg.help(BULK_COMMENTS_HELP))
+    )]
+    Unresolve(IssueCommentUnresolve),
 }
+
+const BULK_COMMENTS_HELP: &str = "More comment IDs; IDs from every source are combined";
 
 #[derive(Debug, Args)]
 pub struct IssueCommentAdd {
@@ -546,6 +568,32 @@ pub struct IssueCommentDelete {
 }
 
 #[derive(Debug, Args)]
+pub struct IssueCommentResolve {
+    /// Top-level comment ID of each thread to resolve
+    #[arg(value_name = "COMMENT", value_parser = NonBlank)]
+    pub comment_ids: Vec<String>,
+    /// Record this reply as the one that resolved the thread (one thread only)
+    #[arg(
+        long = "with",
+        visible_alias = "resolving-comment",
+        value_name = "REPLY",
+        value_parser = NonBlank
+    )]
+    pub with: Option<String>,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct IssueCommentUnresolve {
+    /// Top-level comment ID of each thread to reopen
+    #[arg(value_name = "COMMENT", value_parser = NonBlank)]
+    pub comment_ids: Vec<String>,
+    #[command(flatten)]
+    pub bulk: super::BulkArgs,
+}
+
+#[derive(Debug, Args)]
 pub struct IssueCommentUpdate {
     /// Comment ID
     #[arg(value_name = "COMMENT")]
@@ -565,9 +613,16 @@ pub struct IssueCommentList {
     /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
     #[arg(value_name = "ISSUE")]
     pub issue_id: Option<String>,
-    /// Maximum number of comments to show (a number or `all`)
+    /// Maximum number of comments to show (a number or `all`); with --resolved
+    /// or --unresolved it counts the comments left, so it can cut a thread short
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
+    /// Show only resolved threads, with their replies
+    #[arg(long, conflicts_with = "unresolved")]
+    pub resolved: bool,
+    /// Show only open threads, with their replies
+    #[arg(long)]
+    pub unresolved: bool,
     /// Print JSON
     #[arg(long, short)]
     pub json: bool,

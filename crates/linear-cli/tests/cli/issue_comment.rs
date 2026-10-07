@@ -376,7 +376,8 @@ fn comment(id: &str, body: &str, user: &str, parent: Option<&str>) -> Value {
         "editedAt": null, "url": format!("https://linear.app/acme/issue/ENG-7#comment-{id}"),
         "user": { "id": format!("user-{user}"), "name": user, "displayName": user },
         "externalUser": null, "botActor": null,
-        "parent": parent.map(|id| json!({ "id": id }))
+        "parent": parent.map(|id| json!({ "id": id, "resolvedAt": null })),
+        "resolvedAt": null, "resolvingCommentId": null, "resolvingUser": null
     })
 }
 
@@ -790,4 +791,532 @@ fn update_on_a_terminal_with_the_text_unchanged_saves_nothing() {
     assert!(run.stdout.contains("No changes made."), "{run}");
     assert!(!run.stdout.contains("(y/N)"), "{run}");
     assert_eq!(api.operations(), ["GetComment"]);
+}
+
+const THREAD_A: &str = "a1111111-1111-4111-8111-111111111111";
+const THREAD_B: &str = "b2222222-2222-4222-8222-222222222222";
+const THREAD_C: &str = "c3333333-3333-4333-8333-333333333333";
+const REPLY: &str = "d4444444-4444-4444-8444-444444444444";
+
+/// What `resolve` and `unresolve` look up for a comment.
+fn lookup_of(id: &str) -> Value {
+    json!({ "id": id })
+}
+
+/// A top-level comment on ENG-7, resolved by `resolving` when `resolved`.
+fn thread(id: &str, resolved: bool, resolving: Option<&str>) -> Value {
+    json!({
+        "comment": {
+            "url": format!("https://linear.app/acme/issue/ENG-7#comment-{id}"),
+            "parentId": null,
+            "resolvedAt": resolved.then_some("2026-01-03T00:00:00.000Z"),
+            "resolvingCommentId": resolving,
+            "issue": { "identifier": "ENG-7" }
+        }
+    })
+}
+
+/// A reply in thread `parent` on ENG-7.
+fn reply_in(id: &str, parent: &str) -> Value {
+    let mut reply = thread(id, false, None);
+    reply["comment"]["parentId"] = json!(parent);
+    reply
+}
+
+/// What `commentResolve` (`field`) or `commentUnresolve` answers for thread `id`.
+fn changed(field: &str, id: &str, resolved: bool, resolving: Option<&str>) -> Value {
+    json!({
+        field: {
+            "success": true,
+            "comment": {
+                "id": id,
+                "resolvedAt": resolved.then_some("2026-01-04T00:00:00.000Z"),
+                "resolvingCommentId": resolving
+            }
+        }
+    })
+}
+
+fn mutations(api: &MockLinear) -> Vec<Value> {
+    api.requests()
+        .into_iter()
+        .filter(|r| {
+            matches!(
+                r.operation.as_deref(),
+                Some("ResolveComment" | "UnresolveComment")
+            )
+        })
+        .map(|r| r.variables)
+        .collect()
+}
+
+#[test]
+fn resolve_resolves_a_thread_and_prints_it() {
+    let api = MockLinear::start();
+    api.on("GetCommentForResolution", thread(THREAD_A, false, None))
+        .on(
+            "ResolveComment",
+            changed("commentResolve", THREAD_A, true, None),
+        );
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "resolve", THREAD_A])
+        .success()
+        .stdout_has(&format!(
+            "✓ Resolved comment thread {THREAD_A} on ENG-7\nhttps://linear.app/acme/issue/ENG-7#comment-{THREAD_A}\n"
+        ));
+    assert_eq!(api.variables("ResolveComment"), json!({ "id": THREAD_A }));
+}
+
+#[test]
+fn resolve_with_records_the_reply_that_resolved_the_thread() {
+    for flag in ["--with", "--resolving-comment"] {
+        let api = MockLinear::start();
+        api.on_variables(
+            "GetCommentForResolution",
+            lookup_of(THREAD_A),
+            thread(THREAD_A, false, None),
+        )
+        .on_variables(
+            "GetCommentForResolution",
+            lookup_of(REPLY),
+            reply_in(REPLY, THREAD_A),
+        )
+        .on(
+            "ResolveComment",
+            changed("commentResolve", THREAD_A, true, Some(REPLY)),
+        );
+        Cli::for_api(&api)
+            .run(&["issue", "comment", "resolve", THREAD_A, flag, REPLY])
+            .success()
+            .stdout_has("✓ Resolved comment thread");
+        assert_eq!(
+            api.variables("ResolveComment"),
+            json!({ "id": THREAD_A, "resolvingCommentId": REPLY }),
+            "{flag}"
+        );
+    }
+}
+
+#[test]
+fn resolve_with_a_comment_outside_the_thread_changes_nothing() {
+    // The thread is already resolved: a bad --with still fails rather than
+    // passing as "already resolved".
+    for (with, message) in [
+        (
+            reply_in(REPLY, THREAD_B),
+            format!("Comment {REPLY} is a reply in thread {THREAD_B}, not {THREAD_A}"),
+        ),
+        (
+            thread(REPLY, false, None),
+            format!("Comment {REPLY} is not a reply"),
+        ),
+    ] {
+        let api = MockLinear::start();
+        api.on_variables(
+            "GetCommentForResolution",
+            lookup_of(THREAD_A),
+            thread(THREAD_A, true, None),
+        )
+        .on_variables("GetCommentForResolution", lookup_of(REPLY), with);
+        Cli::for_api(&api)
+            .run(&["issue", "comment", "resolve", THREAD_A, "--with", REPLY])
+            .failure()
+            .stderr_has(&message);
+        assert!(mutations(&api).is_empty());
+    }
+}
+
+#[test]
+fn resolve_with_another_reply_resolves_a_resolved_thread_again() {
+    let api = MockLinear::start();
+    api.on_variables(
+        "GetCommentForResolution",
+        lookup_of(THREAD_A),
+        thread(THREAD_A, true, Some(THREAD_C)),
+    )
+    .on_variables(
+        "GetCommentForResolution",
+        lookup_of(REPLY),
+        reply_in(REPLY, THREAD_A),
+    )
+    .on(
+        "ResolveComment",
+        changed("commentResolve", THREAD_A, true, Some(REPLY)),
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "resolve", THREAD_A, "--with", REPLY])
+        .success()
+        .stdout_has("✓ Resolved comment thread");
+}
+
+#[test]
+fn resolve_with_needs_exactly_one_thread() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "issue", "comment", "resolve", THREAD_A, THREAD_B, "--with", REPLY,
+        ])
+        .usage_error()
+        .stderr_has("--with takes exactly one thread");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn resolve_and_unresolve_refuse_a_reply_naming_its_thread() {
+    for (command, fix) in [
+        (
+            "resolve",
+            format!("`linear issue comment resolve {THREAD_B}`, adding `--with {THREAD_A}`"),
+        ),
+        (
+            "unresolve",
+            format!("`linear issue comment unresolve {THREAD_B}`"),
+        ),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetCommentForResolution", reply_in(THREAD_A, THREAD_B));
+        Cli::for_api(&api)
+            .run(&["issue", "comment", command, THREAD_A])
+            .failure()
+            .stderr_has(&format!("Comment {THREAD_A} is a reply"))
+            .stderr_has(&fix);
+        assert!(mutations(&api).is_empty(), "{command}");
+    }
+}
+
+#[test]
+fn resolve_refuses_a_comment_that_is_not_on_an_issue() {
+    let api = MockLinear::start();
+    let mut comment = thread(THREAD_A, false, None);
+    comment["comment"]["issue"] = Value::Null;
+    api.on("GetCommentForResolution", comment);
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "resolve", THREAD_A])
+        .failure()
+        .stderr_has(&format!("Comment {THREAD_A} is not on an issue"));
+    assert!(mutations(&api).is_empty());
+}
+
+#[test]
+fn resolve_and_unresolve_leave_a_thread_already_in_that_state() {
+    for (command, resolved, state) in [("resolve", true, "resolved"), ("unresolve", false, "open")]
+    {
+        let api = MockLinear::start();
+        api.on("GetCommentForResolution", thread(THREAD_A, resolved, None));
+        Cli::for_api(&api)
+            .run(&["issue", "comment", command, THREAD_A])
+            .success()
+            .stdout_has(&format!(
+                "Comment thread {THREAD_A} on ENG-7 is already {state}.\n"
+            ));
+        assert_eq!(api.operations(), ["GetCommentForResolution"], "{command}");
+    }
+}
+
+#[test]
+fn resolve_refuses_urls_and_non_uuids_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    cli.run(&["issue", "comment", "resolve", "not-a-uuid"])
+        .usage_error()
+        .stderr_has("Not a comment UUID: not-a-uuid");
+    cli.run(&["issue", "comment", "resolve", THREAD_A, THREAD_B, "nope"])
+        .usage_error()
+        .stderr_has("Not a comment UUID: nope");
+    cli.run(&["issue", "comment", "resolve", THREAD_A, "--with", "nope"])
+        .usage_error();
+    cli.run(&[
+        "issue",
+        "comment",
+        "resolve",
+        "https://linear.app/acme/issue/ENG-7/title#comment-a1111111",
+    ])
+    .failure()
+    .stderr_has("only carries the first eight characters");
+    cli.run(&["issue", "comment", "unresolve"])
+        .usage_error()
+        .stderr_has("No comment IDs given");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn resolve_names_an_unknown_comment() {
+    let api = MockLinear::start();
+    api.on_error("GetCommentForResolution", "Entity not found: Comment");
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "resolve", THREAD_A])
+        .not_found()
+        .stderr_has(&format!("Comment not found: {THREAD_A}"));
+}
+
+#[test]
+fn resolve_fails_when_linear_leaves_the_thread_open() {
+    for payload in [
+        changed("commentResolve", THREAD_A, false, None),
+        json!({ "commentResolve": {
+            "success": false,
+            "comment": { "id": THREAD_A, "resolvedAt": null, "resolvingCommentId": null }
+        } }),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetCommentForResolution", thread(THREAD_A, false, None))
+            .on("ResolveComment", payload);
+        Cli::for_api(&api)
+            .run(&["issue", "comment", "resolve", THREAD_A])
+            .failure()
+            .stderr_has("Linear did not resolve the comment thread");
+    }
+}
+
+#[test]
+fn resolve_several_resolves_each_thread_once() {
+    let api = MockLinear::start();
+    for id in [THREAD_A, THREAD_B, THREAD_C] {
+        api.on_variables(
+            "GetCommentForResolution",
+            lookup_of(id),
+            thread(id, false, None),
+        )
+        .on_variables(
+            "ResolveComment",
+            json!({ "id": id }),
+            changed("commentResolve", id, true, None),
+        );
+    }
+    // The same thread in capitals is listed once.
+    let shouting = THREAD_A.to_ascii_uppercase();
+    Cli::for_api(&api)
+        .stdin(THREAD_C.as_bytes())
+        .run(&[
+            "issue",
+            "comment",
+            "resolve",
+            THREAD_A,
+            THREAD_B,
+            &shouting,
+            "--bulk-stdin",
+        ])
+        .success()
+        .stderr_has(&format!(
+            "3 comment threads to resolve:\n  {THREAD_A} on ENG-7\n"
+        ))
+        .stdout_has("✓ Successfully resolved 3 comment threads");
+    assert_eq!(mutations(&api).len(), 3);
+}
+
+#[test]
+fn resolve_several_keeps_going_and_fails_at_the_end() {
+    let api = MockLinear::start();
+    api.on_variables(
+        "GetCommentForResolution",
+        lookup_of(THREAD_A),
+        thread(THREAD_A, false, None),
+    )
+    .on_variables(
+        "ResolveComment",
+        json!({ "id": THREAD_A }),
+        changed("commentResolve", THREAD_A, true, None),
+    )
+    .on_variables_error(
+        "GetCommentForResolution",
+        lookup_of(THREAD_B),
+        "Entity not found: Comment",
+    )
+    .on_variables(
+        "GetCommentForResolution",
+        lookup_of(THREAD_C),
+        thread(THREAD_C, false, None),
+    )
+    .on_variables_error(
+        "ResolveComment",
+        json!({ "id": THREAD_C }),
+        "Comment is locked",
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "resolve", THREAD_A, THREAD_B, THREAD_C])
+        .failure()
+        .stdout_has("Completed: 1/3 comment threads resolved")
+        .stdout_has(&format!("  - {THREAD_B}: Comment not found: {THREAD_B}"))
+        .stdout_has(&format!(
+            "  - {THREAD_C} ({THREAD_C} on ENG-7): Comment is locked"
+        ));
+}
+
+#[test]
+fn unresolve_reopens_a_thread() {
+    for command in ["unresolve", "reopen"] {
+        let api = MockLinear::start();
+        api.on("GetCommentForResolution", thread(THREAD_A, true, None))
+            .on(
+                "UnresolveComment",
+                changed("commentUnresolve", THREAD_A, false, None),
+            );
+        Cli::for_api(&api)
+            .run(&["issue", "comment", command, THREAD_A])
+            .success()
+            .stdout_has(&format!("✓ Reopened comment thread {THREAD_A} on ENG-7\n"));
+        assert_eq!(api.variables("UnresolveComment"), json!({ "id": THREAD_A }));
+    }
+}
+
+/// A top-level comment by alice whose thread bob resolved.
+fn resolved_root(id: &str, body: &str) -> Value {
+    let mut root = comment(id, body, "alice", None);
+    root["resolvedAt"] = json!("2026-01-03T00:00:00.000Z");
+    root["resolvingUser"] = json!({ "id": "user-bob", "name": "bob", "displayName": "bob" });
+    root
+}
+
+/// A reply in a thread whose top-level comment is resolved.
+fn reply_in_resolved(id: &str, body: &str, parent: &str) -> Value {
+    let mut reply = comment(id, body, "bob", Some(parent));
+    reply["parent"]["resolvedAt"] = json!("2026-01-03T00:00:00.000Z");
+    reply
+}
+
+/// A resolved thread (c1, c2), an open one (c3, c4), and a reply (c5) whose
+/// resolved thread is not in the list.
+fn mixed_threads() -> Vec<Value> {
+    vec![
+        resolved_root("c1", "Resolved root"),
+        reply_in_resolved("c2", "Resolved reply", "c1"),
+        comment("c3", "Open root", "alice", None),
+        comment("c4", "Open reply", "bob", Some("c3")),
+        reply_in_resolved("c5", "Orphan reply", "c9"),
+    ]
+}
+
+fn ids(nodes: &[Value]) -> Vec<&str> {
+    nodes
+        .iter()
+        .filter_map(|node| node["id"].as_str())
+        .collect()
+}
+
+#[test]
+fn list_json_shows_how_each_thread_was_resolved() {
+    let api = MockLinear::start();
+    let nodes = mixed_threads();
+    api.on(
+        "GetIssueComments",
+        comments_page(nodes.clone(), Value::Null, false),
+    );
+    let listed = Cli::for_api(&api)
+        .run(&["issue", "comment", "list", "ENG-7", "--json"])
+        .success()
+        .json_nodes();
+    assert_eq!(listed, nodes);
+    assert_eq!(listed[0]["resolvingUser"]["name"], "bob");
+    assert_eq!(
+        listed[1]["parent"]["resolvedAt"],
+        "2026-01-03T00:00:00.000Z"
+    );
+}
+
+#[test]
+fn list_marks_resolved_threads() {
+    for tty in [false, true] {
+        let api = MockLinear::start();
+        api.on(
+            "GetIssueComments",
+            comments_page(mixed_threads(), Value::Null, false),
+        );
+        let args = ["issue", "comment", "list", "ENG-7", "--no-pager"];
+        let cli = Cli::for_api(&api);
+        let run = if tty {
+            cli.run_tty(&args, &[])
+        } else {
+            cli.run(&args)
+        };
+        run.success().stdout_has("[c1] [resolved]");
+        assert!(!run.stdout.contains("[c3] [resolved]"), "{run}");
+        assert!(!run.stdout.contains("[c2] [resolved]"), "{run}");
+    }
+}
+
+#[test]
+fn list_filters_whole_threads_by_resolution() {
+    for (flag, expected) in [
+        ("--resolved", vec!["c1", "c2", "c5"]),
+        ("--unresolved", vec!["c3", "c4"]),
+    ] {
+        let api = MockLinear::start();
+        api.on(
+            "GetIssueComments",
+            comments_page(mixed_threads(), Value::Null, false),
+        );
+        let listed = Cli::for_api(&api)
+            .run(&["issue", "comment", "list", "ENG-7", flag, "--json"])
+            .success()
+            .json_nodes();
+        assert_eq!(ids(&listed), expected, "{flag}");
+    }
+}
+
+#[test]
+fn list_filter_reads_every_page_before_applying_the_limit() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueComments",
+        comments_page(
+            vec![resolved_root("c1", "Resolved")],
+            json!("cursor-1"),
+            true,
+        ),
+    )
+    .on(
+        "GetIssueComments",
+        comments_page(
+            vec![
+                comment("c3", "Open root", "alice", None),
+                comment("c4", "Open reply", "bob", Some("c3")),
+            ],
+            Value::Null,
+            false,
+        ),
+    );
+    let listed = Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "comment",
+            "list",
+            "ENG-7",
+            "--unresolved",
+            "--limit",
+            "1",
+            "--json",
+        ])
+        .success()
+        .json_nodes();
+    assert_eq!(ids(&listed), ["c3"]);
+    assert_eq!(api.requests()[0].variables["first"], 100);
+}
+
+#[test]
+fn list_filter_says_when_no_thread_matches() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueComments",
+        comments_page(vec![resolved_root("c1", "Resolved")], Value::Null, false),
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "list", "ENG-7", "--unresolved"])
+        .success()
+        .stdout_has("No open threads found for this issue\n");
+}
+
+#[test]
+fn list_resolved_and_unresolved_conflict() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "comment",
+            "list",
+            "ENG-7",
+            "--resolved",
+            "--unresolved",
+        ])
+        .usage_error();
+    assert!(api.requests().is_empty());
 }
