@@ -94,6 +94,9 @@ struct JsonComment<'a> {
     updated_at: &'a crate::graphql::scalars::DateTime,
     edited_at: &'a Option<crate::graphql::scalars::DateTime>,
     url: &'a str,
+    resolved_at: &'a Option<crate::graphql::scalars::DateTime>,
+    resolving_comment_id: &'a Option<String>,
+    resolving_user: &'a Option<UserRef>,
     user: &'a Option<UserRef>,
     external_user: &'a Option<CommentExternalUser>,
     bot_actor: &'a Option<CommentBotActor>,
@@ -111,6 +114,9 @@ fn render_json(nodes: &[CommentNode]) -> Vec<u8> {
             updated_at: &node.updated_at,
             edited_at: &node.edited_at,
             url: &node.url,
+            resolved_at: &node.resolved_at,
+            resolving_comment_id: &node.resolving_comment_id,
+            resolving_user: &node.resolving_user,
             user: &node.user,
             external_user: &node.external_user,
             bot_actor: &node.bot_actor,
@@ -152,12 +158,29 @@ fn indent(text: &str) -> String {
 }
 
 fn header(node: &CommentNode, verb: &str, now: DateTime<Utc>, color: bool) -> String {
+    let resolved = if node.resolved_at.is_some() {
+        format!(" {RESOLVED}")
+    } else {
+        String::new()
+    };
     format!(
-        "{} {verb} {} [{}]",
+        "{} {verb} {} [{}]{resolved}",
         bold(&format!("@{}", single_line(author(node))), color),
         ago(node.created_at.0, now, &Local),
         node.id.inner()
     )
+}
+
+/// Marks a resolved thread after its top-level comment's ID.
+pub const RESOLVED: &str = "[resolved]";
+
+/// Whether the thread `node` is in is resolved: a top-level comment carries
+/// its thread's state, and a reply has it from its parent.
+pub fn in_resolved_thread(node: &CommentNode) -> bool {
+    match &node.parent {
+        Some(parent) => parent.resolved_at.is_some(),
+        None => node.resolved_at.is_some(),
+    }
 }
 
 /// Comments grouped for display: threads oldest first, each with its
@@ -312,7 +335,13 @@ fn render_terminal(nodes: &[CommentNode], now: DateTime<Utc>, options: &RenderOp
     let threads = Threads::new(nodes);
     let action =
         |verb: &str, node: &CommentNode| format!("{verb} {}", ago(node.created_at.0, now, &Local));
-    let id = |node: &CommentNode| vec![id_part(node.id.inner(), &node.url, options.styled)];
+    let id = |node: &CommentNode| {
+        let mut parts = vec![id_part(node.id.inner(), &node.url, options.styled)];
+        if node.resolved_at.is_some() {
+            parts.push((RESOLVED.to_owned(), RESOLVED.width()));
+        }
+        parts
+    };
     let mut out = String::new();
     for (root, replies) in threads.roots {
         if !out.is_empty() {

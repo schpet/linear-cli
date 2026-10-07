@@ -539,7 +539,7 @@ fn date(c: &Comment, now: DateTime<Utc>) -> String {
 fn suffix(c: &Comment, links: bool) -> Vec<(String, usize)> {
     let mut parts = vec![comments::id_part(c.id.inner(), &c.url, links)];
     if c.resolved_at.is_some() {
-        parts.push(("[resolved]".to_owned(), "[resolved]".len()));
+        parts.push((comments::RESOLVED.to_owned(), comments::RESOLVED.len()));
     }
     parts
 }

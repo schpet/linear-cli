@@ -980,7 +980,8 @@ fn comment(id: &str, body: &str, parent: Option<&str>) -> Value {
         "url": format!("https://linear.app/acme/initiative/roadmap#{id}"),
         "user": { "id": "user-1", "name": "ada", "displayName": "Ada Lovelace" },
         "externalUser": null, "botActor": null,
-        "parent": parent.map(|id| json!({ "id": id }))
+        "parent": parent.map(|id| json!({ "id": id, "resolvedAt": null })),
+        "resolvedAt": null, "resolvingCommentId": null, "resolvingUser": null
     })
 }
 

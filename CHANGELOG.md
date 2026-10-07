@@ -5,6 +5,12 @@
 ### Added
 
 - `issue create --delegate` and `issue update --delegate` hand an issue to an agent, named by its username, email, name, or ID, and `issue update --clear-delegate` takes it back. `issue view` shows the delegate, and `issue view --json` includes `delegate` ([#296](https://github.com/schpet/linear-cli/issues/296); thanks @christopher-buss)
+- `issue comment resolve` and `issue comment unresolve` (alias `reopen`) resolve and reopen comment threads, named by their top-level comment IDs. Several IDs can be given at once, or read with `--bulk-file`/`--bulk-stdin`, and `--with` records the reply that resolved a thread. A reply's ID is refused with its thread's ID in the error
+- `issue comment list --resolved` and `--unresolved` show only resolved or open threads, with their replies
+
+### Changed
+
+- `comment list` for issues, projects, documents and initiatives marks resolved threads `[resolved]`, and its `--json` output includes `resolvedAt`, `resolvingCommentId` and `resolvingUser` like `issue view --json`, plus `parent.resolvedAt`, the thread state of a reply
 
 ## [3.0.0] - 2026-10-06
 

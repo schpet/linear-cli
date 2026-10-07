@@ -94,6 +94,17 @@ linear issue comment add ENG-123 --attach ./screenshot.png
 
 This uploads the image and embeds it in a comment, where Linear renders it inline. Do not use `linear issue attach` when the image must be visible: that command creates a sidebar link attachment and does not render images inline.
 
+### Resolve or reopen comment threads
+
+```bash
+linear issue comment list ENG-123 --unresolved            # open threads only, with their replies
+linear issue comment resolve <COMMENT> <COMMENT>          # resolve threads by their top-level comment IDs
+linear issue comment resolve <COMMENT> --with <REPLY>     # record the reply that resolved the thread
+linear issue comment unresolve <COMMENT>                  # reopen a thread
+```
+
+Name a thread by its top-level comment's ID; a reply's ID is refused. In `comment list --json`, `resolvedAt` is set only on a resolved thread's top-level comment, and a reply carries its thread's state in `parent.resolvedAt`. The IDs of open threads are `jq -r '.[] | select(.parent == null and .resolvedAt == null) | .id'`.
+
 ### View an issue / get its URL
 
 ```bash
@@ -264,6 +275,8 @@ linear issue comment add
 linear issue comment list
 linear issue comment update
 linear issue comment delete
+linear issue comment resolve
+linear issue comment unresolve
 linear issue attach
 linear issue link
 linear issue relation

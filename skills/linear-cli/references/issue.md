@@ -602,11 +602,13 @@ Add, list, edit, and delete comments on an issue
 Usage: linear issue comment [OPTIONS] <COMMAND>
 
 Commands:
-  add     Comment on an issue, or reply to a comment
-  list    List an issue's comments
-  update  Edit a comment
-  delete  Delete a comment
-  help    Print this message or the help of the given subcommand(s)
+  add        Comment on an issue, or reply to a comment
+  list       List an issue's comments
+  update     Edit a comment
+  delete     Delete a comment
+  resolve    Resolve comment threads
+  unresolve  Reopen resolved comment threads [alias: reopen]
+  help       Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help  Print help
@@ -683,7 +685,11 @@ Arguments:
   [ISSUE]  Issue ID like ENG-123, or a URL; defaults to the current branch's issue
 
 Options:
-      --limit <LIMIT>  Maximum number of comments to show (a number or `all`) [default: all]
+      --limit <LIMIT>  Maximum number of comments to show (a number or `all`); with --resolved or
+                       --unresolved it counts the comments left, so it can cut a thread short
+                       [default: all]
+      --resolved       Show only resolved threads, with their replies
+      --unresolved     Show only open threads, with their replies
   -j, --json           Print JSON
       --no-pager       Do not page long output
   -h, --help           Print help
@@ -751,6 +757,88 @@ Options:
 Global options:
       --workspace <SLUG>  Workspace to use, by the name its credential is stored under
       --no-input          Never prompt; fail instead when a required value is missing
+```
+
+##### resolve
+
+> Resolve comment threads
+
+```
+Resolve comment threads
+
+Name each thread by its top-level comment's ID, as `issue comment list --json` shows it. A reply's
+ID is refused, and the error names its thread's top-level comment. Nothing is asked before
+resolving. A thread that is already resolved is left as it is, unless --with names a different
+reply.
+
+Usage: linear issue comment resolve [OPTIONS] [COMMENT]...
+
+Arguments:
+  [COMMENT]...
+          Top-level comment ID of each thread to resolve
+
+Options:
+      --with <REPLY>
+          Record this reply as the one that resolved the thread (one thread only)
+          
+          [alias: --resolving-comment]
+
+      --bulk [<IDS>...]
+          More comment IDs; IDs from every source are combined
+
+      --bulk-file <FILE>
+          Read the IDs from a file, one per line
+
+      --bulk-stdin
+          Read the IDs from stdin, one per line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
+```
+
+##### unresolve
+
+> Reopen resolved comment threads
+
+```
+Reopen resolved comment threads
+
+Name each thread by its top-level comment's ID, as `issue comment list --json` shows it. A reply's
+ID is refused, and the error names its thread's top-level comment. A thread that is already open is
+left as it is.
+
+Usage: linear issue comment unresolve [OPTIONS] [COMMENT]...
+
+Arguments:
+  [COMMENT]...
+          Top-level comment ID of each thread to reopen
+
+Options:
+      --bulk [<IDS>...]
+          More comment IDs; IDs from every source are combined
+
+      --bulk-file <FILE>
+          Read the IDs from a file, one per line
+
+      --bulk-stdin
+          Read the IDs from stdin, one per line
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Global options:
+      --workspace <SLUG>
+          Workspace to use, by the name its credential is stored under
+
+      --no-input
+          Never prompt; fail instead when a required value is missing
 ```
 
 ### attach

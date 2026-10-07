@@ -34,13 +34,25 @@ impl Request {
 #[derive(Debug)]
 enum Route {
     Operation(String),
-    Http { method: String, path: String },
+    /// An operation whose variables equal these exactly.
+    OperationWith {
+        name: String,
+        variables: Value,
+    },
+    Http {
+        method: String,
+        path: String,
+    },
 }
 
 impl Route {
     fn matches(&self, request: &Request) -> bool {
         match self {
             Self::Operation(name) => request.operation.as_deref() == Some(name.as_str()),
+            Self::OperationWith { name, variables } => {
+                request.operation.as_deref() == Some(name.as_str())
+                    && request.variables == *variables
+            }
             Self::Http { method, path } => request.method == *method && request.path == *path,
         }
     }
@@ -128,6 +140,30 @@ impl MockLinear {
     pub fn on_error(&self, operation: &str, message: &str) -> &Self {
         let body = json!({ "data": null, "errors": [{ "message": message }] });
         self.on_raw(operation, 200, &body.to_string())
+    }
+
+    /// Reply to the next `operation` request whose variables equal `variables`
+    /// with `{"data": data}`, for requests sent concurrently in any order.
+    pub fn on_variables(&self, operation: &str, variables: Value, data: Value) -> &Self {
+        self.on_variables_raw(operation, variables, &json!({ "data": data }))
+    }
+
+    /// Like `on_variables`, with a GraphQL error envelope.
+    pub fn on_variables_error(&self, operation: &str, variables: Value, message: &str) -> &Self {
+        let body = json!({ "data": null, "errors": [{ "message": message }] });
+        self.on_variables_raw(operation, variables, &body)
+    }
+
+    fn on_variables_raw(&self, operation: &str, variables: Value, body: &Value) -> &Self {
+        self.push(Reply {
+            route: Route::OperationWith {
+                name: operation.to_owned(),
+                variables,
+            },
+            status: 200,
+            headers: headers(&[("Content-Type", "application/json")]),
+            body: body.to_string().into_bytes(),
+        })
     }
 
     /// Reply to the next `operation` request with an arbitrary status and JSON body text.
