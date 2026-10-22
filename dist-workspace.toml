@@ -23,6 +23,8 @@ npm-package = "linear-cli"
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = true
+# Use axoupdater 0.10.3+ for its eMudhra fix; dist 0.31.0 pins 0.10.0.
+always-use-latest-updater = true
 # Steps run before each build-local-artifacts job (relative to .github/workflows).
 # They write THIRD_PARTY_LICENSES.md, which `include` adds to every archive.
 github-build-setup = "../build-setup.yml"
