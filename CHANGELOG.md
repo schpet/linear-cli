@@ -12,6 +12,10 @@
 
 - `comment list` for issues, projects, documents and initiatives marks resolved threads `[resolved]`, and its `--json` output includes `resolvedAt`, `resolvingCommentId` and `resolvingUser` like `issue view --json`, plus `parent.resolvedAt`, the thread state of a reply
 
+### Fixed
+
+- Reject TLS certificate chains using the [compromised eMudhra intermediate CAs](https://emudhra.we-have-a-problem.com/), including chains trusted through the OS store or `SSL_CERT_FILE`, and remove the affected root from the bundled Mozilla roots. New releases also fetch the patched standalone `linear-update` updater
+
 ## [3.0.0] - 2026-10-06
 
 ### Upgrading from 2.x
