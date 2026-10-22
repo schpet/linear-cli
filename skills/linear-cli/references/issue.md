@@ -12,7 +12,7 @@ Usage: linear issue [OPTIONS] <COMMAND>
 Commands:
   list           List issues, assigned to you by default
   query          Find issues by filters or full-text search
-  view           Show an issue
+  view           Show one or more issues
   create         Create an issue
   update         Update an issue
   delete         Delete an issue (moves it to the trash)
@@ -126,23 +126,23 @@ Global options:
 
 ### view
 
-> Show an issue
+> Show one or more issues
 
 ```
-Show an issue
+Show one or more issues
 
-Usage: linear issue view [OPTIONS] [ISSUE]
+Usage: linear issue view [OPTIONS] [ISSUE]...
 
 Arguments:
-  [ISSUE]  Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+  [ISSUE]...  Issue IDs like ENG-123, or URLs; defaults to the current branch's issue
 
 Options:
-  -w, --web                    Open the issue in the browser
-  -a, --app                    Open the issue in the Linear app
+  -w, --web                    Open the issues in the browser
+  -a, --app                    Open the issues in the Linear app
       --no-comments            Leave out comments
       --show-resolved-threads  Include resolved comment threads
       --no-pager               Do not page long output
-  -j, --json                   Print JSON
+  -j, --json                   Print JSON: an object for one issue, an array for multiple issues
       --no-download            Keep remote image and file URLs instead of downloading them
   -h, --help                   Print help
 

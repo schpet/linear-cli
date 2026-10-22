@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `issue view` accepts multiple issue IDs or URLs, showing them in argument order with one pager session. `--json` returns an array for multiple issues and keeps the existing object for one issue. If an issue cannot be fetched, the command fails without printing partial results.
+
 ## [3.1.0] - 2026-10-22
 
 ### Added
