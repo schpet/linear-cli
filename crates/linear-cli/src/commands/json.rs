@@ -1,7 +1,8 @@
 //! `--json` output.
 //!
 //! Every command prints the same shapes: a list command prints a JSON array
-//! of its entities, a view command the entity object, and a command that
+//! of its entities, a view command the entity object (or an array when viewing
+//! multiple issues), and a command that
 //! changes something the entity it created or changed. Connections nested in
 //! an entity are arrays of their nodes. Nothing carries pagination fields:
 //! `--limit` decides how much is fetched.

@@ -71,6 +71,338 @@ fn details(issue: Value) -> Value {
     json!({ "issue": issue })
 }
 
+fn numbered_issue(number: u32, comments: bool) -> Value {
+    let mut value = issue(comments);
+    value["identifier"] = json!(format!("ENG-{number}"));
+    value["title"] = json!(format!("Widget task {number}"));
+    value["url"] = json!(format!("https://linear.app/acme/issue/ENG-{number}"));
+    value["branchName"] = json!(format!("eng-{number}-widget-task"));
+    value
+}
+
+#[test]
+fn view_multiple_json_preserves_input_order_and_comment_selection() {
+    for comments in [true, false] {
+        let api = MockLinear::start();
+        let expected: Vec<_> = [26, 21, 25, 22, 24, 23]
+            .into_iter()
+            .map(|number| numbered_issue(number, comments))
+            .collect();
+        let operation = if comments {
+            "GetIssueDetailsWithComments"
+        } else {
+            "GetIssueDetails"
+        };
+        for value in expected.iter().rev() {
+            api.on_variables(
+                operation,
+                json!({ "id": value["identifier"] }),
+                details(value.clone()),
+            );
+        }
+        let mut args = vec![
+            "issue", "view", "ENG-26", "ENG-21", "ENG-25", "ENG-22", "ENG-24", "ENG-23", "--json",
+        ];
+        if !comments {
+            args.push("--no-comments");
+        }
+        let run = Cli::for_api(&api).run(&args);
+        assert_json(&run.success().json(), &json!(expected));
+        assert!(run.stderr.is_empty(), "{run}");
+        assert_eq!(api.operations().len(), expected.len());
+    }
+}
+
+#[test]
+fn view_multiple_text_separates_issues_and_applies_comment_options_to_each() {
+    for (comments, resolved) in [(true, false), (true, true), (false, false)] {
+        let api = MockLinear::start();
+        let operation = if comments {
+            "GetIssueDetailsWithComments"
+        } else {
+            "GetIssueDetails"
+        };
+        for number in [21, 22] {
+            api.on_variables(
+                operation,
+                json!({ "id": format!("ENG-{number}") }),
+                details(numbered_issue(number, comments)),
+            );
+        }
+        let mut args = vec![
+            "issue",
+            "view",
+            "ENG-22",
+            "ENG-21",
+            "--no-download",
+            "--no-pager",
+        ];
+        if !comments {
+            args.push("--no-comments");
+        }
+        if resolved {
+            args.push("--show-resolved-threads");
+        }
+        let run = Cli::for_api(&api).run(&args);
+        run.success();
+        let first = run
+            .stdout
+            .find("# ENG-22: Widget task 22")
+            .expect("first issue heading");
+        let second = run
+            .stdout
+            .find("# ENG-21: Widget task 21")
+            .expect("second issue heading");
+        assert!(first < second, "{run}");
+        assert!(run.stdout[first..second].contains("\n\n---\n\n"), "{run}");
+        assert_eq!(
+            run.stdout.matches("Root comment body").count(),
+            if comments { 2 } else { 0 }
+        );
+        assert_eq!(
+            run.stdout.matches("Resolved thread body").count(),
+            if resolved { 2 } else { 0 }
+        );
+    }
+}
+
+#[test]
+fn view_multiple_normalizes_mixed_references_and_retains_duplicates() {
+    let api = MockLinear::start();
+    let expected: Vec<_> = [21, 22, 21, 23]
+        .into_iter()
+        .map(|n| numbered_issue(n, false))
+        .collect();
+    for value in &expected {
+        api.on_variables(
+            "GetIssueDetails",
+            json!({ "id": value["identifier"] }),
+            details(value.clone()),
+        );
+    }
+    let run = Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG").run(&[
+        "issue",
+        "v",
+        "eng-21",
+        "https://linear.app/acme/issue/eng-22/widget-task",
+        "ENG-21",
+        "23",
+        "--json",
+        "--no-comments",
+    ]);
+    assert_json(&run.success().json(), &json!(expected));
+}
+
+#[test]
+fn view_multiple_rejects_invalid_later_input_before_requests() {
+    for invalid in ["not an id!", "", " "] {
+        let api = MockLinear::start();
+        let run = Cli::for_api(&api).run(&["issue", "view", "ENG-21", invalid, "--json"]);
+        run.usage_error();
+        if !invalid.trim().is_empty() {
+            run.stderr_has(invalid);
+        }
+        assert!(run.stdout.is_empty(), "{run}");
+        assert!(api.requests().is_empty());
+    }
+}
+
+#[test]
+fn view_multiple_errors_name_the_issue_without_partial_output() {
+    for json in [true, false] {
+        for missing in [true, false] {
+            let api = MockLinear::start();
+            api.on_variables(
+                "GetIssueDetailsWithComments",
+                json!({ "id": "ENG-21" }),
+                details(numbered_issue(21, true)),
+            );
+            if missing {
+                api.on_variables(
+                    "GetIssueDetailsWithComments",
+                    json!({ "id": "ENG-22" }),
+                    json!({ "issue": null }),
+                );
+            } else {
+                api.on_variables_error(
+                    "GetIssueDetailsWithComments",
+                    json!({ "id": "ENG-22" }),
+                    "Something went wrong",
+                );
+            }
+            let mut args = vec!["issue", "view", "ENG-21", "ENG-22", "--no-download"];
+            if json {
+                args.push("--json");
+            }
+            let run = Cli::for_api(&api).run(&args);
+            if missing {
+                run.not_found().stderr_has("Issue not found: ENG-22");
+            } else {
+                run.failure().stderr_has("Something went wrong");
+            }
+            run.stderr_has("ENG-22");
+            assert!(run.stdout.is_empty(), "{run}");
+        }
+    }
+}
+
+#[test]
+fn view_multiple_finishes_each_issues_nested_pages() {
+    let api = MockLinear::start();
+    for number in [21, 22] {
+        let mut value = numbered_issue(number, true);
+        value["comments"]["pageInfo"] = json!({ "hasNextPage": true, "endCursor": "next" });
+        api.on_variables(
+            "GetIssueDetailsWithComments",
+            json!({ "id": format!("ENG-{number}") }),
+            details(value),
+        );
+        api.on_variables(
+            "GetIssueCommentsPage",
+            json!({ "id": format!("ENG-{number}"), "first": 100, "after": "next" }),
+            json!({ "issue": { "comments": {
+            "nodes": [comment("late", &format!("Late comment for {number}"), None, None)],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+        } } }),
+        );
+    }
+    let run = Cli::for_api(&api).run(&["issue", "view", "ENG-22", "ENG-21", "--json"]);
+    let values = run.success().json_nodes();
+    assert_eq!(
+        values[0]["comments"]
+            .as_array()
+            .expect("comments")
+            .last()
+            .expect("late comment")["body"],
+        "Late comment for 22"
+    );
+    assert_eq!(
+        values[1]["comments"]
+            .as_array()
+            .expect("comments")
+            .last()
+            .expect("late comment")["body"],
+        "Late comment for 21"
+    );
+}
+
+#[test]
+fn view_multiple_nested_page_failure_has_no_partial_output() {
+    let api = MockLinear::start();
+    api.on_variables(
+        "GetIssueDetailsWithComments",
+        json!({ "id": "ENG-21" }),
+        details(numbered_issue(21, true)),
+    );
+    let mut value = numbered_issue(22, true);
+    value["comments"]["pageInfo"] = json!({ "hasNextPage": true, "endCursor": "next" });
+    api.on_variables(
+        "GetIssueDetailsWithComments",
+        json!({ "id": "ENG-22" }),
+        details(value),
+    );
+    api.on_error("GetIssueCommentsPage", "Could not load comments");
+    let run = Cli::for_api(&api).run(&["issue", "view", "ENG-21", "ENG-22", "--json"]);
+    run.failure()
+        .stderr_has("ENG-22")
+        .stderr_has("Could not load comments");
+    assert!(run.stdout.is_empty(), "{run}");
+}
+
+#[test]
+fn view_multiple_terminal_output_uses_one_pager_unless_disabled() {
+    for paging in [true, false] {
+        let api = MockLinear::start();
+        for number in [21, 22] {
+            let mut value = numbered_issue(number, false);
+            value["description"] = json!("A long widget description.\n\n".repeat(60));
+            api.on_variables(
+                "GetIssueDetails",
+                json!({ "id": format!("ENG-{number}") }),
+                details(value),
+            );
+        }
+        let cli = Cli::for_api(&api)
+            .stub_bin("sh", "exec /bin/sh \"$@\"")
+            .stub_bin("test-pager", "cat");
+        let pager = cli.path("bin/test-pager").display().to_string();
+        let cli = cli.env("PAGER", &pager);
+        let mut args = vec![
+            "issue",
+            "view",
+            "ENG-22",
+            "ENG-21",
+            "--no-comments",
+            "--no-download",
+        ];
+        if !paging {
+            args.push("--no-pager");
+        }
+        let run = cli.run_tty(&args, &[]);
+        run.success()
+            .stdout_has("ENG-22: Widget task 22")
+            .stdout_has("ENG-21: Widget task 21");
+        assert_eq!(cli.calls("test-pager").len(), usize::from(paging));
+        assert!(
+            run.stdout.find("ENG-22: Widget task 22") < run.stdout.find("ENG-21: Widget task 21"),
+            "{run}"
+        );
+    }
+}
+
+#[test]
+fn view_multiple_downloads_each_issues_images_only_in_text_download_mode() {
+    for mode in ["download", "--no-download", "--json"] {
+        let api = MockLinear::start();
+        let mut urls = Vec::new();
+        for number in [21, 22] {
+            let path = format!("/img/widget-{number}.png");
+            let url = format!("{}{path}", api.base_url());
+            let mut value = numbered_issue(number, false);
+            value["description"] = json!(format!("![widget]({url})"));
+            urls.push(url);
+            api.on_variables(
+                "GetIssueDetails",
+                json!({ "id": format!("ENG-{number}") }),
+                details(value),
+            );
+            if mode == "download" {
+                api.on_http("GET", &path, 200, format!("IMAGE-{number}").as_bytes());
+            }
+        }
+        let cli = Cli::for_api(&api);
+        let mut args = vec![
+            "issue",
+            "view",
+            "ENG-21",
+            "ENG-22",
+            "--no-comments",
+            "--no-pager",
+        ];
+        if mode != "download" {
+            args.push(mode);
+        }
+        let run = cli.run(&args);
+        run.success();
+        let files = files_under(&cli.path("home/.cache/linear-cli/images"));
+        if mode == "download" {
+            assert_eq!(files.len(), 2);
+            for file in files {
+                run.stdout_has(&file.display().to_string());
+            }
+            for url in urls {
+                assert!(!run.stdout.contains(&url), "{run}");
+            }
+        } else {
+            assert!(files.is_empty());
+            for url in urls {
+                run.stdout_has(&url);
+            }
+            assert!(api.requests().iter().all(|request| request.method != "GET"));
+        }
+    }
+}
+
 #[test]
 fn view_json_prints_the_issue_with_comments() {
     let api = MockLinear::start();
