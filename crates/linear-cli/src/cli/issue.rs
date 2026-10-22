@@ -21,7 +21,7 @@ pub enum IssueCommand {
     /// Find issues by filters or full-text search
     #[command(alias = "q")]
     Query(IssueQuery),
-    /// Show an issue
+    /// Show one or more issues
     #[command(alias = "v")]
     View(IssueView),
     /// Create an issue
@@ -223,13 +223,13 @@ pub struct IssueStart {
 
 #[derive(Debug, Args)]
 pub struct IssueView {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
-    /// Open the issue in the browser
+    /// Issue IDs like ENG-123, or URLs; defaults to the current branch's issue
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_ids: Vec<String>,
+    /// Open the issues in the browser
     #[arg(long, short)]
     pub web: bool,
-    /// Open the issue in the Linear app
+    /// Open the issues in the Linear app
     #[arg(long, short)]
     pub app: bool,
     /// Leave out comments
@@ -241,7 +241,7 @@ pub struct IssueView {
     /// Do not page long output
     #[arg(long)]
     pub no_pager: bool,
-    /// Print JSON
+    /// Print JSON: an object for one issue, an array for multiple issues
     #[arg(long, short)]
     pub json: bool,
     /// Keep remote image and file URLs instead of downloading them

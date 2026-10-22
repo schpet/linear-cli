@@ -14,6 +14,8 @@ use crate::{
     },
 };
 use chrono::{DateTime, Utc};
+use futures_util::{StreamExt, TryStreamExt, stream};
+use serde::Serialize;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -24,15 +26,79 @@ pub fn run(ctx: &Ctx, args: &IssueView) -> Result<()> {
 }
 
 fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let multiple = args.issue_ids.len() > 1;
+    let identifiers = if args.issue_ids.is_empty() {
+        vec![super::require(ctx, None)?]
+    } else {
+        args.issue_ids
+            .iter()
+            .map(|input| {
+                super::require(ctx, Some(input)).map_err(|error| {
+                    if multiple {
+                        error.context(format!("Failed to resolve issue {input}"))
+                    } else {
+                        error
+                    }
+                })
+            })
+            .collect::<Result<Vec<_>>>()?
+    };
     if args.web || args.app {
-        return ctx.open_in_linear(&format!("issue/{identifier}"), args.app);
+        let workspace = ctx.workspace_url_key()?;
+        for identifier in identifiers {
+            ctx.open_url(
+                &format!("https://linear.app/{workspace}/issue/{identifier}"),
+                args.app,
+            )?;
+        }
+        return Ok(());
     }
     let client = ctx.client()?;
-    let fetched = ctx.spin(!args.json, fetch(client, identifier, !args.no_comments))?;
+    let fetched: Vec<Fetched> = ctx.spin(!args.json, async {
+        stream::iter(identifiers)
+            .map(|identifier| async move {
+                fetch(client, identifier.clone(), !args.no_comments)
+                    .await
+                    .map_err(|error| {
+                        if multiple {
+                            error.context(format!("Failed to fetch issue {identifier}"))
+                        } else {
+                            error
+                        }
+                    })
+            })
+            .buffered(5)
+            .try_collect()
+            .await
+    })?;
     if args.json {
-        return ctx.print(fetched.json());
+        return ctx.print(if multiple {
+            crate::commands::json::render(&fetched)
+        } else {
+            crate::commands::json::render(
+                fetched.first().expect("view resolves at least one issue"),
+            )
+        });
     }
+    let now = Utc::now();
+    let views = fetched
+        .into_iter()
+        .map(|issue| render(ctx, args, client, issue, now))
+        .collect::<Result<Vec<_>>>()?;
+    if !ctx.stdout_tty() {
+        return ctx.print(format!("{}\n", views.join("\n\n---\n\n")));
+    }
+    let separator = format!("\n{}\n", ctx.render_markdown("---"));
+    ctx.page(&views.join(&separator), !args.no_pager)
+}
+
+fn render(
+    ctx: &Ctx,
+    args: &IssueView,
+    client: &LinearClient,
+    fetched: Fetched,
+    now: DateTime<Utc>,
+) -> Result<String> {
     let options = ctx.options();
     let download = !args.no_download && options.download_images();
     let attachments = download && options.auto_download_attachments();
@@ -68,36 +134,29 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
     } else {
         HashMap::new()
     };
-    let now = Utc::now();
     if !ctx.stdout_tty() {
-        let markdown = markdown(&issue, &paths, args.show_resolved_threads, now)?;
-        return ctx.print(format!("{markdown}\n"));
+        return markdown(&issue, &paths, args.show_resolved_threads, now);
     }
     let render = ctx.render_options();
-    let rendered = terminal(
+    terminal(
         &issue,
         &paths,
         args.show_resolved_threads,
         now,
         &render,
         true,
-    )?;
-    ctx.page(&rendered, !args.no_pager)
+    )
 }
 
 pub type Issue = GetIssueDetailsWithCommentsIssue;
 pub type Comment = GetIssueDetailsWithCommentsIssueCommentsNodes;
+#[derive(Serialize)]
+#[serde(untagged)]
 pub enum Fetched {
     Without(GetIssueDetailsIssue),
     With(Issue),
 }
 impl Fetched {
-    pub fn json(&self) -> Vec<u8> {
-        match self {
-            Self::Without(i) => crate::commands::json::render(i),
-            Self::With(i) => crate::commands::json::render(i),
-        }
-    }
     pub fn into_issue(self) -> Issue {
         match self {
             Self::With(i) => i,

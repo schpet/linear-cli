@@ -44,6 +44,58 @@ fn issue_view_opens_the_issue_without_a_request() {
 }
 
 #[test]
+fn issue_view_opens_every_issue_in_order() {
+    for flag in ["--web", "--app"] {
+        let api = MockLinear::start();
+        let cli = configured(&api).env("LINEAR_TEAM_ID", "ENG");
+        let run = cli.run(&["issue", "view", "eng-22", "21", flag, "--json"]);
+        run.success();
+        assert!(run.stdout.is_empty(), "{run}");
+        assert_eq!(
+            opened(&cli),
+            [
+                "https://linear.app/acme/issue/ENG-22",
+                "https://linear.app/acme/issue/ENG-21"
+            ]
+        );
+        assert!(api.requests().is_empty());
+    }
+}
+
+#[test]
+fn issue_view_validates_all_references_before_opening() {
+    for flag in ["--web", "--app"] {
+        let api = MockLinear::start();
+        let cli = configured(&api);
+        cli.run(&["issue", "view", "ENG-21", "invalid issue", flag])
+            .usage_error()
+            .stderr_has("invalid issue");
+        assert!(opened(&cli).is_empty());
+        assert!(api.requests().is_empty());
+    }
+}
+
+#[test]
+fn issue_view_looks_up_the_workspace_once_for_multiple_issues() {
+    let api = MockLinear::start();
+    api.on(
+        "GetViewer",
+        json!({ "viewer": { "organization": { "urlKey": "acme" } } }),
+    );
+    let cli = open_stubs(Cli::for_api(&api));
+    cli.run(&["issue", "view", "ENG-22", "ENG-21", "--web"])
+        .success();
+    assert_eq!(
+        opened(&cli),
+        [
+            "https://linear.app/acme/issue/ENG-22",
+            "https://linear.app/acme/issue/ENG-21"
+        ]
+    );
+    assert_eq!(api.operations(), ["GetViewer"]);
+}
+
+#[test]
 fn issue_list_opens_the_team_issue_view() {
     let api = MockLinear::start();
     let cli = configured(&api).env("LINEAR_TEAM_ID", "ENG");

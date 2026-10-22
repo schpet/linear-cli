@@ -38,13 +38,17 @@ anything scoped to other people or to a whole team or project.
 linear issue list --state started --sort priority
 ```
 
-### View an issue or get its URL
+### View issues or get an issue's URL
 
 ```bash
 linear issue view ENG-123          # details, including comments
 linear issue view ENG-123 --json   # structured output
+linear issue view ENG-123 ENG-124  # several issues, in argument order
 linear issue url ENG-123           # print just the URL
 ```
+
+`issue view --json` prints an object for one issue and an array when several
+are named. If any of them cannot be fetched, the command fails and prints none.
 
 ### Create an issue
 

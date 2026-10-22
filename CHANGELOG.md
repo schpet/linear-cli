@@ -8,6 +8,7 @@
 - `linear skill show` prints a guide to the CLI written for coding agents. The guide is built into the binary, so it always describes the commands of the version that printed it, and it needs no login, configuration or network connection
 - `linear skill setup` installs a small skill for Claude Code, Codex, OpenCode and Pi that tells the agent to run `linear skill show`, so the installed skill does not go out of date when linear is upgraded. It writes `~/.agents/skills/linear-cli`, which Codex, OpenCode and Pi all read, and `~/.claude/skills/linear-cli` when Claude Code is set up; `--agent` chooses, `--project` sets up the current repository for a team, and `--dry-run` previews. A `linear-cli` skill it did not install is left alone and reported; `--force` moves it to a backup directory instead of deleting it
 - `linear skill status` reports what each of those directories holds, including an older copy that an agent would read instead, and `linear skill remove` deletes only what `setup` installed. All three take `--json`
+- `issue view` accepts multiple issue IDs or URLs, showing them in argument order with one pager session. `--json` returns an array for multiple issues and keeps the existing object for one issue. If an issue cannot be fetched, the command fails without printing partial results.
 
 ### Changed
 
