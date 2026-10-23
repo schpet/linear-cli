@@ -105,13 +105,17 @@ linear issue comment unresolve <COMMENT>                  # reopen a thread
 
 Name a thread by its top-level comment's ID; a reply's ID is refused. In `comment list --json`, `resolvedAt` is set only on a resolved thread's top-level comment, and a reply carries its thread's state in `parent.resolvedAt`. The IDs of open threads are `jq -r '.[] | select(.parent == null and .resolvedAt == null) | .id'`.
 
-### View an issue / get its URL
+### View issues / get an issue URL
 
 ```bash
 linear issue view ENG-123          # details incl. comments
 linear issue view ENG-123 --json   # structured output
+linear issue view ENG-123 ENG-124  # multiple issues, in argument order
+linear issue view ENG-123 ENG-124 --json  # an array of issue objects
 linear issue url ENG-123           # print just the URL
 ```
+
+`issue view --json` returns an object for one issue and an array for multiple arguments. Argument order and repeated references are preserved. If any issue cannot be fetched, the command fails without printing partial results.
 
 ### Close, delete, or archive an issue
 

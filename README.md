@@ -129,6 +129,8 @@ note that [Linear's GitHub integration](https://linear.app/docs/github#branch-fo
 linear issue view      # view current issue details in terminal
 linear issue view ABC-123
 linear issue view 123
+linear issue view ABC-123 ABC-124         # multiple issues, in argument order
+linear issue view ABC-123 ABC-124 --json  # an array; one issue returns an object
 linear issue view -w   # open issue in web browser
 linear issue view -a   # open issue in Linear.app
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
