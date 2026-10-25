@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `auth login` no longer fails with "No system keyring found" when an API key is already configured (`LINEAR_API_KEY`, a `.env` file, or `api_key` in a config file). With no `--key` and no `--plaintext` it now reports that there is nothing to store and exits 0, since every other command already uses that key
+
 ## [3.1.0] - 2026-10-22
 
 ### Added

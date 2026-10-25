@@ -6,7 +6,7 @@ use crate::auth::mutation::Credentials;
 use crate::auth::{ApiKeyInput, CredentialFormat};
 use crate::cli::auth::AuthLogin;
 use crate::client::{ApiKey, LinearClient, RequestError};
-use crate::config::ConfigSecret;
+use crate::config::{ConfigSecret, OptionSource};
 use crate::ctx::Ctx;
 use crate::error::{Error, Failure, Result, ResultExt};
 use crate::graphql::operations::user::GetViewerAccount;
@@ -22,6 +22,15 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     let mut credentials = super::credentials(ctx)?;
     let store = ctx.credentials()?;
     let keyring = store.keyring();
+    // A configured key already authenticates every command, so with nothing to
+    // store and no `--plaintext` there is no work for `auth login` to do. It
+    // succeeds instead of failing on a keyring it does not need.
+    if args.key.is_none()
+        && !args.plaintext
+        && let Some(source) = configured_key(ctx)
+    {
+        return ctx.print(already_configured(&source));
+    }
     let plaintext = credentials.stores_plaintext(args.plaintext);
     if !plaintext && !keyring.available() {
         return Err(Error::new("No system keyring found").with_hint(
@@ -94,6 +103,35 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
         ))?;
     }
     Ok(())
+}
+
+/// Where a key that makes `auth login` unnecessary came from. `None` when no
+/// key is set or it is empty: `auth::resolve` treats an empty `LINEAR_API_KEY`
+/// as absent.
+fn configured_key(ctx: &Ctx) -> Option<OptionSource> {
+    let key = ctx.options().api_key()?;
+    if key.value().expose().is_empty() {
+        return None;
+    }
+    Some(key.source().clone())
+}
+
+/// What `auth login` prints when a configured key leaves it nothing to store.
+fn already_configured(source: &OptionSource) -> String {
+    let origin = match source {
+        OptionSource::Env => "LINEAR_API_KEY is set".to_owned(),
+        OptionSource::ProjectEnv { path } => {
+            format!("LINEAR_API_KEY is set in {}", path.display())
+        }
+        OptionSource::ProjectConfig { path } | OptionSource::GlobalConfig { path } => {
+            format!("An API key is set in {}", path.display())
+        }
+        OptionSource::Cli => "An API key is set on the command line".to_owned(),
+    };
+    format!(
+        "{origin}, so there is nothing to store. Commands will use it.\n\
+         Pass --plaintext to store a copy in the credentials file, or --key to use a different key.\n"
+    )
 }
 
 /// The key from a prompt on a terminal, or from stdin when it is piped.

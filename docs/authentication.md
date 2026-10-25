@@ -88,7 +88,7 @@ API keys are not stored in this file. they are stored in the system keyring and 
   - Arch: `pacman -S libsecret`
 - **Windows**: uses Credential Manager via `advapi32.dll` (built-in)
 
-if the keyring is unavailable, set `LINEAR_API_KEY` as a fallback.
+if the keyring is unavailable, every command still works: set `LINEAR_API_KEY`, put `api_key` in a config file, or store the key in the credentials file with `linear auth login --plaintext`. a configured key takes precedence over stored credentials (see the order above), so `linear auth login` has nothing to store while one is set: it says so and exits 0.
 
 ### migrating from plaintext credentials
 
