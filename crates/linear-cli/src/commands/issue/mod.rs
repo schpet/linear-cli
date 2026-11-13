@@ -18,6 +18,7 @@ mod list_view;
 mod pull_request;
 mod query;
 mod read;
+mod reference;
 mod relation;
 mod start;
 mod title;
@@ -30,18 +31,14 @@ mod write;
 mod write_network;
 
 use crate::cli::issue::{IssueCommand, IssueGhCommand, IssueGitCommand, IssueJjCommand};
-use crate::commands::team_key::configured_team_key;
+use crate::cli::values::IssueRef;
 use crate::config::Vcs;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::refs::prepare_issue_reference;
 
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
-        IssueCommand::RemovedId(_) => Err(Error::invalid(
-            "`issue id` was removed in 4.0: linear no longer reads the issue from the git branch or jj change",
-        )
-        .with_hint("Pass the issue ID to each command, like `linear issue view ENG-123`.")),
+        IssueCommand::Id(args) => id::run(ctx, args),
         IssueCommand::List(args) => list::run(ctx, args),
         IssueCommand::Query(args) => query::run(ctx, args),
         IssueCommand::Title(args) => title::run(ctx, args),
@@ -80,22 +77,24 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
 }
 
 /// The issue identifier `input` names: an identifier, a URL, or a bare number
-/// in the configured team. `None` when it names no issue. The issue is always
-/// named by the caller; nothing is read from the repository.
-pub(crate) fn resolve(ctx: &Ctx, input: &str) -> Result<Option<String>> {
-    let team = configured_team_key(ctx.options());
-    prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)
+/// in the configured team, or the one issue `@git` or `@jj` reads. `None`
+/// when a named `input` is no issue. Nothing is read from the repository
+/// unless `input` is such a reference.
+pub(crate) fn resolve(ctx: &Ctx, input: &IssueRef) -> Result<Option<String>> {
+    reference::resolve(ctx, input)
 }
 
 /// Like [`resolve`], failing when `input` names no issue.
-pub(crate) fn require(ctx: &Ctx, input: &str) -> Result<String> {
-    resolve(ctx, input)?.ok_or_else(|| {
-        Error::invalid(format!("Not an issue ID: {input}")).with_hint(
-            "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
-        )
-    })
+pub(crate) fn require(ctx: &Ctx, input: &IssueRef) -> Result<String> {
+    reference::require(ctx, input)
 }
 
 pub(crate) fn vcs(ctx: &Ctx) -> Vcs {
     ctx.options().vcs()
+}
+
+/// A named issue as typed, for a command that resolves it itself, or the one
+/// issue `@git` or `@jj` reads.
+pub(crate) fn as_typed(ctx: &Ctx, input: &IssueRef) -> Result<String> {
+    reference::as_typed(ctx, input)
 }

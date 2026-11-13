@@ -275,3 +275,24 @@ fn a_missing_issue_is_not_found() {
         .not_found()
         .stderr_has("Issue not found: ENG-404");
 }
+
+#[test]
+fn a_status_verb_takes_the_issue_from_at_git_only_when_asked() {
+    let api = MockLinear::start();
+    api.on("GetIssueTransitionDetails", issue("In Progress", "started"))
+        .on("GetWorkflowStates", workflow())
+        .on("UpdateIssueState", moved());
+    let cli = repo(&api);
+    let run = cli.run(&["issue", "complete", "@git"]);
+    run.success()
+        .stderr_has("Using issue ENG-99 from the git branch name \"eng-99-other\"\n");
+    assert_eq!(
+        api.variables("GetIssueTransitionDetails"),
+        json!({ "id": "ENG-99" })
+    );
+    assert_eq!(
+        calls(&cli, "git"),
+        [["symbolic-ref", "--quiet", "--short", "HEAD"]]
+    );
+    assert!(calls(&cli, "jj").is_empty());
+}

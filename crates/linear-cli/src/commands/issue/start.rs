@@ -1,7 +1,10 @@
 //! `issue start`: move an issue to its team's first started status. The
 //! picker it shares with `issue git start` and `issue jj start` lives here.
 use crate::{
-    cli::issue::{IssueStart, StartTarget},
+    cli::{
+        issue::{IssueStart, StartTarget},
+        values::IssueRef,
+    },
     commands::{
         issue::{
             list_view, read as issue_read,
@@ -38,6 +41,12 @@ pub(super) fn target(ctx: &Ctx, args: &StartTarget) -> Result<String> {
     if args.issue_id.is_none() && !ctx.interactive() {
         return Err(ctx.missing_value("No issue to start", "an issue ID"));
     }
+    let named = match &args.issue_id {
+        // A reference reads a full identifier, which needs no team.
+        Some(reference @ (IssueRef::Git | IssueRef::Jj)) => return super::require(ctx, reference),
+        Some(IssueRef::Named(input)) => Some(input),
+        None => None,
+    };
     let team = match &args.team {
         Some(team) => {
             let reference = TeamReference::parse(team, &ctx.scope()?)?;
@@ -48,7 +57,7 @@ pub(super) fn target(ctx: &Ctx, args: &StartTarget) -> Result<String> {
         }
         None => configured_team_key(ctx.options()),
     };
-    match args.issue_id.as_deref() {
+    match named {
         Some(input) => prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)?
             .ok_or_else(|| Error::new(format!("Not an issue ID: {input}")).with_hint(
                 "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team or --team.",

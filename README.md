@@ -120,14 +120,14 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 
 the CLI works with both git and jj version control systems:
 
-- **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests; the cli itself does not read them.
-- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `linear issue commits ABC-123` lists the changes whose trailers name the issue. `linear issue gh pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+- **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
+- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `linear issue commits ABC-123` lists the changes whose trailers name the issue, and `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue gh pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
 
 ## commands
 
 ### issue commands
 
-every command takes the issue it acts on: an ID like `ENG-123`, an issue URL, or a bare number in the configured team. the cli never works out the issue from your branch name or commits.
+every command takes the issue it acts on: an ID like `ENG-123`, an issue URL, a bare number in the configured team, or a reference that reads it from your repository. `@git` is the first issue ID in the current git branch's name; `@jj` is every issue named by the `Linear-issue` trailers of the changes in `trunk()..@`. the cli reads the repository only when you pass one of these, and says on stderr which issues it read before anything is sent. a command that acts on one issue refuses a reference that names several. in PowerShell, quote them: `'@git'`.
 
 ```bash
 linear issue view ABC-123  # view issue details in terminal
@@ -139,6 +139,8 @@ linear issue view ABC-123 -a   # open issue in Linear.app
 linear issue title ABC-123     # prints just the issue title
 linear issue url ABC-123       # prints the Linear.app URL for the issue
 linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`; with jj, pushes a bookmark for it first
+linear issue gh pr @git        # the same, for the issue in the current git branch's name
+linear issue id @jj            # prints the issues @jj reads, one per line
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
 linear issue list -w   # open issue list in web browser
@@ -277,7 +279,7 @@ manage Linear documents from the command line. every document is attached to exa
 linear document list                            # list all accessible documents
 linear docs list                                # alias for document
 linear document list --project <project>        # filter by project (UUID, slug ID, or name)
-linear document list --issue TC-123             # filter by issue
+linear document list --issue TC-123             # filter by issue (or @git, @jj)
 linear document list --team ENG                 # filter by team
 linear document list --initiative <initiative>  # filter by initiative
 linear document list --team ENG --cycle active  # filter by cycle (team scopes the lookup)

@@ -16,6 +16,13 @@ pub fn run(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
 }
 
 fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    // The issue is always named, by an ID or by `@git` / `@jj`; leaving it
+    // out never reads it from the repository.
+    let issue = args.issue_id.as_ref().ok_or_else(|| {
+        Error::invalid("No issue to open a pull request for").with_hint(
+            "Name it: an issue ID like `linear issue gh pr ENG-123`, `@git` for the issue in the git branch name, or `@jj` for the one in the Linear-issue trailers of trunk()..@.",
+        )
+    })?;
     let selected = if args.no_template {
         PrTemplateCli::Disabled
     } else if let Some(path) = args.template.as_deref() {
@@ -28,7 +35,7 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         .pr_template(selected)?
         .map(|path| read_template(path.path()))
         .transpose()?;
-    let identifier = super::require(ctx, &args.issue_id)?;
+    let identifier = super::require(ctx, issue)?;
     // git leaves the head to gh, which reads the current branch. jj has no
     // current branch, so the head is settled here, before anything is sent.
     let jj = Jj::new(ctx.cwd(), &ctx.config().child_env);

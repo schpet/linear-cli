@@ -82,6 +82,12 @@ pub fn expect_url_kind<T>(
     ))
 }
 
+/// Whether `input` is a Linear URL (supported or not): the only kind of
+/// reference checked against the workspace.
+pub fn is_linear_url(input: &str) -> bool {
+    !matches!(parse_linear_url(input), LinearUrlParse::NotLinear)
+}
+
 /// Reject any recognized Linear URL for commands that accept only plain references.
 pub fn reject_linear_url(input: &str, entity_label: &str) -> Result<(), Error> {
     if matches!(parse_linear_url(input), LinearUrlParse::NotLinear) {

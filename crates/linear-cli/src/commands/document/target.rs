@@ -1,7 +1,9 @@
 //! A document's attachment: exactly one project, issue, initiative, team,
 //! cycle or release. Clap rejects more than one; `--team` with `--cycle`
 //! names the team to look the cycle up in.
+use crate::cli::values::IssueRef;
 use crate::client::LinearClient;
+use crate::commands::issue;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
@@ -42,7 +44,7 @@ pub enum PreparedTarget {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TargetOptions<'a> {
     pub project: Option<&'a str>,
-    pub issue: Option<&'a str>,
+    pub issue: Option<&'a IssueRef>,
     pub initiative: Option<&'a str>,
     pub team: Option<&'a str>,
     pub cycle: Option<&'a str>,
@@ -67,7 +69,10 @@ pub fn prepare(ctx: &Ctx, target: TargetOptions<'_>) -> Result<Option<PreparedTa
             original, &scope,
         )?)));
     }
-    if let Some(original) = target.issue {
+    if let Some(input) = target.issue {
+        // `@git` and `@jj` are read here, before anything is sent.
+        let typed = issue::as_typed(ctx, input)?;
+        let original = typed.as_str();
         let url = refs::expect_url_kind(
             original,
             LinearUrlKind::Issue,

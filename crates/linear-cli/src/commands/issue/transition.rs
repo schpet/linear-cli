@@ -2,6 +2,7 @@
 //! status of a type, the way Linear's own automations do. Nothing here
 //! touches the repository.
 use crate::cli::issue::IssueTransition;
+use crate::cli::values::IssueRef;
 use crate::client::LinearClient;
 use crate::commands::json::quoted;
 use crate::ctx::Ctx;
@@ -227,7 +228,7 @@ pub fn run(ctx: &Ctx, verb: Verb, args: &IssueTransition) -> Result<()> {
     named(ctx, verb, &args.issue_id).context(verb.failure())
 }
 
-fn named(ctx: &Ctx, verb: Verb, input: &str) -> Result<()> {
+fn named(ctx: &Ctx, verb: Verb, input: &IssueRef) -> Result<()> {
     run_for(ctx, verb, super::require(ctx, input)?)
 }
 

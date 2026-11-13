@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use crate::cli::document::DocumentCreate;
+use crate::cli::values::IssueRef;
 use crate::commands::team_key::configured_team_key;
 use crate::commands::text_input;
 use crate::commands::{confirm, lookup_prompt, outcome};
@@ -141,7 +142,7 @@ struct Fields {
 #[derive(Default)]
 struct Attachment {
     project: Option<String>,
-    issue: Option<String>,
+    issue: Option<IssueRef>,
     initiative: Option<String>,
     team: Option<String>,
     cycle: Option<String>,
@@ -152,7 +153,7 @@ impl Attachment {
     fn options(&self) -> TargetOptions<'_> {
         TargetOptions {
             project: self.project.as_deref(),
-            issue: self.issue.as_deref(),
+            issue: self.issue.as_ref(),
             initiative: self.initiative.as_deref(),
             team: self.team.as_deref(),
             cycle: self.cycle.as_deref(),
@@ -198,9 +199,13 @@ fn ask_attachment(
     let found = lookup_prompt::ask_until_found(
         ctx,
         || attachment(prompter, default_team).map(Some),
-        |answer| async move {
-            let target = target::prepare(ctx, answer.options())?.expect("an answer names a target");
-            target::resolve(&target, client).await
+        |answer| {
+            // Reads an `@git` or `@jj` answer before the spinner starts.
+            let target = target::prepare(ctx, answer.options());
+            async move {
+                let target = target?.expect("an answer names a target");
+                target::resolve(&target, client).await
+            }
         },
     )?;
     Ok(found.expect("an attachment is never left blank"))
@@ -227,7 +232,19 @@ fn attachment(prompter: &Prompter<'_>, default_team: Option<&str>) -> Result<Att
     let mut answer = Attachment::default();
     match prompter.select("Attach to:", targets)? {
         Kind::Project => answer.project = Some(required("Project (ID, slug, or name):")?),
-        Kind::Issue => answer.issue = Some(required("Issue (like ENG-123):")?),
+        Kind::Issue => {
+            let check = |raw: &str| raw.parse::<IssueRef>().map(drop);
+            let issue = prompter.text(
+                Text::new("Issue (like ENG-123, @git or @jj):")
+                    .required()
+                    .with_check(&check),
+            )?;
+            answer.issue = Some(
+                issue
+                    .parse()
+                    .expect("the prompt only accepts answers that parse"),
+            );
+        }
         Kind::Team => answer.team = Some(team("Team (key, like ENG):")?),
         Kind::Initiative => {
             answer.initiative = Some(required("Initiative (ID, slug, or name):")?);
