@@ -1822,3 +1822,129 @@ fn list_prints_the_rows_itself_when_the_pager_fails() {
         .stdout_has("Warning: The pager exited with status 1, so the output is printed without it")
         .stdout_has("ENG-50");
 }
+
+#[test]
+fn view_tty_ends_with_the_issue_url_after_the_comments() {
+    for extra in [&[][..], &["--show-resolved-threads"], &["--no-comments"]] {
+        let comments = !extra.contains(&"--no-comments");
+        let api = MockLinear::start();
+        let operation = if comments {
+            "GetIssueDetailsWithComments"
+        } else {
+            "GetIssueDetails"
+        };
+        api.on(operation, details(issue(comments)));
+        let args = [
+            &["issue", "view", "ENG-1", "--no-download", "--no-pager"][..],
+            extra,
+        ]
+        .concat();
+        let run = Cli::for_api(&api).run_tty(&args, &[]);
+        run.success().ends_with_footer(
+            "View this issue on Linear: https://linear.app/acme/issue/ENG-1/fix-the-widget",
+        );
+        if comments {
+            let footer = run.stdout.find("View this issue").expect("footer");
+            let last_comment = run.stdout.find("Reply body").expect("reply");
+            assert!(last_comment < footer, "{run}");
+        }
+    }
+}
+
+#[test]
+fn view_piped_has_no_footer() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetailsWithComments", details(issue(true)));
+    let run = Cli::for_api(&api).run(&["issue", "view", "ENG-1", "--no-download"]);
+    assert!(!run.success().stdout.contains("on Linear:"), "{run}");
+}
+
+#[test]
+fn view_footer_is_paged_with_the_issue_and_survives_a_failing_pager() {
+    let mut long = issue(true);
+    long["description"] = json!(
+        (1..=80)
+            .map(|n| format!("line {n}"))
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    );
+    let footer = "View this issue on Linear: https://linear.app/acme/issue/ENG-1/fix-the-widget";
+    for (script, failing) in [
+        ("cat > \"$PAGED\"", false),
+        ("cat > /dev/null; exit 1", true),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetIssueDetailsWithComments", details(long.clone()));
+        let cli = Cli::for_api(&api)
+            .stub_bin("sh", "exec /bin/sh \"$@\"")
+            .stub_bin("pager", script);
+        let pager = cli.path("bin/pager").display().to_string();
+        let paged = cli.path("paged.txt").display().to_string();
+        let cli = cli.env("PAGER", &pager).env("PAGED", &paged);
+        let run = cli.run_tty(&["issue", "view", "ENG-1", "--no-download"], &[]);
+        if failing {
+            run.success()
+                .stdout_has("Warning: The pager exited with status 1")
+                .ends_with_footer(footer);
+        } else {
+            run.success();
+            let text = cli.read("paged.txt");
+            assert!(
+                text.trim_end().ends_with(&format!("\n\n{footer}")),
+                "{text}"
+            );
+            assert_eq!(text.matches("on Linear:").count(), 1, "{text}");
+        }
+    }
+}
+
+#[test]
+fn view_multiple_ends_each_issue_with_its_own_url() {
+    let api = MockLinear::start();
+    for number in [21, 22] {
+        api.on_variables(
+            "GetIssueDetails",
+            json!({ "id": format!("ENG-{number}") }),
+            details(numbered_issue(number, false)),
+        );
+    }
+    let run = Cli::for_api(&api).run_tty(
+        &[
+            "issue",
+            "view",
+            "ENG-21",
+            "ENG-22",
+            "--no-comments",
+            "--no-download",
+            "--no-pager",
+        ],
+        &[],
+    );
+    run.success();
+    let footers: Vec<&str> = run
+        .stdout
+        .lines()
+        .filter(|line| line.contains("on Linear:"))
+        .collect();
+    assert_eq!(footers.len(), 2, "{run}");
+    assert!(
+        footers[0].contains("ENG-21") && footers[1].contains("ENG-22"),
+        "{run}"
+    );
+    let second = run
+        .stdout
+        .find("ENG-22: Widget task 22")
+        .expect("second issue");
+    assert!(
+        run.stdout
+            .find("ENG-21")
+            .is_some_and(|first| first < second),
+        "{run}"
+    );
+    assert!(
+        run.stdout
+            .find(footers[0])
+            .is_some_and(|footer| footer < second),
+        "{run}"
+    );
+}

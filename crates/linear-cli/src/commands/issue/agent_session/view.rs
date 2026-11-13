@@ -12,6 +12,7 @@ use crate::graphql::operations::agent_session::{
     GetAgentSessionDetails, GetAgentSessionDetailsVariables,
 };
 use crate::graphql::pagination::{self, Page};
+use crate::platform::view_footer::Linked;
 use crate::refs::reject_linear_url;
 
 use super::status_name;
@@ -27,10 +28,12 @@ fn view(ctx: &Ctx, args: &IssueAgentSessionView) -> Result<()> {
     if args.json {
         return ctx.print(json::render(&session));
     }
-    ctx.show_markdown(
-        &markdown(&session, Utc::now(), &chrono::Local)?,
-        !args.no_pager,
-    )
+    let markdown = markdown(&session, Utc::now(), &chrono::Local)?;
+    // A session has no page of its own; it is shown on its issue.
+    match &session.issue {
+        Some(issue) => ctx.show_markdown_view(&markdown, !args.no_pager, Linked::Issue, &issue.url),
+        None => ctx.show_markdown(&markdown, !args.no_pager),
+    }
 }
 
 /// The session with every one of its activities.

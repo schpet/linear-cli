@@ -3,6 +3,7 @@
 use crate::client::LinearClient;
 use crate::commands::comments;
 use crate::graphql::pagination::{self, Page, PageInfo};
+use crate::platform::view_footer::{self, Linked};
 use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
@@ -138,14 +139,16 @@ fn render(
         return markdown(&issue, &paths, args.show_resolved_threads, now);
     }
     let render = ctx.render_options();
-    terminal(
+    let rendered = terminal(
         &issue,
         &paths,
         args.show_resolved_threads,
         now,
         &render,
         true,
-    )
+    )?;
+    let footer = view_footer::footer(Linked::Issue, &issue.url, ctx.color());
+    Ok(view_footer::append(&rendered, &footer))
 }
 
 pub type Issue = GetIssueDetailsWithCommentsIssue;

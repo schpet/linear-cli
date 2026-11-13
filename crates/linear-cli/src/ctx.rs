@@ -19,6 +19,7 @@ use crate::platform::markdown_terminal::{self, RenderOptions};
 use crate::platform::output::{self, Stdout};
 use crate::platform::prompt::Prompter;
 use crate::platform::spinner::Spinner;
+use crate::platform::view_footer::{self, Linked};
 use crate::platform::{editor, opener, pager, style};
 use crate::refs::WorkspaceScope;
 
@@ -282,6 +283,29 @@ impl Ctx {
         }
         let rendered = self.render_markdown(markdown);
         self.page(&rendered, paging)
+    }
+
+    /// Shows a rendered terminal view followed by a line linking to what it
+    /// shows in Linear.
+    pub fn page_view(&self, rendered: &str, paging: bool, linked: Linked, url: &str) -> Result<()> {
+        let footer = view_footer::footer(linked, url, self.color());
+        self.page(&view_footer::append(rendered, &footer), paging)
+    }
+
+    /// Like [`Self::show_markdown`], ending with a line linking to what the
+    /// view shows in Linear when stdout is a terminal.
+    pub fn show_markdown_view(
+        &self,
+        markdown: &str,
+        paging: bool,
+        linked: Linked,
+        url: &str,
+    ) -> Result<()> {
+        if !self.terminal.stdout_tty {
+            return self.print(format!("{markdown}\n"));
+        }
+        let rendered = self.render_markdown(markdown);
+        self.page_view(&rendered, paging, linked, url)
     }
 
     /// Options for the stdout terminal: width or fallback, color, and file links.

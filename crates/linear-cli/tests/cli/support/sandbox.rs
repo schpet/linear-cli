@@ -412,6 +412,23 @@ impl Run {
         self
     }
 
+    /// Asserts that stdout ends with `footer` as its last nonempty line,
+    /// after a blank line, and holds it only once.
+    #[track_caller]
+    pub fn ends_with_footer(&self, footer: &str) -> &Self {
+        let text = self.stdout.trim_end();
+        assert!(
+            text.ends_with(&format!("\n\n{footer}")),
+            "stdout does not end with {footer:?}\n{self}"
+        );
+        assert_eq!(
+            self.stdout.matches("on Linear:").count(),
+            1,
+            "more than one footer\n{self}"
+        );
+        self
+    }
+
     #[track_caller]
     pub fn stderr_has(&self, needle: &str) -> &Self {
         assert!(

@@ -661,3 +661,25 @@ fn attach_reports_uncertain_outcomes_without_retrying() {
         );
     }
 }
+
+#[test]
+fn agent_session_view_tty_links_to_its_issue_only_when_it_has_one() {
+    let mut detached = with_typenames(session_details());
+    detached["issue"] = Value::Null;
+    let api = MockLinear::start();
+    api.on(
+        "GetAgentSessionDetails",
+        json!({ "agentSession": with_typenames(session_details()) }),
+    )
+    .on(
+        "GetAgentSessionDetails",
+        json!({ "agentSession": detached }),
+    );
+    let cli = Cli::for_api(&api);
+    let args = ["issue", "agent-session", "view", SESSION_ID, "--no-pager"];
+    cli.run_tty(&args, &[])
+        .success()
+        .ends_with_footer("View this issue on Linear: https://linear.app/acme/issue/ENG-1");
+    let run = cli.run_tty(&args, &[]);
+    assert!(!run.success().stdout.contains("on Linear:"), "{run}");
+}

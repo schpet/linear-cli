@@ -1085,3 +1085,18 @@ fn health_reads_as_words_in_text() {
     run.success().stdout_has("At Risk");
     assert!(!run.stdout.contains("atRisk"), "{run}");
 }
+
+#[test]
+fn view_tty_ends_with_the_project_url() {
+    let api = MockLinear::start();
+    api.on("GetProjectDetails", json!({ "project": details() }))
+        .on("GetProjectDetails", json!({ "project": details() }));
+    let cli = Cli::for_api(&api);
+    cli.run_tty(&["project", "view", ID, "--no-pager"], &[])
+        .success()
+        .ends_with_footer(
+            "View this project on Linear: https://linear.app/acme/project/simple-abc123def456",
+        );
+    let piped = cli.run(&["project", "view", ID]);
+    assert!(!piped.success().stdout.contains("on Linear:"), "{piped}");
+}

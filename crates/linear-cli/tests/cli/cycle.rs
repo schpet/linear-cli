@@ -404,3 +404,42 @@ fn list_puts_the_active_cycle_first_then_upcoming_soonest_then_past_latest() {
         .collect();
     assert_eq!(numbers, [10, 11, 30, 9, 8]);
 }
+
+#[test]
+fn view_tty_ends_with_the_cycle_url_from_the_configured_workspace() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetTeamCyclesForLookup",
+            lookup(json!({ "id": "cycle-5", "number": 5, "name": "Sprint 5" })),
+        )
+        .on("GetCycleDetails", details());
+    Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "ENG")
+        .env("LINEAR_WORKSPACE", "acme")
+        .run_tty(&["cycle", "view", "active", "--no-pager"], &[])
+        .success()
+        .ends_with_footer("View this cycle on Linear: https://linear.app/acme/team/ENG/cycle/5");
+    assert!(!api.operations().contains(&"GetViewer".to_owned()));
+}
+
+#[test]
+fn view_tty_asks_for_the_workspace_only_on_a_terminal() {
+    let api = MockLinear::start();
+    for _ in 0..2 {
+        api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+            .on("GetTeamCyclesForLookup", lookup(Value::Null))
+            .on("GetCycleDetails", details());
+    }
+    api.on(
+        "GetViewer",
+        json!({ "viewer": { "organization": { "urlKey": "acme" } } }),
+    );
+    let cli = Cli::for_api(&api);
+    let piped = cli.run(&["cycle", "view", "5", "--team", "ENG"]);
+    assert!(!piped.success().stdout.contains("on Linear:"), "{piped}");
+    assert!(!api.operations().contains(&"GetViewer".to_owned()));
+    cli.run_tty(&["cycle", "view", "5", "--team", "ENG", "--no-pager"], &[])
+        .success()
+        .ends_with_footer("View this cycle on Linear: https://linear.app/acme/team/ENG/cycle/5");
+}
