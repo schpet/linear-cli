@@ -39,7 +39,10 @@ fn issue(comments: bool) -> Value {
             "id": "doc-1", "title": "Spec", "slugId": "spec-123",
             "url": "https://linear.app/acme/document/spec-123",
             "createdAt": "2024-01-01T00:00:00.000Z", "updatedAt": "2024-01-01T00:00:00.000Z"
-        }] }
+        }] },
+        "creator": { "name": "sam", "displayName": "Sam Example" },
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-02T00:00:00.000Z"
     });
     if comments {
         issue["comments"] = json!({ "nodes": [
@@ -522,13 +525,88 @@ fn view_shows_the_delegate_only_when_there_is_one() {
         assert_json(&json, &delegated);
         cli.run(&args)
             .success()
-            .stdout_has("**Assignee:** @Alice Example | **Delegate:** @linear |");
+            .stdout_has("**Assignee:** @Alice Example\n**Delegate:** @linear\n**Project:**");
         let plain = cli.run(&args);
         assert!(!plain.success().stdout.contains("Delegate"), "{plain}");
         for request in api.requests() {
             assert!(request.query.contains("delegate {"), "{}", request.query);
         }
     }
+}
+
+#[test]
+fn view_puts_each_metadata_field_on_its_own_line() {
+    for (operation, comments) in [
+        ("GetIssueDetailsWithComments", true),
+        ("GetIssueDetails", false),
+    ] {
+        let api = MockLinear::start();
+        api.on(operation, details(issue(comments)));
+        let mut args = vec!["issue", "view", "ENG-1", "--no-download"];
+        if !comments {
+            args.push("--no-comments");
+        }
+        let run = Cli::for_api(&api).run(&args);
+        run.success().stdout_has(
+            "# ENG-1: Fix the widget\n\n\
+             **State:** Started\n\
+             **Priority:** ▄▆█\n\
+             **Assignee:** @Alice Example\n\
+             **Project:** Launch\n\
+             **Milestone:** Beta\n\
+             **Cycle:** #7 Sprint 7 (now)\n\
+             **Creator:** @Sam Example\n\
+             **Created:** 2024-01-01\n\
+             **Updated:** 2024-01-02\n\n\
+             ## Body",
+        );
+        let query = &api.requests()[0].query;
+        for field in ["creator {", "createdAt", "updatedAt"] {
+            assert!(query.contains(field), "{field} missing from {query}");
+        }
+    }
+}
+
+#[test]
+fn view_names_the_creator_by_display_name_then_name() {
+    for (creator, line) in [
+        (
+            json!({ "name": "sam", "displayName": "" }),
+            Some("**Creator:** @sam\n"),
+        ),
+        (json!({ "name": "", "displayName": "" }), None),
+        (Value::Null, None),
+    ] {
+        let mut created = issue(false);
+        created["creator"] = creator;
+        let api = MockLinear::start();
+        api.on("GetIssueDetails", details(created));
+        let run = Cli::for_api(&api).run(&["issue", "view", "ENG-1", "--no-comments"]);
+        match line {
+            Some(line) => run.success().stdout_has(line),
+            None => {
+                run.success()
+                    .stdout_has("**Cycle:** #7 Sprint 7 (now)\n**Created:** 2024-01-01\n");
+                assert!(!run.stdout.contains("Creator"), "{run}");
+                &run
+            }
+        };
+    }
+}
+
+#[test]
+fn view_tty_shows_metadata_on_separate_lines() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetailsWithComments", details(issue(true)));
+    let run = Cli::for_api(&api).run_tty(
+        &["issue", "view", "ENG-1", "--no-download", "--no-pager"],
+        &[],
+    );
+    run.success()
+        .stdout_has("State: Started\n")
+        .stdout_has("Assignee: @Alice Example\n")
+        .stdout_has("Creator: @Sam Example\nCreated: 2024-01-01\nUpdated: 2024-01-02\n");
+    assert!(!run.stdout.contains(" | "), "{run}");
 }
 
 #[test]

@@ -12,6 +12,7 @@
 
 ### Changed
 
+- `issue view` puts each detail (state, priority, assignee, project, cycle and so on) on its own line instead of one line separated by `|`, and adds who created the issue and when it was created and last updated. `issue view --json` includes `creator`, `createdAt` and `updatedAt`
 - The `linear-cli` skill that `npx skills add schpet/linear-cli` installs is now the same small stub `linear skill setup` writes. It tells the agent to run `linear skill show` instead of carrying a copy of the guide and a generated reference for every command, so it no longer goes out of date. `linear COMMAND --help` is the reference
 
 ### Removed

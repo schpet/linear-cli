@@ -186,6 +186,9 @@ impl Fetched {
                 },
                 attachments: i.attachments,
                 documents: i.documents,
+                creator: i.creator,
+                created_at: i.created_at,
+                updated_at: i.updated_at,
             },
         }
     }
@@ -463,7 +466,15 @@ fn documents(issue: &Issue) -> String {
     }
     out
 }
-fn body(issue: &Issue) -> Result<String, Error> {
+/// A user's display name, or their name when that is empty; `None` when both are.
+fn user_name(user: &GetIssueDetailsIssueAssignee) -> Option<&str> {
+    [user.display_name.as_str(), user.name.as_str()]
+        .into_iter()
+        .find(|name| !name.is_empty())
+}
+
+/// The title, one metadata field per line, and the description.
+fn body(issue: &Issue, now: DateTime<Utc>) -> Result<String, Error> {
     let mut parts = vec![
         format!("**State:** {}", issue.state.name),
         format!(
@@ -507,11 +518,19 @@ fn body(issue: &Issue) -> Result<String, Error> {
             }
         ));
     }
+    if let Some(creator) = issue.creator.as_ref().and_then(user_name) {
+        parts.push(format!("**Creator:** @{creator}"));
+    }
+    let ago = |at: &crate::graphql::scalars::DateTime| {
+        crate::commands::relative_time::ago(at.0, now, &chrono::Local)
+    };
+    parts.push(format!("**Created:** {}", ago(&issue.created_at)));
+    parts.push(format!("**Updated:** {}", ago(&issue.updated_at)));
     Ok(format!(
         "# {}: {}\n\n{}{}",
         issue.identifier,
         issue.title,
-        parts.join(" | "),
+        parts.join("\n"),
         issue
             .description
             .as_ref()
@@ -615,7 +634,7 @@ pub fn markdown(
     show_resolved: bool,
     now: DateTime<Utc>,
 ) -> Result<String, Error> {
-    let mut out = body(issue)?;
+    let mut out = body(issue, now)?;
     out.push_str(&hierarchy(issue));
     out.push_str(&attachments(issue, paths));
     out.push_str(&documents(issue));
@@ -657,7 +676,7 @@ pub fn terminal(
     options: &RenderOptions,
     links: bool,
 ) -> Result<String, Error> {
-    let mut out = markdown_terminal::render(&body(issue)?, options);
+    let mut out = markdown_terminal::render(&body(issue, now)?, options);
     for section in [
         hierarchy(issue),
         attachments(issue, paths),
