@@ -3,6 +3,7 @@
 use crate::client::LinearClient;
 use crate::commands::comments;
 use crate::graphql::pagination::{self, Page, PageInfo};
+use crate::platform::kitty::InlineImages;
 use crate::platform::view_footer::{self, Linked};
 use crate::{
     cli::issue::IssueView,
@@ -21,6 +22,7 @@ use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 pub fn run(ctx: &Ctx, args: &IssueView) -> Result<()> {
     view(ctx, args).context("Failed to view issue")
@@ -82,15 +84,21 @@ fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
         });
     }
     let now = Utc::now();
+    // One registry for every issue, so image IDs and limits span the view.
+    let images = ctx.stdout_tty().then(|| ctx.inline_images()).flatten();
     let views = fetched
         .into_iter()
-        .map(|issue| render(ctx, args, client, issue, now))
+        .map(|issue| render(ctx, args, client, issue, now, images.as_ref()))
         .collect::<Result<Vec<_>>>()?;
     if !ctx.stdout_tty() {
         return ctx.print(format!("{}\n", views.join("\n\n---\n\n")));
     }
     let separator = format!("\n{}\n", ctx.render_markdown("---"));
-    ctx.page(&views.join(&separator), !args.no_pager)
+    ctx.page_with_images(
+        &views.join(&separator),
+        images.as_deref().as_slice(),
+        !args.no_pager,
+    )
 }
 
 fn render(
@@ -99,20 +107,23 @@ fn render(
     client: &LinearClient,
     fetched: Fetched,
     now: DateTime<Utc>,
+    images: Option<&Arc<InlineImages>>,
 ) -> Result<String> {
     let options = ctx.options();
     let download = !args.no_download && options.download_images();
     let attachments = download && options.auto_download_attachments();
     let mut issue = fetched.into_issue();
-    if download {
+    let downloaded = if download {
         let image_root = ctx.cache_dir("images");
         ctx.block_on(download_images(
             client,
             &mut issue,
             image_root.as_deref(),
             |line| ctx.eprint(line),
-        ))?;
-    }
+        ))?
+    } else {
+        HashSet::new()
+    };
     let downloadable = issue
         .attachments
         .nodes
@@ -138,7 +149,17 @@ fn render(
     if !ctx.stdout_tty() {
         return markdown(&issue, &paths, args.show_resolved_threads, now);
     }
-    let render = ctx.render_options();
+    let mut render = ctx.render_options();
+    let mut bodies: Vec<&str> = issue.description.iter().map(String::as_str).collect();
+    bodies.extend(
+        issue
+            .comments
+            .nodes
+            .iter()
+            .map(|comment| comment.body.as_str()),
+    );
+    ctx.load_inline_images(images.map(Arc::as_ref), &bodies, &downloaded)?;
+    render.images = images.cloned();
     let rendered = terminal(
         &issue,
         &paths,
@@ -340,12 +361,14 @@ fn page(id: &str, after: Option<String>, first: i32) -> IssuePageVariables {
         after,
     }
 }
-pub async fn download_images(
+/// Downloads the files the description and comments reference and points
+/// them at the local copies, which it returns.
+async fn download_images(
     client: &LinearClient,
     issue: &mut Issue,
     root: Option<&Path>,
     report: impl FnMut(String) -> Result<(), Error>,
-) -> Result<(), Error> {
+) -> Result<HashSet<String>, Error> {
     let mut sources = vec![];
     if let Some(body) = issue.description.as_deref() {
         sources.push(body);
@@ -360,8 +383,9 @@ pub async fn download_images(
             comment.body = markdown_assets::rewrite(&comment.body, &paths);
         }
     }
-    Ok(())
+    Ok(paths.into_values().collect())
 }
+
 /// Whether `url` is a file Linear hosts; only those are downloaded.
 fn hosted_by_linear(url: &str) -> bool {
     reqwest::Url::parse(url).is_ok_and(|url| {

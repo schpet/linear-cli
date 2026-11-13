@@ -47,6 +47,7 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     let status = super::list::status_style(&detail.status, &status, ctx.color());
     ctx.page_view(
         &format!("{status}\n{rendered}"),
+        None,
         !args.no_pager,
         Linked::Initiative,
         &detail.url,

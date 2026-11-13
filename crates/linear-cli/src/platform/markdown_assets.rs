@@ -36,6 +36,7 @@ struct Reference {
     /// `<url>` of an autolink.
     range: Range<usize>,
     autolink: bool,
+    image: bool,
 }
 
 fn parser(content: &str) -> Parser<'_> {
@@ -56,6 +57,7 @@ fn references(content: &str) -> Vec<Reference> {
         /// child event extends it.
         label_end: usize,
         autolink: bool,
+        image: bool,
         /// Reference-style and email links are tracked only to keep the
         /// stack balanced.
         tracked: bool,
@@ -75,6 +77,7 @@ fn references(content: &str) -> Vec<Reference> {
                 end: range.end,
                 label_end: range.start + "![".len(),
                 autolink: false,
+                image: true,
                 tracked: link_type == LinkType::Inline,
             }),
             Event::Start(Tag::Link {
@@ -88,6 +91,7 @@ fn references(content: &str) -> Vec<Reference> {
                 end: range.end,
                 label_end: range.start + "[".len(),
                 autolink: link_type == LinkType::Autolink,
+                image: false,
                 tracked: matches!(link_type, LinkType::Inline | LinkType::Autolink),
             }),
             Event::End(TagEnd::Image | TagEnd::Link) => {
@@ -108,6 +112,7 @@ fn references(content: &str) -> Vec<Reference> {
                         },
                         range,
                         autolink: link.autolink,
+                        image: link.image,
                     });
                 }
             }
@@ -180,6 +185,15 @@ pub fn uploads(bodies: &[&str], endpoint_host: Option<&str>) -> Vec<Asset> {
         .flat_map(|body| references(body))
         .map(|reference| reference.asset)
         .filter(|asset| is_upload(&asset.url, endpoint_host) && seen.insert(asset.url.clone()))
+        .collect()
+}
+
+/// The destinations of the inline images in `content`, in order.
+pub fn image_destinations(content: &str) -> Vec<String> {
+    references(content)
+        .into_iter()
+        .filter(|reference| reference.image)
+        .map(|reference| reference.asset.url)
         .collect()
 }
 

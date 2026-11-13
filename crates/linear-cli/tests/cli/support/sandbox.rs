@@ -208,6 +208,7 @@ impl Cli {
             code: status.code().expect("linear exited normally"),
             stdout: stdout.join().expect("stdout reader"),
             stderr: stderr.join().expect("stderr reader"),
+            terminal: String::new(),
         }
     }
 }
@@ -305,6 +306,7 @@ impl Cli {
             code: status.code().expect("script exited normally"),
             stdout: shown(),
             stderr: String::new(),
+            terminal: String::from_utf8_lossy(&screen.lock().expect("screen lock")).into_owned(),
         }
     }
 }
@@ -357,6 +359,8 @@ pub struct Run {
     pub code: i32,
     pub stdout: String,
     pub stderr: String,
+    /// What `run_tty` sent to the terminal, escape sequences included.
+    pub terminal: String,
 }
 
 impl Run {

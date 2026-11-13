@@ -369,7 +369,10 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | Assign self     | `LINEAR_ISSUE_CREATE_ASSIGN_SELF` | `issue_create_assign_self` | `"always"`, `"auto"`, or `"never"`   | control default self-assignment during issue creation                                            |
 | VCS             | `LINEAR_VCS`                      | `vcs`                      | `"git"` or `"jj"`                    | version control system (default: git)                                                            |
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
+| Inline images   | `LINEAR_INLINE_IMAGES`            | `inline_images`            | `true` or `false`                    | draw downloaded PNG images in kitty, Ghostty and Rex (default: true; see below)                  |
 | PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
+
+in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images they download right under their links, using the kitty graphics protocol's Unicode placeholders so they still show inside the pager. other image formats, other terminals, terminals inside tmux or screen, piped output and `NO_COLOR` keep the plain link. images show through `less` (the default pager); another `PAGER` may not show them. set `inline_images = false` or `LINEAR_INLINE_IMAGES=false` to turn them off, or pass `--no-download` for one view.
 
 settings are read from two config files, a project file and a global file. each option takes the first value it finds in this order:
 

@@ -48,7 +48,7 @@ fn snapshot<'a>(
 }
 
 #[test]
-fn all_twelve_keys_are_typed_and_keep_provenance() {
+fn all_thirteen_keys_are_typed_and_keep_provenance() {
     let config = tier(
         "/repo/linear.toml",
         r#"
@@ -60,6 +60,7 @@ issue_create_ask_project = true
 issue_create_assign_self = "auto"
 vcs = "jj"
 download_images = "YES"
+inline_images = false
 hyperlink_format = "osc8"
 attachment_dir = "attachments"
 auto_download_attachments = false
@@ -69,7 +70,7 @@ pr_template = "  .github/pr.md  "
     let inputs = env(&[]);
     let selected = dotenv(&[]);
     let options = snapshot(&inputs, &selected, Some(&config), None).expect("valid options");
-    assert_eq!(OptionKey::ALL.len(), 12);
+    assert_eq!(OptionKey::ALL.len(), 13);
     assert_eq!(options.team_key(), Some("ENG"));
     assert_eq!(
         options.api_key().expect("key").value().expose(),
@@ -87,6 +88,7 @@ pr_template = "  .github/pr.md  "
     assert_eq!(options.issue_create_assign_self(), AssignSelf::Auto);
     assert_eq!(options.vcs(), Vcs::Jj);
     assert!(options.download_images());
+    assert!(!options.inline_images());
     assert_eq!(options.hyperlink_format(), Some("osc8"));
     assert_eq!(options.attachment_dir(), Some("attachments"));
     assert!(!options.auto_download_attachments());

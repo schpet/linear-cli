@@ -76,7 +76,8 @@ pub struct DocumentView {
     /// Do not page long output
     #[arg(long)]
     pub no_pager: bool,
-    /// Keep remote image and file URLs instead of downloading them
+    /// Keep remote image and file URLs instead of downloading them (and so
+    /// draw no images inline)
     #[arg(long)]
     pub no_download: bool,
 }

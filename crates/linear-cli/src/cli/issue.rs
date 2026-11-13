@@ -244,7 +244,8 @@ pub struct IssueView {
     /// Print JSON: an object for one issue, an array for multiple issues
     #[arg(long, short)]
     pub json: bool,
-    /// Keep remote image and file URLs instead of downloading them
+    /// Keep remote image and file URLs instead of downloading them (and so
+    /// draw no images inline)
     #[arg(long)]
     pub no_download: bool,
 }

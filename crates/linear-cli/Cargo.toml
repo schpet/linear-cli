@@ -29,6 +29,7 @@ reqwest = { version = "0.12.28", default-features = false, features = ["rustls-t
 tokio = { version = "1.47.4", default-features = false, features = ["rt", "time", "macros", "net", "process", "io-util"] }
 
 sha2 = { version = "0.11.0", default-features = false }
+base64 = { version = "0.22.1", default-features = false, features = ["alloc"] }
 
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 inquire = { version = "0.9", default-features = false, features = ["crossterm"] }

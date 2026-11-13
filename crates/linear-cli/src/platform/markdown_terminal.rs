@@ -11,6 +11,7 @@
 
 use std::num::NonZeroU16;
 use std::path::Path;
+use std::sync::Arc;
 
 use console::Style;
 use pulldown_cmark::{
@@ -19,6 +20,7 @@ use pulldown_cmark::{
 use reqwest::Url;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+use crate::platform::kitty::InlineImages;
 use crate::platform::terminal_text;
 
 /// Renderer width when a terminal reports no usable size.
@@ -45,6 +47,9 @@ pub struct RenderOptions {
     /// Hyperlink target for local image paths, with `{host}` and `{path}`
     /// placeholders (for example `vscode://file{path}`).
     pub file_link: String,
+    /// Images to draw under their links, by the local path the Markdown
+    /// names them with (kitty graphics; see [`crate::platform::kitty`]).
+    pub images: Option<Arc<InlineImages>>,
 }
 
 impl RenderOptions {
@@ -59,6 +64,7 @@ impl RenderOptions {
             columns,
             styled,
             file_link: file_link.to_owned(),
+            images: None,
         }
     }
 }
@@ -578,6 +584,11 @@ impl<'o> Renderer<'o> {
     /// Columns left for text after the container prefixes, never so few
     /// that every word lands on its own line.
     fn text_width(&self) -> usize {
+        self.room().max(MIN_TEXT_WIDTH)
+    }
+
+    /// Columns left after the container prefixes.
+    fn room(&self) -> usize {
         let prefix: usize = self
             .containers
             .iter()
@@ -587,9 +598,7 @@ impl<'o> Renderer<'o> {
                 Container::Code => 4,
             })
             .sum();
-        usize::from(self.options.columns.get())
-            .saturating_sub(prefix)
-            .max(MIN_TEXT_WIDTH)
+        usize::from(self.options.columns.get()).saturating_sub(prefix)
     }
 
     fn prefix(&mut self) -> String {
@@ -691,9 +700,27 @@ impl<'o> Renderer<'o> {
         };
         if let Some(cell) = self.table.as_mut().and_then(|table| table.cell()) {
             cell.spans.extend(spans);
-        } else {
-            self.pending.extend(spans);
+            return;
         }
+        self.pending.extend(spans);
+        if let Some(grid) = self.picture(&image.url) {
+            self.newline();
+            for line in grid {
+                self.emit(&line);
+                self.newline();
+            }
+        }
+    }
+
+    /// The placeholder lines that draw the image at `url` under its link.
+    /// `None` for an image that is not to be drawn, or one inside a link,
+    /// whose text cannot hold a picture.
+    fn picture(&self, url: &str) -> Option<Vec<String>> {
+        let images = self.options.images.as_ref()?;
+        if !self.links.is_empty() {
+            return None;
+        }
+        images.draw(url, self.room())
     }
 
     /// Where an image hyperlink points: URLs as they are, local paths (such
@@ -1092,6 +1119,7 @@ fn encode_path(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::kitty;
 
     fn options(styled: bool) -> RenderOptions {
         RenderOptions::for_terminal(FALLBACK_COLUMNS, styled, Some("https://open/{path}"))
@@ -1177,6 +1205,90 @@ mod tests {
         let default =
             RenderOptions::for_terminal(FALLBACK_COLUMNS, true, Some("default")).file_link;
         assert_eq!(default, "file://{host}{path}");
+    }
+
+    /// Styled options that can draw `/tmp/a.png`, a 20×20 PNG covering 2×1
+    /// cells of 10×20 pixels, and the images they draw into.
+    fn with_image() -> (RenderOptions, Arc<InlineImages>) {
+        let images = InlineImages::new(
+            kitty::CellSize::from_window((800, 480), (80, 24)).expect("cell size"),
+            10,
+        );
+        images.insert("/tmp/a.png", kitty::sample_png(20, 20));
+        let images = Arc::new(images);
+        let options = RenderOptions {
+            images: Some(Arc::clone(&images)),
+            ..options(true)
+        };
+        (options, images)
+    }
+
+    fn grid_row() -> String {
+        let png = kitty::sample_png(20, 20);
+        let placement = kitty::Placement {
+            columns: 2,
+            rows: 1,
+        };
+        kitty::placeholder_row(kitty::image_id(&png, placement), 0, 2)
+    }
+
+    #[test]
+    fn images_that_can_be_drawn_follow_their_link_line() {
+        let (options, images) = with_image();
+        let text = render("Before ![shot](/tmp/a.png) after.", &options);
+        assert!(
+            !text.contains("\x1b_G"),
+            "transfers stay out of the text: {text:?}"
+        );
+        let lines: Vec<&str> = text.lines().collect();
+        let [link, grid, after] = lines.as_slice() else {
+            panic!("expected three lines: {text:?}");
+        };
+        assert!(
+            link.contains("Image:") && link.contains("/tmp/a.png"),
+            "{text:?}"
+        );
+        assert_eq!(*grid, grid_row());
+        assert!(after.contains("after."), "{text:?}");
+        let transfers = images.transfers();
+        assert!(
+            transfers.starts_with("\x1b_Ga=t,f=100,t=d,"),
+            "{transfers:?}"
+        );
+        assert!(transfers.ends_with("c=2,r=1,q=2\x1b\\"), "{transfers:?}");
+    }
+
+    #[test]
+    fn image_rows_keep_container_prefixes_and_repeats_are_sent_once() {
+        let (options, images) = with_image();
+        let text = render("- ![shot](/tmp/a.png)\n\n> ![shot](/tmp/a.png)", &options);
+        assert!(text.contains(&format!("\n  {}\n", grid_row())), "{text:?}");
+        assert!(
+            text.contains(&format!("│ \x1b[0m{}\n", grid_row())),
+            "{text:?}"
+        );
+        assert_eq!(images.transfers().matches("a=t,").count(), 1);
+    }
+
+    #[test]
+    fn nothing_drawn_means_nothing_to_send() {
+        let (options, images) = with_image();
+        render("![other](/tmp/b.png)", &options);
+        assert_eq!(images.transfers(), "");
+    }
+
+    #[test]
+    fn images_in_links_tables_or_not_downloaded_stay_links() {
+        for markdown in [
+            "[![shot](/tmp/a.png)](https://example.com)",
+            "| a |\n|---|\n| ![shot](/tmp/a.png) |",
+            "![other](/tmp/b.png)",
+            "![remote](https://example.com/a.png)",
+        ] {
+            let rendered = render(markdown, &with_image().0);
+            assert_eq!(rendered, render(markdown, &options(true)), "{markdown}");
+            assert!(!rendered.contains('\u{10eeee}'), "{markdown}");
+        }
     }
 
     #[test]
