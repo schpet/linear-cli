@@ -2,7 +2,7 @@
 
 a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
-**works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
+**works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code. install it with `linear skill setup`.
 
 here's how it works:
 
@@ -396,35 +396,41 @@ a bulk command (`--bulk`) that fails for several reasons exits with the first of
 
 ## skills
 
-linear-cli includes a skill that helps AI agents use the CLI effectively. for use cases outside the CLI, it includes instructions to interact directly with the graphql api, including authentication.
-
-### claude code
-
-install the skill using [claude code's plugin system](https://code.claude.com/docs/en/skills):
+linear-cli teaches AI agents to use it. the guide is built into the `linear` binary, so it always matches the version you have installed. it covers the common workflows and the graphql api for anything the cli doesn't do.
 
 ```bash
-# from claude code
-/plugin marketplace add schpet/linear-cli
-/plugin install linear-cli@linear-cli
-
-# from bash
-claude plugin marketplace add schpet/linear-cli
-claude plugin install linear-cli@linear-cli
-
-# to update
-claude plugin marketplace update linear-cli
-claude plugin update linear-cli@linear-cli
+linear skill setup            # install the skill for claude code, codex, opencode and pi
+linear skill setup --project  # or into the current repository, to commit for your team
+linear skill status           # see what is installed where
+linear skill remove           # remove it again
 ```
 
-### skills.sh for other agents
+`setup` installs a small skill that tells the agent to run `linear skill show`, which prints the guide. upgrading linear updates the guide, so the installed skill never needs to change.
 
-install the skill using [skills.sh](https://skills.sh):
+codex, opencode and pi all read `~/.agents/skills`, which is always written. claude code reads `~/.claude/skills`, which is written when claude code is set up on the machine. `--agent` chooses agents explicitly and `--dry-run` shows what would change. in a project, pi loads the skill once the project is trusted.
+
+an agent without skills can run `linear skill show` itself, for example from a line in `AGENTS.md`.
+
+### skills.sh
+
+the same skill can be installed with [skills.sh](https://skills.sh):
 
 ```bash
 npx skills add schpet/linear-cli
 ```
 
-view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/schpet/linear-cli/linear-cli)
+### coming from the claude code plugin or an older copy
+
+releases before 3.2 shipped the skill as a claude code plugin and as a directory of generated files. the plugin is no longer published. uninstall it, then let `setup` replace any older copy:
+
+```bash
+claude plugin uninstall linear-cli@linear-cli
+claude plugin marketplace remove linear-cli
+linear skill setup --dry-run   # an older copy of the skill shows as a conflict
+linear skill setup --force     # moves older copies to a backup directory, then installs
+```
+
+`--force` deletes nothing: it moves what was there to a `linear-cli-skill-backups` directory beside the skills directory and prints the path. `linear skill status` checks the directories agents read by default; it can't see an installed plugin.
 
 ## development
 
@@ -436,12 +442,12 @@ just install          # install this checkout as `linear`
 just check            # cargo fmt --check, clippy, and tests, as CI runs them
 ```
 
-### updating skill documentation
+### updating the agent guide
 
-the skill's command list and `skills/linear-cli/references/` are generated from the cli's help. edit `skills/linear-cli/SKILL.template.md`, then regenerate:
+`linear skill show` prints `crates/linear-cli/src/commands/skill/guide.md`. its command list, exit statuses and markdown rules are filled in from the cli itself, and a test parses every example in it. `skills/linear-cli/SKILL.md` is the small skill that `linear skill setup` installs. to preview the guide:
 
 ```bash
-just skill-docs
+just dev skill show
 ```
 
 ### updating the graphql schema

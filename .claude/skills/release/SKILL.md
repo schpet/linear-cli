@@ -20,7 +20,6 @@ Ensure the following tools are available:
 - `svbump` for version bumping (installed)
 - `jj` for version control operations
 - `just` for running the release tasks
-- `jq` for updating the Claude Code plugin versions
 
 ## Release Workflow
 
@@ -138,10 +137,8 @@ It does the whole release in order, stopping at the first failure:
 
 1. **Quality checks** (`just check`): `cargo fmt --all --check`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, and `cargo test --locked --workspace`
 2. **Version bump:** writes the latest changelog version to `workspace.package.version` in `Cargo.toml` with `svbump`, then refreshes `Cargo.lock` with `cargo update --workspace`
-3. **Skill docs** (`just skill-docs`): regenerates `skills/linear-cli/SKILL.md` and its references from the CLI's help
-4. **Plugin versions** (`just plugin-version`): sets `version` in `.claude-plugin/plugin.json` and both `version` and `plugins[0].version` in `.claude-plugin/marketplace.json`
-5. **Commit and tag:** `jj commit -m "chore: Release linear-cli version <version>"`, then moves the `main` bookmark and sets the `v<version>` tag on that commit (`@-`)
-6. **Push:** `jj git push --bookmark main`, then `git push origin --tags`
+3. **Commit and tag:** `jj commit -m "chore: Release linear-cli version <version>"`, then moves the `main` bookmark and sets the `v<version>` tag on that commit (`@-`)
+4. **Push:** `jj git push --bookmark main`, then `git push origin --tags`
 
 When it finishes it prints `released v<version>`.
 
@@ -173,4 +170,4 @@ After successful release:
 
 ## Reference
 
-See the `tag` and `plugin-version` recipes in the `justfile` for the implementation.
+See the `tag` recipe in the `justfile` for the implementation.

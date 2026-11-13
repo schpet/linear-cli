@@ -49,15 +49,6 @@ jobs:
           echo "test-password" | gnome-keyring-daemon --unlock --components=secrets
       - name: System keyring round trip
         run: cargo test --locked --workspace --lib -- --ignored system_keyring_round_trip
-      - name: Check skill docs are current
-        if: runner.os == 'Linux'
-        run: |
-          cargo run --locked --example skill_docs
-          if [ -n "$(git status --porcelain skills)" ]; then
-            git status --short skills
-            echo "skills/linear-cli is out of date; run 'just skill-docs'" >&2
-            exit 1
-          fi
       # Releases generate these notices; this catches a crate without a
       # license file before release time.
       - name: Generate third-party license notices
