@@ -22,20 +22,9 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     let mut credentials = super::credentials(ctx)?;
     let store = ctx.credentials()?;
     let keyring = store.keyring();
-    // A configured key already authenticates every command, so with nothing to
-    // store and no `--plaintext` there is no work for `auth login` to do. It
-    // succeeds instead of failing on a keyring it does not need.
-    if args.key.is_none()
-        && !args.plaintext
-        && let Some(source) = configured_key(ctx)
-    {
-        return ctx.print(already_configured(&source));
-    }
     let plaintext = credentials.stores_plaintext(args.plaintext);
     if !plaintext && !keyring.available() {
-        return Err(Error::new("No system keyring found").with_hint(
-            "Pass --plaintext to store the key in the credentials file, or set LINEAR_API_KEY.",
-        ));
+        return Err(no_keyring(ctx, keyring));
     }
     let key = clean_key(match &args.key {
         Some(key) => ConfigSecret::new(key.clone()),
@@ -105,9 +94,37 @@ fn login(ctx: &Ctx, args: &AuthLogin) -> Result<()> {
     Ok(())
 }
 
-/// Where a key that makes `auth login` unnecessary came from. `None` when no
-/// key is set or it is empty: `auth::resolve` treats an empty `LINEAR_API_KEY`
-/// as absent.
+/// There is nowhere to store a key, so the login fails however the key was
+/// given. A key that is already configured needs no login, so the hint says
+/// that instead of suggesting to set one.
+fn no_keyring(ctx: &Ctx, keyring: &dyn Keyring) -> Error {
+    let configured = configured_key(ctx);
+    Error::new("No system keyring found")
+        .with_hint(no_keyring_hint(keyring.install_hint(), configured.as_ref()))
+}
+
+/// `install` is the keyring's [`Keyring::install_hint`]; `configured` is
+/// where the API key other commands use is set, when one is.
+fn no_keyring_hint(install: Option<&str>, configured: Option<&OptionSource>) -> String {
+    const OTHERWISE: &str = " --plaintext to store the key in the credentials file, \
+         or set LINEAR_API_KEY instead of logging in.";
+    match (configured, install) {
+        (None, Some(install)) => format!("{install}\n  Or pass{OTHERWISE}"),
+        (None, None) => format!("Pass{OTHERWISE}"),
+        (Some(source), install) => {
+            let origin = origin(source);
+            let install = install.map(|install| format!(" {install}"));
+            format!(
+                "{origin}, so other commands already use it and there is no need to log in.\n  \
+                 To store a key anyway, pass --plaintext.{}",
+                install.unwrap_or_default()
+            )
+        }
+    }
+}
+
+/// Where the API key other commands use is set. `None` when no key is set or
+/// it is empty: `auth::resolve` treats an empty `LINEAR_API_KEY` as absent.
 fn configured_key(ctx: &Ctx) -> Option<OptionSource> {
     let key = ctx.options().api_key()?;
     if key.value().expose().is_empty() {
@@ -116,9 +133,9 @@ fn configured_key(ctx: &Ctx) -> Option<OptionSource> {
     Some(key.source().clone())
 }
 
-/// What `auth login` prints when a configured key leaves it nothing to store.
-fn already_configured(source: &OptionSource) -> String {
-    let origin = match source {
+/// Names the setting that holds the configured API key, and its file.
+fn origin(source: &OptionSource) -> String {
+    match source {
         OptionSource::Env => "LINEAR_API_KEY is set".to_owned(),
         OptionSource::ProjectEnv { path } => {
             format!("LINEAR_API_KEY is set in {}", path.display())
@@ -127,11 +144,7 @@ fn already_configured(source: &OptionSource) -> String {
             format!("An API key is set in {}", path.display())
         }
         OptionSource::Cli => "An API key is set on the command line".to_owned(),
-    };
-    format!(
-        "{origin}, so there is nothing to store. Commands will use it.\n\
-         Pass --plaintext to store a copy in the credentials file, or --key to use a different key.\n"
-    )
+    }
 }
 
 /// The key from a prompt on a terminal, or from stdin when it is piped.
@@ -201,3 +214,6 @@ fn offer_migration(ctx: &Ctx, credentials: &mut Credentials, keyring: &dyn Keyri
         migrated.len()
     ))
 }
+
+#[cfg(test)]
+mod tests;
