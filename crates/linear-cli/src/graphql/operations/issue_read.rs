@@ -641,6 +641,9 @@ pub struct GetIssueDetailsIssue {
     pub attachments: GetIssueDetailsIssueAttachments,
     #[arguments(first : 50)]
     pub documents: GetIssueDetailsIssueDocuments,
+    pub creator: Option<GetIssueDetailsIssueAssignee>,
+    pub created_at: DateTime,
+    pub updated_at: DateTime,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
@@ -729,6 +732,9 @@ pub struct GetIssueDetailsWithCommentsIssue {
     pub attachments: GetIssueDetailsIssueAttachments,
     #[arguments(first : 50)]
     pub documents: GetIssueDetailsIssueDocuments,
+    pub creator: Option<GetIssueDetailsIssueAssignee>,
+    pub created_at: DateTime,
+    pub updated_at: DateTime,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]

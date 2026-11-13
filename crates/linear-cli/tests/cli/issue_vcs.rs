@@ -15,7 +15,8 @@ fn details() -> Value {
         "team": { "key": "ENG", "activeCycle": null }, "labels": { "nodes": [], "pageInfo": last }, "parent": null,
         "children": { "nodes": [], "pageInfo": last },
         "attachments": { "nodes": [], "pageInfo": last },
-        "documents": { "nodes": [], "pageInfo": last }
+        "documents": { "nodes": [], "pageInfo": last },
+        "creator": null, "createdAt": "2024-01-01T00:00:00.000Z", "updatedAt": "2024-01-01T00:00:00.000Z"
     } })
 }
 
