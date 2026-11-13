@@ -1,12 +1,13 @@
-//! `issue pull-request`: open a GitHub pull request for an issue with `gh`,
-//! which owns the browser, editor and interactive flow.
+//! `issue gh pull-request`: open a GitHub pull request for an issue with
+//! `gh`, which owns the browser, editor and interactive flow. In a jj
+//! repository the head bookmark is settled and pushed first.
 use crate::{
     cli::issue::IssuePullRequest,
     commands::text_input,
-    config::PrTemplateCli,
+    config::{PrTemplateCli, Vcs},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
-    platform::gh,
+    platform::{gh, jj_pr::Jj},
 };
 use std::path::Path;
 
@@ -28,8 +29,36 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         .map(|path| read_template(path.path()))
         .transpose()?;
     let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    // git leaves the head to gh, which reads the current branch. jj has no
+    // current branch, so the head is settled here, before anything is sent.
+    let jj = Jj::new(ctx.cwd(), &ctx.config().child_env);
+    let survey = match super::vcs(ctx) {
+        Vcs::Git => None,
+        Vcs::Jj => {
+            // Nothing is pushed for a pull request that gh cannot open.
+            gh::require(ctx.cwd(), &ctx.config().child_env)?;
+            Some(jj.survey(args.head.as_deref())?)
+        }
+    };
     let client = ctx.client()?;
     let details = ctx.spin(true, super::details::fetch(client, identifier.clone()))?;
+    let published = match &survey {
+        None => None,
+        Some(survey) => {
+            let head = survey.head(&details.branch_name)?;
+            let remote = &survey.remote.name;
+            if head.create {
+                ctx.eprint(format!("Creating jj bookmark {}\n", head.name))?;
+            }
+            ctx.eprint(format!("Pushing jj bookmark {} to {remote}\n", head.name))?;
+            ctx.eprint(jj.publish(survey, &head)?)?;
+            Some((survey.remote.url.as_str(), head.name))
+        }
+    };
+    let (repo, head) = match &published {
+        Some((repo, head)) => (Some(*repo), Some(head.as_str())),
+        None => (None, args.head.as_deref()),
+    };
     let argv = self::args(
         &identifier,
         &details.title,
@@ -37,8 +66,9 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         template.as_deref(),
         Options {
             title: args.title.as_deref(),
+            repo,
             base: args.base.as_deref(),
-            head: args.head.as_deref(),
+            head,
             draft: args.draft,
             web: args.web,
         },
@@ -97,6 +127,9 @@ pub fn body(template: Option<&str>, issue_url: &str) -> String {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Options<'a> {
     pub title: Option<&'a str>,
+    /// The repository to open the pull request in, when gh is not to work
+    /// it out from the checkout.
+    pub repo: Option<&'a str>,
     pub base: Option<&'a str>,
     pub head: Option<&'a str>,
     pub draft: bool,
@@ -123,7 +156,11 @@ pub fn args(
         "--body".to_owned(),
         body(template, issue_url),
     ];
-    for (flag, value) in [("--base", options.base), ("--head", options.head)] {
+    for (flag, value) in [
+        ("--repo", options.repo),
+        ("--base", options.base),
+        ("--head", options.head),
+    ] {
         if let Some(value) = value.filter(|value| !value.is_empty()) {
             args.push(flag.to_owned());
             args.push(value.to_owned());

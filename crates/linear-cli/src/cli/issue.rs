@@ -73,9 +73,17 @@ pub enum IssueCommand {
     Describe(IssueDescribe),
     /// List the commits that reference an issue (jj only)
     Commits(IssueCommits),
-    /// Open a GitHub pull request for an issue
-    #[command(alias = "pr")]
-    PullRequest(IssuePullRequest),
+    /// Open GitHub pull requests for issues
+    Gh(IssueGh),
+    // `issue gh pull-request` since 4.0; still parsed so that running it
+    // says where it went.
+    #[command(
+        name = "pull-request",
+        alias = "pr",
+        hide = true,
+        disable_help_flag = true
+    )]
+    MovedPullRequest(Moved),
     /// Add, list, edit, and delete comments on an issue
     Comment(IssueComment),
     /// Upload a file and attach it to an issue
@@ -358,6 +366,38 @@ pub struct IssueCommits {
     pub issue_id: Option<String>,
 }
 
+/// Whatever followed a command that has moved.
+#[derive(Debug, Args)]
+pub struct Moved {
+    #[arg(hide = true, trailing_var_arg = true, allow_hyphen_values = true)]
+    pub rest: Vec<String>,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct IssueGh {
+    #[command(subcommand)]
+    pub command: IssueGhCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IssueGhCommand {
+    /// Open a GitHub pull request for an issue
+    ///
+    /// Runs `gh pr create` with the issue's ID and title as the title and
+    /// its URL in the body.
+    ///
+    /// With jj (`vcs = "jj"` in config or LINEAR_VCS=jj) the head is the
+    /// working-copy change, or its parent when the working copy is empty
+    /// and undescribed. A bookmark already on that change is used, or one
+    /// with the branch name Linear suggests is created there. The bookmark
+    /// is pushed with `jj git push` to the `git.push` remote (else the only
+    /// remote, else origin) without asking, and the pull request is opened
+    /// in that remote's repository. A bookmark is never moved.
+    #[command(alias = "pr")]
+    PullRequest(IssuePullRequest),
+}
+
 #[derive(Debug, Args)]
 pub struct IssuePullRequest {
     /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
@@ -375,7 +415,8 @@ pub struct IssuePullRequest {
     /// Open the pull request in the browser
     #[arg(long)]
     pub web: bool,
-    /// Branch that holds the commits
+    /// Branch that holds the commits; with jj, the bookmark to open the pull
+    /// request from, created on the head change if it does not exist
     #[arg(long, value_name = "BRANCH")]
     pub head: Option<String>,
     /// Start the body from this template file; the issue URL is appended
