@@ -88,6 +88,98 @@ fn input(api: &MockLinear, operation: &str) -> Value {
 }
 
 #[test]
+fn create_start_creates_the_issue_started_and_assigned_to_you_in_one_request() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on("GetWorkflowStates", states())
+        .on("GetViewerId", json!({ "viewer": { "id": "user-me" } }))
+        .on("CreateIssue", created("ENG-42"));
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_ISSUE_CREATE_ASSIGN_SELF", "never")
+        .stub_bin("git", "exit 1")
+        .stub_bin("jj", "exit 1");
+    let run = cli.run(&[
+        "issue",
+        "create",
+        "--no-interactive",
+        "--no-use-default-template",
+        "-t",
+        "Fix the login",
+        "--team",
+        "ENG",
+        "--start",
+    ]);
+    run.success().stdout_has("ENG-42");
+    let sent = input(&api, "CreateIssue");
+    assert_eq!(sent["stateId"], "state-progress");
+    assert_eq!(sent["assigneeId"], "user-me");
+    assert!(!api.operations().contains(&"UpdateIssueState".to_owned()));
+    assert!(cli.calls("jj").is_empty());
+    assert!(
+        cli.calls("git")
+            .iter()
+            .all(|args| args[..] == ["rev-parse", "--show-toplevel"]),
+        "{:?}",
+        cli.calls("git")
+    );
+}
+
+#[test]
+fn create_start_refuses_a_state_or_another_assignee_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    let base = [
+        "issue",
+        "create",
+        "--no-interactive",
+        "-t",
+        "T",
+        "--team",
+        "ENG",
+        "--start",
+    ];
+    let mut args = base.to_vec();
+    args.extend(["--state", "Todo"]);
+    cli.run(&args)
+        .usage_error()
+        .stderr_has("cannot be used with");
+    let mut args = base.to_vec();
+    args.extend(["--assignee", "jane"]);
+    cli.run(&args)
+        .usage_error()
+        .stderr_has("Cannot use --start with an --assignee other than @me")
+        .stderr_has("--state started");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn create_start_fails_before_creating_when_the_team_has_no_started_status() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
+        .on(
+            "GetWorkflowStates",
+            json!({ "team": { "states": { "nodes": [
+            { "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 }
+        ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } }),
+        );
+    Cli::for_api(&api)
+        .run(&[
+            "issue",
+            "create",
+            "--no-interactive",
+            "--no-use-default-template",
+            "-t",
+            "T",
+            "--team",
+            "ENG",
+            "--start",
+        ])
+        .failure()
+        .stderr_has("Team ENG has no started status");
+    assert!(!api.operations().contains(&"CreateIssue".to_owned()));
+}
+
+#[test]
 fn create_with_every_field_sends_resolved_ids() {
     let api = MockLinear::start();
     api.on("ResolveTeam", resolved(ENG_ID, "ENG", "Engineering"))
@@ -1071,7 +1163,10 @@ fn wizard_api(api: &MockLinear, labels: &[Value]) {
         .on(
             "GetWorkflowStates",
             json!({ "team": { "states": {
-                "nodes": [{ "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 }],
+                "nodes": [
+                    { "id": "state-todo", "name": "Todo", "type": "unstarted", "position": 1 },
+                    { "id": "state-progress", "name": "In Progress", "type": "started", "position": 2 }
+                ],
                 "pageInfo": { "hasNextPage": false, "endCursor": null }
             } } }),
         );
@@ -1084,8 +1179,16 @@ fn wizard_api(api: &MockLinear, labels: &[Value]) {
 /// The `--interactive` wizard for an issue in ENG, answered up to its final
 /// question, which gets `last`.
 fn run_wizard(api: &MockLinear, last: &str) -> Run {
+    run_wizard_starting(api, "\r", last)
+}
+
+/// [`run_wizard`], answering its start question with `start`. git and jj
+/// fail when run, as nothing in the wizard may need them.
+fn run_wizard_starting(api: &MockLinear, start: &str, last: &str) -> Run {
     wizard_api(api, &[json!([])]);
     Cli::for_api(api)
+        .stub_bin("git", "exit 1")
+        .stub_bin("jj", "exit 1")
         .env("LINEAR_TEAM_ID", "ENG")
         .env("LINEAR_ISSUE_CREATE_ASSIGN_SELF", "never")
         .run_tty(
@@ -1094,7 +1197,7 @@ fn run_wizard(api: &MockLinear, last: &str) -> Run {
                 ("Title:", "Fix it\r"),
                 ("Description (optional", "\r"),
                 ("What next?", "\r"),
-                ("Start working on this issue now?", "\r"),
+                ("Start this issue now", start),
                 ("Create issue \"Fix it\" in ENG? (y/N)", last),
             ],
         )
@@ -1128,7 +1231,7 @@ fn the_create_wizard_offers_every_team_and_workspace_label() {
                 ("What next?", &format!("{down}\r")),
                 ("More fields:", &format!("{down}{down}{down} \r")),
                 ("Customer", &format!("{down} \r")),
-                ("Start working on this issue now?", "\r"),
+                ("Start this issue now", "\r"),
                 ("Create issue \"Fix it\" in ENG? (y/N)", "y\r"),
             ],
         )
@@ -1176,6 +1279,22 @@ fn the_create_wizard_creates_the_issue_once_confirmed() {
         .success()
         .stdout_has("Creating issue in ENG\n✓ Created issue ENG-7");
     assert_eq!(input(&api, "CreateIssue")["title"], "Fix it");
+}
+
+#[test]
+fn starting_in_the_create_wizard_only_sets_the_status_and_assignee() {
+    let api = MockLinear::start();
+    api.on("GetViewerId", json!({ "viewer": { "id": "user-me" } }))
+        .on("CreateIssue", created("ENG-7"));
+    run_wizard_starting(&api, "y\r", "y\r").success();
+    let sent = input(&api, "CreateIssue");
+    assert_eq!(sent["stateId"], "state-progress");
+    assert_eq!(sent["assigneeId"], "user-me");
+    assert_eq!(
+        api.operations().last().map(String::as_str),
+        Some("CreateIssue"),
+        "nothing follows the create"
+    );
 }
 
 #[test]

@@ -21,13 +21,15 @@ mod read;
 mod relation;
 mod start;
 mod title;
+mod transition;
 mod update;
 mod url;
+mod vcs_start;
 mod view;
 mod write;
 mod write_network;
 
-use crate::cli::issue::IssueCommand;
+use crate::cli::issue::{IssueCommand, IssueGitCommand, IssueJjCommand};
 use crate::commands::team_key::configured_team_key;
 use crate::config::Vcs;
 use crate::ctx::Ctx;
@@ -42,6 +44,14 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         IssueCommand::Title(args) => title::run(ctx, args),
         IssueCommand::Url(args) => url::run(ctx, args),
         IssueCommand::Start(args) => start::run(ctx, args),
+        IssueCommand::Complete(args) => transition::run(ctx, transition::Verb::Complete, args),
+        IssueCommand::Cancel(args) => transition::run(ctx, transition::Verb::Cancel, args),
+        IssueCommand::Git(args) => match &args.command {
+            IssueGitCommand::Start(args) => vcs_start::run_git(ctx, args),
+        },
+        IssueCommand::Jj(args) => match &args.command {
+            IssueJjCommand::Start(args) => vcs_start::run_jj(ctx, args),
+        },
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
         IssueCommand::Commits(args) => commits::run(ctx, args),

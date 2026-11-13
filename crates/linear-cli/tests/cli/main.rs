@@ -15,6 +15,7 @@ mod initiative;
 mod issue_attach;
 mod issue_comment;
 mod issue_read;
+mod issue_status;
 mod issue_vcs;
 mod issue_write;
 mod label;

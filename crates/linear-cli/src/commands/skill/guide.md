@@ -70,6 +70,24 @@ linear issue update ENG-123 --remove-label sprint-42 --add-label sprint-43  # at
 linear issue update ENG-123 --label infra --label security   # replaces the label set
 ```
 
+### Start, complete or cancel an issue
+
+```bash
+linear issue start ENG-123      # to the team's first started status (e.g. In Progress)
+linear issue complete ENG-123   # to the team's completed status (e.g. Done)
+linear issue cancel ENG-123     # to the team's canceled status
+```
+
+These change only the status and never touch git or jj. An issue already in a
+status of that type is left alone, and `start` also leaves a closed issue
+alone. When the team has several completed or canceled statuses the command
+lists them: choose one with `linear issue update ENG-123 --state "<name>"`,
+which is also how to reach any other status (`In Review`, `Backlog`, ...).
+
+Only when a branch or jj change is wanted too: `linear issue git start ENG-123`
+creates or switches to the issue's git branch, and `linear issue jj start
+ENG-123` starts a described jj change. Both then start the issue.
+
 ### Create from a template
 
 ```bash
@@ -115,7 +133,7 @@ comment, and a reply carries its thread's state in `parent.resolvedAt`.
 ### Close, delete or archive an issue
 
 ```bash
-linear issue update ENG-123 --state Done       # or Canceled; Linear archives closed issues later
+linear issue complete ENG-123                  # or `issue cancel`; Linear archives closed issues later
 linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
 linear issue archive ENG-123 --yes             # rarely appropriate, see below
 ```

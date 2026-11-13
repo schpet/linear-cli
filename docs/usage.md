@@ -109,19 +109,21 @@ linear issue view TEAM-123 --no-comments
 
 #### start working on an issue
 
-start the next available issue:
-
-```bash
-linear issue start
-```
-
-start a specific issue:
+start a specific issue, or choose one of your unstarted issues:
 
 ```bash
 linear issue start TEAM-123
+linear issue start
 ```
 
-this will move the issue to "in progress" and create a git branch (with `vcs = "jj"`, it starts a new jj change described with the issue title and a `Linear-issue` trailer instead).
+this moves the issue to its team's first started status (usually "In Progress") and does nothing else. an issue that is already started or closed is left as it is. `linear issue complete TEAM-123` and `linear issue cancel TEAM-123` close an issue the same way; for any other status use `linear issue update TEAM-123 --state <state>`.
+
+to prepare your repository as well:
+
+```bash
+linear issue git start TEAM-123   # create or switch to the issue's git branch, then start it
+linear issue jj start TEAM-123    # start a new jj change described with the issue title and a `Linear-issue` trailer, then start it
+```
 
 #### create an issue
 
@@ -504,8 +506,8 @@ a bulk command that fails for several reasons exits with the first of `4`, `5`, 
 common workflows:
 
 ```bash
-# Start working on the next issue
-linear issue start
+# Start working on an issue, on its own git branch
+linear issue git start TEAM-123
 
 # View current issue details
 linear issue view
