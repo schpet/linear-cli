@@ -1,7 +1,7 @@
 use clap::{Args, Subcommand, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::{NonBlank, TextSource};
+use super::values::{IssueRef, NonBlank, TextSource};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -36,9 +36,9 @@ pub struct DocumentList {
     /// Show this project's documents (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub project: Option<String>,
-    /// Show this issue's documents (like ENG-123)
-    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonBlank)]
-    pub issue: Option<String>,
+    /// Show this issue's documents: an ID like ENG-123, a URL, a UUID, @git or @jj
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"])]
+    pub issue: Option<IssueRef>,
     /// Show this initiative's documents (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonBlank)]
     pub initiative: Option<String>,
@@ -96,9 +96,9 @@ pub struct DocumentCreate {
     /// Attach the document to a project (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub project: Option<String>,
-    /// Attach the document to an issue (like ENG-123)
-    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonBlank)]
-    pub issue: Option<String>,
+    /// Attach the document to an issue: an ID like ENG-123, a URL, a UUID, @git or @jj
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"])]
+    pub issue: Option<IssueRef>,
     /// Attach the document to an initiative (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonBlank)]
     pub initiative: Option<String>,
@@ -141,9 +141,9 @@ pub struct DocumentUpdate {
     /// Move the document to a project (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["issue", "initiative", "team", "cycle", "release"], value_parser = NonBlank)]
     pub project: Option<String>,
-    /// Move the document to an issue (like ENG-123)
-    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"], value_parser = NonBlank)]
-    pub issue: Option<String>,
+    /// Move the document to an issue: an ID like ENG-123, a URL, a UUID, @git or @jj
+    #[arg(long, conflicts_with_all = ["initiative", "team", "cycle", "release"])]
+    pub issue: Option<IssueRef>,
     /// Move the document to an initiative (ID, slug, or name)
     #[arg(long, conflicts_with_all = ["team", "cycle", "release"], value_parser = NonBlank)]
     pub initiative: Option<String>,

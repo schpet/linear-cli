@@ -18,7 +18,8 @@ pub fn run(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
 }
 
 fn update(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
-    let fields = Fields::from(args);
+    let parent = super::reference::parent(ctx, args.parent.as_ref())?;
+    let fields = Fields::new(args, parent);
     let description = fields.local()?;
     let identifier = super::require(ctx, &args.issue_id)?;
     let backend = super::create::backend(ctx)?;
@@ -340,8 +341,10 @@ pub fn output(issue: &shared::Updated) -> String {
     )
 }
 
-impl From<&crate::cli::issue::IssueUpdate> for Fields {
-    fn from(action: &crate::cli::issue::IssueUpdate) -> Self {
+impl Fields {
+    /// The fields `action` asks for, with `--parent` as
+    /// [`super::reference::parent`] read it.
+    fn new(action: &crate::cli::issue::IssueUpdate, parent: Option<String>) -> Self {
         Self {
             title: action.title.clone(),
             assignee: action.assignee.clone(),
@@ -350,7 +353,7 @@ impl From<&crate::cli::issue::IssueUpdate> for Fields {
             clear_delegate: action.clear_delegate,
             due_date: action.due_date,
             clear_due_date: action.clear_due_date,
-            parent: action.parent.clone(),
+            parent,
             clear_parent: action.clear_parent,
             priority: action.priority,
             estimate: action.estimate,

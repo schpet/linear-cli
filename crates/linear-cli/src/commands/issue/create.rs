@@ -28,7 +28,8 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     // `--interactive` asks for every field; clap keeps it apart from the
     // field flags, so it never overrides a given value.
     let interactive = ctx.optional_prompts(args.interactive)?;
-    let mut fields = Fields::from(args);
+    let parent = super::reference::parent(ctx, args.parent.as_ref())?;
+    let mut fields = Fields::new(args, parent);
     let description = fields.local()?;
     // A title typed at the prompt is confirmed before the issue is created.
     let typed = !interactive && fields.needs_title();
@@ -500,15 +501,17 @@ pub fn select_option<U: Ui>(
     ui.choose(&suggestions.question, suggestions.choices, 0)
 }
 
-impl From<&crate::cli::issue::IssueCreate> for Fields {
-    fn from(action: &crate::cli::issue::IssueCreate) -> Self {
+impl Fields {
+    /// The fields `action` asks for, with `--parent` as
+    /// [`super::reference::parent`] read it.
+    fn new(action: &crate::cli::issue::IssueCreate, parent: Option<String>) -> Self {
         Self {
             title: action.title.clone(),
             start: action.start,
             assignee: action.assignee.clone(),
             delegate: action.delegate.clone(),
             due_date: action.due_date,
-            parent: action.parent.clone(),
+            parent,
             priority: action.priority,
             estimate: action.estimate,
             description: action.description.clone(),

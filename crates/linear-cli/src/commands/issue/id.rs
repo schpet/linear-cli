@@ -1,6 +1,9 @@
-//! Resolving an issue identifier to its UUID.
+//! `issue id`: the issue IDs an argument names, and resolving an issue
+//! identifier to its UUID.
+use crate::cli::issue::IssueId;
 use crate::client::LinearClient;
-use crate::error::{Error, Result};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::issue::GetIssueId;
 
@@ -18,4 +21,17 @@ pub async fn fetch(client: &LinearClient, identifier: &str) -> Result<String, Er
         return Err(Error::not_found("Issue", identifier));
     }
     Ok(id)
+}
+
+/// Prints each issue ID `args` resolves to on its own line. Nothing is
+/// fetched: an ID is printed as it would be sent.
+pub fn run(ctx: &Ctx, args: &IssueId) -> Result<()> {
+    let identifiers = super::reference::identifiers(ctx, &args.reference)
+        .context("Failed to resolve the issue ID")?;
+    let mut out = String::new();
+    for identifier in identifiers {
+        out.push_str(&identifier);
+        out.push('\n');
+    }
+    ctx.print(out)
 }

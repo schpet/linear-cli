@@ -45,6 +45,54 @@ impl fmt::Display for UserRef {
     }
 }
 
+/// An issue argument: an issue named outright, or a reference that reads it
+/// from the repository. Nothing is read until the command resolves it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum IssueRef {
+    /// `@git`: the first issue ID in the current git branch's name.
+    Git,
+    /// `@jj`: the issues `Linear-issue` trailers name in `trunk()..@`.
+    Jj,
+    /// An identifier like ENG-123, an issue URL, or a number in the
+    /// configured team, as typed.
+    Named(String),
+}
+
+impl FromStr for IssueRef {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, String> {
+        match value {
+            _ if value.trim().is_empty() => Err("expected an issue".to_owned()),
+            "@git" => Ok(Self::Git),
+            "@jj" => Ok(Self::Jj),
+            _ if value.starts_with('@') => Err(format!(
+                "unknown issue reference {value}; use @git, @jj, or an issue ID like ENG-123"
+            )),
+            _ => Ok(Self::Named(value.to_owned())),
+        }
+    }
+}
+
+/// Blank values get [`NonBlank`]'s error, like every other argument.
+impl clap::builder::ValueParserFactory for IssueRef {
+    type Parser = clap::builder::TryMapValueParser<NonBlank, fn(String) -> Result<Self, String>>;
+
+    fn value_parser() -> Self::Parser {
+        NonBlank.try_map(|text| text.parse())
+    }
+}
+
+impl fmt::Display for IssueRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Git => f.write_str("@git"),
+            Self::Jj => f.write_str("@jj"),
+            Self::Named(input) => f.write_str(input),
+        }
+    }
+}
+
 /// Text that must not be empty or only whitespace, such as a title, name, or
 /// reference. An empty value gets clap's "a value is required" error.
 #[derive(Clone, Copy, Debug)]
@@ -247,6 +295,23 @@ mod tests {
         );
         for invalid in ["", "  ", "https://linear.app/acme/profiles/ada"] {
             assert!(invalid.parse::<UserRef>().is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn issue_refs_take_exactly_git_and_jj_and_name_anything_else() {
+        assert_eq!("@git".parse(), Ok(IssueRef::Git));
+        assert_eq!("@jj".parse(), Ok(IssueRef::Jj));
+        for named in ["ENG-7", "eng-7", "7", "https://linear.app/acme/issue/ENG-7"] {
+            assert_eq!(named.parse(), Ok(IssueRef::Named(named.to_owned())));
+        }
+        for invalid in ["", "  ", "@", "@me", "@GIT", "@Jj", "@git/main", "@jj "] {
+            assert!(invalid.parse::<IssueRef>().is_err(), "{invalid:?}");
+        }
+        let unknown = "@me".parse::<IssueRef>().expect_err("unknown");
+        assert!(unknown.contains("@git, @jj"), "{unknown}");
+        for spelled in [IssueRef::Git, IssueRef::Jj] {
+            assert_eq!(spelled.to_string().parse(), Ok(spelled));
         }
     }
 

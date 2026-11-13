@@ -101,6 +101,19 @@ linear issue view TEAM-123 --app
 linear issue view TEAM-123 --no-comments
 ```
 
+#### issue references
+
+wherever a command takes an issue (including `--parent` of `issue create` and `issue update`, and `--issue` of `document list`, `create` and `update`), `@git` and `@jj` read it from your repository instead:
+
+```bash
+linear issue view @git          # the first issue ID in the current git branch's name
+linear issue view @jj           # every issue named by Linear-issue trailers of the changes in trunk()..@
+linear issue id @jj             # print what a reference names, one ID per line
+linear issue update TEAM-123 --parent @git
+```
+
+nothing is read from the repository unless you pass one of them. the issues a reference read are named on stderr before anything is sent. `@jj` reads without snapshotting the working copy, and is refused when jj's `trunk()` is the root commit (the repository has no trunk bookmark jj recognises), since `trunk()..@` would then be the whole history. a command that acts on one issue refuses a reference that names several; `issue view` shows them all. bulk input (`--bulk`, `--bulk-file`, `--bulk-stdin`) takes issue IDs only. in PowerShell, quote them: `'@git'`.
+
 #### start working on an issue
 
 start a specific issue, or choose one of your unstarted issues:
@@ -226,7 +239,10 @@ create a github pull request:
 ```bash
 linear issue gh pull-request TEAM-123
 linear issue gh pr TEAM-123  # Short alias
+linear issue gh pr @git      # the issue in the current git branch's name
 ```
+
+the issue is always named: `linear issue gh pr` on its own is an error that suggests an ID, `@git` or `@jj`.
 
 with `vcs = "jj"` this pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests), then opens the pull request from it. `--head <bookmark>` names the bookmark to use or create.
 

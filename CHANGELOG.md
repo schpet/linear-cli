@@ -15,19 +15,22 @@
 
 - `issue create --start` and the last question of `issue create -i` no longer create a branch or a jj change. They create the issue in the team's first started status, assigned to you, in one request. `--start` cannot be combined with `--state`, and the wizard's question now reads `Start this issue now (first started status, assigned to you)?`
 - `issue pull-request` and its alias `issue pr` moved to `issue gh pull-request` and `issue gh pr`, with the same arguments and flags. The old spellings fail with an error that names the new command
-- the issue is no longer read from the git branch name or from jj `Linear-issue` trailers. Every command that defaulted to "the current branch's issue" now requires the issue as an argument (an ID like `ENG-123`, an issue URL, or a bare number in the configured team): `issue view`, `title`, `url`, `describe`, `commits`, `gh pull-request`, `update`, `archive`, `comment add`, `comment list`, `relation list` and `agent-session list`. Leaving it out is a usage error (exit 2) before anything is sent. `issue archive` and `issue delete` need an issue or one of the `--bulk` options. An argument that names no issue fails with `Not an issue ID: …` instead of `Could not determine issue ID`
+- the issue is no longer read from the git branch name or from jj `Linear-issue` trailers unless an argument asks for it with `@git` or `@jj` (see Added). Every command that defaulted to "the current branch's issue" now requires the issue as an argument (an ID like `ENG-123`, an issue URL, a bare number in the configured team, `@git` or `@jj`): `issue view`, `title`, `url`, `describe`, `commits`, `gh pull-request`, `update`, `archive`, `comment add`, `comment list`, `relation list` and `agent-session list`. Leaving it out is a usage error (exit 2) before anything is sent; for `issue gh pull-request` the error suggests an ID, `@git` or `@jj`. `issue archive` and `issue delete` need an issue or one of the `--bulk` options. An argument that names no issue fails with `Not an issue ID: …` instead of `Could not determine issue ID`
+
+  | 3.x | 4.0 |
+  | --- | --- |
+  | `linear issue view` (issue from the git branch) | `linear issue view @git` |
+  | `linear issue view` (issue from jj trailers) | `linear issue view @jj` |
+  | `linear issue pr` | `linear issue gh pr @git` (or `@jj`) |
+  | `linear issue id` | `linear issue id @git` (or `@jj`) |
+
+- `@jj` reads the `Linear-issue` trailers of every change in `trunk()..@` and takes all the issues they name, where 3.x took the nearest trailer among all ancestors. It is refused when jj's `trunk()` is the root commit (no trunk bookmark it recognises), and a command that acts on one issue refuses it when it names several
 - `issue link` takes the issue and the URL, `linear issue link ENG-123 https://example.com/doc`. The one-argument form that linked a URL to the current branch's issue is gone
-- `issue id` was removed, since the lookup was all it printed. Running it fails with an error that says so. A script that wants the old behavior with git can read the ID from the branch name itself, taking the first thing in it that looks like an issue ID:
-
-  ```sh
-  issue=$(git branch --show-current | grep -oiE '[a-z][a-z0-9]*-[0-9]+' | head -n 1)
-  linear issue view "$issue"
-  ```
-
-  `issue git start`, `issue jj start` (which still writes `Linear-issue` trailers), `issue describe`, `issue commits` and the `vcs` setting are unchanged
+- `issue id` requires the issue argument and prints what it names: `linear issue id @git` prints the issue in the branch name, as `linear issue id` did, and `linear issue id @jj` prints each issue the trailers name on its own line. It needs no credentials unless the argument is a URL
 
 ### Added
 
+- `@git` and `@jj` stand for the issue in the repository wherever a command takes an issue, including `issue create --parent`, `issue update --parent` and `--issue` of `document list`, `document create` and `document update`: `@git` is the first issue ID in the current git branch's name, and `@jj` is every issue named by `Linear-issue` trailers of the changes in `trunk()..@`, read without snapshotting the working copy. The command says on stderr which issues a reference named before anything is sent, and `issue view @jj` shows all of them. They are the only way the CLI reads the issue from the repository. Bulk input (`--bulk`, `--bulk-file`, `--bulk-stdin`) takes issue IDs only. In PowerShell, quote them (`'@git'`)
 - `issue complete` and `issue cancel` move an issue to its team's completed or canceled status, alongside `issue start`. An issue already in a status of that type is left as it is. When the team has several statuses of the type, the command lists them and asks for `issue update --state` instead of choosing one
 - `issue gh pull-request` works in jj repositories (`vcs = "jj"`), colocated or not. It opens the pull request from the working-copy change, or from its parent when the working copy is an empty undescribed change. A bookmark already on that change is used, or one with the branch name Linear suggests is created there, and it is pushed with `jj git push` to the `git.push` remote (else the only remote, else `origin`) before `gh` is given the repository and the head. `--head <bookmark>` names the bookmark to use or create. A bookmark is never moved: when several bookmarks point at the change and none has the suggested name, or the suggested name is taken elsewhere, the command says so and stops before pushing. It also stops first when `gh` is not installed or jj would refuse the push
 - a Nix flake builds `linear` from source on Linux and Apple silicon macOS: `nix run github:schpet/linear-cli`, or add the repository as a flake input for `packages.<system>.linear` and `overlays.default` ([#209](https://github.com/schpet/linear-cli/pull/209); thanks @y0usaf)

@@ -15,7 +15,9 @@ the installed `linear` binary, so it describes the commands that version has.
 - Add `--no-input` to writes in scripts, so a missing value is an error instead
   of a prompt.
 - Name the issue in every command (`ENG-123`, an issue URL, or a bare number
-  in the configured team). Nothing is read from the git branch or jj change.
+  in the configured team). Nothing is read from the git branch or jj change
+  unless you pass `@git` or `@jj` (see "Use the issue of the current branch or
+  change").
 - The default team comes from `.linear.toml` or `LINEAR_TEAM_ID`. If a command
   asks for one, pass `--team`; `linear team list` shows the teams.
 - Do not create, change or comment on anything the user's request does not
@@ -90,12 +92,32 @@ Only when a branch or jj change is wanted too: `linear issue git start ENG-123`
 creates or switches to the issue's git branch, and `linear issue jj start
 ENG-123` starts a described jj change. Both then start the issue.
 
+### Use the issue of the current branch or change
+
+`@git` and `@jj` work wherever a command takes an issue, including `--parent`
+and `document --issue`:
+
+```bash
+linear issue id @git            # the first issue ID in the current git branch name
+linear issue id @jj             # each issue named by Linear-issue trailers in trunk()..@
+linear issue view @jj --json    # an array when @jj names several issues
+linear issue gh pr @git --draft
+```
+
+The issues a reference read are printed on stderr before anything is sent.
+A command that acts on one issue refuses a reference that names several, and
+`@jj` is refused when jj's `trunk()` is the root commit. Bulk input takes IDs
+only. When unsure what a reference stands for, run `linear issue id` with it
+first and pass the IDs it prints. In PowerShell, quote them: `'@git'`.
+
 ### Open a pull request for an issue
 
 ```bash
 linear issue gh pr ENG-123 --draft          # gh pr create, titled "ENG-123 <issue title>", issue URL in the body
 linear issue gh pr ENG-123 --head my-topic  # name the branch (git) or bookmark (jj) yourself
 ```
+
+The issue is always named; `linear issue gh pr` on its own is an error.
 
 In a jj repository (`vcs = "jj"`) this publishes without asking. It pushes a
 bookmark for the working-copy change (or its parent, when the working copy is

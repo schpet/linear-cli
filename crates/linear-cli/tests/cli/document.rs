@@ -1,6 +1,7 @@
 //! The `document` command group.
 use serde_json::{Value, json};
 
+use crate::issue_vcs::{git_on, jj_refs};
 use crate::support::{Cli, MockLinear, nodes, png};
 use crate::team::{resolve_vars, resolved};
 
@@ -830,6 +831,89 @@ fn list_accepts_an_issue_url_and_normalizes_plain_issue_references() {
             json!({ "filter": { "issue": { "id": { "eq": "issue-id" } } }, "first": 50 })
         );
     }
+}
+
+#[test]
+fn issue_flags_read_at_git_and_at_jj_and_say_so_before_any_request() {
+    let from_branch = "Using issue ENG-7 from the git branch name \"sam/eng-7-repair\"\n";
+    let from_trailers = "Using issue ENG-7 from Linear-issue trailers in trunk()..@\n";
+    for (reference, notice) in [("@git", from_branch), ("@jj", from_trailers)] {
+        for (args, write) in [
+            (
+                &["document", "list", "--issue", reference, "--json"][..],
+                None,
+            ),
+            (
+                &["document", "create", "-t", "T", "--issue", reference],
+                Some("CreateDocument"),
+            ),
+            (
+                &["document", "update", SLUG, "--issue", reference],
+                Some("UpdateDocument"),
+            ),
+        ] {
+            let api = MockLinear::start();
+            api.on(
+                "GetIssueForDocumentTarget",
+                json!({ "issue": { "id": "issue-id" } }),
+            );
+            match write {
+                Some(operation) => api.on(operation, written(operation)),
+                None => api.on(
+                    "ListDocuments",
+                    json!({ "documents": page(json!([]), Value::Null, false) }),
+                ),
+            };
+            let cli = if reference == "@git" {
+                git_on(Cli::for_api(&api), "sam/eng-7-repair")
+            } else {
+                jj_refs(Cli::for_api(&api), false, &[("bbb", &["Fixes eng-7"])])
+            };
+            let run = cli.run(args);
+            run.success().stderr_has(notice);
+            assert!(!run.stdout.contains("Using issue"), "{run}");
+            assert_eq!(
+                api.variables("GetIssueForDocumentTarget"),
+                json!({ "id": "ENG-7" })
+            );
+            if let Some(operation) = write {
+                assert_eq!(
+                    api.variables(operation)["input"]["issueId"],
+                    "issue-id",
+                    "{run}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_flags_refuse_a_reference_that_names_several_issues() {
+    let api = MockLinear::start();
+    let cli = jj_refs(
+        Cli::for_api(&api),
+        false,
+        &[("bbb", &["Fixes OPS-2"]), ("ccc", &["Fixes ENG-7"])],
+    );
+    for args in [
+        &["document", "list", "--issue", "@jj"][..],
+        &["document", "create", "-t", "T", "--issue", "@jj"],
+        &["document", "update", SLUG, "--issue", "@jj"],
+    ] {
+        cli.run(args)
+            .usage_error()
+            .stderr_has("@jj names several issues: ENG-7, OPS-2")
+            .stderr_has("Name the one you mean, like ENG-7.");
+    }
+    git_on(Cli::for_api(&api), "main")
+        .run(&["document", "list", "--issue", "@git"])
+        .usage_error()
+        .stderr_has("No issue ID in the git branch name \"main\"");
+    Cli::for_api(&api)
+        .run(&["document", "list", "--issue", "@GIT"])
+        .usage_error()
+        .stderr_has("unknown issue reference @GIT");
+    assert!(api.requests().is_empty());
 }
 
 #[test]
