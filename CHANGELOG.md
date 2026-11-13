@@ -6,6 +6,8 @@
 
 - a Nix flake builds `linear` from source on Linux and Apple silicon macOS: `nix run github:schpet/linear-cli`, or add the repository as a flake input for `packages.<system>.linear` and `overlays.default` ([#209](https://github.com/schpet/linear-cli/pull/209); thanks @y0usaf)
 - `linear skill show` prints a guide to the CLI written for coding agents. The guide is built into the binary, so it always describes the commands of the version that printed it, and it needs no login, configuration or network connection
+- `linear skill setup` installs a small skill for Claude Code, Codex, OpenCode and Pi that tells the agent to run `linear skill show`, so the installed skill does not go out of date when linear is upgraded. It writes `~/.agents/skills/linear-cli`, which Codex, OpenCode and Pi all read, and `~/.claude/skills/linear-cli` when Claude Code is set up; `--agent` chooses, `--project` sets up the current repository for a team, and `--dry-run` previews. A `linear-cli` skill it did not install is left alone and reported; `--force` moves it to a backup directory instead of deleting it
+- `linear skill status` reports what each of those directories holds, including an older copy that an agent would read instead, and `linear skill remove` deletes only what `setup` installed. All three take `--json`
 
 ## [3.1.0] - 2026-10-22
 

@@ -185,8 +185,12 @@ pub enum RootCommand {
     /// Teach coding agents to use linear
     ///
     /// `linear skill show` prints a guide to this CLI written for coding
-    /// agents. The guide ships in this binary, so upgrading linear also
-    /// updates what agents read.
+    /// agents, and `linear skill setup` installs a small skill that tells an
+    /// agent to read it. The guide ships in this binary, so upgrading linear
+    /// also updates what agents read.
+    ///
+    /// Run `linear skill setup` once per account, and `linear skill status`
+    /// to see what is installed.
     Skill(skill::Skill),
 }
 

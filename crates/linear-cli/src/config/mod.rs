@@ -14,9 +14,12 @@ pub use options::{
 };
 pub use parse::{ConfigTier, parse_config_tier};
 pub use runtime::ProcessEnvSnapshot;
+pub(crate) use source::absent;
 /// Crate-internal lexical path normalization shared with credential discovery.
 pub(crate) use source::lexical as lexical_config_path;
-pub use source::{MAX_CONFIG_BYTES, OsFamily, RawConfigFile, RealFileSource, repo_root};
+pub use source::{
+    FileKind, FileSource, MAX_CONFIG_BYTES, OsFamily, RawConfigFile, RealFileSource, repo_root,
+};
 pub use startup::{
     ChildEnvOverlay, DisplaySettings, StartupConfig, load_startup, render_diagnostic,
 };
@@ -31,4 +34,4 @@ pub(crate) use dotenv::{ConfigDiagnostic, DiagnosticReason, SelectedEnv};
 #[cfg(test)]
 pub(crate) use options::OptionInputs;
 #[cfg(test)]
-pub(crate) use source::{ConfigInputs, FileKind, FileSource};
+pub(crate) use source::ConfigInputs;

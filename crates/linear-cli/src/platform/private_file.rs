@@ -1,4 +1,5 @@
-//! Files only their owner can read: credentials and downloaded attachments.
+//! Atomic file writes, and files only their owner can read: credentials and
+//! downloaded attachments.
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -9,6 +10,26 @@ use std::path::{Path, PathBuf};
 /// result is never readable by others, whatever the old file's mode was. A
 /// symlink at `path` is replaced, not followed.
 pub fn write_atomic(path: &Path, contents: &[u8]) -> io::Result<()> {
+    write_atomic_as(path, contents, Access::Owner)
+}
+
+/// [`write_atomic`] for a file that is not secret: it gets the permissions
+/// any new file would, so a file written into a shared checkout stays
+/// readable by the others who use it.
+pub fn write_atomic_shared(path: &Path, contents: &[u8]) -> io::Result<()> {
+    write_atomic_as(path, contents, Access::Default)
+}
+
+/// Who may read a newly created file.
+#[derive(Clone, Copy)]
+enum Access {
+    /// Only its owner.
+    Owner,
+    /// Whoever the process's umask allows.
+    Default,
+}
+
+fn write_atomic_as(path: &Path, contents: &[u8], access: Access) -> io::Result<()> {
     let directory = match path.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
@@ -16,7 +37,7 @@ pub fn write_atomic(path: &Path, contents: &[u8]) -> io::Result<()> {
     let name = path
         .file_name()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file name"))?;
-    let (temp, mut file) = create_temp(directory, &name.to_string_lossy())?;
+    let (temp, mut file) = create_temp(directory, &name.to_string_lossy(), access)?;
     let written = file
         .write_all(contents)
         .and_then(|()| file.sync_all())
@@ -33,15 +54,21 @@ pub fn write_atomic(path: &Path, contents: &[u8]) -> io::Result<()> {
     written
 }
 
-/// A new, empty, owner-only file named after `name` in `directory`.
-fn create_temp(directory: &Path, name: &str) -> io::Result<(PathBuf, File)> {
+/// A new, empty file named after `name` in `directory`, readable as `access`
+/// says.
+fn create_temp(directory: &Path, name: &str, access: Access) -> io::Result<(PathBuf, File)> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        options.mode(match access {
+            Access::Owner => 0o600,
+            Access::Default => 0o666,
+        });
     }
+    #[cfg(not(unix))]
+    let _ = access;
     let process = std::process::id();
     for attempt in 0..100_u32 {
         let temp = directory.join(format!(".{name}.{process}.{attempt}.tmp"));
@@ -117,7 +144,7 @@ pub fn private_dir(directory: &Path) -> io::Result<()> {
 #[cfg(unix)]
 fn current_user(directory: &Path) -> io::Result<u32> {
     use std::os::unix::fs::MetadataExt;
-    let (probe, file) = create_temp(directory, "owner")?;
+    let (probe, file) = create_temp(directory, "owner", Access::Owner)?;
     let user = file.metadata().map(|metadata| metadata.uid());
     drop(file);
     fs::remove_file(&probe)?;
