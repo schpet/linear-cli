@@ -9,7 +9,8 @@
   - `cargo test --locked --workspace`
 - run the cli from source with `just dev <args>` (`cargo run -- <args>`)
 - `just sync-schema` refreshes `graphql/schema.graphql` from linear's api
-- after changing commands, flags or help text, run `just skill-docs` to regenerate `skills/linear-cli/SKILL.md` and its references. edit `skills/linear-cli/SKILL.template.md`, not `SKILL.md`
+- `linear skill show` prints the agent guide in `crates/linear-cli/src/commands/skill/guide.md`. its command list, exit statuses and markdown rules are filled in from the cli, and a test parses every example in it. after changing commands or flags, fix any recipe or note in it that is now wrong, and keep `--help` text complete: the guide sends agents to help for everything else. preview with `just dev skill show`
+- `skills/linear-cli/SKILL.md` is the stub that `linear skill setup` installs and skills.sh distributes. it is compiled into the binary and recognized by its exact bytes. if you change it after a release has shipped it, keep the released text in a file beside `src/commands/skill/plan.rs` and add it to `Stubs::SHIPPED.previous` there, or every installed copy turns from an update into a conflict
 - release builds generate `THIRD_PARTY_LICENSES.md` (gitignored) with `cargo xtask licenses` and ship it in every archive. it reproduces the license files of every crate in `Cargo.lock`; a crate whose package ships no license file needs its upstream text added to `licenses/supplemental/` and recorded in `sources.json` there, or the command (and CI, which runs it) fails
 - add an entry under `## [Unreleased]` in `CHANGELOG.md` for user-facing changes
 - ask before adding a new dependency

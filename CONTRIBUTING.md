@@ -20,7 +20,7 @@ cargo test --workspace    # run the test suite
 just check                # format check, clippy, and tests, as CI runs them
 ```
 
-After changing commands, flags, or help text, run `just skill-docs` to regenerate the agent skill documentation.
+After changing commands or flags, check that the agent guide in `crates/linear-cli/src/commands/skill/guide.md` still describes them. `just dev skill show` prints it, and the test suite parses every example in it.
 
 ## Pull requests
 

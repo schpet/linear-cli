@@ -9,6 +9,14 @@
 - `linear skill setup` installs a small skill for Claude Code, Codex, OpenCode and Pi that tells the agent to run `linear skill show`, so the installed skill does not go out of date when linear is upgraded. It writes `~/.agents/skills/linear-cli`, which Codex, OpenCode and Pi all read, and `~/.claude/skills/linear-cli` when Claude Code is set up; `--agent` chooses, `--project` sets up the current repository for a team, and `--dry-run` previews. A `linear-cli` skill it did not install is left alone and reported; `--force` moves it to a backup directory instead of deleting it
 - `linear skill status` reports what each of those directories holds, including an older copy that an agent would read instead, and `linear skill remove` deletes only what `setup` installed. All three take `--json`
 
+### Changed
+
+- The `linear-cli` skill that `npx skills add schpet/linear-cli` installs is now the same small stub `linear skill setup` writes. It tells the agent to run `linear skill show` instead of carrying a copy of the guide and a generated reference for every command, so it no longer goes out of date. `linear COMMAND --help` is the reference
+
+### Removed
+
+- The Claude Code plugin (`/plugin install linear-cli@linear-cli`) is no longer published. Uninstall it with `claude plugin uninstall linear-cli@linear-cli` and `claude plugin marketplace remove linear-cli`, then run `linear skill setup`. If an older copy of the skill is in an agent's skills directory, `linear skill setup --force` moves it to a backup directory and installs the new one
+
 ## [3.1.0] - 2026-10-22
 
 ### Added

@@ -25,8 +25,13 @@ pub struct Stubs<'a> {
 }
 
 impl Stubs<'static> {
+    /// The stub is the repository's own `skills/linear-cli/SKILL.md`, the
+    /// file skills.sh installs, so both ways of installing give the same
+    /// bytes. When it changes after a release shipped it, keep the released
+    /// text in a file here and add it to `previous`; otherwise every
+    /// installed copy becomes a conflict instead of an update.
     pub const SHIPPED: Self = Self {
-        current: include_str!("stub.md"),
+        current: include_str!("../../../../../skills/linear-cli/SKILL.md"),
         previous: &[],
     };
 }

@@ -5,4 +5,4 @@ graphql/** -diff linguist-generated=true
 licenses/supplemental/*.txt -text
 
 # The installed skill is recognized by its exact bytes on every platform.
-crates/linear-cli/src/commands/skill/stub.md -text
+skills/linear-cli/SKILL.md -text
