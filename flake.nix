@@ -6,6 +6,8 @@
   outputs =
     { self, nixpkgs }:
     let
+      # x86_64-darwin is left out on purpose: nixpkgs dropped it after 26.05,
+      # so the pinned nixos-unstable no longer evaluates for it.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
@@ -50,7 +52,7 @@
       });
 
       overlays.default = final: prev: {
-        linear = self.packages.${prev.system}.linear;
+        linear = self.packages.${final.stdenv.hostPlatform.system}.linear;
       };
     };
 }
