@@ -40,6 +40,7 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     let command = match command {
         RootCommand::Completions(action) => return completions_command(&action),
         RootCommand::Markdown(_) => return markdown(),
+        RootCommand::Skill(args) => return commands::skill::run(&args.command),
         command => command,
     };
     let cwd = std::env::current_dir().map_err(|error| {
@@ -147,7 +148,7 @@ fn dispatch(ctx: &Ctx, command: RootCommand) -> Result<()> {
         RootCommand::Config(args) => commands::config_generate::run(ctx, &args),
         RootCommand::Schema(args) => commands::schema::run(ctx, &args),
         RootCommand::Api(args) => commands::api::run(ctx, &args),
-        RootCommand::Completions(_) | RootCommand::Markdown(_) => {
+        RootCommand::Completions(_) | RootCommand::Markdown(_) | RootCommand::Skill(_) => {
             unreachable!("handled before configuration loads")
         }
     }

@@ -1,0 +1,248 @@
+# Linear CLI (linear {{VERSION}})
+
+Work with Linear from the command line: issues, comments, projects, cycles,
+documents, labels, initiatives, and the GraphQL API. This guide is printed by
+the installed `linear` binary, so it describes the commands that version has.
+
+## How to work
+
+- Prefer a dedicated command over `linear api`. Use the GraphQL fallback only
+  when no command or flag covers the operation.
+- Run `linear COMMAND --help` for a command's full options. The help is the
+  reference; this guide covers the common tasks and the things help cannot say.
+- Add `--json` when you will read the result with a program. Lists print a JSON
+  array, views print one object.
+- Add `--no-input` to writes in scripts, so a missing value is an error instead
+  of a prompt.
+- A team is inferred from the repository's `.linear.toml` or the current
+  branch when it can be. If a command asks for one, run `linear team list`.
+- Do not create, change or comment on anything the user's request does not
+  call for.
+
+## Common tasks
+
+### Find issues
+
+`issue query` searches every assignee and combines filters:
+
+```bash
+linear issue query --team ENG --state started --json
+linear issue query --project "Mobile App" --state backlog --state triage --unassigned
+linear issue query --assignee sam --label bug --updated-after 2026-01-01
+```
+
+`issue list` (alias `issue mine`) shows your own issues. Use `issue query` for
+anything scoped to other people or to a whole team or project.
+
+```bash
+linear issue list --state started --sort priority
+```
+
+### View an issue or get its URL
+
+```bash
+linear issue view ENG-123          # details, including comments
+linear issue view ENG-123 --json   # structured output
+linear issue url ENG-123           # print just the URL
+```
+
+### Create an issue
+
+```bash
+linear issue create --team ENG --title "Fix login redirect" \
+  --description-file ./description.md --no-input
+```
+
+### Update state, assignee or labels
+
+```bash
+linear issue update ENG-123 --state "In Review" --assignee sam
+linear issue update ENG-123 --unassign
+linear issue update ENG-123 --delegate linear                # hand to an agent; separate from the assignee
+linear issue update ENG-123 --clear-delegate
+linear issue update ENG-123 --add-label security             # add, keep existing labels
+linear issue update ENG-123 --remove-label sprint-42         # detach; does not delete the label
+linear issue update ENG-123 --remove-label sprint-42 --add-label sprint-43  # atomic swap
+linear issue update ENG-123 --label infra --label security   # replaces the label set
+```
+
+### Create from a template
+
+```bash
+linear template list --type issue --team ENG              # find the template a team expects
+linear template view "Bug report"                         # see what it pre-fills
+linear issue create --team ENG --template "Bug report" --title "Login fails on Safari"
+linear project create --name "Q3 launch" --team ENG --template "Kickoff"
+```
+
+Explicit flags override the template's values, `--label` merges with its
+labels, and `--description` replaces its body. Document templates cannot be
+applied through the API.
+
+### Comment
+
+```bash
+linear issue comment add ENG-123 --body-file ./comment.md
+```
+
+### Attach an image so it shows inline
+
+```bash
+linear issue comment add ENG-123 --attach ./screenshot.png
+```
+
+This uploads the image and embeds it in a comment, where Linear renders it
+inline. `linear issue attach` creates a sidebar link instead and does not render
+the image.
+
+### Resolve or reopen comment threads
+
+```bash
+linear issue comment list ENG-123 --unresolved            # open threads only, with their replies
+linear issue comment resolve <COMMENT> <COMMENT>          # resolve threads by their top-level comment IDs
+linear issue comment resolve <COMMENT> --with <REPLY>     # record the reply that resolved the thread
+linear issue comment unresolve <COMMENT>                  # reopen a thread
+```
+
+Name a thread by its top-level comment's ID; a reply's ID is refused. In
+`comment list --json`, `resolvedAt` is set only on a resolved thread's top-level
+comment, and a reply carries its thread's state in `parent.resolvedAt`.
+
+### Close, delete or archive an issue
+
+```bash
+linear issue update ENG-123 --state Done       # or Canceled; Linear archives closed issues later
+linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
+linear issue archive ENG-123 --yes             # rarely appropriate, see below
+```
+
+Prefer closing or deleting. Linear archives closed issues on its own after the
+team's configured period and offers no manual archive in its app
+(https://linear.app/docs/delete-archive-issues). `issue archive` bypasses those
+checks, and archived issues vanish from `issue list`, `issue query` and search
+unless `--include-archived` is passed. Archive only when the user asks for it.
+
+### Several issues at once
+
+```bash
+linear issue delete --bulk ENG-123 ENG-124 ENG-125
+linear issue delete --bulk-file issues.txt     # one ID per line
+```
+
+### Projects, initiatives and labels
+
+```bash
+linear project list
+linear project view <ID>
+linear project create --name "Q1 Work" --team ENG --initiative "Q1 Goals"
+linear project update <ID> --add-team OPS --remove-team APP
+linear project update <ID> --add-label "Launch" --remove-label "Beta"
+linear project update <ID> --team ENG --team OPS          # replaces the whole set
+
+linear initiative list
+linear initiative view <ID>
+linear initiative add-project <INITIATIVE> <PROJECT>
+
+linear label list --team ENG
+linear label create --name "Bug" --color "#EB5757"
+```
+
+A set flag such as `--team` or `--label` replaces the whole set and cannot be
+combined with that set's `--add-*` and `--remove-*` flags.
+
+## Markdown bodies
+
+Write multi-line Markdown to a file and pass it with `--description-file`
+(`issue create`, `issue update`) or `--body-file` (`comment add`,
+`comment update`). Inline `--description` and `--body` are for one line of
+text; a shell-quoted multi-line value tends to arrive with literal `\n`.
+
+```bash no-check
+cat > "${TMPDIR:-/tmp}/description.md" <<'EOF'
+## Summary
+
+- First item
+- Second item
+EOF
+
+linear issue create --title "My issue" --description-file "${TMPDIR:-/tmp}/description.md"
+```
+
+The rules for mentions and collapsible sections, as `linear markdown` prints
+them:
+
+```text
+{{MARKDOWN}}
+```
+
+## Exit status
+
+The exit status says why a command failed, so there is no need to parse stderr.
+After status 5, check whether a create or update took effect before retrying it.
+
+```text
+{{EXIT_STATUS}}
+```
+
+## Things help does not make obvious
+
+- `issue list` sorts by priority unless `--sort` (`manual` or `priority`), the
+  `issue_sort` setting or `LINEAR_ISSUE_SORT` says otherwise, and it needs
+  `--team` when the team cannot be inferred.
+- `--no-pager` exists only on `issue list`, `issue query`, `issue view` and
+  `project view`. Other commands reject it.
+- `linear api` takes the GraphQL document as its one argument and has no
+  subcommands. `linear issue query` is a separate command.
+
+## Commands
+
+Every command, with its one-line description. Run any of them with `--help`.
+
+```text
+{{COMMANDS}}
+```
+
+## GraphQL fallback
+
+Check the schema for the types and fields you need:
+
+```bash
+linear schema -o "${TMPDIR:-/tmp}/linear-schema.graphql"
+```
+
+```bash no-check
+grep -i "cycle" "${TMPDIR:-/tmp}/linear-schema.graphql"
+grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
+```
+
+Put a leading `query` or `mutation` keyword inside the quoted document: write
+`linear api 'query { ... }'`, never `linear api query '...'`. A document that
+contains a non-null marker (`String!`) goes on stdin through a heredoc, which
+avoids shell escaping.
+
+```bash
+linear api '{ viewer { id name email } }'
+
+linear api --variable teamId=abc123 <<'GRAPHQL'
+query($teamId: String!) { team(id: $teamId) { name } }
+GRAPHQL
+
+linear api --variable first=5 <<'GRAPHQL'
+query($first: Int!) { issues(first: $first) { nodes { title } } }
+GRAPHQL
+
+linear api --variables-json '{"filter": {"state": {"name": {"eq": "In Progress"}}}}' <<'GRAPHQL'
+query($filter: IssueFilter!) { issues(filter: $filter) { nodes { title } } }
+GRAPHQL
+
+linear api '{ issues(first: 5) { nodes { identifier title } } }' | jq '.data.issues.nodes[].title'
+```
+
+For full control over the HTTP request, `linear auth token` prints the token:
+
+```bash no-check
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $(linear auth token)" \
+  -d '{"query": "{ viewer { id } }"}'
+```

@@ -5,6 +5,7 @@
 ### Added
 
 - a Nix flake builds `linear` from source on Linux and Apple silicon macOS: `nix run github:schpet/linear-cli`, or add the repository as a flake input for `packages.<system>.linear` and `overlays.default` ([#209](https://github.com/schpet/linear-cli/pull/209); thanks @y0usaf)
+- `linear skill show` prints a guide to the CLI written for coding agents. The guide is built into the binary, so it always describes the commands of the version that printed it, and it needs no login, configuration or network connection
 
 ## [3.1.0] - 2026-10-22
 
