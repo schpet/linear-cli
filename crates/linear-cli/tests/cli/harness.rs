@@ -231,6 +231,7 @@ fn failure_accepts_only_an_ordinary_runtime_error() {
         code,
         stdout: String::new(),
         stderr: String::new(),
+        terminal: String::new(),
     };
     run(1).failure();
     for code in [101, 0, 2, 7, 130] {

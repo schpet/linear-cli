@@ -1,7 +1,7 @@
 //! Read-only `issue` commands: view, title, url, mine and query.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear, assert_json, nodes};
+use crate::support::{Cli, MockLinear, assert_json, nodes, png};
 use crate::team::{resolve_vars, resolved};
 
 fn issue(comments: bool) -> Value {
@@ -1898,6 +1898,128 @@ fn view_footer_is_paged_with_the_issue_and_survives_a_failing_pager() {
     }
 }
 
+/// A sandbox on a Ghostty terminal with color, viewing an issue whose
+/// description shows `/img/diagram.png`, served as `image` when there is one.
+fn on_ghostty(api: &MockLinear, image: Option<&[u8]>, lines: usize) -> Cli {
+    let (mut reply, _) = with_image(api);
+    let filler: Vec<String> = (1..=lines).map(|n| format!("Line {n}.")).collect();
+    let description = reply["issue"]["description"]
+        .as_str()
+        .expect("description")
+        .to_owned();
+    reply["issue"]["description"] = json!(format!("{description}\n\n{}", filler.join("\n\n")));
+    api.on("GetIssueDetails", reply);
+    if let Some(image) = image {
+        api.on_http("GET", "/img/diagram.png", 200, image);
+    }
+    Cli::for_api(api)
+        .env_remove("NO_COLOR")
+        .env("TERM_PROGRAM", "ghostty")
+}
+
+const VIEW_IMAGE: [&str; 5] = ["issue", "view", "ENG-1", "--no-comments", "--no-pager"];
+
+#[test]
+fn view_on_a_kitty_terminal_draws_downloaded_pngs_under_their_link() {
+    let api = MockLinear::start();
+    let run = on_ghostty(&api, Some(&png(64, 32)), 0).run_tty(&VIEW_IMAGE, &[]);
+    run.success().stdout_has("Image: diagram");
+    let terminal = &run.terminal;
+    let sent = terminal
+        .find("\x1b_Ga=t,f=100,t=d,")
+        .expect("image transfer");
+    let placed = terminal.find("\x1b_Ga=p,U=1,").expect("virtual placement");
+    let cell = terminal.find('\u{10eeee}').expect("placeholder cells");
+    assert!(sent < placed && placed < cell, "{run}");
+    assert!(
+        run.stdout.find("Image: diagram") < run.stdout.find('\u{10eeee}'),
+        "{run}"
+    );
+}
+
+#[test]
+fn view_pages_only_placeholders_and_lets_less_print_them() {
+    for (inherited, expected) in [(None, "10EEEE:p"), (Some("e000:w"), "e000:w,10EEEE:p")] {
+        let api = MockLinear::start();
+        let mut cli = on_ghostty(&api, Some(&png(64, 32)), 80)
+            .stub_bin("sh", "exec /bin/sh \"$@\"")
+            .stub_bin(
+                "pager",
+                "cat > \"$PAGED\"; printf %s \"$LESSUTFCHARDEF\" > \"$PAGED.env\"",
+            );
+        let pager = cli.path("bin/pager").display().to_string();
+        let paged = cli.path("paged.txt").display().to_string();
+        cli = cli.env("PAGER", &pager).env("PAGED", &paged);
+        if let Some(value) = inherited {
+            cli = cli.env("LESSUTFCHARDEF", value);
+        }
+        let run = cli.run_tty(&["issue", "view", "ENG-1", "--no-comments"], &[]);
+        run.success();
+        assert!(run.terminal.contains("\x1b_Ga=t,"), "{run}");
+        let text = cli.read("paged.txt");
+        assert!(text.contains('\u{10eeee}'), "{text}");
+        assert!(!text.contains("\x1b_G"), "{text:?}");
+        assert_eq!(cli.read("paged.txt.env"), expected);
+    }
+}
+
+#[test]
+fn view_without_a_kitty_terminal_or_with_images_off_shows_only_links() {
+    type Case<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a [&'a str]);
+    let cases: [Case; 5] = [
+        (
+            "inline_images off",
+            &[("LINEAR_INLINE_IMAGES", "false")],
+            &[],
+        ),
+        ("NO_COLOR", &[("NO_COLOR", "1")], &[]),
+        (
+            "another terminal",
+            &[("TERM_PROGRAM", "Apple_Terminal")],
+            &[],
+        ),
+        ("inside tmux", &[("TMUX", "/tmp/tmux-1/default,1,0")], &[]),
+        ("--no-download", &[], &["--no-download"]),
+    ];
+    for (name, env, flags) in cases {
+        let api = MockLinear::start();
+        let image = png(64, 32);
+        let served = (!flags.contains(&"--no-download")).then_some(&image[..]);
+        let mut cli = on_ghostty(&api, served, 0);
+        for (key, value) in env {
+            cli = cli.env(key, value);
+        }
+        let run = cli.run_tty(&[&VIEW_IMAGE[..], flags].concat(), &[]);
+        run.success().stdout_has("diagram");
+        assert!(!run.terminal.contains("\x1b_G"), "{name}: {run}");
+        assert!(!run.terminal.contains('\u{10eeee}'), "{name}: {run}");
+    }
+}
+
+#[test]
+fn view_shows_other_formats_as_links_and_reports_broken_pngs() {
+    let api = MockLinear::start();
+    let run = on_ghostty(&api, Some(b"GIF89a not a png"), 0).run_tty(&VIEW_IMAGE, &[]);
+    run.success().stdout_has("Image: diagram");
+    assert!(!run.terminal.contains("\x1b_G"), "{run}");
+    assert!(!run.stdout.contains("Warning"), "{run}");
+
+    let api = MockLinear::start();
+    let run = on_ghostty(&api, Some(b"\x89PNG\r\n\x1a\ntruncated"), 0).run_tty(&VIEW_IMAGE, &[]);
+    run.success()
+        .stdout_has("Image: diagram")
+        .stdout_has("inline: malformed PNG");
+    assert!(!run.terminal.contains("\x1b_G"), "{run}");
+}
+
+#[test]
+fn view_piped_never_sends_images() {
+    let api = MockLinear::start();
+    let run = on_ghostty(&api, Some(&png(64, 32)), 0).run(&VIEW_IMAGE);
+    run.success();
+    assert!(!run.stdout.contains('\x1b'), "{run}");
+}
+
 #[test]
 fn view_multiple_ends_each_issue_with_its_own_url() {
     let api = MockLinear::start();
@@ -1947,4 +2069,61 @@ fn view_multiple_ends_each_issue_with_its_own_url() {
             .is_some_and(|footer| footer < second),
         "{run}"
     );
+}
+
+#[test]
+fn view_multiple_sends_every_issues_images_before_the_text() {
+    let api = MockLinear::start();
+    for number in [21, 22] {
+        let mut value = numbered_issue(number, false);
+        value["description"] = json!(format!(
+            "![shot {number}]({}/img/{number}.png)",
+            api.base_url()
+        ));
+        api.on_variables(
+            "GetIssueDetails",
+            json!({ "id": format!("ENG-{number}") }),
+            details(value),
+        )
+        .on_http(
+            "GET",
+            &format!("/img/{number}.png"),
+            200,
+            &png(10 * number, 20),
+        );
+    }
+    let run = Cli::for_api(&api)
+        .env_remove("NO_COLOR")
+        .env("TERM_PROGRAM", "kitty")
+        .run_tty(
+            &[
+                "issue",
+                "view",
+                "ENG-21",
+                "ENG-22",
+                "--no-comments",
+                "--no-pager",
+            ],
+            &[],
+        );
+    run.success();
+    assert_eq!(run.terminal.matches("\x1b_Ga=t,").count(), 2, "{run}");
+    let last_transfer = run.terminal.rfind("\x1b_Ga=p,").expect("placements");
+    let first_text = run.terminal.find("ENG-21").expect("first issue");
+    assert!(last_transfer < first_text, "{run}");
+}
+
+#[test]
+fn view_never_draws_a_local_file_the_markdown_names_itself() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api)
+        .env_remove("NO_COLOR")
+        .env("TERM_PROGRAM", "ghostty");
+    std::fs::write(cli.path("secret.png"), png(8, 8)).expect("write png");
+    let mut value = issue(false);
+    value["description"] = json!(format!("![x]({})", cli.path("secret.png").display()));
+    api.on("GetIssueDetails", details(value));
+    let run = cli.run_tty(&VIEW_IMAGE, &[]);
+    run.success().stdout_has("Image: x");
+    assert!(!run.terminal.contains("\x1b_G"), "{run}");
 }

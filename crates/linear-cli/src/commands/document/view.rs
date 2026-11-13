@@ -1,5 +1,7 @@
 //! `document view`: a document as Markdown, raw content or JSON (with every
 //! comment), or opened in the browser.
+use std::collections::HashSet;
+
 use chrono::{DateTime, TimeZone, Utc};
 
 use crate::cli::document::DocumentView;
@@ -9,8 +11,8 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
 use crate::graphql::pagination::{self, Page};
-use crate::platform::markdown_assets;
 use crate::platform::view_footer::Linked;
+use crate::platform::{markdown_assets, markdown_terminal};
 
 pub fn run(ctx: &Ctx, args: &DocumentView) -> Result<()> {
     view(ctx, args).context("Failed to view document")
@@ -30,13 +32,16 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
     }
     let document = ctx.spin(!args.raw, body(client, &id, original))?;
     let download = !args.no_download && ctx.options().download_images();
-    let content = match document
+    let (content, downloaded) = match document
         .content
         .as_deref()
         .filter(|content| !content.is_empty())
     {
-        Some(content) if download => Some(local_images(ctx, client, content)?),
-        content => content.map(str::to_owned),
+        Some(content) if download => {
+            let (content, downloaded) = local_images(ctx, client, content)?;
+            (Some(content), downloaded)
+        }
+        content => (content.map(str::to_owned), HashSet::new()),
     };
     if args.raw {
         return match content {
@@ -45,12 +50,34 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
         };
     }
     let markdown = markdown(&document, content.as_deref(), Utc::now(), &chrono::Local);
-    ctx.show_markdown_view(&markdown, !args.no_pager, Linked::Document, &document.url)
+    if !ctx.stdout_tty() {
+        return ctx.print(format!("{markdown}\n"));
+    }
+    let mut options = ctx.render_options();
+    let images = ctx.inline_images();
+    ctx.load_inline_images(
+        images.as_deref(),
+        &[content.as_deref().unwrap_or_default()],
+        &downloaded,
+    )?;
+    options.images = images.clone();
+    let rendered = markdown_terminal::render(&markdown, &options);
+    ctx.page_view(
+        &rendered,
+        images.as_deref(),
+        !args.no_pager,
+        Linked::Document,
+        &document.url,
+    )
 }
 
 /// The content with its uploaded files downloaded and pointed at the local
-/// copies.
-fn local_images(ctx: &Ctx, client: &LinearClient, content: &str) -> Result<String> {
+/// copies, and those copies.
+fn local_images(
+    ctx: &Ctx,
+    client: &LinearClient,
+    content: &str,
+) -> Result<(String, HashSet<String>)> {
     let root = ctx.cache_dir("images");
     let paths = ctx.block_on(markdown_assets::download(
         client,
@@ -58,7 +85,8 @@ fn local_images(ctx: &Ctx, client: &LinearClient, content: &str) -> Result<Strin
         &[content],
         |line| ctx.eprint(line),
     ))?;
-    Ok(markdown_assets::rewrite(content, &paths))
+    let content = markdown_assets::rewrite(content, &paths);
+    Ok((content, paths.into_values().collect()))
 }
 
 async fn body(client: &LinearClient, id: &str, original: &str) -> Result<DocumentBody> {

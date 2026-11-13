@@ -1,7 +1,7 @@
 //! The `document` command group.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear, nodes};
+use crate::support::{Cli, MockLinear, nodes, png};
 use crate::team::{resolve_vars, resolved};
 
 const DOC_ID: &str = "00000000-0000-4000-9000-000000000051";
@@ -1075,4 +1075,31 @@ fn view_tty_ends_with_the_document_url_but_raw_does_not() {
     assert!(!raw.success().stdout.contains("on Linear:"), "{raw}");
     let piped = cli.run(&["document", "view", SLUG, "--no-download"]);
     assert!(!piped.success().stdout.contains("on Linear:"), "{piped}");
+}
+
+#[test]
+fn view_on_a_kitty_terminal_draws_downloaded_pngs() {
+    let api = MockLinear::start();
+    let mut doc = document();
+    doc["content"] = json!(format!(
+        "Diagram:\n\n![flow]({}/img/flow.png)\n",
+        api.base_url()
+    ));
+    api.on("GetDocument", json!({ "document": doc })).on_http(
+        "GET",
+        "/img/flow.png",
+        200,
+        &png(40, 40),
+    );
+    let run = Cli::for_api(&api)
+        .env_remove("NO_COLOR")
+        .env("TERM_PROGRAM", "rex")
+        .run_tty(&["document", "view", SLUG, "--no-pager"], &[]);
+    run.success()
+        .stdout_has("Image: flow")
+        .ends_with_footer(&format!(
+            "View this document on Linear: https://linear.app/acme/document/design-notes-{SLUG}"
+        ));
+    assert!(run.terminal.contains("\x1b_Ga=t,f=100,"), "{run}");
+    assert!(run.stdout.contains('\u{10eeee}'), "{run}");
 }

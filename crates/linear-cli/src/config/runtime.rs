@@ -107,6 +107,13 @@ fn relevant(name: &str, os: OsFamily) -> bool {
                 | "LOCALAPPDATA"
                 | "SSL_CERT_FILE"
                 | "DENO_CERT"
+                // Which terminal this is, for inline images.
+                | "TERM"
+                | "TERM_PROGRAM"
+                | "KITTY_WINDOW_ID"
+                | "TMUX"
+                | "STY"
+                | "LESSUTFCHARDEF"
         )
 }
 

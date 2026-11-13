@@ -30,6 +30,7 @@ pub enum OptionKey {
     IssueCreateAssignSelf,
     Vcs,
     DownloadImages,
+    InlineImages,
     HyperlinkFormat,
     AttachmentDir,
     AutoDownloadAttachments,
@@ -38,7 +39,7 @@ pub enum OptionKey {
 
 impl OptionKey {
     #[cfg(test)]
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::TeamKey,
         Self::ApiKey,
         Self::Workspace,
@@ -47,6 +48,7 @@ impl OptionKey {
         Self::IssueCreateAssignSelf,
         Self::Vcs,
         Self::DownloadImages,
+        Self::InlineImages,
         Self::HyperlinkFormat,
         Self::AttachmentDir,
         Self::AutoDownloadAttachments,
@@ -63,6 +65,7 @@ impl OptionKey {
             Self::IssueCreateAssignSelf => "issue_create_assign_self",
             Self::Vcs => "vcs",
             Self::DownloadImages => "download_images",
+            Self::InlineImages => "inline_images",
             Self::HyperlinkFormat => "hyperlink_format",
             Self::AttachmentDir => "attachment_dir",
             Self::AutoDownloadAttachments => "auto_download_attachments",
@@ -515,6 +518,7 @@ pub struct ConfigOptions {
     issue_create_assign_self: Option<Resolved<AssignSelf>>,
     vcs: Option<Resolved<Vcs>>,
     download_images: Option<Resolved<bool>>,
+    inline_images: Option<Resolved<bool>>,
     hyperlink_format: Option<Resolved<String>>,
     attachment_dir: Option<Resolved<String>>,
     auto_download_attachments: Option<Resolved<bool>>,
@@ -581,6 +585,7 @@ impl ConfigOptions {
             issue_create_assign_self: select(&inputs, OptionKey::IssueCreateAssignSelf, parsed)?,
             vcs: select(&inputs, OptionKey::Vcs, parsed)?,
             download_images: select(&inputs, OptionKey::DownloadImages, flag)?,
+            inline_images: select(&inputs, OptionKey::InlineImages, flag)?,
             hyperlink_format: select(&inputs, OptionKey::HyperlinkFormat, parsed)?,
             attachment_dir: select(&inputs, OptionKey::AttachmentDir, parsed)?,
             auto_download_attachments: select(&inputs, OptionKey::AutoDownloadAttachments, flag)?,
@@ -632,6 +637,13 @@ impl ConfigOptions {
     /// Whether issue and document views download images; on by default.
     pub fn download_images(&self) -> bool {
         self.download_images
+            .as_ref()
+            .is_none_or(|resolved| resolved.value)
+    }
+    /// Whether downloaded PNG images are shown in terminals that support the
+    /// kitty graphics protocol; on by default.
+    pub fn inline_images(&self) -> bool {
+        self.inline_images
             .as_ref()
             .is_none_or(|resolved| resolved.value)
     }

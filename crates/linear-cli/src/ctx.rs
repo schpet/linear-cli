@@ -1,10 +1,13 @@
 //! The context every command runs in: loaded configuration, lazily resolved
 //! credentials and API client, the async runtime, and the terminal.
+use std::borrow::Cow;
 use std::cell::OnceCell;
+use std::collections::HashSet;
 use std::future::Future;
 use std::io::{self, IsTerminal};
 use std::num::NonZeroU16;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::auth::keyring;
 use crate::auth::{
@@ -12,15 +15,18 @@ use crate::auth::{
     CredentialWarning, LookupFailureCategory, WorkspaceChoice,
 };
 use crate::client::{ApiKey, LinearClient};
-use crate::config::{ConfigOptions, ConfigSecret, NetworkEnv, OptionSource, StartupConfig};
+use crate::config::{
+    ChildEnvOverlay, ConfigOptions, ConfigSecret, NetworkEnv, OptionSource, StartupConfig,
+};
 use crate::error::{Error, Result};
 use crate::graphql::operations::user::GetViewer;
+use crate::platform::kitty::{CellSize, InlineImages};
 use crate::platform::markdown_terminal::{self, RenderOptions};
 use crate::platform::output::{self, Stdout};
 use crate::platform::prompt::Prompter;
 use crate::platform::spinner::Spinner;
 use crate::platform::view_footer::{self, Linked};
-use crate::platform::{editor, opener, pager, style};
+use crate::platform::{editor, markdown_assets, opener, pager, style};
 use crate::refs::WorkspaceScope;
 
 /// Which standard streams are terminals, and whether each gets color.
@@ -252,13 +258,32 @@ impl Ctx {
     /// Shows rendered terminal output, through the pager when `paging` is on
     /// and it does not fit on the screen.
     pub fn page(&self, rendered: &str, paging: bool) -> Result<()> {
+        self.page_with_images(rendered, &[], paging)
+    }
+
+    /// [`Self::page`] for text that draws `images`: the images it drew are
+    /// sent to the terminal first, since a pager would mangle the transfers,
+    /// and only the placeholder text is paged.
+    pub fn page_with_images(
+        &self,
+        rendered: &str,
+        images: &[&InlineImages],
+        paging: bool,
+    ) -> Result<()> {
+        let graphics: String = images.iter().map(|images| images.transfers()).collect();
+        if !graphics.is_empty() {
+            self.flush()?;
+            self.print(&graphics)?;
+            self.flush()?;
+        }
         if paging && self.terminal.stdout_tty && pager::too_long(rendered, pager::stdout_size()) {
             self.flush()?;
-            match pager::page(
-                rendered,
-                self.config.pager.as_deref(),
-                &self.config.child_env,
-            ) {
+            let env = if graphics.is_empty() {
+                Cow::Borrowed(&self.config.child_env)
+            } else {
+                Cow::Owned(self.image_pager_env())
+            };
+            match pager::page(rendered, self.config.pager.as_deref(), &env) {
                 Ok(pager::Paged::Shown) => return Ok(()),
                 Ok(pager::Paged::NoPager) => {}
                 // A failed pager may have shown nothing, so the text is
@@ -275,6 +300,70 @@ impl Ctx {
         Ok(())
     }
 
+    /// The pager's environment when the text holds image placeholders: less
+    /// shows U+10EEEE as `<U+10EEEE>` unless `LESSUTFCHARDEF` marks it
+    /// printable.
+    fn image_pager_env(&self) -> ChildEnvOverlay {
+        let inherited = self
+            .config
+            .child_env
+            .get("LESSUTFCHARDEF")
+            .or(self.config.less_utf_chardef.as_deref())
+            .filter(|value| !value.is_empty());
+        let value = match inherited {
+            Some(value) => format!("{value},10EEEE:p"),
+            None => "10EEEE:p".to_owned(),
+        };
+        self.config.child_env.with("LESSUTFCHARDEF", value)
+    }
+
+    /// Where the command's views may draw images inline: `None` unless
+    /// stdout is a color terminal with kitty graphics and `inline_images` is
+    /// on. Load each view's images with [`Self::load_inline_images`].
+    pub fn inline_images(&self) -> Option<Arc<InlineImages>> {
+        if !(self.color() && self.config.kitty_graphics && self.options().inline_images()) {
+            return None;
+        }
+        let window = crossterm::terminal::window_size().ok();
+        let cell = window
+            .as_ref()
+            .and_then(|window| {
+                CellSize::from_window((window.width, window.height), (window.columns, window.rows))
+            })
+            .unwrap_or(CellSize::FALLBACK);
+        // Room for the image's link line and some text around it.
+        let max_rows = match window.map(|window| window.rows) {
+            Some(rows) if rows > 0 => usize::from(rows).saturating_sub(4).clamp(4, 30),
+            Some(_) | None => 20,
+        };
+        Some(Arc::new(InlineImages::new(cell, max_rows)))
+    }
+
+    /// Loads into `images` the PNGs that `bodies` show as images and that
+    /// are among `downloaded`, the local files the CLI itself downloaded.
+    /// Any other path a body names, such as one its author typed, is never
+    /// read. A file that cannot be shown is reported and stays a link.
+    pub fn load_inline_images(
+        &self,
+        images: Option<&InlineImages>,
+        bodies: &[&str],
+        downloaded: &HashSet<String>,
+    ) -> Result<()> {
+        let Some(images) = images else {
+            return Ok(());
+        };
+        let paths = bodies
+            .iter()
+            .flat_map(|body| markdown_assets::image_destinations(body))
+            .filter(|path| downloaded.contains(path));
+        for path in paths {
+            if let Err(error) = images.load(&path) {
+                self.eprint(format!("Warning: Not showing {path} inline: {error}\n"))?;
+            }
+        }
+        Ok(())
+    }
+
     /// Prints Markdown: rendered for the terminal (and paged when `paging` is
     /// on and it is long) when stdout is a terminal, verbatim otherwise.
     pub fn show_markdown(&self, markdown: &str, paging: bool) -> Result<()> {
@@ -287,9 +376,21 @@ impl Ctx {
 
     /// Shows a rendered terminal view followed by a line linking to what it
     /// shows in Linear.
-    pub fn page_view(&self, rendered: &str, paging: bool, linked: Linked, url: &str) -> Result<()> {
+    /// `images` are the inline images `rendered` draws, if any.
+    pub fn page_view(
+        &self,
+        rendered: &str,
+        images: Option<&InlineImages>,
+        paging: bool,
+        linked: Linked,
+        url: &str,
+    ) -> Result<()> {
         let footer = view_footer::footer(linked, url, self.color());
-        self.page(&view_footer::append(rendered, &footer), paging)
+        self.page_with_images(
+            &view_footer::append(rendered, &footer),
+            images.as_slice(),
+            paging,
+        )
     }
 
     /// Like [`Self::show_markdown`], ending with a line linking to what the
@@ -305,7 +406,7 @@ impl Ctx {
             return self.print(format!("{markdown}\n"));
         }
         let rendered = self.render_markdown(markdown);
-        self.page_view(&rendered, paging, linked, url)
+        self.page_view(&rendered, None, paging, linked, url)
     }
 
     /// Options for the stdout terminal: width or fallback, color, and file links.

@@ -255,3 +255,22 @@ fn view_rejects_a_linear_url_before_any_request() {
         .failure();
     assert!(api.requests().is_empty());
 }
+
+#[test]
+fn view_pages_graphics_escapes_in_remote_text_instead_of_sending_them() {
+    let mut template = bug_report();
+    let lines: Vec<String> = (1..=80).map(|n| format!("line {n}")).collect();
+    template["description"] = json!(format!("\x1b_Ga=d\x1b\\\n{}", lines.join("\n")));
+    let api = MockLinear::start();
+    api.on("GetTemplate", json!({ "template": template }));
+    let cli = Cli::for_api(&api)
+        .env("TERM_PROGRAM", "ghostty")
+        .stub_bin("sh", "exec /bin/sh \"$@\"")
+        .stub_bin("pager", "cat > /dev/null");
+    let pager = cli.path("bin/pager").display().to_string();
+    let run = cli
+        .env("PAGER", &pager)
+        .run_tty(&["template", "view", BUG_ID], &[]);
+    run.success();
+    assert!(!run.terminal.contains("\x1b_G"), "{run}");
+}

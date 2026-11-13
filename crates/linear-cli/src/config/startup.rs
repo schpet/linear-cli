@@ -29,7 +29,6 @@ pub struct ChildEnvOverlay {
 }
 
 impl ChildEnvOverlay {
-    #[cfg(test)]
     pub fn get(&self, name: &str) -> Option<&str> {
         if self.os == OsFamily::Windows {
             self.values
@@ -45,6 +44,19 @@ impl ChildEnvOverlay {
         self.values
             .iter()
             .map(|(key, value)| (key.as_str(), value.as_str()))
+    }
+
+    /// These values with `name` set to `value`, replacing any value it has.
+    pub fn with(&self, name: &str, value: String) -> Self {
+        let mut values = self.values.clone();
+        if self.os == OsFamily::Windows {
+            values.retain(|key, _| !key.eq_ignore_ascii_case(name));
+        }
+        values.insert(name.to_owned(), value);
+        Self {
+            os: self.os,
+            values,
+        }
     }
 
     /// No `.env` values.
@@ -75,6 +87,10 @@ pub struct StartupConfig {
     pub pager: Option<OsString>,
     /// The per-user cache directory for downloads, when one can be found.
     pub cache_dir: Option<std::path::PathBuf>,
+    /// The process environment names a terminal with kitty graphics.
+    pub kitty_graphics: bool,
+    /// Process `LESSUTFCHARDEF`, extended for the pager when it shows images.
+    pub less_utf_chardef: Option<String>,
 }
 
 impl fmt::Debug for StartupConfig {
@@ -265,6 +281,8 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
                 process.inputs.env("LOCALAPPDATA"),
             ),
             network_env: NetworkEnv::from_process(process),
+            kitty_graphics: crate::platform::kitty::supported(|name| process.inputs.env(name)),
+            less_utf_chardef: process.inputs.env("LESSUTFCHARDEF").map(str::to_owned),
         }),
     }
 }
