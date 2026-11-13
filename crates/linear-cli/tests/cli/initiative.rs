@@ -1149,3 +1149,16 @@ fn health_reads_as_words_in_text() {
     run.success().stdout_has("At Risk");
     assert!(!run.stdout.contains("atRisk"), "{run}");
 }
+
+#[test]
+fn view_tty_ends_with_the_initiative_url() {
+    let api = MockLinear::start();
+    api.on("GetInitiativeDetails", json!({ "initiative": details() }))
+        .on("GetInitiativeDetails", json!({ "initiative": details() }));
+    let cli = Cli::for_api(&api);
+    cli.run_tty(&["initiative", "view", ID, "--no-pager"], &[])
+        .success()
+        .ends_with_footer(&format!("View this initiative on Linear: {URL}"));
+    let piped = cli.run(&["initiative", "view", ID]);
+    assert!(!piped.success().stdout.contains("on Linear:"), "{piped}");
+}

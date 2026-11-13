@@ -11,6 +11,7 @@ use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::cycle::{DetailCycle, DetailVariables, GetCycleDetails};
 use crate::graphql::scalars::WholeNumber;
+use crate::platform::view_footer::Linked;
 use crate::refs::{self, cycle::CycleReference, team::TeamReference};
 
 pub fn run(ctx: &Ctx, args: &CycleView) -> Result<()> {
@@ -37,13 +38,24 @@ fn view(ctx: &Ctx, args: &CycleView) -> Result<()> {
             .ok_or_else(|| Error::not_found("Cycle", &args.cycle_ref))
     })?;
     if args.json {
-        ctx.print(render_json(&cycle))
-    } else {
-        ctx.show_markdown(
-            &markdown(&cycle, Utc::now(), &chrono::Local),
-            !args.no_pager,
-        )
+        return ctx.print(render_json(&cycle));
     }
+    let markdown = markdown(&cycle, Utc::now(), &chrono::Local);
+    if !ctx.stdout_tty() {
+        return ctx.show_markdown(&markdown, !args.no_pager);
+    }
+    let url = cycle_url(&ctx.workspace_url_key()?, &cycle.team.key, cycle.number)?;
+    ctx.show_markdown_view(&markdown, !args.no_pager, Linked::Cycle, &url)
+}
+
+/// The cycle's page in Linear. The API has no URL for cycles; this is the
+/// route Linear's web app uses, and the one `refs::url` reads.
+fn cycle_url(workspace: &str, team_key: &str, number: WholeNumber) -> Result<String> {
+    let mut url = reqwest::Url::parse("https://linear.app/").expect("a valid base URL");
+    url.path_segments_mut()
+        .map_err(|()| Error::new("Linear's web address cannot hold a path"))?
+        .extend([workspace, "team", team_key, "cycle", &number.to_string()]);
+    Ok(url.into())
 }
 
 #[derive(Serialize)]

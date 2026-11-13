@@ -20,6 +20,7 @@ use crate::graphql::operations::project::{
 use crate::graphql::pagination::{self, Page, PageInfo, Pages};
 use crate::platform::prompt::Choice;
 use crate::platform::style;
+use crate::platform::view_footer::Linked;
 use crate::refs::{self, project::ProjectReference};
 
 const PAGE_SIZE: i32 = 250;
@@ -59,9 +60,11 @@ fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
         }
         return ctx.print(json::render(&project));
     }
-    ctx.show_markdown(
+    ctx.show_markdown_view(
         &markdown(&project, Utc::now(), &chrono::Local),
         !args.no_pager,
+        Linked::Project,
+        &project.url,
     )
 }
 

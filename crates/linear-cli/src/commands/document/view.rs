@@ -10,6 +10,7 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::document::*;
 use crate::graphql::pagination::{self, Page};
 use crate::platform::markdown_assets;
+use crate::platform::view_footer::Linked;
 
 pub fn run(ctx: &Ctx, args: &DocumentView) -> Result<()> {
     view(ctx, args).context("Failed to view document")
@@ -44,7 +45,7 @@ fn view(ctx: &Ctx, args: &DocumentView) -> Result<()> {
         };
     }
     let markdown = markdown(&document, content.as_deref(), Utc::now(), &chrono::Local);
-    ctx.show_markdown(&markdown, !args.no_pager)
+    ctx.show_markdown_view(&markdown, !args.no_pager, Linked::Document, &document.url)
 }
 
 /// The content with its uploaded files downloaded and pointed at the local

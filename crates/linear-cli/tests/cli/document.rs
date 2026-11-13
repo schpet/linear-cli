@@ -1056,3 +1056,23 @@ fn create_on_a_terminal_checks_the_attachment_flag_before_the_editor() {
     assert!(run.stdout.contains("Project not found: nope"), "{run}");
     assert!(cli.calls("editor").is_empty());
 }
+
+#[test]
+fn view_tty_ends_with_the_document_url_but_raw_does_not() {
+    let api = MockLinear::start();
+    api.on("GetDocument", json!({ "document": document() }))
+        .on("GetDocument", json!({ "document": document() }))
+        .on("GetDocument", json!({ "document": document() }));
+    let cli = Cli::for_api(&api);
+    let url = format!("https://linear.app/acme/document/design-notes-{SLUG}");
+    cli.run_tty(
+        &["document", "view", SLUG, "--no-download", "--no-pager"],
+        &[],
+    )
+    .success()
+    .ends_with_footer(&format!("View this document on Linear: {url}"));
+    let raw = cli.run_tty(&["document", "view", SLUG, "--no-download", "--raw"], &[]);
+    assert!(!raw.success().stdout.contains("on Linear:"), "{raw}");
+    let piped = cli.run(&["document", "view", SLUG, "--no-download"]);
+    assert!(!piped.success().stdout.contains("on Linear:"), "{piped}");
+}

@@ -624,3 +624,18 @@ fn delete_reports_an_unknown_milestone_without_asking() {
         .not_found()
         .stderr_has(&format!("Milestone not found: {MILESTONE_ID}"));
 }
+
+#[test]
+fn view_tty_ends_with_its_project_url() {
+    let api = MockLinear::start();
+    api.on(
+        "GetMilestoneDetails",
+        details(vec![issue(1)], Value::Null, false),
+    );
+    Cli::for_api(&api)
+        .run_tty(&["milestone", "view", MILESTONE_ID, "--no-pager"], &[])
+        .success()
+        .ends_with_footer(
+            "View this project on Linear: https://linear.app/acme/project/mobile-app-abc123def456",
+        );
+}

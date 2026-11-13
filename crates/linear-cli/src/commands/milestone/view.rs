@@ -13,6 +13,7 @@ use crate::graphql::operations::milestone::{
 };
 use crate::graphql::pagination::{self, Page};
 use crate::graphql::scalars::Float;
+use crate::platform::view_footer::Linked;
 use crate::refs::{self, is_linear_uuid, project::ProjectReference, reject_linear_url};
 
 const LIST_PREVIEW: usize = 10;
@@ -49,7 +50,13 @@ fn view(ctx: &Ctx, args: &MilestoneView) -> Result<()> {
         ctx.print(render_json(&milestone))
     } else {
         let markdown = markdown(&milestone, args.all, Utc::now(), &chrono::Local);
-        ctx.show_markdown(&markdown, !args.no_pager)
+        // A milestone has no page of its own; it is shown in its project.
+        ctx.show_markdown_view(
+            &markdown,
+            !args.no_pager,
+            Linked::Project,
+            &milestone.project.url,
+        )
     }
 }
 

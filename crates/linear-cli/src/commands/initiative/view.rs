@@ -17,6 +17,7 @@ use crate::graphql::operations::initiative::{InitiativeStatus, InitiativeUpdateH
 use crate::graphql::operations::project::ProjectStatusType;
 use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::graphql::scalars;
+use crate::platform::view_footer::Linked;
 use crate::refs::{self, initiative::Archived};
 
 pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
@@ -44,7 +45,12 @@ fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     let rendered = ctx.render_markdown(&markdown(&detail, now, true));
     let status = format!("**Status:** {}", detail.status.as_str());
     let status = super::list::status_style(&detail.status, &status, ctx.color());
-    ctx.page(&format!("{status}\n{rendered}"), !args.no_pager)
+    ctx.page_view(
+        &format!("{status}\n{rendered}"),
+        !args.no_pager,
+        Linked::Initiative,
+        &detail.url,
+    )
 }
 
 async fn fetch(client: &LinearClient, id: String, original: &str) -> Result<InitiativeDetails> {

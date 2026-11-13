@@ -18,3 +18,4 @@ pub mod spinner;
 pub mod style;
 pub mod terminal_text;
 pub mod vcs;
+pub mod view_footer;
