@@ -319,6 +319,9 @@ linear schema
 
 linear skill
 linear skill show
+linear skill setup
+linear skill status
+linear skill remove
 
 linear team
 linear team list

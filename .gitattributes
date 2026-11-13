@@ -3,3 +3,6 @@ graphql/** -diff linguist-generated=true
 
 # Preserve pinned license bytes for SHA-256 verification on every platform.
 licenses/supplemental/*.txt -text
+
+# The installed skill is recognized by its exact bytes on every platform.
+crates/linear-cli/src/commands/skill/stub.md -text
