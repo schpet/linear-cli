@@ -4,7 +4,6 @@
 use crate::cli::issue::IssueTransition;
 use crate::client::LinearClient;
 use crate::commands::json::quoted;
-use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::issue::{
@@ -12,7 +11,6 @@ use crate::graphql::operations::issue::{
 };
 use crate::graphql::operations::team::WorkflowState;
 use crate::platform::terminal_text::single_line;
-use crate::refs::prepare_issue_reference;
 
 /// The status move a command asks for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -230,14 +228,7 @@ pub fn run(ctx: &Ctx, verb: Verb, args: &IssueTransition) -> Result<()> {
 }
 
 fn named(ctx: &Ctx, verb: Verb, input: &str) -> Result<()> {
-    let team = configured_team_key(ctx.options());
-    let identifier = prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)?
-        .ok_or_else(|| {
-            Error::invalid(format!("Not an issue ID: {input}")).with_hint(
-                "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
-            )
-        })?;
-    run_for(ctx, verb, identifier)
+    run_for(ctx, verb, super::require(ctx, input)?)
 }
 
 #[cfg(test)]

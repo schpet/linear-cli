@@ -14,8 +14,8 @@ linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
 linear issue start ABC-123  # move an issue to its team's first started status
 linear issue git start      # choose an issue, create its branch, and start it
-linear issue view           # see current branch's issue as markdown
-linear issue gh pr          # makes a PR with title/body preset, using gh cli
+linear issue view ABC-123   # see an issue as markdown
+linear issue gh pr ABC-123  # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
 ```
 
@@ -120,32 +120,25 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 
 the CLI works with both git and jj version control systems:
 
-- **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue git start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
-- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue jj start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`. `linear issue gh pr` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+- **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests; the cli itself does not read them.
+- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `linear issue commits ABC-123` lists the changes whose trailers name the issue. `linear issue gh pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
 
 ## commands
 
 ### issue commands
 
-the current issue is determined by:
-
-- **git**: the issue id in the current branch name (e.g. `eng-123-my-feature`)
-- **jj**: the `Linear-issue` trailer in the current or ancestor commits
-
-note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest git branch names.
+every command takes the issue it acts on: an ID like `ENG-123`, an issue URL, or a bare number in the configured team. the cli never works out the issue from your branch name or commits.
 
 ```bash
-linear issue view      # view current issue details in terminal
-linear issue view ABC-123
+linear issue view ABC-123  # view issue details in terminal
 linear issue view 123
 linear issue view ABC-123 ABC-124         # multiple issues, in argument order
 linear issue view ABC-123 ABC-124 --json  # an array; one issue returns an object
-linear issue view -w   # open issue in web browser
-linear issue view -a   # open issue in Linear.app
-linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
-linear issue title     # prints just the issue title
-linear issue url       # prints the Linear.app URL for the issue
-linear issue gh pr     # creates a GitHub PR with issue details via `gh pr create`; with jj, pushes a bookmark for it first
+linear issue view ABC-123 -w   # open issue in web browser
+linear issue view ABC-123 -a   # open issue in Linear.app
+linear issue title ABC-123     # prints just the issue title
+linear issue url ABC-123       # prints the Linear.app URL for the issue
+linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`; with jj, pushes a bookmark for it first
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
 linear issue list -w   # open issue list in web browser
@@ -169,13 +162,13 @@ linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing i
 linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
 linear issue archive ENG-123 --yes  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
 linear issue archive --yes --bulk ENG-123 ENG-124  # archive several issues
-linear issue delete    # delete an issue
-linear issue comment list          # list comments on current issue
-linear issue comment add           # add a comment to current issue
-linear issue comment add --reply-to <id>   # reply to a comment (-p / --parent are aliases)
-linear issue comment list --json   # comments as JSON, with quotedText and parent for inline comments and replies
+linear issue delete ENG-123   # delete an issue
+linear issue comment list ENG-123          # list comments on an issue
+linear issue comment add ENG-123           # add a comment to an issue
+linear issue comment add ENG-123 --reply-to <id>   # reply to a comment (-p / --parent are aliases)
+linear issue comment list ENG-123 --json   # comments as JSON, with quotedText and parent for inline comments and replies
 linear issue comment update <id>   # update a comment
-linear issue commits               # show all commits for an issue (jj only)
+linear issue commits ENG-123       # show all commits for an issue (jj only)
 ```
 
 #### attaching files
@@ -469,6 +462,6 @@ linear's UI is incredibly good but it slows me down. i find the following pretty
 - linear suggests a git branch, but i have to do the work of creating or switching to that branch
 - linear's suggested git branch doesn't account for it already existing or having a merged pull request
 
-this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
+this cli solves this. it does the work of preparing a branch or change for an issue, and will write your pull request details for you.
 
 [^1]: creating an API key requires member access, it is not available for guest accounts.

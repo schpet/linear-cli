@@ -22,7 +22,7 @@ pub fn run(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
 }
 
 fn list(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
-    let identifier = super::super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let comments = ctx.spin(!args.json, fetch_comments(client, &identifier))?;
     let mut sessions = sessions(comments, args.status);

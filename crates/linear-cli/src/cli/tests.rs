@@ -29,7 +29,14 @@ fn enum_values_are_kebab_case_and_keep_their_camel_case_spellings() {
         parses(&["project-update", "create", "P", "--health", health]);
     }
     for status in ["awaiting-input", "awaitingInput"] {
-        parses(&["issue", "agent-session", "list", "--status", status]);
+        parses(&[
+            "issue",
+            "agent-session",
+            "list",
+            "ENG-1",
+            "--status",
+            status,
+        ]);
     }
 }
 

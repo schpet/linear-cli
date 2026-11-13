@@ -33,7 +33,7 @@ fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
 }
 
 /// The issue to start: the one named, or one picked from the team's
-/// unstarted issues. Start never infers the issue from the VCS.
+/// unstarted issues.
 pub(super) fn target(ctx: &Ctx, args: &StartTarget) -> Result<String> {
     if args.issue_id.is_none() && !ctx.interactive() {
         return Err(ctx.missing_value("No issue to start", "an issue ID"));

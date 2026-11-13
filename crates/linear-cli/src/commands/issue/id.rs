@@ -1,17 +1,8 @@
-//! `issue id`, and resolving an issue identifier to its UUID.
+//! Resolving an issue identifier to its UUID.
 use crate::client::LinearClient;
-use crate::ctx::Ctx;
-use crate::error::{Error, Result, ResultExt};
+use crate::error::{Error, Result};
 use crate::graphql::operations::common::IdVariables;
 use crate::graphql::operations::issue::GetIssueId;
-
-/// Prints the issue the current git branch or jj change names.
-pub fn run(ctx: &Ctx) -> Result<()> {
-    let identifier = super::infer(ctx)
-        .and_then(|identifier| identifier.ok_or_else(|| super::unresolved(ctx)))
-        .context("Failed to get issue ID")?;
-    ctx.print(format!("{identifier}\n"))
-}
 
 pub async fn fetch(client: &LinearClient, identifier: &str) -> Result<String, Error> {
     let result: GetIssueId = client

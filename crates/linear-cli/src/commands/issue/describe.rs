@@ -11,7 +11,7 @@ pub fn run(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
 }
 
 fn describe(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let detail = ctx.spin(true, details::fetch(client, identifier.clone()))?;
     if !ctx.stdout_tty() {

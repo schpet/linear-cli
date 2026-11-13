@@ -39,7 +39,7 @@ impl ThreadFilter {
 
 fn list(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
     let filter = ThreadFilter::from_flags(args.resolved, args.unresolved);
-    let identifier = crate::commands::issue::require(ctx, args.issue_id.as_deref())?;
+    let identifier = crate::commands::issue::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     // Linear cannot filter comments by resolution, so a filtered list reads
     // every comment and then applies --limit to what is left.

@@ -20,7 +20,7 @@ pub fn run(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
 fn update(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
     let fields = Fields::from(args);
     let description = fields.local()?;
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     let backend = super::create::backend(ctx)?;
     let changes = ctx.spin(true, input(&backend, &identifier, &fields, description))?;
     let issue = ctx.spin(true, backend.update(identifier, changes))?;
@@ -120,7 +120,7 @@ impl Fields {
             && !clear_cycle
     }
 
-    /// Flag conflicts, checked before reading files, inferring an issue or any request.
+    /// Flag conflicts, checked before reading files or any request.
     pub fn local(&self) -> Result<Option<String>, Error> {
         if self.is_empty() {
             return Err(Error::invalid("No changes given").with_hint(

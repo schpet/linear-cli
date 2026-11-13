@@ -15,6 +15,16 @@
 
 - `issue create --start` and the last question of `issue create -i` no longer create a branch or a jj change. They create the issue in the team's first started status, assigned to you, in one request. `--start` cannot be combined with `--state`, and the wizard's question now reads `Start this issue now (first started status, assigned to you)?`
 - `issue pull-request` and its alias `issue pr` moved to `issue gh pull-request` and `issue gh pr`, with the same arguments and flags. The old spellings fail with an error that names the new command
+- the issue is no longer read from the git branch name or from jj `Linear-issue` trailers. Every command that defaulted to "the current branch's issue" now requires the issue as an argument (an ID like `ENG-123`, an issue URL, or a bare number in the configured team): `issue view`, `title`, `url`, `describe`, `commits`, `gh pull-request`, `update`, `archive`, `comment add`, `comment list`, `relation list` and `agent-session list`. Leaving it out is a usage error (exit 2) before anything is sent. `issue archive` and `issue delete` need an issue or one of the `--bulk` options. An argument that names no issue fails with `Not an issue ID: …` instead of `Could not determine issue ID`
+- `issue link` takes the issue and the URL, `linear issue link ENG-123 https://example.com/doc`. The one-argument form that linked a URL to the current branch's issue is gone
+- `issue id` was removed, since the lookup was all it printed. Running it fails with an error that says so. A script that wants the old behavior with git can read the ID from the branch name itself, taking the first thing in it that looks like an issue ID:
+
+  ```sh
+  issue=$(git branch --show-current | grep -oiE '[a-z][a-z0-9]*-[0-9]+' | head -n 1)
+  linear issue view "$issue"
+  ```
+
+  `issue git start`, `issue jj start` (which still writes `Linear-issue` trailers), `issue describe`, `issue commits` and the `vcs` setting are unchanged
 
 ### Added
 

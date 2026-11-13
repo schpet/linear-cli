@@ -14,7 +14,7 @@ fn add(ctx: &Ctx, args: &IssueCommentAdd) -> Result<()> {
     validate_comment_id(args.id.as_deref())?;
     let text = comment_add::resolve_body(args.body.as_deref(), args.body_file.as_ref())?;
     comment_add::check_parent(args.reply_to.as_deref())?;
-    let identifier = crate::commands::issue::require(ctx, args.issue_id.as_deref())?;
+    let identifier = crate::commands::issue::require(ctx, &args.issue_id)?;
     if args.public && args.attach.is_empty() {
         return Err(Error::new("--public requires at least one --attach")
             .with_hint("Add --attach <file> to upload, or remove --public."));
