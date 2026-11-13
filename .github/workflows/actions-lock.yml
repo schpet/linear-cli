@@ -1,0 +1,32 @@
+# Fails when .github/workflows/actions.lock no longer matches the `uses:` lines
+# of the workflows here, or a locked commit no longer verifies upstream.
+#
+# A workflow whose lockfile entries are out of date does not start at all, and
+# no check for it shows up on the pull request. That is why this lives in its
+# own workflow: it still runs, and fails with the reason, when ci.yml or
+# release.yml is the one that is out of date.
+name: Actions lockfile
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify actions.lock
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      # Keep this at or above the version that last wrote actions.lock.
+      - name: Install gh actions-lock
+        run: gh extension install github/gh-actions-lock --pin v0.4.1
+      - name: Verify the lockfile
+        run: gh actions-lock --verify
