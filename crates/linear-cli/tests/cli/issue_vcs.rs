@@ -10,7 +10,7 @@ fn details() -> Value {
     json!({ "issue": {
         "identifier": "ENG-7", "title": "Repair the widget", "description": null,
         "url": URL, "branchName": "eng-7-repair-the-widget",
-        "state": { "name": "Todo", "color": "#123456" }, "assignee": null, "delegate": null, "priority": 2,
+        "state": { "name": "Todo", "type": "unstarted", "color": "#123456" }, "assignee": null, "delegate": null, "priority": 2,
         "project": null, "projectMilestone": null, "cycle": null,
         "team": { "key": "ENG", "activeCycle": null }, "labels": { "nodes": [], "pageInfo": last }, "parent": null,
         "children": { "nodes": [], "pageInfo": last },
@@ -151,16 +151,16 @@ fn describe_infers_the_issue_from_the_branch() {
 }
 
 #[test]
-fn start_creates_the_issue_branch_and_marks_it_started() {
+fn git_start_creates_the_issue_branch_and_marks_it_started() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
+    api.on("GetIssueTransitionDetails", details())
         .on("GetWorkflowStates", states())
         .on(
             "UpdateIssueState",
             json!({ "issueUpdate": { "success": true } }),
         );
     let cli = git(Cli::for_api(&api), "main");
-    cli.run(&["issue", "start", "ENG-7"])
+    cli.run(&["issue", "git", "start", "ENG-7"])
         .success()
         .stdout_has("eng-7-repair-the-widget")
         .stdout_has("In Progress");
@@ -180,7 +180,10 @@ fn start_creates_the_issue_branch_and_marks_it_started() {
         "--quiet".to_owned(),
         "refs/heads/eng-7-repair-the-widget".to_owned(),
     ]));
-    assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-7" }));
+    assert_eq!(
+        api.variables("GetIssueTransitionDetails"),
+        json!({ "id": "ENG-7" })
+    );
     assert_eq!(
         api.variables("GetWorkflowStates"),
         json!({ "teamKey": "ENG", "first": 100 })
@@ -192,9 +195,9 @@ fn start_creates_the_issue_branch_and_marks_it_started() {
 }
 
 #[test]
-fn start_accepts_a_custom_branch_and_base_ref() {
+fn git_start_accepts_a_custom_branch_and_base_ref() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
+    api.on("GetIssueTransitionDetails", details())
         .on("GetWorkflowStates", states())
         .on(
             "UpdateIssueState",
@@ -203,6 +206,7 @@ fn start_accepts_a_custom_branch_and_base_ref() {
     let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
     cli.run(&[
         "issue",
+        "git",
         "start",
         "7",
         "--branch",
@@ -219,47 +223,47 @@ fn start_accepts_a_custom_branch_and_base_ref() {
 }
 
 #[test]
-fn start_fails_after_preparing_the_branch_when_the_state_update_fails() {
+fn git_start_fails_after_preparing_the_branch_when_the_state_update_fails() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
+    api.on("GetIssueTransitionDetails", details())
         .on_error("GetWorkflowStates", "Team not found");
     let cli = git(Cli::for_api(&api), "main");
-    cli.run(&["issue", "start", "ENG-7"])
+    cli.run(&["issue", "git", "start", "ENG-7"])
         .failure()
         .stdout_has("Created and switched to branch")
-        .stderr_has("Could not move the issue to a started state")
+        .stderr_has("Could not move the issue to a started status")
         .stderr_has("Team not found")
         .stderr_has("The branch is ready");
     assert!(calls(&cli, "git").iter().any(|args| args[0] == "checkout"));
 }
 
 #[test]
-fn start_fails_when_linear_does_not_update_the_state() {
+fn jj_start_fails_when_linear_does_not_update_the_state() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
+    api.on("GetIssueTransitionDetails", details())
         .on("GetWorkflowStates", states())
         .on(
             "UpdateIssueState",
             json!({ "issueUpdate": { "success": false } }),
         );
     let cli = jj(Cli::for_api(&api));
-    cli.run(&["issue", "start", "ENG-7"])
+    cli.run(&["issue", "jj", "start", "ENG-7"])
         .failure()
         .stderr_has("Linear did not update the issue")
         .stderr_has("The jj change is ready");
 }
 
 #[test]
-fn start_uses_the_workflow_states_of_the_issue_team() {
+fn git_start_uses_the_workflow_states_of_the_issue_team() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
+    api.on("GetIssueTransitionDetails", details())
         .on("GetWorkflowStates", states())
         .on(
             "UpdateIssueState",
             json!({ "issueUpdate": { "success": true } }),
         );
     let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "OPS"), "main");
-    cli.run(&["issue", "start", "ENG-7"]).success();
+    cli.run(&["issue", "git", "start", "ENG-7"]).success();
     assert_eq!(
         api.variables("GetWorkflowStates"),
         json!({ "teamKey": "ENG", "first": 100 })
@@ -267,16 +271,16 @@ fn start_uses_the_workflow_states_of_the_issue_team() {
 }
 
 #[test]
-fn start_with_jj_makes_a_new_described_change() {
+fn jj_start_makes_a_new_described_change() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
+    api.on("GetIssueTransitionDetails", details())
         .on("GetWorkflowStates", states())
         .on(
             "UpdateIssueState",
             json!({ "issueUpdate": { "success": true } }),
         );
     let cli = jj(Cli::for_api(&api));
-    cli.run(&["issue", "start", "ENG-7"]).success();
+    cli.run(&["issue", "jj", "start", "ENG-7"]).success();
     let jj = calls(&cli, "jj");
     assert!(jj.contains(&vec!["new".to_owned()]), "{jj:?}");
     let describe = jj
@@ -294,22 +298,56 @@ fn start_with_jj_makes_a_new_described_change() {
 }
 
 #[test]
-fn start_with_jj_rejects_git_only_flags_before_any_request() {
+fn git_and_jj_start_prepare_the_working_copy_of_a_started_or_closed_issue_and_keep_its_status() {
+    for (name, state_type, said) in [
+        ("In Review", "started", "is already started (In Review)"),
+        (
+            "Done",
+            "completed",
+            "is closed (Done), so it was not started",
+        ),
+    ] {
+        let mut issue = details();
+        issue["issue"]["state"] = json!({ "name": name, "type": state_type });
+        let api = MockLinear::start();
+        api.on("GetIssueTransitionDetails", issue.clone())
+            .on("GetIssueTransitionDetails", issue);
+        // The explicit namespace wins over the configured VCS.
+        let cli = git(Cli::for_api(&api).env("LINEAR_VCS", "jj"), "main");
+        cli.run(&["issue", "git", "start", "ENG-7"])
+            .success()
+            .stdout_has("Created and switched to branch 'eng-7-repair-the-widget'")
+            .stdout_has(said);
+        let cli = jj(Cli::for_api(&api)).env("LINEAR_VCS", "git");
+        cli.run(&["issue", "jj", "start", "ENG-7"])
+            .success()
+            .stdout_has("Prepared jj change for issue ENG-7")
+            .stdout_has(said);
+        assert_eq!(
+            api.operations(),
+            ["GetIssueTransitionDetails", "GetIssueTransitionDetails"]
+        );
+    }
+}
+
+#[test]
+fn jj_start_has_no_git_flags() {
     let api = MockLinear::start();
     let cli = jj(Cli::for_api(&api));
     for flag in [["--branch", "my-branch"], ["--from-ref", "main"]] {
-        cli.run(&["issue", "start", "ENG-7", flag[0], flag[1]])
+        cli.run(&["issue", "jj", "start", "ENG-7", flag[0], flag[1]])
             .usage_error()
-            .stderr_has(&format!("{} only applies to git", flag[0]));
+            .stderr_has("unexpected argument");
     }
+    assert!(api.requests().is_empty());
     assert!(calls(&cli, "jj").is_empty());
 }
 
 #[test]
-fn start_with_a_bare_number_and_no_team_fails_before_any_request() {
+fn git_start_with_a_bare_number_and_no_team_fails_before_any_request() {
     let api = MockLinear::start();
     let cli = git(Cli::for_api(&api), "main");
-    cli.run(&["issue", "start", "7"])
+    cli.run(&["issue", "git", "start", "7"])
         .failure()
         .stderr_has("Issue number 7 needs a team");
     assert!(api.requests().is_empty());
@@ -317,10 +355,10 @@ fn start_with_a_bare_number_and_no_team_fails_before_any_request() {
 }
 
 #[test]
-fn start_rejects_an_empty_issue_id_without_a_picker() {
+fn git_start_rejects_an_empty_issue_id_without_a_picker() {
     let api = MockLinear::start();
     let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
-    cli.run(&["issue", "start", ""])
+    cli.run(&["issue", "git", "start", ""])
         .usage_error()
         .stderr_has("a value is required");
     assert!(api.requests().is_empty());
@@ -355,10 +393,10 @@ fn start_without_an_issue_or_team_on_a_terminal_fails_before_any_request() {
 }
 
 #[test]
-fn start_rejects_a_reference_that_names_no_issue_instead_of_picking() {
+fn git_start_rejects_a_reference_that_names_no_issue_instead_of_picking() {
     let api = MockLinear::start();
     let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"), "main");
-    cli.run(&["issue", "start", "not-an-issue"])
+    cli.run(&["issue", "git", "start", "not-an-issue"])
         .failure()
         .stderr_has("Not an issue ID: not-an-issue");
     assert!(api.requests().is_empty());
@@ -599,32 +637,32 @@ fn id_reports_a_failed_git_branch_lookup_inside_a_repository() {
 }
 
 #[test]
-fn start_outside_a_repository_says_so_before_changing_the_state() {
+fn git_start_outside_a_repository_says_so_before_changing_the_state() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
+    api.on("GetIssueTransitionDetails", details());
     let cli =
         Cli::for_api(&api).stub_bin("git", "echo 'fatal: not a git repository' >&2; exit 128");
-    cli.run(&["issue", "start", "ENG-7"])
+    cli.run(&["issue", "git", "start", "ENG-7"])
         .failure()
         .stderr_has("Not in a git repository")
-        .stderr_has("linear issue update <ID> --state <state>");
-    assert_eq!(api.operations(), ["GetIssueDetails"]);
+        .stderr_has("linear issue start <ISSUE>");
+    assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
 }
 
 #[test]
-fn start_with_jj_stops_when_the_change_probe_fails() {
+fn jj_start_stops_when_the_change_probe_fails() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
+    api.on("GetIssueTransitionDetails", details());
     let cli = Cli::for_api(&api)
         .env("LINEAR_VCS", "jj")
         .env("LINEAR_TEAM_ID", "ENG")
         .file("cwd/.jj/repo/store", "")
         .stub_bin("jj", "echo 'Error: concurrent operation' >&2; exit 1");
-    cli.run(&["issue", "start", "ENG-7"])
+    cli.run(&["issue", "jj", "start", "ENG-7"])
         .failure()
         .stderr_has("concurrent operation");
     assert_eq!(calls(&cli, "jj").len(), 1);
-    assert_eq!(api.operations(), ["GetIssueDetails"]);
+    assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
 }
 
 #[test]
@@ -637,10 +675,10 @@ fn pull_request_with_an_empty_title_uses_the_issue_title() {
 }
 
 #[test]
-fn start_creates_a_local_branch_when_only_another_revision_has_its_name() {
+fn git_start_creates_a_local_branch_when_only_another_revision_has_its_name() {
     for branch in ["release", "deadbeef", "origin/release"] {
         let api = MockLinear::start();
-        api.on("GetIssueDetails", details())
+        api.on("GetIssueTransitionDetails", details())
             .on("GetWorkflowStates", states())
             .on(
                 "UpdateIssueState",
@@ -655,7 +693,7 @@ fn start_creates_a_local_branch_when_only_another_revision_has_its_name() {
  *) exit 1 ;;
  esac",
         );
-        cli.run(&["issue", "start", "ENG-7", "--branch", branch])
+        cli.run(&["issue", "git", "start", "ENG-7", "--branch", branch])
             .success()
             .stdout_has("Created and switched");
         assert_eq!(
@@ -677,7 +715,11 @@ fn start_creates_a_local_branch_when_only_another_revision_has_its_name() {
         );
         assert_eq!(
             api.operations(),
-            ["GetIssueDetails", "GetWorkflowStates", "UpdateIssueState"]
+            [
+                "GetIssueTransitionDetails",
+                "GetWorkflowStates",
+                "UpdateIssueState"
+            ]
         );
         assert_eq!(
             api.variables("UpdateIssueState"),
@@ -687,9 +729,9 @@ fn start_creates_a_local_branch_when_only_another_revision_has_its_name() {
 }
 
 #[test]
-fn start_still_requires_a_terminal_when_a_local_branch_exists() {
+fn git_start_still_requires_a_terminal_when_a_local_branch_exists() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
+    api.on("GetIssueTransitionDetails", details());
     let cli = Cli::for_api(&api).stub_bin(
         "git",
         "case \"$1 $2\" in
@@ -697,10 +739,10 @@ fn start_still_requires_a_terminal_when_a_local_branch_exists() {
  *) exit 1 ;;
  esac",
     );
-    cli.run(&["issue", "start", "ENG-7"])
+    cli.run(&["issue", "git", "start", "ENG-7"])
         .usage_error()
         .stderr_has("--branch with a new name");
-    assert_eq!(api.operations(), ["GetIssueDetails"]);
+    assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
     assert!(
         !calls(&cli, "git")
             .iter()
@@ -709,10 +751,10 @@ fn start_still_requires_a_terminal_when_a_local_branch_exists() {
 }
 
 #[test]
-fn start_preserves_unexpected_git_probe_failures() {
+fn git_start_preserves_unexpected_git_probe_failures() {
     for status in [2, 128] {
         let api = MockLinear::start();
-        api.on("GetIssueDetails", details());
+        api.on("GetIssueTransitionDetails", details());
         let cli = Cli::for_api(&api).file("cwd/.git/HEAD", "").stub_bin(
             "git",
             &format!(
@@ -722,11 +764,11 @@ fn start_preserves_unexpected_git_probe_failures() {
  esac"
             ),
         );
-        cli.run(&["issue", "start", "ENG-7"])
+        cli.run(&["issue", "git", "start", "ENG-7"])
             .failure()
             .stderr_has("Failed to check if branch exists")
             .stderr_has("fatal: corrupt refs");
-        assert_eq!(api.operations(), ["GetIssueDetails"]);
+        assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
         assert!(
             !calls(&cli, "git")
                 .iter()
@@ -736,9 +778,9 @@ fn start_preserves_unexpected_git_probe_failures() {
 }
 
 #[test]
-fn start_does_not_treat_a_revision_expression_as_a_branch() {
+fn git_start_does_not_treat_a_revision_expression_as_a_branch() {
     let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
+    api.on("GetIssueTransitionDetails", details());
     let cli = Cli::for_api(&api).stub_bin(
         "git",
         "case \"$1 $2\" in
@@ -748,10 +790,10 @@ fn start_does_not_treat_a_revision_expression_as_a_branch() {
  *) exit 1 ;;
  esac",
     );
-    cli.run(&["issue", "start", "ENG-7", "--branch", "main~0"])
+    cli.run(&["issue", "git", "start", "ENG-7", "--branch", "main~0"])
         .failure()
         .stderr_has("not a valid branch name");
-    assert_eq!(api.operations(), ["GetIssueDetails"]);
+    assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
 }
 
 #[test]

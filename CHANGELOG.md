@@ -2,8 +2,22 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- `issue start` only changes the issue's status: it moves the issue to its team's first started status, as Linear's "Move issue to started status" does, and no longer creates a git branch or a jj change. An issue that is already started, completed, canceled or a duplicate is left as it is, where 3.x moved it back to the first started status. To keep the old behavior, run `linear issue git start` (git) or `linear issue jj start` (jj), which prepare the branch or change and then start the issue. `--branch` and `--from-ref` moved to `issue git start`, and passing them to `issue start` is an error that says so. The two new commands name their tool themselves and ignore the `vcs` setting
+
+  | 3.x | 4.0 |
+  | --- | --- |
+  | `linear issue start ENG-123` (git) | `linear issue git start ENG-123` |
+  | `linear issue start ENG-123 --branch topic --from-ref main` | `linear issue git start ENG-123 --branch topic --from-ref main` |
+  | `linear issue start ENG-123` (with `vcs = "jj"`) | `linear issue jj start ENG-123` |
+  | `linear issue create -t "…" --start` | `linear issue create -t "…" --start`, then `linear issue git start <ID>` or `linear issue jj start <ID>` |
+
+- `issue create --start` and the last question of `issue create -i` no longer create a branch or a jj change. They create the issue in the team's first started status, assigned to you, in one request. `--start` cannot be combined with `--state`, and the wizard's question now reads `Start this issue now (first started status, assigned to you)?`
+
 ### Added
 
+- `issue complete` and `issue cancel` move an issue to its team's completed or canceled status, alongside `issue start`. An issue already in a status of that type is left as it is. When the team has several statuses of the type, the command lists them and asks for `issue update --state` instead of choosing one
 - a Nix flake builds `linear` from source on Linux and Apple silicon macOS: `nix run github:schpet/linear-cli`, or add the repository as a flake input for `packages.<system>.linear` and `overlays.default` ([#209](https://github.com/schpet/linear-cli/pull/209); thanks @y0usaf)
 - `linear skill show` prints a guide to the CLI written for coding agents. The guide is built into the binary, so it always describes the commands of the version that printed it, and it needs no login, configuration or network connection
 - `linear skill setup` installs a small skill for Claude Code, Codex, OpenCode and Pi that tells the agent to run `linear skill show`, so the installed skill does not go out of date when linear is upgraded. It writes `~/.agents/skills/linear-cli`, which Codex, OpenCode and Pi all read, and `~/.claude/skills/linear-cli` when Claude Code is set up; `--agent` chooses, `--project` sets up the current repository for a team, and `--dry-run` previews. A `linear-cli` skill it did not install is left alone and reported; `--force` moves it to a backup directory instead of deleting it

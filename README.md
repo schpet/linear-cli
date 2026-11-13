@@ -12,8 +12,8 @@ linear config               # setup your repo, it writes a config file
 linear issue list           # list unstarted issues assigned to you
 linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
-linear issue start          # choose an issue to start, creates a branch
-linear issue start ABC-123  # start a specific issue
+linear issue start ABC-123  # move an issue to its team's first started status
+linear issue git start      # choose an issue, create its branch, and start it
 linear issue view           # see current branch's issue as markdown
 linear issue pr             # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
@@ -27,13 +27,6 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 <summary><code>linear issue create -i</code></summary>
 
 <img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create -i command, interactively adding issue details">
-
-</details>
-
-<details>
-<summary><code>linear issue start</code></summary>
-
-<img width="600" src="docs/cast-issue-start.svg?1" alt="screencast showing the linear issue start command, interactively choosing an issue to start">
 
 </details>
 
@@ -127,8 +120,8 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 
 the CLI works with both git and jj version control systems:
 
-- **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
-- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`
+- **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue git start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
+- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue jj start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`
 
 ## commands
 
@@ -161,7 +154,11 @@ linear issue query --search "login bug"  # search issues by text in your configu
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
 linear issue query --all-teams --json --limit all  # export all issues as JSON
-linear issue start     # create/switch to issue branch and mark as started
+linear issue start ENG-123     # move the issue to its team's first started status; touches nothing in your repo
+linear issue complete ENG-123  # move the issue to its team's completed status
+linear issue cancel ENG-123    # move the issue to its team's canceled status
+linear issue git start ENG-123 # create/switch to the issue's git branch, then start it (--branch, --from-ref)
+linear issue jj start ENG-123  # start a jj change described with the issue, then start it
 linear issue create    # create a new issue, asking for the title
 linear issue create -i # create a new issue, asking for every field
 linear issue create -t "title" -d "description"  # create with flags

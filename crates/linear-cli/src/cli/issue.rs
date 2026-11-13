@@ -41,13 +41,28 @@ pub enum IssueCommand {
     /// unless --include-archived is passed. See
     /// https://linear.app/docs/delete-archive-issues
     Archive(IssueArchive),
-    /// Start an issue: check out its git branch or jj change, then mark it started
+    /// Move an issue to its team's first started status
     ///
-    /// With git, creates the issue's branch (or switches to it if it exists).
-    /// With jj (`vcs = "jj"` in config or LINEAR_VCS=jj), starts a new change,
-    /// reusing an empty undescribed one, and describes it with the issue title
-    /// and `Linear-issue` trailers; no git branch is created.
+    /// Changes only the issue's status, like Linear's "Move issue to started
+    /// status". An issue that is already started, completed, canceled or a
+    /// duplicate is left as it is. Nothing is done to the repository: use
+    /// `issue git start` or `issue jj start` to prepare a branch or change
+    /// too, and `issue update --state` for any other status.
     Start(IssueStart),
+    /// Move an issue to its team's completed status
+    ///
+    /// An issue that is already completed is left as it is. When the team
+    /// has several completed statuses, name one with `issue update --state`.
+    Complete(IssueTransition),
+    /// Move an issue to its team's canceled status
+    ///
+    /// An issue that is already canceled is left as it is. When the team
+    /// has several canceled statuses, name one with `issue update --state`.
+    Cancel(IssueTransition),
+    /// Work on issues in a git repository
+    Git(IssueGit),
+    /// Work on issues in a jj repository
+    Jj(IssueJj),
     /// Print the issue ID of the current branch or jj change
     Id(IssueId),
     /// Print an issue's title
@@ -198,8 +213,9 @@ pub struct IssueTitle {
     pub issue_id: Option<String>,
 }
 
+/// The issue to start, and the picker's filters when none is named.
 #[derive(Debug, Args)]
-pub struct IssueStart {
+pub struct StartTarget {
     /// Issue ID like ENG-123, or a URL; asked for when omitted
     #[arg(value_name = "ISSUE", value_parser = NonBlank)]
     pub issue_id: Option<String>,
@@ -213,12 +229,80 @@ pub struct IssueStart {
     /// Offer only unassigned issues in the picker
     #[arg(long, short = 'U', conflicts_with = "all_assignees")]
     pub unassigned: bool,
-    /// Git ref to create the branch from (git only)
+}
+
+#[derive(Debug, Args)]
+pub struct IssueStart {
+    #[command(flatten)]
+    pub target: StartTarget,
+    // `issue git start` takes these since 4.0; they are still parsed here so
+    // that passing them says where they went.
+    #[arg(long, short, hide = true, value_name = "REF")]
+    pub from_ref: Option<String>,
+    #[arg(long, short, hide = true)]
+    pub branch: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct IssueTransition {
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct IssueGit {
+    #[command(subcommand)]
+    pub command: IssueGitCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IssueGitCommand {
+    /// Create or switch to an issue's git branch, then start the issue
+    ///
+    /// Creates the branch Linear suggests for the issue (or switches to it
+    /// if it exists), then moves the issue to its team's first started
+    /// status as `issue start` does. An issue that is already started or
+    /// closed keeps its status.
+    Start(IssueGitStart),
+}
+
+#[derive(Debug, Args)]
+pub struct IssueGitStart {
+    #[command(flatten)]
+    pub target: StartTarget,
+    /// Git ref to create the branch from [default: HEAD]
     #[arg(long, short, value_name = "REF", value_parser = NonBlank)]
     pub from_ref: Option<String>,
-    /// Branch name to use instead of the issue's (git only)
+    /// Branch name to use instead of the one Linear suggests
     #[arg(long, short, value_parser = NonBlank)]
     pub branch: Option<String>,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct IssueJj {
+    #[command(subcommand)]
+    pub command: IssueJjCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IssueJjCommand {
+    /// Prepare a jj change for an issue, then start the issue
+    ///
+    /// Starts a new change, reusing an empty undescribed one, and describes
+    /// it with the issue title and `Linear-issue` trailers; no bookmark is
+    /// created. Then moves the issue to its team's first started status as
+    /// `issue start` does. An issue that is already started or closed keeps
+    /// its status.
+    Start(IssueJjStart),
+}
+
+#[derive(Debug, Args)]
+pub struct IssueJjStart {
+    #[command(flatten)]
+    pub target: StartTarget,
 }
 
 #[derive(Debug, Args)]
@@ -386,8 +470,8 @@ pub struct IssueCreate {
     /// Do not apply the team's default template
     #[arg(long)]
     pub no_use_default_template: bool,
-    /// Start the issue after creating it
-    #[arg(long)]
+    /// Create the issue in the team's first started status, assigned to you
+    #[arg(long, conflicts_with = "state")]
     pub start: bool,
     /// Ask for every field instead of taking them as flags
     ///
