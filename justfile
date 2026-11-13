@@ -37,3 +37,12 @@ tag: check
 # regenerates .github/workflows/release.yml with the dist version pinned in mise.toml
 dist-generate:
     dist generate
+    just actions-lock
+
+# needs `gh extension install github/gh-actions-lock`. --no-narrow keeps `v6`
+# from being rewritten to `v6.1.0` in the workflow files, which dist would
+# reject in release.yml. `just actions-lock --relock` moves tags like `v6` to
+# their current commits.
+# updates .github/workflows/actions.lock after a workflow's `uses:` lines change
+actions-lock *args:
+    gh actions-lock --no-narrow {{ args }}
