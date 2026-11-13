@@ -1,6 +1,7 @@
 //! `auth migrate`: move plaintext keys from the credentials file to the
 //! system keyring.
 use crate::auth::CredentialFormat;
+use crate::auth::keyring::Keyring;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
 
@@ -15,7 +16,7 @@ fn migrate(ctx: &Ctx) -> Result<()> {
     }
     let keyring = ctx.credentials()?.keyring();
     if !keyring.available() {
-        return Err(no_keyring());
+        return Err(no_keyring(keyring));
     }
     let migrated = {
         let _spinner = ctx.spinner(true, "");
@@ -31,8 +32,10 @@ fn migrate(ctx: &Ctx) -> Result<()> {
     ctx.print(output)
 }
 
-pub(super) fn no_keyring() -> Error {
-    Error::new("No system keyring found").with_hint(
-        "Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set LINEAR_API_KEY instead.",
-    )
+fn no_keyring(keyring: &dyn Keyring) -> Error {
+    let hint = match keyring.install_hint() {
+        Some(install) => format!("{install} Or set LINEAR_API_KEY instead."),
+        None => "Set LINEAR_API_KEY instead.".to_owned(),
+    };
+    Error::new("No system keyring found").with_hint(hint)
 }

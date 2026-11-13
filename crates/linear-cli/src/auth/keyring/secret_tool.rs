@@ -4,6 +4,8 @@ use super::{Keyring, LookupFailureCategory, LookupResult};
 use crate::config::ConfigSecret;
 use crate::error::Result;
 
+/// For a missing `secret-tool`. Ubuntu ships libsecret without it.
+const INSTALL: &str = "Install secret-tool (e.g. `apt install libsecret-tools` or `pacman -S libsecret`) to use the system keyring.";
 const INSTALL_HINT: &str = "Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set LINEAR_API_KEY.";
 
 pub struct SecretTool {
@@ -83,5 +85,9 @@ impl Keyring for SecretTool {
     /// its usage.
     fn available(&self) -> bool {
         self.tool.run(&[], None).is_ok()
+    }
+
+    fn install_hint(&self) -> Option<&'static str> {
+        Some(INSTALL)
     }
 }

@@ -114,9 +114,9 @@ fn credentials_toml(cli: &Cli) -> toml::Table {
         .expect("credentials file is TOML")
 }
 
-#[test]
-fn login_with_a_configured_key_stores_nothing() {
-    for (name, key, cli) in [
+/// A sandbox for each place an API key can be configured, with that key.
+fn configured_keys() -> [(&'static str, &'static str, Cli); 3] {
+    [
         (
             "environment",
             "lin_env",
@@ -134,17 +134,88 @@ fn login_with_a_configured_key_stores_nothing() {
             "lin_toml",
             Cli::new().file("cwd/.linear.toml", "api_key = \"lin_toml\"\n"),
         ),
-    ] {
-        cli.run(&["auth", "login"])
-            .success()
-            .stdout_has("there is nothing to store");
-        assert!(!cli.path(CREDENTIALS).exists(), "{name}: wrote credentials");
+    ]
+}
+
+fn gamma_viewer() -> serde_json::Value {
+    let mut viewer = login_viewer();
+    viewer["viewer"]["organization"]["urlKey"] = json!("gamma");
+    viewer
+}
+
+const MIGRATION_NOTICE: &str = "\nYour credentials are stored as plaintext in the credentials file.\n\
+     Run `linear auth migrate` to move them to the system keyring.\n";
+const PRECEDENCE_WARNING: &str = "Warning: LINEAR_API_KEY is set and takes precedence over stored credentials.\n\
+     Remove it from your shell config to use multi-workspace auth.\n";
+
+/// A configured key is no reason to skip a login: the key given to it is
+/// still checked and stored. The plaintext file keeps macOS off the keychain.
+#[test]
+fn login_stores_a_piped_key_while_an_api_key_is_configured() {
+    for (name, _, cli) in configured_keys() {
+        let api = MockLinear::start();
+        api.on("GetViewerAccount", gamma_viewer());
+        // Linux checks for secret-tool before suggesting the keyring.
+        let cli = cli
+            .endpoint(&api)
+            .credentials(INLINE)
+            .stub_bin("secret-tool", "exit 0")
+            .stdin(b"key-gamma\n");
+        let run = cli.run(&["auth", "login"]);
+        run.success();
         assert_eq!(
-            token(&cli, &[]),
-            key,
-            "{name}: configured key is still used"
+            run.stdout,
+            "Logged in to workspace: Acme (gamma)\n  \
+             User: Alice Example <alice@example.com>\n\
+             Note: Credential stored as plaintext to match existing format.\n",
+            "{name}"
+        );
+        let warning = if name == "config file" {
+            ""
+        } else {
+            PRECEDENCE_WARNING
+        };
+        assert_eq!(run.stderr, format!("{MIGRATION_NOTICE}{warning}"), "{name}");
+        assert_eq!(
+            api.request("GetViewerAccount").header("authorization"),
+            Some("key-gamma"),
+            "{name}"
+        );
+        assert_eq!(
+            credentials_toml(&cli).get("gamma").and_then(|v| v.as_str()),
+            Some("key-gamma"),
+            "{name}"
         );
     }
+}
+
+#[test]
+fn login_asks_for_a_key_while_an_api_key_is_configured() {
+    let api = MockLinear::start();
+    api.on("GetViewerAccount", gamma_viewer());
+    let cli = Cli::new()
+        .endpoint(&api)
+        .credentials(INLINE)
+        .stub_bin("secret-tool", "exit 0")
+        .env("LINEAR_API_KEY", "lin_env");
+    cli.run_tty(
+        &["auth", "login"],
+        &[
+            ("API key:", "key-gamma\r"),
+            ("Migrate all credentials to the system keyring", "n\r"),
+        ],
+    )
+    .success()
+    .stdout_has("Logged in to workspace: Acme (gamma)")
+    .stdout_has("LINEAR_API_KEY is set and takes precedence over stored credentials.");
+    assert_eq!(
+        api.request("GetViewerAccount").header("authorization"),
+        Some("key-gamma")
+    );
+    assert_eq!(
+        credentials_toml(&cli).get("gamma").and_then(|v| v.as_str()),
+        Some("key-gamma")
+    );
 }
 
 #[test]
@@ -160,29 +231,94 @@ fn login_with_an_explicit_key_ignores_the_configured_key() {
     );
 }
 
-#[test]
-fn an_empty_configured_key_does_not_stand_in_for_a_login() {
-    let cli = Cli::new().env("LINEAR_API_KEY", "");
-    let run = cli.run(&["auth", "login"]);
-    // Linux fails on the missing keyring, macOS on the missing key, so only the
-    // shared part is asserted: the empty value must not count as configured.
-    run.failure();
-    assert!(
-        !run.stdout.contains("nothing to store"),
-        "an empty LINEAR_API_KEY must not count as configured\n{run}"
-    );
-}
-
-/// Without libsecret there is nowhere to put an explicitly given key, so the
-/// login still fails rather than quietly no-oping.
+/// Without `secret-tool` there is nowhere to store a key, however it is
+/// given, so the login fails. The hint says the configured key already works
+/// instead of suggesting to set one.
 #[cfg(target_os = "linux")]
 #[test]
-fn an_explicit_login_still_needs_a_keyring_on_linux() {
-    Cli::new()
+fn login_without_a_keyring_says_a_configured_key_is_already_in_use() {
+    let inputs: [(&str, &[&str], &[u8]); 3] = [
+        ("no key", &["auth", "login"], b""),
+        ("--key", &["auth", "login", "--key", "lin_new"], b""),
+        ("piped key", &["auth", "login"], b"lin_new\n"),
+    ];
+    for (input, args, stdin) in inputs {
+        for (name, key, cli) in configured_keys() {
+            let api = MockLinear::start();
+            let cli = cli.endpoint(&api).stdin(stdin);
+            let run = cli.run(args);
+            run.failure()
+                .stderr_has("No system keyring found")
+                .stderr_has(
+                    ", so other commands already use it and there is no need to log in.\n  \
+                     To store a key anyway, pass --plaintext. Install secret-tool \
+                     (e.g. `apt install libsecret-tools` or `pacman -S libsecret`) \
+                     to use the system keyring.\n",
+                );
+            assert!(
+                !run.stderr.contains("set LINEAR_API_KEY"),
+                "{name}, {input}: told to set a key that is set\n{run}"
+            );
+            assert_eq!(run.stdout, "", "{name}, {input}");
+            assert!(api.requests().is_empty(), "{name}, {input}");
+            assert!(!cli.path(CREDENTIALS).exists(), "{name}, {input}");
+            assert_eq!(token(&cli, &[]), key, "{name}, {input}");
+        }
+    }
+}
+
+/// An empty `LINEAR_API_KEY` is no key at all, as for every other command.
+#[cfg(target_os = "linux")]
+#[test]
+fn login_without_a_keyring_or_a_configured_key_says_how_to_get_either() {
+    for (name, cli) in [
+        ("unset", Cli::new()),
+        ("empty", Cli::new().env("LINEAR_API_KEY", "")),
+    ] {
+        let run = cli.run(&["auth", "login", "--key", "lin_new"]);
+        run.failure().stderr_has(
+            "✗ Failed to login: No system keyring found\n  \
+             Install secret-tool (e.g. `apt install libsecret-tools` or `pacman -S libsecret`) \
+             to use the system keyring.\n  \
+             Or pass --plaintext to store the key in the credentials file, \
+             or set LINEAR_API_KEY instead of logging in.\n",
+        );
+        assert!(
+            !run.stderr.contains("no need to log in"),
+            "{name}: reported a configured key\n{run}"
+        );
+        assert!(!cli.path(CREDENTIALS).exists(), "{name}");
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn login_stores_a_piped_key_in_the_keyring_while_an_api_key_is_configured() {
+    let api = MockLinear::start();
+    api.on("GetViewerAccount", login_viewer());
+    let cli = secret_tool(Cli::new().endpoint(&api), "exit 0")
         .env("LINEAR_API_KEY", "lin_env")
-        .run(&["auth", "login", "--key", "lin_new"])
+        .stdin(b"lin_new\n");
+    let run = cli.run(&["auth", "login"]);
+    run.success()
+        .stdout_has("Logged in to workspace: Acme (acme)");
+    assert_eq!(run.stderr, PRECEDENCE_WARNING);
+    assert_eq!(
+        api.request("GetViewerAccount").header("authorization"),
+        Some("lin_new")
+    );
+    assert_eq!(cli.read("bin/secret-tool.stdin"), "lin_new");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn migrate_without_a_keyring_says_how_to_install_one() {
+    let cli = Cli::new().credentials(INLINE);
+    cli.run(&["auth", "migrate"])
         .failure()
-        .stderr_has("No system keyring found");
+        .stderr_has("No system keyring found")
+        .stderr_has("apt install libsecret-tools");
+    assert_eq!(cli.read(CREDENTIALS), INLINE);
 }
 
 #[test]

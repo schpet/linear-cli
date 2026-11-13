@@ -50,6 +50,11 @@ pub trait Keyring {
     fn available(&self) -> bool {
         true
     }
+    /// How to get this keyring when it is not [`Keyring::available`], as a
+    /// sentence. `None` when there is nothing to install.
+    fn install_hint(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 /// The keyring for this platform. Keyring tools run with the `.env`
