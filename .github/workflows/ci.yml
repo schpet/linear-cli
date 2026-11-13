@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels that pull request's runs still in
+# flight. Pushes to main each get their own group, so they always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: test (${{ matrix.os }})
@@ -26,13 +32,15 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      CARGO_BUILD_JOBS: "2"
     steps:
       - uses: actions/checkout@v6
       # rust-toolchain.toml pins the version and components.
       - name: Install Rust
         run: rustup toolchain install
+      # Caches the cargo registry and the compiled dependencies in target/,
+      # keyed on the runner, the toolchain and Cargo.lock. The workspace's own
+      # crates are still compiled on every run.
+      - uses: Swatinem/rust-cache@v2
       - name: Check formatting
         if: runner.os == 'Linux'
         run: cargo fmt --all -- --check
