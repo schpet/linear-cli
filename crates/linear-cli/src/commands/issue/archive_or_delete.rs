@@ -26,15 +26,14 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     if request.bulk.requested() {
         return run_bulk(ctx, mode, request);
     }
-    let identifier = match (mode, request.issue_id) {
-        (Mode::Delete, None) => {
-            return Err(
-                Error::invalid("Issue ID required").with_hint("Use --bulk for multiple issues.")
-            );
-        }
-        (Mode::Archive, input) => super::require(ctx, input)?,
-        (Mode::Delete, Some(input)) => {
-            super::resolve(ctx, Some(input))?.ok_or_else(|| Error::not_found("Issue", input))?
+    // clap requires an issue unless a bulk option is given.
+    let input = request.issue_id.ok_or_else(|| {
+        Error::invalid("Issue ID required").with_hint("Pass an issue ID, or several after --bulk.")
+    })?;
+    let identifier = match mode {
+        Mode::Archive => super::require(ctx, input)?,
+        Mode::Delete => {
+            super::resolve(ctx, input)?.ok_or_else(|| Error::not_found("Issue", input))?
         }
     };
     let client = ctx.client()?;

@@ -20,7 +20,7 @@ pub fn run(ctx: &Ctx, command: &IssueRelationCommand) -> Result<()> {
 /// Both identifiers, resolved before any request.
 fn pair(ctx: &Ctx, a: &str, b: &str) -> Result<(String, String)> {
     let resolve = |input: &str| {
-        super::resolve(ctx, Some(input))?
+        super::resolve(ctx, input)?
             .ok_or_else(|| Error::new(format!("Could not resolve issue identifier: {input}")))
     };
     Ok((resolve(a)?, resolve(b)?))

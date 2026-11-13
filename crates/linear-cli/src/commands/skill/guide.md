@@ -14,8 +14,10 @@ the installed `linear` binary, so it describes the commands that version has.
   array, views print one object.
 - Add `--no-input` to writes in scripts, so a missing value is an error instead
   of a prompt.
-- A team is inferred from the repository's `.linear.toml` or the current
-  branch when it can be. If a command asks for one, run `linear team list`.
+- Name the issue in every command (`ENG-123`, an issue URL, or a bare number
+  in the configured team). Nothing is read from the git branch or jj change.
+- The default team comes from `.linear.toml` or `LINEAR_TEAM_ID`. If a command
+  asks for one, pass `--team`; `linear team list` shows the teams.
 - Do not create, change or comment on anything the user's request does not
   call for.
 
@@ -224,7 +226,7 @@ After status 5, check whether a create or update took effect before retrying it.
 
 - `issue list` sorts by priority unless `--sort` (`manual` or `priority`), the
   `issue_sort` setting or `LINEAR_ISSUE_SORT` says otherwise, and it needs
-  `--team` when the team cannot be inferred.
+  `--team` when no team is configured.
 - `--no-pager` exists only on `issue list`, `issue query`, `issue view` and
   `project view`. Other commands reject it.
 - `linear api` takes the GraphQL document as its one argument and has no

@@ -28,7 +28,7 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         .pr_template(selected)?
         .map(|path| read_template(path.path()))
         .transpose()?;
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     // git leaves the head to gh, which reads the current branch. jj has no
     // current branch, so the head is settled here, before anything is sent.
     let jj = Jj::new(ctx.cwd(), &ctx.config().child_env);

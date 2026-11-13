@@ -38,7 +38,10 @@ use crate::refs::prepare_issue_reference;
 
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
-        IssueCommand::Id(_) => id::run(ctx),
+        IssueCommand::RemovedId(_) => Err(Error::invalid(
+            "`issue id` was removed in 4.0: linear no longer reads the issue from the git branch or jj change",
+        )
+        .with_hint("Pass the issue ID to each command, like `linear issue view ENG-123`.")),
         IssueCommand::List(args) => list::run(ctx, args),
         IssueCommand::Query(args) => query::run(ctx, args),
         IssueCommand::Title(args) => title::run(ctx, args),
@@ -76,39 +79,23 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     }
 }
 
-/// The issue identifier `input` names (an identifier, a URL, or a bare number
-/// in the configured team), or, when `input` is omitted, the one the current
-/// git branch or jj change names. `None` when nothing identifies an issue.
-pub(crate) fn resolve(ctx: &Ctx, input: Option<&str>) -> Result<Option<String>> {
-    let Some(input) = input else {
-        return infer(ctx);
-    };
+/// The issue identifier `input` names: an identifier, a URL, or a bare number
+/// in the configured team. `None` when it names no issue. The issue is always
+/// named by the caller; nothing is read from the repository.
+pub(crate) fn resolve(ctx: &Ctx, input: &str) -> Result<Option<String>> {
     let team = configured_team_key(ctx.options());
     prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)
 }
 
-/// Like [`resolve`], failing when no issue is identified.
-pub(crate) fn require(ctx: &Ctx, input: Option<&str>) -> Result<String> {
-    resolve(ctx, input)?.ok_or_else(|| unresolved(ctx))
-}
-
-/// The issue the current git branch name or jj change trailers name.
-pub(crate) fn infer(ctx: &Ctx) -> Result<Option<String>> {
-    crate::platform::vcs::infer_issue(vcs(ctx), ctx.cwd(), &ctx.config().child_env)
+/// Like [`resolve`], failing when `input` names no issue.
+pub(crate) fn require(ctx: &Ctx, input: &str) -> Result<String> {
+    resolve(ctx, input)?.ok_or_else(|| {
+        Error::invalid(format!("Not an issue ID: {input}")).with_hint(
+            "Pass an issue ID like ENG-123, an issue URL, or an issue number in the configured team.",
+        )
+    })
 }
 
 pub(crate) fn vcs(ctx: &Ctx) -> Vcs {
     ctx.options().vcs()
-}
-
-pub(crate) fn unresolved(ctx: &Ctx) -> Error {
-    let hint = match vcs(ctx) {
-        Vcs::Git => {
-            "Pass an issue ID like ENG-123, or run from a git branch whose name contains one."
-        }
-        Vcs::Jj => {
-            "Pass an issue ID like ENG-123, or run from a jj change with a Linear-issue trailer."
-        }
-    };
-    Error::invalid("Could not determine issue ID").with_hint(hint)
 }

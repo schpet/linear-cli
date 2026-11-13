@@ -13,7 +13,7 @@ pub fn run(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
 
 fn show_commits(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
     check_vcs(super::vcs(ctx))?;
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     ctx.spin(true, super::id::fetch(client, &identifier))?;
     ctx.flush()?;

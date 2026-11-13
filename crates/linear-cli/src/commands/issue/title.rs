@@ -9,7 +9,7 @@ pub fn run(ctx: &Ctx, args: &IssueTitle) -> Result<()> {
 }
 
 fn title(ctx: &Ctx, args: &IssueTitle) -> Result<()> {
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let details = ctx.spin(true, super::details::fetch(client, identifier))?;
     if !ctx.stdout_tty() {

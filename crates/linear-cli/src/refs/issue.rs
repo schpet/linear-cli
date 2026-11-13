@@ -1,4 +1,4 @@
-//! Issue reference precedence before credential selection or VCS inference.
+//! Issue reference precedence before credential selection.
 use super::url::issue_identifier;
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind};
 use crate::error::Error;
@@ -39,44 +39,6 @@ pub fn prepare_issue_reference(
         )));
     }
     Ok(None)
-}
-
-/// Finds the first `TEAM-123` identifier that starts and ends on a word
-/// boundary, where word bytes are ASCII letters, digits and `_`.
-pub fn find_issue_identifier(text: &str) -> Option<String> {
-    let bytes = text.as_bytes();
-    let word = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
-    for (start, byte) in bytes.iter().enumerate() {
-        if !byte.is_ascii_alphanumeric()
-            || start
-                .checked_sub(1)
-                .and_then(|index| bytes.get(index))
-                .is_some_and(|previous| word(*previous))
-        {
-            continue;
-        }
-        let mut dash = start;
-        while bytes.get(dash).is_some_and(u8::is_ascii_alphanumeric) {
-            dash += 1;
-        }
-        if bytes.get(dash) != Some(&b'-')
-            || !bytes
-                .get(dash + 1)
-                .is_some_and(|b| (b'1'..=b'9').contains(b))
-        {
-            continue;
-        }
-        let mut end = dash + 2;
-        while bytes.get(end).is_some_and(u8::is_ascii_digit) {
-            end += 1;
-        }
-        if bytes.get(end).is_some_and(|b| word(*b)) {
-            continue;
-        }
-        // Both ends are ASCII bytes, hence UTF-8 boundaries.
-        return issue_identifier(&text[start..end]);
-    }
-    None
 }
 
 #[cfg(test)]

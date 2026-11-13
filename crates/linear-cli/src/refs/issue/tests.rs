@@ -41,20 +41,3 @@ fn identifiers_numbers_and_urls_become_references() {
         .expect_err("workspace before kind");
     assert!(error.message().contains("this is the \"acme\" workspace"));
 }
-#[test]
-fn word_boundaries_are_ascii_only_including_non_ascii_neighbors() {
-    for (text, expected) in [
-        ("eng-123_x", None),
-        ("éENG-5", Some("ENG-5")),
-        ("ENG-0", None),
-        ("ENG-123abc", None),
-        ("feature/eng-7-x", Some("ENG-7")),
-        ("ENG-01", None),
-        ("_ENG-7", None),
-        ("Fixes ABC-123Fixes DEF-456", Some("DEF-456")),
-        ("ENG-9é", Some("ENG-9")),
-        ("x/42-99999999999999999999", Some("42-99999999999999999999")),
-    ] {
-        assert_eq!(find_issue_identifier(text).as_deref(), expected, "{text}");
-    }
-}

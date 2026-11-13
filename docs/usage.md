@@ -82,12 +82,6 @@ linear issue list --app
 
 #### view issue details
 
-view the current issue (based on git branch):
-
-```bash
-linear issue view
-```
-
 view a specific issue:
 
 ```bash
@@ -176,16 +170,10 @@ linear issue create --team ENG --template "Bug report" --description "Just this 
 
 #### update an issue
 
-update the current issue:
+change the fields you pass:
 
 ```bash
-linear issue update
-```
-
-update a specific issue:
-
-```bash
-linear issue update TEAM-123
+linear issue update TEAM-123 --state "In Review" --assignee @me
 ```
 
 change labels:
@@ -221,12 +209,6 @@ linear issue update TEAM-123 --unassign --clear-cycle
 
 #### other issue commands
 
-get issue id from current git branch:
-
-```bash
-linear issue id
-```
-
 get issue title:
 
 ```bash
@@ -242,8 +224,8 @@ linear issue url TEAM-123
 create a github pull request:
 
 ```bash
-linear issue gh pull-request
-linear issue gh pr  # Short alias
+linear issue gh pull-request TEAM-123
+linear issue gh pr TEAM-123  # Short alias
 ```
 
 with `vcs = "jj"` this pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests), then opens the pull request from it. `--head <bookmark>` names the bookmark to use or create.
@@ -511,8 +493,8 @@ common workflows:
 # Start working on an issue, on its own git branch
 linear issue git start TEAM-123
 
-# View current issue details
-linear issue view
+# View issue details
+linear issue view TEAM-123
 
 # Create and start a new bug fix
 linear issue create --title "Fix login error" --label bug --start
@@ -520,6 +502,6 @@ linear issue create --title "Fix login error" --label bug --start
 # List high priority issues
 linear issue list --sort priority
 
-# Create a pull request for current issue
-linear issue gh pr
+# Create a pull request for an issue
+linear issue gh pr TEAM-123
 ```

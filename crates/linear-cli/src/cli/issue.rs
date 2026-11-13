@@ -63,8 +63,10 @@ pub enum IssueCommand {
     Git(IssueGit),
     /// Work on issues in a jj repository
     Jj(IssueJj),
-    /// Print the issue ID of the current branch or jj change
-    Id(IssueId),
+    // Removed in 4.0 with the lookup it printed; still parsed so that
+    // running it says so.
+    #[command(name = "id", hide = true, disable_help_flag = true)]
+    RemovedId(Moved),
     /// Print an issue's title
     Title(IssueTitle),
     /// Print an issue's URL
@@ -92,15 +94,15 @@ pub enum IssueCommand {
     /// To show an image in the conversation, use `issue comment add --attach`.
     Attach(IssueAttach),
     /// Link a URL to an issue
+    ///
+    /// Name both the issue and the URL: `linear issue link ENG-123
+    /// https://example.com/doc`.
     Link(IssueLink),
     /// Manage relations between issues, like blocks and duplicates
     Relation(IssueRelation),
     /// Inspect agent sessions on an issue
     AgentSession(IssueAgentSession),
 }
-
-#[derive(Debug, Args)]
-pub struct IssueId {}
 
 #[derive(Debug, Args)]
 pub struct IssueList {
@@ -216,9 +218,9 @@ pub struct IssueQuery {
 
 #[derive(Debug, Args)]
 pub struct IssueTitle {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
 }
 
 /// The issue to start, and the picker's filters when none is named.
@@ -315,8 +317,8 @@ pub struct IssueJjStart {
 
 #[derive(Debug, Args)]
 pub struct IssueView {
-    /// Issue IDs like ENG-123, or URLs; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    /// Issue IDs like ENG-123, or URLs
+    #[arg(value_name = "ISSUE", required = true, value_parser = NonBlank)]
     pub issue_ids: Vec<String>,
     /// Open the issues in the browser
     #[arg(long, short)]
@@ -344,16 +346,16 @@ pub struct IssueView {
 
 #[derive(Debug, Args)]
 pub struct IssueUrl {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueDescribe {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
     /// Write "References" instead of "Fixes" in the trailer
     #[arg(long, short, visible_alias = "ref")]
     pub references: bool,
@@ -361,12 +363,12 @@ pub struct IssueDescribe {
 
 #[derive(Debug, Args)]
 pub struct IssueCommits {
-    /// Issue ID like ENG-123, or a URL; defaults to the current change's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
 }
 
-/// Whatever followed a command that has moved.
+/// Whatever followed a command that has moved or been removed.
 #[derive(Debug, Args)]
 pub struct Moved {
     #[arg(hide = true, trailing_var_arg = true, allow_hyphen_values = true)]
@@ -400,9 +402,9 @@ pub enum IssueGhCommand {
 
 #[derive(Debug, Args)]
 pub struct IssuePullRequest {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
     /// Branch to merge into
     #[arg(long, value_name = "BRANCH")]
     pub base: Option<String>,
@@ -429,8 +431,13 @@ pub struct IssuePullRequest {
 
 #[derive(Debug, Args)]
 pub struct IssueArchive {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Issue ID like ENG-123, or a URL; required unless a --bulk option is given
+    #[arg(
+        value_name = "ISSUE",
+        value_parser = NonBlank,
+        conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"],
+        required_unless_present_any = ["bulk", "bulk_file", "bulk_stdin"]
+    )]
     pub issue_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -440,8 +447,13 @@ pub struct IssueArchive {
 
 #[derive(Debug, Args)]
 pub struct IssueDelete {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
+    /// Issue ID like ENG-123, or a URL; required unless a --bulk option is given
+    #[arg(
+        value_name = "ISSUE",
+        value_parser = NonBlank,
+        conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"],
+        required_unless_present_any = ["bulk", "bulk_file", "bulk_stdin"]
+    )]
     pub issue_id: Option<String>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
@@ -528,9 +540,9 @@ pub struct IssueCreate {
 
 #[derive(Debug, Args)]
 pub struct IssueUpdate {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
     /// New title
     #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
@@ -659,9 +671,9 @@ const BULK_COMMENTS_HELP: &str = "More comment IDs; IDs from every source are co
 
 #[derive(Debug, Args)]
 pub struct IssueCommentAdd {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
     /// Comment text, in Markdown
     #[arg(long, short, value_name = "TEXT", value_parser = NonBlank)]
     pub body: Option<String>,
@@ -736,9 +748,9 @@ pub struct IssueCommentUpdate {
 
 #[derive(Debug, Args)]
 pub struct IssueCommentList {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
     /// Maximum number of comments to show (a number or `all`); with --resolved
     /// or --unresolved it counts the comments left, so it can cut a thread short
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
@@ -778,11 +790,12 @@ pub struct IssueAttach {
 
 #[derive(Debug, Args)]
 pub struct IssueLink {
-    /// Issue ID like ENG-123; or, alone, the URL to link to the current branch's issue
-    #[arg(value_name = "ISSUE|URL")]
-    pub url_or_issue_id: String,
-    /// URL to link, when the issue is given first
-    pub url: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
+    /// URL to link (http:// or https://)
+    #[arg(value_name = "URL", value_parser = NonBlank)]
+    pub url: String,
     /// Link title
     #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
@@ -855,9 +868,9 @@ pub struct IssueRelationDelete {
 
 #[derive(Debug, Args)]
 pub struct IssueRelationList {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
 }
 
 #[derive(Debug, Args)]
@@ -878,9 +891,9 @@ pub enum IssueAgentSessionCommand {
 
 #[derive(Debug, Args)]
 pub struct IssueAgentSessionList {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, or a URL
+    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
+    pub issue_id: String,
     /// Maximum number of sessions to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,
