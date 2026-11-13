@@ -88,6 +88,22 @@ with a [rust toolchain](https://rustup.rs) installed:
 cargo install --locked --git https://github.com/schpet/linear-cli linear
 ```
 
+### nix
+
+run it without installing, with [flakes](https://nix.dev/concepts/flakes) enabled:
+
+```bash
+nix run github:schpet/linear-cli -- --version
+```
+
+or install it into your profile:
+
+```bash
+nix profile install github:schpet/linear-cli
+```
+
+the flake builds from source on linux and apple silicon macOS. as a flake input it provides `packages.<system>.linear` and `overlays.default`, which adds `pkgs.linear`.
+
 upgrading from 2.x? see [upgrading from 2.x](CHANGELOG.md#upgrading-from-2x) in the changelog.
 
 ## setup

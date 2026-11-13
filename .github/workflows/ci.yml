@@ -63,3 +63,17 @@ jobs:
       - name: Generate third-party license notices
         if: runner.os == 'Linux'
         run: cargo xtask licenses --output "$RUNNER_TEMP/THIRD_PARTY_LICENSES.md"
+
+  # The flake builds with the rustc from the nixpkgs pinned in flake.lock, not
+  # rust-toolchain.toml. If this fails on a too-old compiler, run
+  # `nix flake update`.
+  nix:
+    name: nix build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: cachix/install-nix-action@v31
+      - name: Build the flake
+        run: nix build .#linear -L
+      - name: Run the built binary
+        run: ./result/bin/linear --version
