@@ -242,9 +242,11 @@ linear issue url TEAM-123
 create a github pull request:
 
 ```bash
-linear issue pull-request
-linear issue pr  # Short alias
+linear issue gh pull-request
+linear issue gh pr  # Short alias
 ```
+
+with `vcs = "jj"` this pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests), then opens the pull request from it. `--head <bookmark>` names the bookmark to use or create.
 
 delete an issue:
 
@@ -519,5 +521,5 @@ linear issue create --title "Fix login error" --label bug --start
 linear issue list --sort priority
 
 # Create a pull request for current issue
-linear issue pr
+linear issue gh pr
 ```

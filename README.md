@@ -15,7 +15,7 @@ linear issue query --search "login bug"  # search issues in your configured team
 linear issue start ABC-123  # move an issue to its team's first started status
 linear issue git start      # choose an issue, create its branch, and start it
 linear issue view           # see current branch's issue as markdown
-linear issue pr             # makes a PR with title/body preset, using gh cli
+linear issue gh pr          # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
 ```
 
@@ -121,7 +121,7 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 the CLI works with both git and jj version control systems:
 
 - **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue git start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
-- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue jj start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`
+- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue jj start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`. `linear issue gh pr` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
 
 ## commands
 
@@ -145,7 +145,7 @@ linear issue view -a   # open issue in Linear.app
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
 linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
-linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
+linear issue gh pr     # creates a GitHub PR with issue details via `gh pr create`; with jj, pushes a bookmark for it first
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
 linear issue list -w   # open issue list in web browser
@@ -367,7 +367,7 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | VCS             | `LINEAR_VCS`                      | `vcs`                      | `"git"` or `"jj"`                    | version control system (default: git)                                                            |
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
 | Inline images   | `LINEAR_INLINE_IMAGES`            | `inline_images`            | `true` or `false`                    | draw downloaded PNG images in kitty, Ghostty and Rex (default: true; see below)                  |
-| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
+| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue gh pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
 
 in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images they download right under their links, using the kitty graphics protocol's Unicode placeholders so they still show inside the pager. other image formats, other terminals, terminals inside tmux or screen, piped output and `NO_COLOR` keep the plain link. images show through `less` (the default pager); another `PAGER` may not show them. set `inline_images = false` or `LINEAR_INLINE_IMAGES=false` to turn them off, or pass `--no-download` for one view.
 

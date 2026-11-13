@@ -88,6 +88,20 @@ Only when a branch or jj change is wanted too: `linear issue git start ENG-123`
 creates or switches to the issue's git branch, and `linear issue jj start
 ENG-123` starts a described jj change. Both then start the issue.
 
+### Open a pull request for an issue
+
+```bash
+linear issue gh pr ENG-123 --draft          # gh pr create, titled "ENG-123 <issue title>", issue URL in the body
+linear issue gh pr ENG-123 --head my-topic  # name the branch (git) or bookmark (jj) yourself
+```
+
+In a jj repository (`vcs = "jj"`) this publishes without asking. It pushes a
+bookmark for the working-copy change (or its parent, when the working copy is
+empty and undescribed) with `jj git push`, creating one named after the issue
+if the change has none, then opens the pull request from it. It never moves an
+existing bookmark: when it cannot tell which bookmark to use it says so and
+asks for `--head`.
+
 ### Create from a template
 
 ```bash

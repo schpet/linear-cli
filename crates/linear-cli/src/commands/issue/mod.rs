@@ -29,7 +29,7 @@ mod view;
 mod write;
 mod write_network;
 
-use crate::cli::issue::{IssueCommand, IssueGitCommand, IssueJjCommand};
+use crate::cli::issue::{IssueCommand, IssueGhCommand, IssueGitCommand, IssueJjCommand};
 use crate::commands::team_key::configured_team_key;
 use crate::config::Vcs;
 use crate::ctx::Ctx;
@@ -55,7 +55,15 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
         IssueCommand::Commits(args) => commits::run(ctx, args),
-        IssueCommand::PullRequest(args) => pull_request::run(ctx, args),
+        IssueCommand::Gh(args) => match &args.command {
+            IssueGhCommand::PullRequest(args) => pull_request::run(ctx, args),
+        },
+        IssueCommand::MovedPullRequest(_) => Err(Error::invalid(
+            "`issue pull-request` moved to `issue gh pull-request`",
+        )
+        .with_hint(
+            "Run `linear issue gh pull-request` (or `linear issue gh pr`) with the same arguments.",
+        )),
         IssueCommand::Archive(args) => archive::run(ctx, args),
         IssueCommand::Delete(args) => delete::run(ctx, args),
         IssueCommand::Create(args) => create::run(ctx, args),
