@@ -16,6 +16,7 @@
 - [project](./project.md) - Manage projects
 - [project-update](./project-update.md) - Post and list project status updates
 - [schema](./schema.md) - Print the Linear GraphQL schema
+- [skill](./skill.md) - Teach coding agents to use linear
 - [team](./team.md) - Manage teams
 - [template](./template.md) - Browse issue, project and document templates
 - [user](./user.md) - List workspace members

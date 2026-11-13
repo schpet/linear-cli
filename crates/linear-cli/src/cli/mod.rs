@@ -23,6 +23,7 @@ pub(crate) mod milestone;
 pub(crate) mod project;
 pub(crate) mod project_update;
 pub(crate) mod schema;
+pub(crate) mod skill;
 pub(crate) mod team;
 pub(crate) mod template;
 pub(crate) mod user;
@@ -38,16 +39,11 @@ and `[Name](url)` do not. Get a person's URL from the `url` field of
 `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
 Run `linear markdown` for collapsible sections and the full reference.";
 
-const ENVIRONMENT: &str = "\
-Environment:
-  LINEAR_API_KEY            API key to use instead of a stored credential
-  LINEAR_TEAM_ID            Default team key
-  LINEAR_DEBUG=1            Show the details and causes of errors
-  LINEAR_IGNORE_ENV_FILE=1  Do not load .env files
-
-Every .linear.toml setting can also be set with a LINEAR_* variable; run
-`linear config` to write one for the current repository.
-
+/// What each exit status means. `linear --help` and the agent guide both print
+/// it, so it is written once.
+macro_rules! exit_status {
+    () => {
+        "\
 Exit status:
   0    Success
   1    Any other failure, including GraphQL errors such as an invalid query
@@ -60,7 +56,26 @@ Exit status:
   130  Cancelled at a prompt or in the editor
 
 A bulk command that fails for several reasons exits with the first of 4, 5,
-1, 3 among them.";
+1, 3 among them."
+    };
+}
+
+pub(crate) const EXIT_STATUS: &str = exit_status!();
+
+const ENVIRONMENT: &str = concat!(
+    "\
+Environment:
+  LINEAR_API_KEY            API key to use instead of a stored credential
+  LINEAR_TEAM_ID            Default team key
+  LINEAR_DEBUG=1            Show the details and causes of errors
+  LINEAR_IGNORE_ENV_FILE=1  Do not load .env files
+
+Every .linear.toml setting can also be set with a LINEAR_* variable; run
+`linear config` to write one for the current repository.
+
+",
+    exit_status!()
+);
 
 /// Work with Linear from the command line
 #[derive(Debug, Parser)]
@@ -167,6 +182,12 @@ pub enum RootCommand {
     /// Explain Linear-flavored Markdown: mentions and collapsible sections
     #[command(long_about = include_str!("markdown.txt").trim_end())]
     Markdown(markdown::Markdown),
+    /// Teach coding agents to use linear
+    ///
+    /// `linear skill show` prints a guide to this CLI written for coding
+    /// agents. The guide ships in this binary, so upgrading linear also
+    /// updates what agents read.
+    Skill(skill::Skill),
 }
 
 /// Skips the confirmation prompt of a destructive command.

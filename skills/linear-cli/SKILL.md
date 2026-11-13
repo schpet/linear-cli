@@ -317,6 +317,9 @@ linear project-update list
 
 linear schema
 
+linear skill
+linear skill show
+
 linear team
 linear team list
 linear team create
@@ -350,6 +353,7 @@ linear user list
 - [project](references/project.md) - Manage projects
 - [project-update](references/project-update.md) - Post and list project status updates
 - [schema](references/schema.md) - Print the Linear GraphQL schema
+- [skill](references/skill.md) - Teach coding agents to use linear
 - [team](references/team.md) - Manage teams
 - [template](references/template.md) - Browse issue, project and document templates
 - [user](references/user.md) - List workspace members
