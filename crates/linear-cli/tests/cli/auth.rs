@@ -115,6 +115,77 @@ fn credentials_toml(cli: &Cli) -> toml::Table {
 }
 
 #[test]
+fn login_with_a_configured_key_stores_nothing() {
+    for (name, key, cli) in [
+        (
+            "environment",
+            "lin_env",
+            Cli::new().env("LINEAR_API_KEY", "lin_env"),
+        ),
+        (
+            ".env",
+            "lin_dotenv",
+            Cli::new()
+                .env_remove("LINEAR_IGNORE_ENV_FILE")
+                .file("cwd/.env", "LINEAR_API_KEY=lin_dotenv"),
+        ),
+        (
+            "config file",
+            "lin_toml",
+            Cli::new().file("cwd/.linear.toml", "api_key = \"lin_toml\"\n"),
+        ),
+    ] {
+        cli.run(&["auth", "login"])
+            .success()
+            .stdout_has("there is nothing to store");
+        assert!(!cli.path(CREDENTIALS).exists(), "{name}: wrote credentials");
+        assert_eq!(
+            token(&cli, &[]),
+            key,
+            "{name}: configured key is still used"
+        );
+    }
+}
+
+#[test]
+fn login_with_an_explicit_key_ignores_the_configured_key() {
+    let api = MockLinear::start();
+    api.on("GetViewerAccount", login_viewer());
+    let cli = Cli::new().endpoint(&api).env("LINEAR_API_KEY", "lin_env");
+    cli.run(&["auth", "login", "--key", "lin_new", "--plaintext"])
+        .success();
+    assert_eq!(
+        api.request("GetViewerAccount").header("authorization"),
+        Some("lin_new")
+    );
+}
+
+#[test]
+fn an_empty_configured_key_does_not_stand_in_for_a_login() {
+    let cli = Cli::new().env("LINEAR_API_KEY", "");
+    let run = cli.run(&["auth", "login"]);
+    // Linux fails on the missing keyring, macOS on the missing key, so only the
+    // shared part is asserted: the empty value must not count as configured.
+    run.failure();
+    assert!(
+        !run.stdout.contains("nothing to store"),
+        "an empty LINEAR_API_KEY must not count as configured\n{run}"
+    );
+}
+
+/// Without libsecret there is nowhere to put an explicitly given key, so the
+/// login still fails rather than quietly no-oping.
+#[cfg(target_os = "linux")]
+#[test]
+fn an_explicit_login_still_needs_a_keyring_on_linux() {
+    Cli::new()
+        .env("LINEAR_API_KEY", "lin_env")
+        .run(&["auth", "login", "--key", "lin_new"])
+        .failure()
+        .stderr_has("No system keyring found");
+}
+
+#[test]
 fn plaintext_login_writes_inline_credentials() {
     let api = MockLinear::start();
     api.on("GetViewerAccount", login_viewer());

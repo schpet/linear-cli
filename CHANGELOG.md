@@ -17,6 +17,10 @@
 
 - The Claude Code plugin (`/plugin install linear-cli@linear-cli`) is no longer published. Uninstall it with `claude plugin uninstall linear-cli@linear-cli` and `claude plugin marketplace remove linear-cli`, then run `linear skill setup`. If an older copy of the skill is in an agent's skills directory, `linear skill setup --force` moves it to a backup directory and installs the new one
 
+### Fixed
+
+- `auth login` no longer fails with "No system keyring found" when an API key is already configured (`LINEAR_API_KEY`, a `.env` file, or `api_key` in a config file). With no `--key` and no `--plaintext` it now reports that there is nothing to store and exits 0, since every other command already uses that key
+
 ## [3.1.0] - 2026-10-22
 
 ### Added
