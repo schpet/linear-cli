@@ -56,22 +56,20 @@ fn calls(cli: &Cli, tool: &str) -> Vec<Vec<String>> {
 
 #[test]
 fn start_moves_the_issue_to_the_first_started_status_and_leaves_the_repository_alone() {
-    for vcs in ["git", "jj"] {
-        let api = MockLinear::start();
-        api.on("GetIssueTransitionDetails", issue("Todo", "unstarted"))
-            .on("GetWorkflowStates", workflow())
-            .on("UpdateIssueState", moved());
-        let cli = repo(&api).env("LINEAR_VCS", vcs);
-        let run = cli.run(&["issue", "start", "ENG-7"]);
-        run.success();
-        assert_eq!(run.stdout, "✓ Moved issue ENG-7 to In Progress\n");
-        assert_eq!(
-            api.variables("UpdateIssueState"),
-            json!({ "issueId": "ENG-7", "stateId": "state-progress" })
-        );
-        assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
-        assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
-    }
+    let api = MockLinear::start();
+    api.on("GetIssueTransitionDetails", issue("Todo", "unstarted"))
+        .on("GetWorkflowStates", workflow())
+        .on("UpdateIssueState", moved());
+    let cli = repo(&api);
+    let run = cli.run(&["issue", "start", "ENG-7"]);
+    run.success();
+    assert_eq!(run.stdout, "✓ Moved issue ENG-7 to In Progress\n");
+    assert_eq!(
+        api.variables("UpdateIssueState"),
+        json!({ "issueId": "ENG-7", "stateId": "state-progress" })
+    );
+    assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
+    assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
 }
 
 #[test]

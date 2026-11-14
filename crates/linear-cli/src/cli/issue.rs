@@ -337,7 +337,32 @@ pub enum IssueJjCommand {
     /// `issue start` does. An issue that is already started or closed keeps
     /// its status.
     Start(IssueJjStart),
+    /// Push a jj bookmark and open a GitHub pull request for an issue
+    ///
+    /// The head is the working-copy change, or its parent when the working
+    /// copy is empty and undescribed; an existing bookmark named by --head
+    /// selects its change instead. A bookmark already on that change is
+    /// used, or one with the branch name Linear suggests (or the --head
+    /// name) is created there. The bookmark is pushed with `jj git push` to
+    /// the `git.push` remote (else the only remote, else origin) without
+    /// asking, then `gh pr create` runs with that remote's repository and the
+    /// bookmark as --head, so no git checkout is needed. A bookmark is never
+    /// moved. The title and body are those of `issue gh pr`.
+    ///
+    /// The issue is always named: an ID, or `@git` or `@jj` to read it from
+    /// the repository. `@jj` reads the trailers in trunk()..@ even when
+    /// --head names a bookmark elsewhere.
+    #[command(
+        alias = "pr",
+        override_usage = "linear issue jj pull-request [OPTIONS] <ISSUE>",
+        after_long_help = ISSUE_REFERENCES,
+        mut_arg("head", |arg| arg.value_name("BOOKMARK").help(JJ_HEAD_HELP))
+    )]
+    PullRequest(IssuePullRequest),
 }
+
+const JJ_HEAD_HELP: &str =
+    "Bookmark to open the pull request from, created on the head change if it does not exist";
 
 #[derive(Debug, Args)]
 pub struct IssueJjStart {
@@ -408,19 +433,17 @@ pub struct IssueGh {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueGhCommand {
-    /// Open a GitHub pull request for an issue
+    /// Open a GitHub pull request for an issue with gh
     ///
     /// Runs `gh pr create` with the issue's ID and title as the title and
-    /// its URL in the body. The issue is always named: an ID, or `@git` or
-    /// `@jj` to read it from the repository.
+    /// its URL in the body. gh chooses the repository and, unless --head is
+    /// given, the branch; nothing is created or pushed first. The issue is
+    /// always named: an ID, or `@git` or `@jj` to read it from the
+    /// repository.
     ///
-    /// With jj (`vcs = "jj"` in config or LINEAR_VCS=jj) the head is the
-    /// working-copy change, or its parent when the working copy is empty
-    /// and undescribed. A bookmark already on that change is used, or one
-    /// with the branch name Linear suggests is created there. The bookmark
-    /// is pushed with `jj git push` to the `git.push` remote (else the only
-    /// remote, else origin) without asking, and the pull request is opened
-    /// in that remote's repository. A bookmark is never moved.
+    /// In a jj repository, use `linear issue jj pr`: it pushes a bookmark for
+    /// the change and tells gh the repository and head, so it also works when
+    /// git's HEAD is detached or there is no git checkout.
     #[command(
         alias = "pr",
         override_usage = "linear issue gh pull-request [OPTIONS] <ISSUE>",
@@ -447,8 +470,7 @@ pub struct IssuePullRequest {
     /// Open the pull request in the browser
     #[arg(long)]
     pub web: bool,
-    /// Branch that holds the commits; with jj, the bookmark to open the pull
-    /// request from, created on the head change if it does not exist
+    /// Branch that holds the commits; accepts owner:branch
     #[arg(long, value_name = "BRANCH", value_parser = NonBlank)]
     pub head: Option<String>,
     /// Start the body from this template file; the issue URL is appended

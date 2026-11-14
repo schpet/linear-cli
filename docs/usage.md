@@ -240,11 +240,15 @@ create a github pull request:
 linear issue gh pull-request TEAM-123
 linear issue gh pr TEAM-123  # Short alias
 linear issue gh pr @git      # the issue in the current git branch's name
+linear issue jj pr TEAM-123  # jj: push a bookmark for the change, then open the pull request from it
+linear issue jj pr @jj       # the issue named by Linear-issue trailers in trunk()..@
 ```
 
-the issue is always named: `linear issue gh pr` on its own is an error that suggests an ID, `@git` or `@jj`.
+the issue is always named: `linear issue gh pr` (or `jj pr`) on its own is an error that suggests an ID, `@git` or `@jj`.
 
-with `vcs = "jj"` this pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests), then opens the pull request from it. `--head <bookmark>` names the bookmark to use or create.
+`issue gh pr` runs `gh pr create` and nothing else: gh takes the repository and branch from your git checkout (or `--head <branch>`), and nothing is created or pushed first.
+
+`issue jj pr` pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests) with `jj git push`, then runs `gh pr create` with the remote's repository and the bookmark, so it needs no git checkout and works when git's HEAD is detached. `--head <bookmark>` names the bookmark to use or create. `@jj` always reads `trunk()..@`, even when `--head` names a bookmark elsewhere.
 
 delete an issue:
 

@@ -266,11 +266,10 @@ fn dotenv_warning_survives_a_later_config_failure() {
         .directory("/work/.env")
         .file("/work/linear.toml", b"vcs = [\n");
     let report = load_startup(&process(&[]), &files);
-    assert_eq!(report.diagnostics.len(), 1);
-    assert_eq!(
-        report.diagnostics[0].path,
-        PathBuf::from(fixture_path("/work/.env"))
-    );
+    let [StartupDiagnostic::Dotenv(diagnostic)] = report.diagnostics.as_slice() else {
+        panic!("one dotenv warning: {:?}", report.diagnostics);
+    };
+    assert_eq!(diagnostic.path, PathBuf::from(fixture_path("/work/.env")));
     assert!(report.result.is_err());
 }
 
@@ -279,13 +278,13 @@ fn repo_root_supplies_dotenv_and_config() {
     let files = MemFiles::default()
         .directory("/repo/.git")
         .file("/repo/.env", b"LINEAR_TEAM_ID=ROOT\n")
-        .file("/repo/.config/linear.toml", b"vcs = 'jj'\n");
+        .file("/repo/.config/linear.toml", b"issue_sort = 'manual'\n");
     let ready = load_startup(&process_in("/repo/sub", &[]), &files)
         .result
         .unwrap();
     assert_eq!(ready.options.team_key(), Some("ROOT"));
     assert_eq!(
-        ready.options.vcs_source(),
+        ready.options.sourced_issue_sort().map(|sort| sort.source()),
         Some(&OptionSource::ProjectConfig {
             path: PathBuf::from(fixture_path("/repo/.config/linear.toml"))
         })
@@ -294,9 +293,134 @@ fn repo_root_supplies_dotenv_and_config() {
 
 #[test]
 fn outside_a_repository_cwd_dot_config_is_not_a_candidate() {
-    let files = MemFiles::default().file("/work/.config/linear.toml", b"vcs = 'jj'\n");
+    let files = MemFiles::default().file("/work/.config/linear.toml", b"issue_sort = 'manual'\n");
     let ready = load_startup(&process(&[]), &files).result.unwrap();
-    assert!(ready.options.vcs_source().is_none());
+    assert!(ready.options.sourced_issue_sort().is_none());
+}
+
+fn retired(diagnostics: &[StartupDiagnostic]) -> Vec<OptionSource> {
+    diagnostics
+        .iter()
+        .filter_map(|diagnostic| match diagnostic {
+            StartupDiagnostic::RetiredVcs(source) => Some(source.clone()),
+            StartupDiagnostic::Dotenv(_) => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_retired_vcs_setting_loads_and_warns_once_per_source_that_sets_it() {
+    let global = fixture_path("/global");
+    let files = MemFiles::default()
+        .file("/work/.env", b"LINEAR_VCS=git\n")
+        .file("/work/linear.toml", b"vcs = 'jj'\n")
+        .file("/global/linear/linear.toml", b"vcs = 'git'\n");
+    let path = |path: &str| PathBuf::from(fixture_path(path));
+    // The process environment hides the .env value, which is then not loaded.
+    let report = load_startup(
+        &process(&[("XDG_CONFIG_HOME", global.as_str()), ("LINEAR_VCS", "jj")]),
+        &files,
+    );
+    assert!(report.result.is_ok());
+    assert_eq!(
+        retired(&report.diagnostics),
+        [
+            OptionSource::Env,
+            OptionSource::ProjectConfig {
+                path: path("/work/linear.toml")
+            },
+            OptionSource::GlobalConfig {
+                path: path("/global/linear/linear.toml")
+            },
+        ]
+    );
+    let report = load_startup(&process(&[]), &files);
+    assert!(report.result.is_ok());
+    assert_eq!(
+        retired(&report.diagnostics),
+        [
+            OptionSource::ProjectEnv {
+                path: path("/work/.env")
+            },
+            OptionSource::ProjectConfig {
+                path: path("/work/linear.toml")
+            },
+        ]
+    );
+    let report = load_startup(&process(&[]), &MemFiles::default());
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let ignored = load_startup(&process(&[("LINEAR_IGNORE_ENV_FILE", "1")]), &files);
+    assert_eq!(
+        retired(&ignored.diagnostics).len(),
+        1,
+        "an ignored .env is not read"
+    );
+}
+
+#[test]
+fn the_retired_vcs_setting_still_rejects_what_was_never_valid() {
+    for (env, file, said) in [
+        (
+            "GIT",
+            "",
+            "invalid config option LINEAR_VCS from process environment",
+        ),
+        (
+            "",
+            "",
+            "invalid config option LINEAR_VCS from process environment",
+        ),
+        (
+            "hg",
+            "",
+            "invalid config option LINEAR_VCS from process environment",
+        ),
+        (
+            "jj",
+            "vcs = 1\n",
+            "invalid config option vcs from project config",
+        ),
+        (
+            "jj",
+            "vcs = 'Jj'\n",
+            "invalid config option vcs from project config",
+        ),
+    ] {
+        let files = MemFiles::default().file("/work/linear.toml", file.as_bytes());
+        let report = load_startup(&process(&[("LINEAR_VCS", env)]), &files);
+        let error = report.result.unwrap_err();
+        assert!(error.to_string().contains(said), "{error}");
+        assert!(error.to_string().contains("git"), "{error}");
+        assert!(
+            error.hint().is_some_and(|hint| hint.starts_with("Fix ")),
+            "{error:?}"
+        );
+        assert!(
+            retired(&report.diagnostics).is_empty(),
+            "{:?}",
+            report.diagnostics
+        );
+    }
+}
+
+#[test]
+fn the_retired_vcs_warning_survives_another_options_error() {
+    let files = MemFiles::default().file("/work/linear.toml", b"vcs = 'jj'\nissue_sort = 'x'\n");
+    let report = load_startup(&process(&[]), &files);
+    assert!(
+        report
+            .result
+            .unwrap_err()
+            .to_string()
+            .contains("issue_sort")
+    );
+    assert_eq!(retired(&report.diagnostics).len(), 1);
+    let report = load_startup(
+        &process(&[("LINEAR_VCS", "jj"), ("LINEAR_GRAPHQL_ENDPOINT", "bad")]),
+        &MemFiles::default(),
+    );
+    assert!(report.result.is_err());
+    assert_eq!(retired(&report.diagnostics), [OptionSource::Env]);
 }
 
 #[test]
@@ -342,6 +466,7 @@ fn warning_templates_are_colored_only_on_request() {
     };
     let body = "Warning: Ignoring LINEAR_TEAM_ID in /work/.env: the line could not be parsed.";
     let suggestion = "  Check for an unclosed quote or a malformed KEY=value line.";
+    let diagnostic = StartupDiagnostic::Dotenv(diagnostic);
     let colored = render_diagnostic(&diagnostic, true);
     assert!(colored.contains(body) && colored.contains(suggestion));
     assert!(colored.contains('\x1b'));
@@ -349,4 +474,36 @@ fn warning_templates_are_colored_only_on_request() {
         render_diagnostic(&diagnostic, false),
         format!("{body}\n{suggestion}\n")
     );
+}
+
+#[test]
+fn the_retired_vcs_warning_names_the_spelling_and_source_and_the_replacements() {
+    let hint = "Commands name their tool instead: `linear issue jj pr` and `linear issue jj start` for jj, `linear issue gh pr` and `linear issue git start` for git.";
+    for (source, said) in [
+        (
+            OptionSource::Env,
+            "Warning: LINEAR_VCS from process environment was removed in 4.0 and does nothing.\n  Remove LINEAR_VCS. ",
+        ),
+        (
+            OptionSource::ProjectEnv {
+                path: PathBuf::from("/work/.env"),
+            },
+            "Warning: LINEAR_VCS from .env file /work/.env was removed in 4.0 and does nothing.\n  Remove LINEAR_VCS. ",
+        ),
+        (
+            OptionSource::ProjectConfig {
+                path: PathBuf::from("/work/.linear.toml"),
+            },
+            "Warning: vcs from project config /work/.linear.toml was removed in 4.0 and does nothing.\n  Remove vcs. ",
+        ),
+        (
+            OptionSource::GlobalConfig {
+                path: PathBuf::from("/home/linear.toml"),
+            },
+            "Warning: vcs from global config /home/linear.toml was removed in 4.0 and does nothing.\n  Remove vcs. ",
+        ),
+    ] {
+        let rendered = render_diagnostic(&StartupDiagnostic::RetiredVcs(source), false);
+        assert_eq!(rendered, format!("{said}{hint}\n"));
+    }
 }

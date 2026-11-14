@@ -114,17 +114,23 @@ first and pass the IDs it prints. In PowerShell, quote them: `'@git'`.
 
 ```bash
 linear issue gh pr ENG-123 --draft          # gh pr create, titled "ENG-123 <issue title>", issue URL in the body
-linear issue gh pr ENG-123 --head my-topic  # name the branch (git) or bookmark (jj) yourself
+linear issue gh pr ENG-123 --head my-topic  # name the git branch yourself
+linear issue jj pr ENG-123 --draft          # jj: push a bookmark for the change, then gh pr create
+linear issue jj pr @jj --head my-topic      # name the jj bookmark yourself
 ```
 
-The issue is always named; `linear issue gh pr` on its own is an error.
+The issue is always named; `linear issue gh pr` on its own is an error. The
+command names the tool: `gh pr` only runs gh, which takes the repository and
+branch from the git checkout, and never creates or pushes anything.
 
-In a jj repository (`vcs = "jj"`) this publishes without asking. It pushes a
-bookmark for the working-copy change (or its parent, when the working copy is
-empty and undescribed) with `jj git push`, creating one named after the issue
-if the change has none, then opens the pull request from it. It never moves an
-existing bookmark: when it cannot tell which bookmark to use it says so and
-asks for `--head`.
+`jj pr` publishes without asking. It pushes a bookmark for the working-copy
+change (or its parent, when the working copy is empty and undescribed) with
+`jj git push`, creating one named after the issue if the change has none,
+then runs gh with the repository and the bookmark, so it works without a git
+checkout. It never moves an existing bookmark: when it cannot tell which
+bookmark to use it says so and asks for `--head`. In a jj repository use it
+rather than `gh pr`. `@jj` reads `trunk()..@` even when `--head` names a
+bookmark elsewhere.
 
 ### Create from a template
 

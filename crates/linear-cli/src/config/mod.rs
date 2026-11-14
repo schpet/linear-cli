@@ -10,7 +10,7 @@ mod startup;
 
 pub use network::NetworkEnv;
 pub use options::{
-    AssignSelf, ConfigOptions, ConfigSecret, IssueSort, OptionSource, PrTemplateCli, Vcs,
+    AssignSelf, ConfigOptions, ConfigSecret, IssueSort, OptionSource, PrTemplateCli,
 };
 pub use parse::{ConfigTier, parse_config_tier};
 pub use runtime::ProcessEnvSnapshot;

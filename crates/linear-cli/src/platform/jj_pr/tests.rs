@@ -9,7 +9,6 @@ fn commit(id: &str, parents: &[&str], described: bool, empty: bool) -> Commit {
         parents: parents.iter().map(|&parent| parent.to_owned()).collect(),
         described,
         empty,
-        immutable: false,
         conflict: false,
     }
 }
@@ -31,13 +30,14 @@ fn remote(name: &str) -> Remote {
 
 #[test]
 fn jj_commit_and_bookmark_json_is_read_strictly() {
-    let line = br#"[{"commit_id":"abc","parents":["p1"],"change_id":"x","description":" \n"},true,false,true]
+    let line =
+        br#"[{"commit_id":"abc","parents":["p1"],"change_id":"x","description":" \n"},true,true]
 "#;
     let parsed = parse_commit(line).expect("one commit");
     assert_eq!(parsed.id, "abc");
     assert_eq!(parsed.parents, ["p1"]);
     assert!(!parsed.described, "whitespace is no description");
-    assert!(parsed.empty && !parsed.immutable && parsed.conflict);
+    assert!(parsed.empty && parsed.conflict);
     for bad in [
         &b""[..],
         b"[1,2]\n",

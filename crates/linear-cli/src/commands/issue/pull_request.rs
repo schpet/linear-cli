@@ -1,27 +1,52 @@
-//! `issue gh pull-request`: open a GitHub pull request for an issue with
-//! `gh`, which owns the browser, editor and interactive flow. In a jj
-//! repository the head bookmark is settled and pushed first.
+//! `issue gh pull-request` and `issue jj pull-request`: open a GitHub pull
+//! request for an issue with `gh`, which owns the browser, editor and
+//! interactive flow. The jj command settles and pushes the head bookmark
+//! first; the gh command leaves the repository and head to gh.
 use crate::{
     cli::issue::IssuePullRequest,
     commands::text_input,
-    config::{PrTemplateCli, Vcs},
+    config::PrTemplateCli,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     platform::{gh, jj_pr::Jj},
 };
 use std::path::Path;
 
-pub fn run(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
-    create_pull_request(ctx, args).context("Failed to create pull request")
+/// Which command runs: the one that names the tool decides what is done to
+/// the repository, never a setting.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Route {
+    /// `issue gh pr`: gh alone, from the git checkout.
+    Gh,
+    /// `issue jj pr`: push a jj bookmark, then gh with its repository and head.
+    Jj,
 }
 
-fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+impl Route {
+    fn command(self) -> &'static str {
+        match self {
+            Self::Gh => "linear issue gh pr",
+            Self::Jj => "linear issue jj pr",
+        }
+    }
+}
+
+pub fn run_gh(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    create_pull_request(ctx, args, Route::Gh).context("Failed to create pull request")
+}
+
+pub fn run_jj(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    create_pull_request(ctx, args, Route::Jj).context("Failed to create pull request")
+}
+
+fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest, route: Route) -> Result<()> {
     // The issue is always named, by an ID or by `@git` / `@jj`; leaving it
     // out never reads it from the repository.
     let issue = args.issue_id.as_ref().ok_or_else(|| {
-        Error::invalid("No issue to open a pull request for").with_hint(
-            "Name it: an issue ID like `linear issue gh pr ENG-123`, `@git` for the issue in the git branch name, or `@jj` for the one in the Linear-issue trailers of trunk()..@.",
-        )
+        Error::invalid("No issue to open a pull request for").with_hint(format!(
+            "Name it: an issue ID like `{} ENG-123`, `@git` for the issue in the git branch name, or `@jj` for the one in the Linear-issue trailers of trunk()..@.",
+            route.command()
+        ))
     })?;
     let selected = if args.no_template {
         PrTemplateCli::Disabled
@@ -36,18 +61,20 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         .map(|path| read_template(path.path()))
         .transpose()?;
     let identifier = super::require(ctx, issue)?;
-    // git leaves the head to gh, which reads the current branch. jj has no
-    // current branch, so the head is settled here, before anything is sent.
+    // Credentials first: a missing login fails before jj snapshots the
+    // working copy or anything else is touched.
+    let client = ctx.client()?;
+    // gh reads the current git branch itself. jj has no current branch, so
+    // its head is settled here, before anything is sent.
     let jj = Jj::new(ctx.cwd(), &ctx.config().child_env);
-    let survey = match super::vcs(ctx) {
-        Vcs::Git => None,
-        Vcs::Jj => {
+    let survey = match route {
+        Route::Gh => None,
+        Route::Jj => {
             // Nothing is pushed for a pull request that gh cannot open.
             gh::require(ctx.cwd(), &ctx.config().child_env)?;
             Some(jj.survey(args.head.as_deref())?)
         }
     };
-    let client = ctx.client()?;
     let details = ctx.spin(true, super::details::fetch(client, identifier.clone()))?;
     let published = match &survey {
         None => None,
