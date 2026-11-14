@@ -132,6 +132,24 @@ linear issue git start TEAM-123   # create or switch to the issue's git branch, 
 linear issue jj start TEAM-123    # start a new jj change described with the issue title and a `Linear-issue` trailer, then start it
 ```
 
+both print on stdout one line for each thing they did, as they do it, so a script or agent can see every side effect:
+
+```text
+$ linear issue git start TEAM-123
+✓ Created and switched to git branch "team-123-fix-login" from "HEAD" (0123456789ab); previous branch: "main"
+✓ Moved Linear issue TEAM-123 from "Todo" to "In Progress"
+
+$ linear issue jj start TEAM-123
+✓ Created and switched to jj change <NEW-CHANGE-ID> from <PREVIOUS-CHANGE-ID>
+✓ Wrote jj change <NEW-CHANGE-ID> description: "TEAM-123 Fix login"
+✓ Wrote trailers (keep both when rewording to use @jj):
+  Linear-issue: Fixes TEAM-123
+  Linear-issue-url: https://linear.app/acme/issue/TEAM-123/fix-login
+✓ Moved Linear issue TEAM-123 from "Todo" to "In Progress"
+```
+
+`git start` says which branch it created and from which ref and commit, or which branch it switched to an existing branch from (switching leaves its history alone and ignores `--from-ref`, which it then says). `jj start` reuses the current change instead of making a new one when it is empty and undescribed (`✓ Reused empty, undescribed jj change <ID>`), and names changes by their full change ID, which describing them does not change. keep the trailers when you reword the change, or `@jj` will not find the issue. an issue that is already started or closed keeps its status (`✓ Left Linear issue TEAM-123 in "In Review" (already started)`, or `(closed; not reopened)`). if a later step fails, the lines already printed say what was done, and the error says how to finish.
+
 #### create an issue
 
 create an issue interactively; bare `issue create` asks only for the title, and `-i` asks for every field:

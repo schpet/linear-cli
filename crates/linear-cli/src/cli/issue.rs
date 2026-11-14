@@ -299,12 +299,30 @@ pub struct IssueGit {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueGitCommand {
-    /// Create or switch to an issue's git branch, then start the issue
+    /// Create or switch to a git branch, then start the issue and report both results
     ///
-    /// Creates the branch Linear suggests for the issue (or switches to it
-    /// if it exists), then moves the issue to its team's first started
-    /// status as `issue start` does. An issue that is already started or
-    /// closed keeps its status.
+    /// Runs these steps in order, printing one line on stdout for each as it
+    /// is done:
+    ///
+    /// 1. Creates the branch Linear suggests for the issue (or --branch) from
+    ///    --from-ref, which defaults to HEAD, and switches to it. If the local
+    ///    branch exists, asks whether to switch to it or to create a suffixed
+    ///    branch; switching leaves its history unchanged and does not use
+    ///    --from-ref.
+    ///
+    /// 2. Moves the issue to its team's first started status, as `issue start`
+    ///    does. An issue that is already started or closed keeps its status.
+    ///
+    /// The lines name the actual branch, the ref and commit it was created
+    /// from or the checkout it replaced, and whether the Linear status
+    /// changed:
+    ///
+    ///   ✓ Created and switched to git branch "eng-7" from "HEAD" (0123456789ab); previous branch: "main"
+    ///   ✓ Moved Linear issue ENG-7 from "Todo" to "In Progress"
+    ///
+    /// If starting the issue fails, the branch stays and the lines already
+    /// printed say what was done.
+    #[command(verbatim_doc_comment)]
     Start(IssueGitStart),
 }
 
@@ -312,7 +330,7 @@ pub enum IssueGitCommand {
 pub struct IssueGitStart {
     #[command(flatten)]
     pub target: StartTarget,
-    /// Git ref to create the branch from [default: HEAD]
+    /// Git ref to create a new branch from; unused when switching to an existing branch [default: HEAD]
     #[arg(long, short, value_name = "REF", value_parser = NonBlank)]
     pub from_ref: Option<String>,
     /// Branch name to use instead of the one Linear suggests
@@ -329,13 +347,36 @@ pub struct IssueJj {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueJjCommand {
-    /// Prepare a jj change for an issue, then start the issue
+    /// Describe a new or reused jj change, then start the issue and report both results
     ///
-    /// Starts a new change, reusing an empty undescribed one, and describes
-    /// it with the issue title and `Linear-issue` trailers; no bookmark is
-    /// created. Then moves the issue to its team's first started status as
-    /// `issue start` does. An issue that is already started or closed keeps
-    /// its status.
+    /// Runs these steps in order, printing what it did on stdout as each is
+    /// done:
+    ///
+    /// 1. Creates a new change on the current one (`jj new`), or reuses the
+    ///    current change when it is empty and undescribed.
+    ///
+    /// 2. Writes "<ID> <issue title>" as that change's description, with
+    ///    "Linear-issue: Fixes <ID>" and "Linear-issue-url: <URL>" trailers.
+    ///    Keep both trailers when rewording if you want @jj to find the issue.
+    ///
+    /// 3. Moves the issue to its team's first started status, as `issue start`
+    ///    does. An issue that is already started or closed keeps its status.
+    ///
+    /// No bookmark is created and nothing is pushed. The lines name the full
+    /// change ID, show the description and trailers written, and say whether
+    /// the Linear status changed:
+    ///
+    ///   ✓ Created and switched to jj change <NEW> from <PREVIOUS>
+    ///   ✓ Wrote jj change <NEW> description: "ENG-7 Fix the widget"
+    ///   ✓ Wrote trailers (keep both when rewording to use @jj):
+    ///     Linear-issue: Fixes ENG-7
+    ///     Linear-issue-url: https://linear.app/acme/issue/ENG-7/fix-the-widget
+    ///   ✓ Moved Linear issue ENG-7 from "Todo" to "In Progress"
+    ///
+    /// The first line is "✓ Reused empty, undescribed jj change <ID>" when
+    /// the change is reused. If starting the issue fails, the change stays
+    /// and the lines already printed say what was done.
+    #[command(verbatim_doc_comment)]
     Start(IssueJjStart),
     /// Push a jj bookmark and open a GitHub pull request for one or more issues
     ///

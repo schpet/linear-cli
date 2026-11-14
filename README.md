@@ -121,7 +121,7 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 the CLI works with both git and jj version control systems:
 
 - **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
-- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue jj pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+- **jj**: `linear issue jj start ABC-123` starts a change (or reuses an empty, undescribed one) described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue jj pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
 
 each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` always runs plain `gh pr create` from the git checkout, even in a jj repository. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it
 
@@ -157,8 +157,8 @@ linear issue query --all-teams --json --limit all  # export all issues as JSON
 linear issue start ENG-123     # move the issue to its team's first started status; touches nothing in your repo
 linear issue complete ENG-123  # move the issue to its team's completed status
 linear issue cancel ENG-123    # move the issue to its team's canceled status
-linear issue git start ENG-123 # create/switch to the issue's git branch, then start it (--branch, --from-ref)
-linear issue jj start ENG-123  # start a jj change described with the issue, then start it
+linear issue git start ENG-123 # create/switch to the issue's git branch, then start it (--branch, --from-ref); prints what it did
+linear issue jj start ENG-123  # start a jj change described with the issue, then start it; prints the change ID, description and trailers it wrote
 linear issue create    # create a new issue, asking for the title
 linear issue create -i # create a new issue, asking for every field
 linear issue create -t "title" -d "description"  # create with flags

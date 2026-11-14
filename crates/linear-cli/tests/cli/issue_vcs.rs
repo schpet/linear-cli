@@ -28,25 +28,55 @@ fn states() -> Value {
     ], "pageInfo": { "hasNextPage": false, "endCursor": null } } } })
 }
 
-/// A git where no branch exists yet.
+/// A git on the branch `main`, where no other branch exists yet. `HEAD` is
+/// commit 0123456789ab and `origin/main` fedcba987654.
 fn git(cli: Cli) -> Cli {
     cli.stub_bin(
         "git",
         "case \"$1 $2\" in\n\
          'show-ref --verify') exit 1 ;;\n\
+         'symbolic-ref --quiet') echo main ;;\n\
+         'rev-parse --verify') case \"$6\" in\n\
+           'HEAD^{commit}') echo 0123456789ab ;;\n\
+           'origin/main^{commit}') echo fedcba987654 ;;\n\
+           *) exit 1 ;;\n\
+           esac ;;\n\
          'checkout -b') echo \"Switched to a new branch '$3'\" >&2 ;;\n\
          *) exit 1 ;;\n\
          esac",
     )
 }
 
-/// A jj whose `@` already has a description, so `issue jj start` must make a new change.
+/// The change `@` is before `issue jj start`, and the one `jj new` makes.
+const CHANGE: &str = "qpvuntsmzwxyqpvuntsmzwxyqpvuntsm";
+const NEW_CHANGE: &str = "zyxwvutsrqponmlkzyxwvutsrqponmlk";
+
+/// One record of the `jj log -r @` probe of `issue jj start`.
+fn jj_at(change: &str, description: &str, empty: bool) -> String {
+    json!([{ "change_id": change, "description": description, "commit_id": "c0ffee" }, empty])
+        .to_string()
+}
+
+/// A jj whose `@` (`CHANGE`) already has a description, so `issue jj start`
+/// must make a new change (`NEW_CHANGE`).
 fn jj(cli: Cli) -> Cli {
-    cli.stub_bin(
+    jj_starting_on(cli, &jj_at(CHANGE, "earlier work\n", false), "")
+}
+
+/// A jj whose `@` probe answers `at` until `jj new` runs, then the new
+/// empty change. `describe` runs `on_describe`.
+fn jj_starting_on(cli: Cli, at: &str, on_describe: &str) -> Cli {
+    let created = jj_at(NEW_CHANGE, "", true);
+    cli.file("cwd/.jj/repo/store", "").stub_bin(
         "jj",
-        "case \"$*\" in\n\
-         'log -r @ --no-graph '*) printf 'occupied\\n' ;;\n\
-         esac",
+        &format!(
+            "case \"$*\" in\n\
+             'log -r @ --no-graph '*) if [ -e made-new ]; then printf '%s\\n' '{created}'; else printf '%s\\n' '{at}'; fi ;;\n\
+             new) touch made-new ;;\n\
+             'describe '*) {on_describe} ;;\n\
+             *) echo \"unexpected jj $*\" >&2; exit 1 ;;\n\
+             esac"
+        ),
     )
 }
 
@@ -89,10 +119,13 @@ fn git_start_creates_the_issue_branch_and_marks_it_started() {
             json!({ "issueUpdate": { "success": true } }),
         );
     let cli = git(Cli::for_api(&api));
-    cli.run(&["issue", "git", "start", "ENG-7"])
-        .success()
-        .stdout_has("eng-7-repair-the-widget")
-        .stdout_has("In Progress");
+    let run = cli.run(&["issue", "git", "start", "ENG-7"]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        "✓ Created and switched to git branch \"eng-7-repair-the-widget\" from \"HEAD\" (0123456789ab); previous branch: \"main\"\n\
+         ✓ Moved Linear issue ENG-7 from \"Todo\" to \"In Progress\"\n"
+    );
     assert!(
         calls(&cli, "git").contains(&vec![
             "checkout".to_owned(),
@@ -133,7 +166,7 @@ fn git_start_accepts_a_custom_branch_and_base_ref() {
             json!({ "issueUpdate": { "success": true } }),
         );
     let cli = git(Cli::for_api(&api).env("LINEAR_TEAM_ID", "ENG"));
-    cli.run(&[
+    let run = cli.run(&[
         "issue",
         "git",
         "start",
@@ -142,8 +175,22 @@ fn git_start_accepts_a_custom_branch_and_base_ref() {
         "my-branch",
         "--from-ref",
         "origin/main",
-    ])
-    .success();
+    ]);
+    run.success().stdout_has(
+        "✓ Created and switched to git branch \"my-branch\" from \"origin/main\" (fedcba987654); previous branch: \"main\"\n",
+    );
+    assert!(
+        calls(&cli, "git").contains(&vec![
+            "rev-parse".to_owned(),
+            "--verify".to_owned(),
+            "--quiet".to_owned(),
+            "--short=12".to_owned(),
+            "--end-of-options".to_owned(),
+            "origin/main^{commit}".to_owned(),
+        ]),
+        "{:?}",
+        cli.calls("git")
+    );
     let checkout = calls(&cli, "git")
         .into_iter()
         .find(|args| args[0] == "checkout")
@@ -157,12 +204,16 @@ fn git_start_fails_after_preparing_the_branch_when_the_state_update_fails() {
     api.on("GetIssueTransitionDetails", details())
         .on_error("GetWorkflowStates", "Team not found");
     let cli = git(Cli::for_api(&api));
-    cli.run(&["issue", "git", "start", "ENG-7"])
-        .failure()
-        .stdout_has("Created and switched to branch")
+    let run = cli.run(&["issue", "git", "start", "ENG-7"]);
+    run.failure()
         .stderr_has("Could not move the issue to a started status")
         .stderr_has("Team not found")
         .stderr_has("The branch is ready");
+    // What was done stays reported, and no Linear result is claimed.
+    assert_eq!(
+        run.stdout,
+        "✓ Created and switched to git branch \"eng-7-repair-the-widget\" from \"HEAD\" (0123456789ab); previous branch: \"main\"\n"
+    );
     assert!(calls(&cli, "git").iter().any(|args| args[0] == "checkout"));
 }
 
@@ -229,11 +280,25 @@ fn jj_start_makes_a_new_described_change() {
 #[test]
 fn git_and_jj_start_prepare_the_working_copy_of_a_started_or_closed_issue_and_keep_its_status() {
     for (name, state_type, said) in [
-        ("In Review", "started", "is already started (In Review)"),
+        (
+            "In Review",
+            "started",
+            "✓ Left Linear issue ENG-7 in \"In Review\" (already started)\n",
+        ),
         (
             "Done",
             "completed",
-            "is closed (Done), so it was not started",
+            "✓ Left Linear issue ENG-7 in \"Done\" (closed; not reopened)\n",
+        ),
+        (
+            "Canceled",
+            "canceled",
+            "✓ Left Linear issue ENG-7 in \"Canceled\" (closed; not reopened)\n",
+        ),
+        (
+            "Duplicate",
+            "duplicate",
+            "✓ Left Linear issue ENG-7 in \"Duplicate\" (closed; not reopened)\n",
         ),
     ] {
         let mut issue = details();
@@ -243,15 +308,18 @@ fn git_and_jj_start_prepare_the_working_copy_of_a_started_or_closed_issue_and_ke
             .on("GetIssueTransitionDetails", issue);
         // The retired vcs setting changes nothing: the command names its tool.
         let cli = git(Cli::for_api(&api).env("LINEAR_VCS", "jj"));
-        cli.run(&["issue", "git", "start", "ENG-7"])
-            .success()
-            .stdout_has("Created and switched to branch 'eng-7-repair-the-widget'")
-            .stdout_has(said);
+        let run = cli.run(&["issue", "git", "start", "ENG-7"]);
+        run.success();
+        assert_eq!(
+            run.stdout,
+            format!(
+                "✓ Created and switched to git branch \"eng-7-repair-the-widget\" from \"HEAD\" (0123456789ab); previous branch: \"main\"\n{said}"
+            )
+        );
         let cli = jj(Cli::for_api(&api)).env("LINEAR_VCS", "git");
-        cli.run(&["issue", "jj", "start", "ENG-7"])
-            .success()
-            .stdout_has("Prepared jj change for issue ENG-7")
-            .stdout_has(said);
+        let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+        run.success();
+        assert!(run.stdout.ends_with(&format!("{URL}\n{said}")), "{run}");
         assert_eq!(
             api.operations(),
             ["GetIssueTransitionDetails", "GetIssueTransitionDetails"]
@@ -502,15 +570,18 @@ fn git_start_creates_a_local_branch_when_only_another_revision_has_its_name() {
         let cli = Cli::for_api(&api).stub_bin(
             "git",
             "case \"$1 $2\" in
- 'rev-parse --verify') exit 0 ;;
+ 'rev-parse --verify') echo 0123456789ab ;;
  'show-ref --verify') exit 1 ;;
+ 'symbolic-ref --quiet') echo main ;;
  'checkout -b') exit 0 ;;
  *) exit 1 ;;
  esac",
         );
         cli.run(&["issue", "git", "start", "ENG-7", "--branch", branch])
             .success()
-            .stdout_has("Created and switched");
+            .stdout_has(&format!(
+                "✓ Created and switched to git branch \"{branch}\" from \"HEAD\""
+            ));
         assert_eq!(
             calls(&cli, "git"),
             [
@@ -519,6 +590,20 @@ fn git_start_creates_a_local_branch_when_only_another_revision_has_its_name() {
                     "--verify".to_owned(),
                     "--quiet".to_owned(),
                     format!("refs/heads/{branch}")
+                ],
+                vec![
+                    "symbolic-ref".to_owned(),
+                    "--quiet".to_owned(),
+                    "--short".to_owned(),
+                    "HEAD".to_owned()
+                ],
+                vec![
+                    "rev-parse".to_owned(),
+                    "--verify".to_owned(),
+                    "--quiet".to_owned(),
+                    "--short=12".to_owned(),
+                    "--end-of-options".to_owned(),
+                    "HEAD^{commit}".to_owned()
                 ],
                 vec![
                     "checkout".to_owned(),
@@ -599,15 +684,16 @@ fn git_start_does_not_treat_a_revision_expression_as_a_branch() {
     let cli = Cli::for_api(&api).stub_bin(
         "git",
         "case \"$1 $2\" in
- 'rev-parse --verify') exit 0 ;;
+ 'rev-parse --verify') echo 0123456789ab ;;
  'show-ref --verify') exit 1 ;;
+ 'symbolic-ref --quiet') echo main ;;
  'checkout -b') echo 'fatal: not a valid branch name' >&2; exit 128 ;;
  *) exit 1 ;;
  esac",
     );
-    cli.run(&["issue", "git", "start", "ENG-7", "--branch", "main~0"])
-        .failure()
-        .stderr_has("not a valid branch name");
+    let run = cli.run(&["issue", "git", "start", "ENG-7", "--branch", "main~0"]);
+    run.failure().stderr_has("not a valid branch name");
+    assert_eq!(run.stdout, "", "a failed checkout reports nothing done");
     assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
 }
 
@@ -1952,4 +2038,399 @@ fn jj_pull_request_for_several_issues_names_a_new_bookmark_after_the_first() {
         "{:?}",
         jj_calls(&cli)
     );
+}
+
+/// A mock for one successful `issue git start` or `issue jj start` of ENG-7,
+/// from "Todo" to "In Progress".
+fn started(api: &MockLinear) {
+    api.on("GetIssueTransitionDetails", details())
+        .on("GetWorkflowStates", states())
+        .on(
+            "UpdateIssueState",
+            json!({ "issueUpdate": { "success": true } }),
+        );
+}
+
+const MOVED: &str = "✓ Moved Linear issue ENG-7 from \"Todo\" to \"In Progress\"\n";
+
+/// What `issue jj start` reports writing for ENG-7 to `change`.
+fn described(change: &str) -> String {
+    format!(
+        "✓ Wrote jj change {change} description: \"ENG-7 Repair the widget\"\n\
+         ✓ Wrote trailers (keep both when rewording to use @jj):\n\
+         \x20 Linear-issue: Fixes ENG-7\n\
+         \x20 Linear-issue-url: {URL}\n"
+    )
+}
+
+/// The `jj describe` calls, as jj received them.
+fn describes(cli: &Cli) -> Vec<Vec<String>> {
+    calls(cli, "jj")
+        .into_iter()
+        .filter(|args| args[0] == "describe")
+        .collect()
+}
+
+#[test]
+fn jj_start_says_which_change_it_created_and_what_it_wrote() {
+    let api = MockLinear::start();
+    started(&api);
+    let cli = jj(Cli::for_api(&api));
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        format!(
+            "✓ Created and switched to jj change {NEW_CHANGE} from {CHANGE}\n{}{MOVED}",
+            described(NEW_CHANGE)
+        )
+    );
+    assert!(!run.stderr.contains('✓'), "{run}");
+    assert_eq!(
+        describes(&cli),
+        [[
+            "describe".to_owned(),
+            "-m".to_owned(),
+            format!(
+                "ENG-7 Repair the widget\n\nLinear-issue: Fixes ENG-7\nLinear-issue-url: {URL}"
+            ),
+            "-r".to_owned(),
+            "@".to_owned(),
+        ]]
+    );
+    assert!(calls(&cli, "git").is_empty());
+}
+
+#[test]
+fn jj_start_reuses_only_an_empty_undescribed_change_and_says_so() {
+    let api = MockLinear::start();
+    started(&api);
+    let cli = jj_starting_on(Cli::for_api(&api), &jj_at(CHANGE, "", true), "");
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        format!(
+            "✓ Reused empty, undescribed jj change {CHANGE}\n{}{MOVED}",
+            described(CHANGE)
+        )
+    );
+    assert!(!calls(&cli, "jj").iter().any(|args| args[..] == ["new"]));
+    assert_eq!(describes(&cli)[0][4], "@");
+    // A described empty change and an undescribed change with files get a
+    // new change on top.
+    for at in [jj_at(CHANGE, "notes\n", true), jj_at(CHANGE, "", false)] {
+        let api = MockLinear::start();
+        started(&api);
+        let cli = jj_starting_on(Cli::for_api(&api), &at, "");
+        cli.run(&["issue", "jj", "start", "ENG-7"])
+            .success()
+            .stdout_has(&format!(
+                "✓ Created and switched to jj change {NEW_CHANGE} from {CHANGE}\n"
+            ));
+        assert_eq!(describes(&cli)[0][4], "@");
+    }
+}
+
+#[test]
+fn jj_start_keeps_reporting_the_change_when_describing_it_fails() {
+    for (at, done, change) in [
+        (jj_at(CHANGE, "work\n", false), "created", NEW_CHANGE),
+        (jj_at(CHANGE, "", true), "reused", CHANGE),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetIssueTransitionDetails", details());
+        let cli = jj_starting_on(
+            Cli::for_api(&api),
+            &at,
+            "echo 'Error: concurrent operation' >&2; exit 1",
+        );
+        let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+        run.failure()
+            .stderr_has("Failed to set jj description")
+            .stderr_has("concurrent operation")
+            .stderr_has(&format!(
+                "The jj change {change} was {done}, but setting its description failed. Inspect it with jj log -r {change} before retrying."
+            ));
+        let prepared = match done {
+            "created" => {
+                format!("✓ Created and switched to jj change {NEW_CHANGE} from {CHANGE}\n")
+            }
+            _ => format!("✓ Reused empty, undescribed jj change {CHANGE}\n"),
+        };
+        assert_eq!(run.stdout, prepared);
+        assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
+    }
+}
+
+#[test]
+fn jj_start_says_a_change_was_created_when_its_id_cannot_be_read() {
+    let api = MockLinear::start();
+    api.on("GetIssueTransitionDetails", details());
+    let at = jj_at(CHANGE, "work\n", false);
+    let cli = Cli::for_api(&api)
+        .file("cwd/.jj/repo/store", "")
+        .stub_bin(
+            "jj",
+            &format!(
+                "case \"$*\" in\n\
+                 'log -r @ --no-graph '*) if [ -e made-new ]; then echo 'Error: concurrent operation' >&2; exit 1; else printf '%s\\n' '{at}'; fi ;;\n\
+                 new) touch made-new ;;\n\
+                 *) echo \"unexpected jj $*\" >&2; exit 1 ;;\n\
+                 esac"
+            ),
+        );
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.failure()
+        .stderr_has("Failed to inspect the new jj change")
+        .stderr_has("A new jj change was created, but its ID could not be read. Inspect it with jj log -r @ before retrying.");
+    assert_eq!(
+        run.stdout,
+        format!("✓ Created and switched to a new jj change from {CHANGE}\n")
+    );
+    assert!(describes(&cli).is_empty());
+    assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
+}
+
+#[test]
+fn jj_start_refuses_a_probe_it_cannot_read_before_changing_anything() {
+    let one = jj_at(CHANGE, "", true);
+    for probe in [
+        format!("'{one}' '{one}'"),
+        "'occupied'".to_owned(),
+        "''".to_owned(),
+        format!(
+            "'{}'",
+            json!([{ "change_id": " ", "description": "" }, true])
+        ),
+    ] {
+        let api = MockLinear::start();
+        api.on("GetIssueTransitionDetails", details());
+        let cli = Cli::for_api(&api).file("cwd/.jj/repo/store", "").stub_bin(
+            "jj",
+            &format!(
+                "case \"$*\" in\n\
+                     'log -r @ --no-graph '*) printf '%s\\n' {probe} ;;\n\
+                     *) echo \"unexpected jj $*\" >&2; exit 1 ;;\n\
+                     esac"
+            ),
+        );
+        let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+        run.failure().stderr_has("Unexpected output from `jj log`");
+        assert_eq!(run.stdout, "", "{probe}");
+        assert_eq!(calls(&cli, "jj").len(), 1, "{probe}");
+        assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
+    }
+}
+
+#[test]
+fn jj_start_shows_a_hostile_title_escaped_and_writes_it_as_it_is() {
+    let title = "Say \"hi\"\n\u{1b}[2Jnow \u{9b}31m café";
+    let mut issue = details();
+    issue["issue"]["title"] = json!(title);
+    let api = MockLinear::start();
+    api.on("GetIssueTransitionDetails", issue)
+        .on("GetWorkflowStates", states())
+        .on(
+            "UpdateIssueState",
+            json!({ "issueUpdate": { "success": true } }),
+        );
+    let cli = jj(Cli::for_api(&api));
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.success().stdout_has(&format!(
+        "✓ Wrote jj change {NEW_CHANGE} description: \"ENG-7 Say \\\"hi\\\"\\n\\u001b[2Jnow \u{fffd}31m café\"\n"
+    ));
+    assert!(!run.stdout.contains('\u{1b}'), "{run}");
+    assert!(!run.stdout.contains('\u{9b}'), "{run}");
+    assert_eq!(
+        describes(&cli)[0][2],
+        format!("ENG-7 {title}\n\nLinear-issue: Fixes ENG-7\nLinear-issue-url: {URL}")
+    );
+}
+
+#[test]
+fn jj_start_keeps_its_lines_when_starting_the_issue_fails() {
+    let api = MockLinear::start();
+    api.on("GetIssueTransitionDetails", details())
+        .on_error("GetWorkflowStates", "Team not found");
+    let cli = jj(Cli::for_api(&api));
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.failure()
+        .stderr_has("Could not move the issue to a started status")
+        .stderr_has("The jj change is ready");
+    assert_eq!(
+        run.stdout,
+        format!(
+            "✓ Created and switched to jj change {NEW_CHANGE} from {CHANGE}\n{}",
+            described(NEW_CHANGE)
+        )
+    );
+}
+
+/// A git checked out on `current` (detached at abcdef012345 when empty),
+/// where the branches `existing` exist; `HEAD` is 0123456789ab.
+fn git_repo(cli: Cli, current: &str, existing: &[&str]) -> Cli {
+    let current = if current.is_empty() {
+        "exit 1".to_owned()
+    } else {
+        format!("echo '{current}'")
+    };
+    let existing: Vec<String> = existing
+        .iter()
+        .map(|branch| format!("'refs/heads/{branch}'"))
+        .collect();
+    let existing = if existing.is_empty() {
+        "'-'".to_owned()
+    } else {
+        existing.join(" | ")
+    };
+    cli.stub_bin(
+        "git",
+        &format!(
+            "case \"$1 $2\" in\n\
+             'show-ref --verify') case \"$4\" in {existing}) exit 0 ;; *) exit 1 ;; esac ;;\n\
+             'symbolic-ref --quiet') {current} ;;\n\
+             'rev-parse --verify') case \"$6\" in\n\
+               'HEAD^{{commit}}') echo 0123456789ab ;;\n\
+               *) exit 1 ;;\n\
+               esac ;;\n\
+             'checkout -b' | 'checkout '*) ;;\n\
+             *) exit 1 ;;\n\
+             esac"
+        ),
+    )
+}
+
+#[test]
+fn git_start_from_a_detached_head_names_the_commit_it_left() {
+    let api = MockLinear::start();
+    started(&api);
+    let cli = git_repo(Cli::for_api(&api), "", &[]);
+    let run = cli.run(&["issue", "git", "start", "ENG-7"]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        format!(
+            "✓ Created and switched to git branch \"eng-7-repair-the-widget\" from \"HEAD\" (0123456789ab); previous HEAD: detached at 0123456789ab\n{MOVED}"
+        )
+    );
+}
+
+#[test]
+fn git_start_with_a_base_that_names_no_commit_fails_before_checking_out() {
+    let api = MockLinear::start();
+    api.on("GetIssueTransitionDetails", details());
+    let cli = git(Cli::for_api(&api));
+    let run = cli.run(&["issue", "git", "start", "ENG-7", "--from-ref", "nope"]);
+    run.usage_error()
+        .stderr_has(
+            "Cannot create branch 'eng-7-repair-the-widget' from \"nope\": it names no commit",
+        )
+        .stderr_has("Pass --from-ref a branch, tag or commit that exists");
+    assert_eq!(run.stdout, "");
+    assert!(!calls(&cli, "git").iter().any(|args| args[0] == "checkout"));
+    assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
+}
+
+#[test]
+fn git_start_on_an_existing_branch_says_what_it_switched_from() {
+    let branch = "eng-7-repair-the-widget";
+    for (current, from_ref, said) in [
+        (
+            "main",
+            None,
+            format!("✓ Switched from git branch \"main\" to \"{branch}\"\n"),
+        ),
+        (
+            "",
+            None,
+            format!("✓ Switched from detached git HEAD at 0123456789ab to branch \"{branch}\"\n"),
+        ),
+        (
+            branch,
+            None,
+            format!("✓ Kept git branch \"{branch}\" checked out\n"),
+        ),
+        (
+            "main",
+            Some("origin/main"),
+            format!(
+                "✓ Switched from git branch \"main\" to \"{branch}\"\n\
+                 ✓ Left existing branch history unchanged; --from-ref \"origin/main\" was not used\n"
+            ),
+        ),
+    ] {
+        let api = MockLinear::start();
+        started(&api);
+        let cli = git_repo(Cli::for_api(&api), current, &[branch]);
+        let mut args = vec!["issue", "git", "start", "ENG-7"];
+        if let Some(from_ref) = from_ref {
+            args.extend(["--from-ref", from_ref]);
+        }
+        let run = cli.run_tty(&args, &[("Existing branch:", "\r")]);
+        run.success()
+            .stdout_has(&format!("{said}{}", MOVED.trim_end()));
+        assert!(
+            calls(&cli, "git").contains(&vec!["checkout".to_owned(), branch.to_owned()]),
+            "{:?}",
+            cli.calls("git")
+        );
+        // An unused base is never resolved.
+        assert!(
+            !calls(&cli, "git")
+                .iter()
+                .any(|args| args.last().is_some_and(|arg| arg == "origin/main^{commit}")),
+            "{:?}",
+            cli.calls("git")
+        );
+    }
+}
+
+#[test]
+fn git_start_names_the_suffixed_branch_it_created() {
+    let api = MockLinear::start();
+    started(&api);
+    let cli = git_repo(Cli::for_api(&api), "main", &["eng-7-repair-the-widget"]);
+    let run = cli.run_tty(
+        &["issue", "git", "start", "ENG-7"],
+        &[("Existing branch:", "\x1b[B\r")],
+    );
+    run.success().stdout_has(
+        "✓ Created and switched to git branch \"eng-7-repair-the-widget-1\" from \"HEAD\" (0123456789ab); previous branch: \"main\"",
+    );
+    assert!(
+        calls(&cli, "git").contains(&vec![
+            "checkout".to_owned(),
+            "-b".to_owned(),
+            "eng-7-repair-the-widget-1".to_owned(),
+            "HEAD".to_owned()
+        ]),
+        "{:?}",
+        cli.calls("git")
+    );
+}
+
+#[test]
+fn start_help_lists_the_steps_the_output_reports() {
+    let cli = Cli::new();
+    cli.run(&["issue", "git", "start", "--help"])
+        .success()
+        .stdout_has(
+            "Create or switch to a git branch, then start the issue and report both results",
+        )
+        .stdout_has("1. Creates the branch Linear suggests")
+        .stdout_has("2. Moves the issue to its team's first started status")
+        .stdout_has("does not use\n   --from-ref")
+        .stdout_has("unused when switching to an existing branch")
+        .stdout_has("\"HEAD\" (0123456789ab); previous branch: \"main\"\n");
+    cli.run(&["issue", "jj", "start", "--help"])
+        .success()
+        .stdout_has(
+            "Describe a new or reused jj change, then start the issue and report both results",
+        )
+        .stdout_has("1. Creates a new change on the current one (`jj new`)")
+        .stdout_has("2. Writes \"<ID> <issue title>\"")
+        .stdout_has("Keep both trailers when rewording if you want @jj to find the issue.")
+        .stdout_has("3. Moves the issue")
+        .stdout_has("No bookmark is created and nothing is pushed.");
 }
