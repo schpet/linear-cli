@@ -138,7 +138,34 @@ pub struct IssueDetails {
     pub title: String,
     pub url: String,
     pub branch_name: String,
+}
+
+/// What moving an issue to another status needs: where it is now, and what
+/// a branch or change for it is named after.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
+pub struct GetIssueTransitionDetails {
+    #[arguments(id: $id)]
+    pub issue: IssueTransitionDetails,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Issue")]
+pub struct IssueTransitionDetails {
+    pub identifier: String,
+    pub title: String,
+    pub url: String,
+    pub branch_name: String,
     pub team: TeamKey,
+    pub state: CurrentState,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "WorkflowState")]
+pub struct CurrentState {
+    pub name: String,
+    #[cynic(rename = "type")]
+    pub state_type: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]

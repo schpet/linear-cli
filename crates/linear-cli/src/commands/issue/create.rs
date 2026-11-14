@@ -28,7 +28,8 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
     // `--interactive` asks for every field; clap keeps it apart from the
     // field flags, so it never overrides a given value.
     let interactive = ctx.optional_prompts(args.interactive)?;
-    let mut fields = Fields::from(args);
+    let parent = super::reference::parent(ctx, args.parent.as_ref())?;
+    let mut fields = Fields::new(args, parent);
     let description = fields.local()?;
     // A title typed at the prompt is confirmed before the issue is created.
     let typed = !interactive && fields.needs_title();
@@ -51,15 +52,7 @@ fn create(ctx: &Ctx, args: &IssueCreate) -> Result<()> {
         yes: args.confirm.yes,
     };
     let mut ui = Prompts::new(ctx);
-    let Some(start) = create_with(ctx, &mut ui, &fields, description, interactive, confirm)? else {
-        return Ok(());
-    };
-    // The spinner stops before `--start` runs version control commands.
-    drop(ui);
-    if let Some(identifier) = start {
-        super::start::work_on(ctx, &identifier, None, None)?;
-    }
-    Ok(())
+    create_with(ctx, &mut ui, &fields, description, interactive, confirm)
 }
 
 /// Whether to ask before creating: after the `--interactive` wizard, or when
@@ -83,8 +76,7 @@ fn pick_team(ctx: &Ctx) -> Result<String> {
     ctx.prompter()?.select("Team:", choices)
 }
 
-/// Creates the issue; returns the issue to start work on with `--start`, or
-/// `None` when the user declined to create it.
+/// Creates the issue, unless the user declines to.
 fn create_with(
     ctx: &Ctx,
     ui: &mut Prompts<'_>,
@@ -92,10 +84,10 @@ fn create_with(
     description: Option<String>,
     interactive: bool,
     confirm: Confirm,
-) -> Result<Option<Option<String>>> {
+) -> Result<()> {
     let backend = backend(ctx)?;
     let settings = settings(ctx);
-    let (input, start) = if interactive {
+    let input = if interactive {
         let prompted = ctx.block_on(super::create_prompt::prompt(
             &backend, ui, &settings, fields,
         ))?;
@@ -105,10 +97,10 @@ fn create_with(
             prompted.title, prompted.team_key
         );
         if !confirm::proceed(ctx, confirm.yes, &question)? {
-            return Ok(None);
+            return Ok(());
         }
         ui.note(&header(&prompted.team_key))?;
-        (prompted.input, prompted.start)
+        prompted.input
     } else {
         let fallback = ctx.interactive();
         let assembled = ctx.block_on(flag_input(
@@ -124,15 +116,14 @@ fn create_with(
             let title = fields.title.as_deref().unwrap_or_default();
             let question = format!("Create issue \"{title}\" in {}?", assembled.team_display);
             if !confirm::proceed(ctx, confirm.yes, &question)? {
-                return Ok(None);
+                return Ok(());
             }
         }
         ui.note(&header(&assembled.team_display))?;
-        (assembled.input, fields.start)
+        assembled.input
     };
     let issue = ctx.spin(true, backend.create(input))?;
-    ctx.print(output(&issue))?;
-    Ok(Some(start.then(|| issue.identifier.clone())))
+    ctx.print(output(&issue))
 }
 
 /// The API backend issue creation and updates resolve names through.
@@ -304,6 +295,17 @@ pub async fn project<B: Backend, U: Ui>(
     }
     Err(Error::not_found("Project", value))
 }
+/// The ID of the status a started issue of the team is created in: its first
+/// started status, the one `issue start` moves issues to.
+pub(super) fn first_started(states: &[shared::State], team: &str) -> Result<String, Error> {
+    shared::lowest_of_kind(states, "started")
+        .map(|state| state.id.clone())
+        .ok_or_else(|| {
+            Error::new(format!("Team {team} has no started status")).with_hint(format!(
+                "Run `linear team states {team}` to see its statuses, or create the issue without starting it."
+            ))
+        })
+}
 pub struct FlagInput {
     pub input: Input,
     pub team_display: String,
@@ -316,6 +318,24 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
     description: Option<String>,
     interactive_fallback: bool,
 ) -> Result<FlagInput, Error> {
+    // `--start` assigns the issue to its creator, so it cannot also go to
+    // someone else, and it picks the status itself.
+    if fields.start
+        && fields
+            .assignee
+            .as_ref()
+            .is_some_and(|user| *user != UserRef::Me)
+    {
+        return Err(
+            Error::invalid("Cannot use --start with an --assignee other than @me").with_hint(
+                "Omit --start and pass `--state started` to create a started issue for someone else.",
+            ),
+        );
+    }
+    if fields.start && fields.state.is_some() {
+        return Err(Error::invalid("Cannot use --start with --state")
+            .with_hint("--start uses the team's first started status; omit one of the two."));
+    }
     let (team_id, team_reference) = match &fields.team {
         Some(value) => {
             let team = backend.team(value.clone()).await?;
@@ -356,19 +376,18 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         ),
         None => None,
     };
-    let assignee = if fields.start && fields.assignee.is_none() {
+    let assignee = if fields.start {
         Some(UserRef::Me)
     } else {
         fields.assignee.clone()
     };
-    if fields.start && assignee != Some(UserRef::Me) {
-        return Err(Error::new(
-            "Cannot use --start with an --assignee other than @me",
-        ));
-    }
     // State BEFORE always-self Viewer, even when explicit assignee later overrides.
     let state = match &fields.state {
         Some(value) => Some(backend.state(team_reference.clone(), value.clone()).await?),
+        None if fields.start => {
+            let states = backend.states(team_reference.clone()).await?;
+            Some(first_started(&states, &team_reference)?)
+        }
         None => None,
     };
     let mut assignee_id = if settings.assign_self == AssignSelf::Always {
@@ -482,15 +501,17 @@ pub fn select_option<U: Ui>(
     ui.choose(&suggestions.question, suggestions.choices, 0)
 }
 
-impl From<&crate::cli::issue::IssueCreate> for Fields {
-    fn from(action: &crate::cli::issue::IssueCreate) -> Self {
+impl Fields {
+    /// The fields `action` asks for, with `--parent` as
+    /// [`super::reference::parent`] read it.
+    fn new(action: &crate::cli::issue::IssueCreate, parent: Option<String>) -> Self {
         Self {
             title: action.title.clone(),
             start: action.start,
             assignee: action.assignee.clone(),
             delegate: action.delegate.clone(),
             due_date: action.due_date,
-            parent: action.parent.clone(),
+            parent,
             priority: action.priority,
             estimate: action.estimate,
             description: action.description.clone(),

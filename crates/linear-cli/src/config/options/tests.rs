@@ -48,7 +48,7 @@ fn snapshot<'a>(
 }
 
 #[test]
-fn all_thirteen_keys_are_typed_and_keep_provenance() {
+fn all_twelve_keys_are_typed_and_keep_provenance() {
     let config = tier(
         "/repo/linear.toml",
         r#"
@@ -58,7 +58,6 @@ workspace = "my-workspace"
 issue_sort = "manual"
 issue_create_ask_project = true
 issue_create_assign_self = "auto"
-vcs = "jj"
 download_images = "YES"
 inline_images = false
 hyperlink_format = "osc8"
@@ -70,7 +69,7 @@ pr_template = "  .github/pr.md  "
     let inputs = env(&[]);
     let selected = dotenv(&[]);
     let options = snapshot(&inputs, &selected, Some(&config), None).expect("valid options");
-    assert_eq!(OptionKey::ALL.len(), 13);
+    assert_eq!(OptionKey::ALL.len(), 12);
     assert_eq!(options.team_key(), Some("ENG"));
     assert_eq!(
         options.api_key().expect("key").value().expose(),
@@ -86,7 +85,6 @@ pr_template = "  .github/pr.md  "
     );
     assert!(options.issue_create_ask_project());
     assert_eq!(options.issue_create_assign_self(), AssignSelf::Auto);
-    assert_eq!(options.vcs(), Vcs::Jj);
     assert!(options.download_images());
     assert!(!options.inline_images());
     assert_eq!(options.hyperlink_format(), Some("osc8"));
@@ -175,6 +173,49 @@ fn every_known_key_is_eagerly_checked_and_unknown_keys_are_inert() {
     }
     let unknown = tier("/repo/linear.toml", "new_future_key = 42");
     snapshot(&env(&[]), &dotenv(&[]), Some(&unknown), None).expect("unknown inert");
+}
+
+#[test]
+fn the_retired_vcs_key_is_checked_in_every_tier_and_has_no_effect() {
+    let project = tier("/repo/linear.toml", "vcs = 'jj'");
+    let global = tier("/global/linear.toml", "vcs = 'git'");
+    let inputs = env(&[("LINEAR_VCS", "git")]);
+    let selected = dotenv(&[("LINEAR_VCS", "jj")]);
+    let options = OptionInputs {
+        env: &inputs,
+        dotenv: &selected,
+        project: Some(&project),
+        global: Some(&global),
+    };
+    assert_eq!(
+        retired_vcs(&options).expect("valid"),
+        [
+            OptionSource::Env,
+            OptionSource::ProjectEnv {
+                path: PathBuf::from("/repo/.env")
+            },
+            OptionSource::ProjectConfig {
+                path: PathBuf::from("/repo/linear.toml")
+            },
+            OptionSource::GlobalConfig {
+                path: PathBuf::from("/global/linear.toml")
+            },
+        ]
+    );
+    snapshot(&inputs, &selected, Some(&project), Some(&global)).expect("loads");
+    // A shadowed value is checked too.
+    let poison = tier("/global/linear.toml", "vcs = 42");
+    let err = snapshot(&inputs, &selected, Some(&project), Some(&poison)).expect_err("poison");
+    assert_eq!(err.key, Some(OptionKey::RetiredVcs));
+    assert!(err.to_string().contains("integer `42`"), "{err}");
+    assert_eq!(
+        err.to_string(),
+        "invalid config option vcs from global config /global/linear.toml: invalid type: integer `42`, expected git or jj"
+    );
+    assert_eq!(
+        err.suggestion().as_deref(),
+        Some("Fix vcs in global config /global/linear.toml.")
+    );
 }
 
 #[test]

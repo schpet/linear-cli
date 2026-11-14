@@ -14,7 +14,7 @@ pub fn run(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
 }
 
 fn list(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
-    let identifier = super::super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let issue = ctx.spin(true, fetch(client, &identifier))?;
     ctx.print(render(&issue))

@@ -4,7 +4,6 @@ mod archive;
 mod archive_or_delete;
 mod attach;
 mod comment;
-mod commits;
 mod create;
 mod create_prompt;
 mod delete;
@@ -18,34 +17,55 @@ mod list_view;
 mod pull_request;
 mod query;
 mod read;
+mod reference;
 mod relation;
 mod start;
 mod title;
+mod transition;
 mod update;
 mod url;
+mod vcs_start;
 mod view;
 mod write;
 mod write_network;
 
-use crate::cli::issue::IssueCommand;
-use crate::commands::team_key::configured_team_key;
-use crate::config::Vcs;
+use crate::cli::issue::{IssueCommand, IssueGhCommand, IssueGitCommand, IssueJjCommand};
+use crate::cli::values::IssueRef;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::refs::prepare_issue_reference;
 
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
-        IssueCommand::Id(_) => id::run(ctx),
+        IssueCommand::Id(args) => id::run(ctx, args),
         IssueCommand::List(args) => list::run(ctx, args),
         IssueCommand::Query(args) => query::run(ctx, args),
         IssueCommand::Title(args) => title::run(ctx, args),
         IssueCommand::Url(args) => url::run(ctx, args),
         IssueCommand::Start(args) => start::run(ctx, args),
+        IssueCommand::Complete(args) => transition::run(ctx, transition::Verb::Complete, args),
+        IssueCommand::Cancel(args) => transition::run(ctx, transition::Verb::Cancel, args),
+        IssueCommand::Git(args) => match &args.command {
+            IssueGitCommand::Start(args) => vcs_start::run_git(ctx, args),
+        },
+        IssueCommand::Jj(args) => match &args.command {
+            IssueJjCommand::Start(args) => vcs_start::run_jj(ctx, args),
+            IssueJjCommand::PullRequest(args) => pull_request::run_jj(ctx, args),
+        },
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
-        IssueCommand::Commits(args) => commits::run(ctx, args),
-        IssueCommand::PullRequest(args) => pull_request::run(ctx, args),
+        IssueCommand::Gh(args) => match &args.command {
+            IssueGhCommand::PullRequest(args) => pull_request::run_gh(ctx, args),
+        },
+        IssueCommand::MovedPullRequest(_) => Err(Error::invalid(
+            "`issue pull-request` moved to `issue gh pull-request`",
+        )
+        .with_hint(
+            "Run `linear issue gh pr` with the same arguments, or `linear issue jj pr` to push a jj bookmark first.",
+        )),
+        IssueCommand::RemovedCommits(_) => {
+            Err(Error::invalid("`issue commits` was removed in 4.0")
+                .with_hint(REMOVED_COMMITS_HINT))
+        }
         IssueCommand::Archive(args) => archive::run(ctx, args),
         IssueCommand::Delete(args) => delete::run(ctx, args),
         IssueCommand::Create(args) => create::run(ctx, args),
@@ -58,39 +78,26 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     }
 }
 
-/// The issue identifier `input` names (an identifier, a URL, or a bare number
-/// in the configured team), or, when `input` is omitted, the one the current
-/// git branch or jj change names. `None` when nothing identifies an issue.
-pub(crate) fn resolve(ctx: &Ctx, input: Option<&str>) -> Result<Option<String>> {
-    let Some(input) = input else {
-        return infer(ctx);
-    };
-    let team = configured_team_key(ctx.options());
-    prepare_issue_reference(input, team.as_deref(), &ctx.scope()?)
+/// What `issue commits` users run instead: jj's own search of the
+/// `Linear-issue` trailers.
+const REMOVED_COMMITS_HINT: &str = "Search the trailers with jj instead: \
+     jj log -p -r \"description(regex:'(?mi)^Linear-issue:.*\\bENG-123\\b')\"";
+
+/// The issue identifier `input` names: an identifier, a URL, or a bare number
+/// in the configured team, or the one issue `@git` or `@jj` reads. `None`
+/// when a named `input` is no issue. Nothing is read from the repository
+/// unless `input` is such a reference.
+pub(crate) fn resolve(ctx: &Ctx, input: &IssueRef) -> Result<Option<String>> {
+    reference::resolve(ctx, input)
 }
 
-/// Like [`resolve`], failing when no issue is identified.
-pub(crate) fn require(ctx: &Ctx, input: Option<&str>) -> Result<String> {
-    resolve(ctx, input)?.ok_or_else(|| unresolved(ctx))
+/// Like [`resolve`], failing when `input` names no issue.
+pub(crate) fn require(ctx: &Ctx, input: &IssueRef) -> Result<String> {
+    reference::require(ctx, input)
 }
 
-/// The issue the current git branch name or jj change trailers name.
-pub(crate) fn infer(ctx: &Ctx) -> Result<Option<String>> {
-    crate::platform::vcs::infer_issue(vcs(ctx), ctx.cwd(), &ctx.config().child_env)
-}
-
-pub(crate) fn vcs(ctx: &Ctx) -> Vcs {
-    ctx.options().vcs()
-}
-
-pub(crate) fn unresolved(ctx: &Ctx) -> Error {
-    let hint = match vcs(ctx) {
-        Vcs::Git => {
-            "Pass an issue ID like ENG-123, or run from a git branch whose name contains one."
-        }
-        Vcs::Jj => {
-            "Pass an issue ID like ENG-123, or run from a jj change with a Linear-issue trailer."
-        }
-    };
-    Error::invalid("Could not determine issue ID").with_hint(hint)
+/// A named issue as typed, for a command that resolves it itself, or the one
+/// issue `@git` or `@jj` reads.
+pub(crate) fn as_typed(ctx: &Ctx, input: &IssueRef) -> Result<String> {
+    reference::as_typed(ctx, input)
 }

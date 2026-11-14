@@ -82,12 +82,6 @@ linear issue list --app
 
 #### view issue details
 
-view the current issue (based on git branch):
-
-```bash
-linear issue view
-```
-
 view a specific issue:
 
 ```bash
@@ -107,21 +101,54 @@ linear issue view TEAM-123 --app
 linear issue view TEAM-123 --no-comments
 ```
 
-#### start working on an issue
+#### issue references
 
-start the next available issue:
+wherever a command takes an issue (including `--parent` of `issue create` and `issue update`, and `--issue` of `document list`, `create` and `update`), `@git` and `@jj` read it from your repository instead:
 
 ```bash
-linear issue start
+linear issue view @git          # the first issue ID in the current git branch's name
+linear issue view @jj           # every issue named by Linear-issue trailers of the changes in trunk()..@
+linear issue id @jj             # print what a reference names, one ID per line
+linear issue update TEAM-123 --parent @git
 ```
 
-start a specific issue:
+nothing is read from the repository unless you pass one of them. the issues a reference read are named on stderr before anything is sent. `@jj` reads without snapshotting the working copy, and is refused when jj's `trunk()` is the root commit (the repository has no trunk bookmark jj recognises), since `trunk()..@` would then be the whole history. a command that acts on one issue refuses a reference that names several; `issue view`, `issue gh pr` and `issue jj pr` take them all. bulk input (`--bulk`, `--bulk-file`, `--bulk-stdin`) takes issue IDs only. in PowerShell, quote them: `'@git'`.
+
+#### start working on an issue
+
+start a specific issue, or choose one of your unstarted issues:
 
 ```bash
 linear issue start TEAM-123
+linear issue start
 ```
 
-this will move the issue to "in progress" and create a git branch (with `vcs = "jj"`, it starts a new jj change described with the issue title and a `Linear-issue` trailer instead).
+this moves the issue to its team's first started status (usually "In Progress") and does nothing else. an issue that is already started or closed is left as it is. `linear issue complete TEAM-123` and `linear issue cancel TEAM-123` close an issue the same way; for any other status use `linear issue update TEAM-123 --state <state>`.
+
+to prepare your repository as well:
+
+```bash
+linear issue git start TEAM-123   # create or switch to the issue's git branch, then start it
+linear issue jj start TEAM-123    # start a new jj change described with the issue title and a `Linear-issue` trailer, then start it
+```
+
+both print on stdout one line for each thing they did, as they do it, so a script or agent can see every side effect:
+
+```text
+$ linear issue git start TEAM-123
+✓ Created and switched to git branch "team-123-fix-login" from "HEAD" (0123456789ab); previous branch: "main"
+✓ Moved Linear issue TEAM-123 from "Todo" to "In Progress"
+
+$ linear issue jj start TEAM-123
+✓ Created and switched to jj change <NEW-CHANGE-ID> from <PREVIOUS-CHANGE-ID>
+✓ Wrote jj change <NEW-CHANGE-ID> description: "TEAM-123 Fix login"
+✓ Wrote trailers (keep both when rewording to use @jj):
+  Linear-issue: Fixes TEAM-123
+  Linear-issue-url: https://linear.app/acme/issue/TEAM-123/fix-login
+✓ Moved Linear issue TEAM-123 from "Todo" to "In Progress"
+```
+
+`git start` says which branch it created and from which ref and commit, or which branch it switched to an existing branch from (switching leaves its history alone and ignores `--from-ref`, which it then says). `jj start` reuses the current change instead of making a new one when it is empty and undescribed (`✓ Reused empty, undescribed jj change <ID>`), and names changes by their full change ID, which describing them does not change. keep the trailers when you reword the change, or `@jj` will not find the issue. an issue that is already started or closed keeps its status (`✓ Left Linear issue TEAM-123 in "In Review" (already started)`, or `(closed; not reopened)`). if a later step fails, the lines already printed say what was done, and the error says how to finish.
 
 #### create an issue
 
@@ -174,16 +201,10 @@ linear issue create --team ENG --template "Bug report" --description "Just this 
 
 #### update an issue
 
-update the current issue:
+change the fields you pass:
 
 ```bash
-linear issue update
-```
-
-update a specific issue:
-
-```bash
-linear issue update TEAM-123
+linear issue update TEAM-123 --state "In Review" --assignee @me
 ```
 
 change labels:
@@ -219,12 +240,6 @@ linear issue update TEAM-123 --unassign --clear-cycle
 
 #### other issue commands
 
-get issue id from current git branch:
-
-```bash
-linear issue id
-```
-
 get issue title:
 
 ```bash
@@ -240,9 +255,22 @@ linear issue url TEAM-123
 create a github pull request:
 
 ```bash
-linear issue pull-request
-linear issue pr  # Short alias
+linear issue gh pull-request TEAM-123
+linear issue gh pr TEAM-123  # Short alias
+linear issue gh pr @git      # the issue in the current git branch's name
+linear issue jj pr TEAM-123  # jj: push a bookmark for the change, then open the pull request from it
+linear issue jj pr @jj       # the issues named by Linear-issue trailers in trunk()..@
+linear issue gh pr TEAM-123 TEAM-124 --title "Fix login"   # one pull request for several issues
+linear issue gh pr TEAM-123 --references                   # "References TEAM-123": link without closing on merge
 ```
+
+the issue is always named: `linear issue gh pr` (or `jj pr`) on its own is an error that suggests an ID, `@git` or `@jj`.
+
+for one issue, the title is `TEAM-123 <issue title>` (`--title` replaces the issue title after the ID) and the body is the template, then the issue URL. a pull request can cover several issues: pass several IDs, or a reference such as `@jj` that names several. repeated issues count once, in the order first named. with several, `--title` is required and used exactly as given, and the body is the template, then a clause Linear reads to close the issues when the pull request merges (`Fixes TEAM-1 and TEAM-2`, or `Fixes TEAM-1, TEAM-2, and TEAM-3`), then each issue's URL on its own line. `--references` (`-r`, `--ref`) writes `References …` instead, which links the issues without closing them, and adds that clause for one issue too; it never changes a title or template you supply. every issue is fetched before anything is created, pushed or opened, so an issue that cannot be fetched leaves nothing behind.
+
+`issue gh pr` runs `gh pr create` and nothing else: gh takes the repository and branch from your git checkout (or `--head <branch>`), and nothing is created or pushed first.
+
+`issue jj pr` pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests for the first issue) with `jj git push`, then runs `gh pr create` with the remote's repository and the bookmark, so it needs no git checkout and works when git's HEAD is detached. `--head <bookmark>` names the bookmark to use or create. `@jj` always reads `trunk()..@`, even when `--head` names a bookmark elsewhere.
 
 delete an issue:
 
@@ -504,11 +532,11 @@ a bulk command that fails for several reasons exits with the first of `4`, `5`, 
 common workflows:
 
 ```bash
-# Start working on the next issue
-linear issue start
+# Start working on an issue, on its own git branch
+linear issue git start TEAM-123
 
-# View current issue details
-linear issue view
+# View issue details
+linear issue view TEAM-123
 
 # Create and start a new bug fix
 linear issue create --title "Fix login error" --label bug --start
@@ -516,6 +544,6 @@ linear issue create --title "Fix login error" --label bug --start
 # List high priority issues
 linear issue list --sort priority
 
-# Create a pull request for current issue
-linear issue pr
+# Create a pull request for an issue
+linear issue gh pr TEAM-123
 ```

@@ -9,7 +9,9 @@ use crate::platform::style;
 use super::discover::{ConfigCandidate, discover_config_paths};
 use super::dotenv::{ConfigDiagnostic, ConfigFailure, DiagnosticReason, SelectedEnv, load_env};
 use super::network::NetworkEnv;
-use super::options::{ConfigOptionError, ConfigOptions, OptionInputs};
+use super::options::{
+    ConfigOptionError, ConfigOptions, OptionInputs, OptionKey, OptionSource, retired_vcs,
+};
 use super::parse::{ConfigParseError, ConfigTier, parse_config_tier};
 use super::runtime::ProcessEnvSnapshot;
 use super::source::{FileSource, OsFamily, ReadCandidate, read_config_candidate, repo_root};
@@ -99,9 +101,19 @@ impl fmt::Debug for StartupConfig {
     }
 }
 
+/// A warning about the configuration, printed on stderr before the command
+/// runs (or fails).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StartupDiagnostic {
+    /// A `.env` file, or lines of it, that were not loaded.
+    Dotenv(ConfigDiagnostic),
+    /// A source that sets `vcs` (`LINEAR_VCS`), which 4.0 removed.
+    RetiredVcs(OptionSource),
+}
+
 pub struct StartupReport {
     pub settings: DisplaySettings,
-    pub diagnostics: Vec<ConfigDiagnostic>,
+    pub diagnostics: Vec<StartupDiagnostic>,
     pub result: Result<StartupConfig, Error>,
 }
 
@@ -205,7 +217,7 @@ fn read_tier(
 
 fn fail(
     settings: DisplaySettings,
-    diagnostics: Vec<ConfigDiagnostic>,
+    diagnostics: Vec<StartupDiagnostic>,
     error: Error,
 ) -> StartupReport {
     StartupReport {
@@ -225,13 +237,22 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         Err(error) => {
             return fail(
                 initial_settings,
-                error.diagnostics,
+                error
+                    .diagnostics
+                    .into_iter()
+                    .map(StartupDiagnostic::Dotenv)
+                    .collect(),
                 config_failure(error.failure),
             );
         }
     };
     let display = settings(process, Some(&dotenv));
-    let diagnostics = dotenv.diagnostics.clone();
+    let mut diagnostics: Vec<StartupDiagnostic> = dotenv
+        .diagnostics
+        .iter()
+        .cloned()
+        .map(StartupDiagnostic::Dotenv)
+        .collect();
     let paths = discover_config_paths(&process.inputs, root.as_deref());
     let global = match read_tier(&paths.global, files) {
         Ok(global) => global,
@@ -241,12 +262,19 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         Ok(project) => project,
         Err(error) => return fail(display, diagnostics, error),
     };
-    let options = match ConfigOptions::from_inputs(OptionInputs {
+    let inputs = OptionInputs {
         env: &process.inputs,
         dotenv: &dotenv,
         project: project.as_ref(),
         global: global.as_ref(),
-    }) {
+    };
+    // Collected first so that the warning survives another option's error.
+    // An invalid value is not lost here: `from_inputs` checks the same
+    // values and fails with it.
+    if let Ok(sources) = retired_vcs(&inputs) {
+        diagnostics.extend(sources.into_iter().map(StartupDiagnostic::RetiredVcs));
+    }
+    let options = match ConfigOptions::from_inputs(inputs) {
         Ok(options) => options,
         Err(error) => return fail(display, diagnostics, option_error(error)),
     };
@@ -287,7 +315,30 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
     }
 }
 
-pub fn render_diagnostic(diagnostic: &ConfigDiagnostic, color: bool) -> String {
+pub fn render_diagnostic(diagnostic: &StartupDiagnostic, color: bool) -> String {
+    let (message, suggestion) = match diagnostic {
+        StartupDiagnostic::Dotenv(diagnostic) => render_dotenv(diagnostic),
+        StartupDiagnostic::RetiredVcs(source) => {
+            let name = OptionKey::RetiredVcs.spelling(source);
+            (
+                format!(
+                    "Warning: {name} from {} was removed in 4.0 and does nothing.",
+                    source.label()
+                ),
+                format!(
+                    "  Remove {name}. Commands name their tool instead: `linear issue jj pr` and `linear issue jj start` for jj, `linear issue gh pr` and `linear issue git start` for git."
+                ),
+            )
+        }
+    };
+    format!(
+        "{}\n{}\n",
+        style::warning(&message, color),
+        style::gray(&suggestion, color)
+    )
+}
+
+fn render_dotenv(diagnostic: &ConfigDiagnostic) -> (String, String) {
     let (message, suggestion) = match &diagnostic.reason {
         DiagnosticReason::Unusable(reason) => (
             format!(
@@ -312,11 +363,7 @@ pub fn render_diagnostic(diagnostic: &ConfigDiagnostic, color: bool) -> String {
             "  Put the value itself in .env or the environment, or single-quote it to keep a literal $.",
         ),
     };
-    format!(
-        "{}\n{}\n",
-        style::warning(&message, color),
-        style::gray(suggestion, color)
-    )
+    (message, suggestion.to_owned())
 }
 
 #[cfg(test)]

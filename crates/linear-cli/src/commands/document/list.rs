@@ -28,7 +28,7 @@ fn list(ctx: &Ctx, args: &DocumentList) -> Result<()> {
         ctx,
         TargetOptions {
             project: args.project.as_deref(),
-            issue: args.issue.as_deref(),
+            issue: args.issue.as_ref(),
             initiative: args.initiative.as_deref(),
             team: args.team.as_deref(),
             cycle: args.cycle.as_deref(),

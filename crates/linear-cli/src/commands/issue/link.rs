@@ -1,4 +1,4 @@
-//! `issue link`: attach a URL to an issue (the issue may be inferred from the branch).
+//! `issue link`: attach a URL to an issue.
 use crate::cli::issue::IssueLink;
 use crate::client::LinearClient;
 use crate::commands::issue::id;
@@ -12,8 +12,8 @@ pub fn run(ctx: &Ctx, args: &IssueLink) -> Result<()> {
 }
 
 fn link(ctx: &Ctx, args: &IssueLink) -> Result<()> {
-    let (issue, url) = inputs(&args.url_or_issue_id, args.url.as_deref())?;
-    let identifier = super::require(ctx, issue)?;
+    let url = checked(&args.url)?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let attachment = ctx.block_on(submit(client, &identifier, url, args.title.as_deref()))?;
     ctx.print(outcome::done(
@@ -29,23 +29,12 @@ fn looks_like_url(value: &str) -> bool {
     value.starts_with("http://") || value.starts_with("https://")
 }
 
-pub fn inputs<'a>(
-    first: &'a str,
-    second: Option<&'a str>,
-) -> Result<(Option<&'a str>, &'a str), Error> {
-    let (issue, url) = match second {
-        Some(url) => (Some(first), url),
-        None if looks_like_url(first) => (None, first),
-        None => {
-            return Err(
-                Error::new(format!("Expected a URL but got '{first}'")).with_hint(URL_SUGGESTION)
-            );
-        }
-    };
+/// `url`, when it is one a browser can open.
+pub fn checked(url: &str) -> Result<&str, Error> {
     if !looks_like_url(url) {
-        return Err(Error::new(format!("Invalid URL: '{url}'")).with_hint(URL_SUGGESTION));
+        return Err(Error::invalid(format!("Invalid URL: '{url}'")).with_hint(URL_SUGGESTION));
     }
-    Ok((issue, url))
+    Ok(url)
 }
 async fn submit(
     client: &LinearClient,

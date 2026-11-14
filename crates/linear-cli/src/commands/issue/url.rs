@@ -8,7 +8,7 @@ pub fn run(ctx: &Ctx, args: &IssueUrl) -> Result<()> {
 }
 
 fn url(ctx: &Ctx, args: &IssueUrl) -> Result<()> {
-    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let details = ctx.spin(true, super::details::fetch(client, identifier))?;
     ctx.print(format!("{}\n", details.url))

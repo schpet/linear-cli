@@ -201,3 +201,69 @@ fn config_without_credentials_points_to_login() {
         .auth_failure()
         .stderr_has("linear auth login");
 }
+
+#[test]
+fn the_retired_vcs_setting_still_loads_and_warns_on_stderr_only() {
+    let cli = Cli::new()
+        .env("LINEAR_VCS", "git")
+        .file("cwd/.linear.toml", "vcs = \"jj\"\n");
+    let run = cli.run(&["issue", "id", "ENG-7"]);
+    run.success()
+        .stderr_has(
+            "Warning: LINEAR_VCS from process environment was removed in 4.0 and does nothing.",
+        )
+        .stderr_has("Warning: vcs from project config ")
+        .stderr_has("`linear issue jj pr`");
+    assert_eq!(run.stdout, "ENG-7\n");
+    assert_eq!(run.stderr.matches("Warning:").count(), 2, "{run}");
+    let token = Cli::new()
+        .env("LINEAR_API_KEY", "key-env")
+        .env("LINEAR_VCS", "jj");
+    assert_eq!(stdout(&token, &["auth", "token"]), "key-env");
+}
+
+#[test]
+fn an_invalid_retired_vcs_setting_fails_before_any_request() {
+    let api = MockLinear::start();
+    for (name, value, said) in [
+        (
+            "LINEAR_VCS",
+            "hg",
+            "invalid config option LINEAR_VCS from process environment",
+        ),
+        (
+            "LINEAR_VCS",
+            "",
+            "invalid config option LINEAR_VCS from process environment",
+        ),
+    ] {
+        Cli::for_api(&api)
+            .env(name, value)
+            .run(&["issue", "title", "ENG-7"])
+            .failure()
+            .stderr_has(said)
+            .stderr_has("Fix LINEAR_VCS in process environment.");
+    }
+    Cli::for_api(&api)
+        .file("cwd/.linear.toml", "vcs = 1\n")
+        .run(&["issue", "title", "ENG-7"])
+        .failure()
+        .stderr_has("invalid config option vcs from project config");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn config_replaces_a_file_with_the_retired_vcs_setting_without_it() {
+    let api = MockLinear::start();
+    api.on("GetViewer", viewer())
+        .on("ResolveTeam", resolved("team-ops-id", "OPS", "Operations"));
+    let cli = Cli::for_api(&api).file("cwd/.linear.toml", "vcs = \"jj\"\n");
+    cli.run(&["config", "--team", "OPS", "--sort", "manual"])
+        .success()
+        .stderr_has("vcs from project config");
+    let written = cli.read("cwd/.linear.toml");
+    assert!(!written.contains("vcs"), "{written}");
+    let run = cli.run(&["team", "id"]);
+    run.success();
+    assert!(!run.stderr.contains("Warning"), "{run}");
+}

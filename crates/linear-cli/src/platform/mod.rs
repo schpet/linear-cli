@@ -5,6 +5,7 @@ pub mod collation;
 pub mod editor;
 pub mod gh;
 pub mod interrupt;
+pub mod jj_pr;
 pub mod kitty;
 pub mod line_input;
 pub mod markdown_assets;

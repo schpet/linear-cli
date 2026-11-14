@@ -8,7 +8,7 @@ use super::archive_or_delete::{Mode, Request};
 
 pub fn run(ctx: &Ctx, args: &IssueArchive) -> Result<()> {
     let request = Request {
-        issue_id: args.issue_id.as_deref(),
+        issue_id: args.issue_id.as_ref(),
         yes: args.confirm.yes,
         bulk: BulkInput::from(&args.bulk),
     };

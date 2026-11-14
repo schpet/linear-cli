@@ -4,10 +4,10 @@ use chrono::{DateTime, NaiveDate, Utc};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 
 use super::LINEAR_MARKDOWN;
-use super::values::{NonBlank, TextSource, UserRef};
+use super::values::{IssueRef, NonBlank, TextSource, UserRef};
 
 #[derive(Debug, Args)]
-#[command(arg_required_else_help = true)]
+#[command(arg_required_else_help = true, after_long_help = ISSUE_REFERENCES)]
 pub struct Issue {
     #[command(subcommand)]
     pub command: IssueCommand,
@@ -22,7 +22,7 @@ pub enum IssueCommand {
     #[command(alias = "q")]
     Query(IssueQuery),
     /// Show one or more issues
-    #[command(alias = "v")]
+    #[command(alias = "v", after_long_help = ISSUE_REFERENCES)]
     View(IssueView),
     /// Create an issue
     #[command(after_long_help = LINEAR_MARKDOWN)]
@@ -31,7 +31,7 @@ pub enum IssueCommand {
     #[command(after_long_help = LINEAR_MARKDOWN)]
     Update(IssueUpdate),
     /// Delete an issue (moves it to the trash)
-    #[command(alias = "d")]
+    #[command(alias = "d", mut_arg("bulk", |arg| arg.help(BULK_ISSUES_HELP)))]
     Delete(IssueDelete),
     /// Archive an issue
     ///
@@ -40,15 +40,36 @@ pub enum IssueCommand {
     /// to trash it. Archived issues drop out of list, query, and search results
     /// unless --include-archived is passed. See
     /// https://linear.app/docs/delete-archive-issues
+    #[command(mut_arg("bulk", |arg| arg.help(BULK_ISSUES_HELP)))]
     Archive(IssueArchive),
-    /// Start an issue: check out its git branch or jj change, then mark it started
+    /// Move an issue to its team's first started status
     ///
-    /// With git, creates the issue's branch (or switches to it if it exists).
-    /// With jj (`vcs = "jj"` in config or LINEAR_VCS=jj), starts a new change,
-    /// reusing an empty undescribed one, and describes it with the issue title
-    /// and `Linear-issue` trailers; no git branch is created.
+    /// Changes only the issue's status, like Linear's "Move issue to started
+    /// status". An issue that is already started, completed, canceled or a
+    /// duplicate is left as it is. Nothing is done to the repository: use
+    /// `issue git start` or `issue jj start` to prepare a branch or change
+    /// too, and `issue update --state` for any other status.
     Start(IssueStart),
-    /// Print the issue ID of the current branch or jj change
+    /// Move an issue to its team's completed status
+    ///
+    /// An issue that is already completed is left as it is. When the team
+    /// has several completed statuses, name one with `issue update --state`.
+    Complete(IssueTransition),
+    /// Move an issue to its team's canceled status
+    ///
+    /// An issue that is already canceled is left as it is. When the team
+    /// has several canceled statuses, name one with `issue update --state`.
+    Cancel(IssueTransition),
+    /// Work on issues in a git repository
+    Git(IssueGit),
+    /// Work on issues in a jj repository
+    Jj(IssueJj),
+    /// Print the issue IDs an issue argument resolves to
+    ///
+    /// Prints one ID per line. Useful to see what `@git` or `@jj` stands for
+    /// before passing it to a command that changes something. Needs no
+    /// credentials unless the argument is a URL.
+    #[command(after_long_help = ISSUE_REFERENCES)]
     Id(IssueId),
     /// Print an issue's title
     Title(IssueTitle),
@@ -56,11 +77,21 @@ pub enum IssueCommand {
     Url(IssueUrl),
     /// Print an issue's title and a Linear-issue trailer, for commit messages
     Describe(IssueDescribe),
-    /// List the commits that reference an issue (jj only)
-    Commits(IssueCommits),
-    /// Open a GitHub pull request for an issue
-    #[command(alias = "pr")]
-    PullRequest(IssuePullRequest),
+    /// Open GitHub pull requests for issues
+    Gh(IssueGh),
+    // `issue gh pull-request` since 4.0; still parsed so that running it
+    // says where it went.
+    #[command(
+        name = "pull-request",
+        alias = "pr",
+        hide = true,
+        disable_help_flag = true
+    )]
+    MovedPullRequest(Moved),
+    // Removed in 4.0; still parsed so that running it says what to use
+    // instead.
+    #[command(name = "commits", hide = true, disable_help_flag = true)]
+    RemovedCommits(Moved),
     /// Add, list, edit, and delete comments on an issue
     Comment(IssueComment),
     /// Upload a file and attach it to an issue
@@ -69,15 +100,15 @@ pub enum IssueCommand {
     /// To show an image in the conversation, use `issue comment add --attach`.
     Attach(IssueAttach),
     /// Link a URL to an issue
+    ///
+    /// Name both the issue and the URL: `linear issue link ENG-123
+    /// https://example.com/doc`.
     Link(IssueLink),
     /// Manage relations between issues, like blocks and duplicates
     Relation(IssueRelation),
     /// Inspect agent sessions on an issue
     AgentSession(IssueAgentSession),
 }
-
-#[derive(Debug, Args)]
-pub struct IssueId {}
 
 #[derive(Debug, Args)]
 pub struct IssueList {
@@ -191,18 +222,43 @@ pub struct IssueQuery {
     pub no_pager: bool,
 }
 
+const BULK_ISSUES_HELP: &str =
+    "Act on several issue IDs at once instead of one (IDs only: not @git or @jj)";
+
+/// How `@git` and `@jj` are read, for the help of commands that take them.
+pub const ISSUE_REFERENCES: &str = "\
+Issue references:
+  Wherever a command takes an ISSUE (and for --parent and document
+  --issue), `@git` and `@jj` read it from the repository instead. Nothing is read from the repository
+  otherwise.
+  @git  the first issue ID in the current git branch's name
+  @jj   every issue named by the `Linear-issue` trailers of the changes in
+        trunk()..@ (refused when trunk() is the root commit)
+  The issues a reference names are printed on stderr before anything is
+  sent. A command that acts on one issue refuses a reference that names
+  several. In PowerShell, quote them: '@git'.";
+
 #[derive(Debug, Args)]
-pub struct IssueTitle {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+pub struct IssueId {
+    /// Issue ID like ENG-123, a URL, a number in the configured team, @git
+    /// or @jj
+    #[arg(value_name = "REF")]
+    pub reference: IssueRef,
 }
 
 #[derive(Debug, Args)]
-pub struct IssueStart {
-    /// Issue ID like ENG-123, or a URL; asked for when omitted
-    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
-    pub issue_id: Option<String>,
+pub struct IssueTitle {
+    /// Issue ID like ENG-123, a URL, @git or @jj
+    #[arg(value_name = "ISSUE")]
+    pub issue_id: IssueRef,
+}
+
+/// The issue to start, and the picker's filters when none is named.
+#[derive(Debug, Args)]
+pub struct StartTarget {
+    /// Issue ID like ENG-123, a URL, @git or @jj; asked for when omitted
+    #[arg(value_name = "ISSUE")]
+    pub issue_id: Option<IssueRef>,
     /// Team to pick from, and the team of a bare issue number (key, name, or
     /// ID); defaults to the configured team
     #[arg(long, value_parser = NonBlank)]
@@ -213,19 +269,155 @@ pub struct IssueStart {
     /// Offer only unassigned issues in the picker
     #[arg(long, short = 'U', conflicts_with = "all_assignees")]
     pub unassigned: bool,
-    /// Git ref to create the branch from (git only)
+}
+
+#[derive(Debug, Args)]
+pub struct IssueStart {
+    #[command(flatten)]
+    pub target: StartTarget,
+    // `issue git start` takes these since 4.0; they are still parsed here so
+    // that passing them says where they went.
+    #[arg(long, short, hide = true, value_name = "REF")]
+    pub from_ref: Option<String>,
+    #[arg(long, short, hide = true)]
+    pub branch: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct IssueTransition {
+    /// Issue ID like ENG-123, a URL, @git or @jj
+    #[arg(value_name = "ISSUE")]
+    pub issue_id: IssueRef,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct IssueGit {
+    #[command(subcommand)]
+    pub command: IssueGitCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IssueGitCommand {
+    /// Create or switch to a git branch, then start the issue and report both results
+    ///
+    /// Runs these steps in order, printing one line on stdout for each as it
+    /// is done:
+    ///
+    /// 1. Creates the branch Linear suggests for the issue (or --branch) from
+    ///    --from-ref, which defaults to HEAD, and switches to it. If the local
+    ///    branch exists, asks whether to switch to it or to create a suffixed
+    ///    branch; switching leaves its history unchanged and does not use
+    ///    --from-ref.
+    ///
+    /// 2. Moves the issue to its team's first started status, as `issue start`
+    ///    does. An issue that is already started or closed keeps its status.
+    ///
+    /// The lines name the actual branch, the ref and commit it was created
+    /// from or the checkout it replaced, and whether the Linear status
+    /// changed:
+    ///
+    ///   ✓ Created and switched to git branch "eng-7" from "HEAD" (0123456789ab); previous branch: "main"
+    ///   ✓ Moved Linear issue ENG-7 from "Todo" to "In Progress"
+    ///
+    /// If starting the issue fails, the branch stays and the lines already
+    /// printed say what was done.
+    #[command(verbatim_doc_comment)]
+    Start(IssueGitStart),
+}
+
+#[derive(Debug, Args)]
+pub struct IssueGitStart {
+    #[command(flatten)]
+    pub target: StartTarget,
+    /// Git ref to create a new branch from; unused when switching to an existing branch [default: HEAD]
     #[arg(long, short, value_name = "REF", value_parser = NonBlank)]
     pub from_ref: Option<String>,
-    /// Branch name to use instead of the issue's (git only)
+    /// Branch name to use instead of the one Linear suggests
     #[arg(long, short, value_parser = NonBlank)]
     pub branch: Option<String>,
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct IssueJj {
+    #[command(subcommand)]
+    pub command: IssueJjCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IssueJjCommand {
+    /// Describe a new or reused jj change, then start the issue and report both results
+    ///
+    /// Runs these steps in order, printing what it did on stdout as each is
+    /// done:
+    ///
+    /// 1. Creates a new change on the current one (`jj new`), or reuses the
+    ///    current change when it is empty and undescribed.
+    ///
+    /// 2. Writes "<ID> <issue title>" as that change's description, with
+    ///    "Linear-issue: Fixes <ID>" and "Linear-issue-url: <URL>" trailers.
+    ///    Keep both trailers when rewording if you want @jj to find the issue.
+    ///
+    /// 3. Moves the issue to its team's first started status, as `issue start`
+    ///    does. An issue that is already started or closed keeps its status.
+    ///
+    /// No bookmark is created and nothing is pushed. The lines name the full
+    /// change ID, show the description and trailers written, and say whether
+    /// the Linear status changed:
+    ///
+    ///   ✓ Created and switched to jj change <NEW> from <PREVIOUS>
+    ///   ✓ Wrote jj change <NEW> description: "ENG-7 Fix the widget"
+    ///   ✓ Wrote trailers (keep both when rewording to use @jj):
+    ///     Linear-issue: Fixes ENG-7
+    ///     Linear-issue-url: https://linear.app/acme/issue/ENG-7/fix-the-widget
+    ///   ✓ Moved Linear issue ENG-7 from "Todo" to "In Progress"
+    ///
+    /// The first line is "✓ Reused empty, undescribed jj change <ID>" when
+    /// the change is reused. If starting the issue fails, the change stays
+    /// and the lines already printed say what was done.
+    #[command(verbatim_doc_comment)]
+    Start(IssueJjStart),
+    /// Push a jj bookmark and open a GitHub pull request for one or more issues
+    ///
+    /// The head is the working-copy change, or its parent when the working
+    /// copy is empty and undescribed; an existing bookmark named by --head
+    /// selects its change instead. A bookmark already on that change is
+    /// used, or one with the branch name Linear suggests for the first issue
+    /// (or the --head name) is created there. The bookmark is pushed with
+    /// `jj git push` to the `git.push` remote (else the only remote, else
+    /// origin) without asking, then `gh pr create` runs with that remote's
+    /// repository and the bookmark as --head, so no git checkout is needed.
+    /// A bookmark is never moved. The title and body are those of
+    /// `issue gh pr`, and every issue is fetched before a bookmark is
+    /// created or anything is pushed.
+    ///
+    /// The issues are always named: IDs, or `@git` or `@jj` to read them
+    /// from the repository. `@jj` reads the trailers in trunk()..@ even when
+    /// --head names a bookmark elsewhere.
+    #[command(
+        alias = "pr",
+        override_usage = "linear issue jj pull-request [OPTIONS] <ISSUE>...",
+        after_long_help = ISSUE_REFERENCES,
+        mut_arg("head", |arg| arg.value_name("BOOKMARK").help(JJ_HEAD_HELP))
+    )]
+    PullRequest(IssuePullRequest),
+}
+
+const JJ_HEAD_HELP: &str =
+    "Bookmark to open the pull request from, created on the head change if it does not exist";
+
+#[derive(Debug, Args)]
+pub struct IssueJjStart {
+    #[command(flatten)]
+    pub target: StartTarget,
+}
+
+#[derive(Debug, Args)]
 pub struct IssueView {
-    /// Issue IDs like ENG-123, or URLs; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE", value_parser = NonBlank)]
-    pub issue_ids: Vec<String>,
+    /// Issue IDs like ENG-123, URLs, @git or @jj (which may name several)
+    #[arg(value_name = "ISSUE", required = true)]
+    pub issue_ids: Vec<IssueRef>,
     /// Open the issues in the browser
     #[arg(long, short)]
     pub web: bool,
@@ -242,6 +434,7 @@ pub struct IssueView {
     #[arg(long)]
     pub no_pager: bool,
     /// Print JSON: an object for one issue, an array for multiple issues
+    /// (counted after @git and @jj are read)
     #[arg(long, short)]
     pub json: bool,
     /// Keep remote image and file URLs instead of downloading them (and so
@@ -252,61 +445,112 @@ pub struct IssueView {
 
 #[derive(Debug, Args)]
 pub struct IssueUrl {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueDescribe {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
     /// Write "References" instead of "Fixes" in the trailer
     #[arg(long, short, visible_alias = "ref")]
     pub references: bool,
 }
 
+/// Whatever followed a command that has moved or been removed.
 #[derive(Debug, Args)]
-pub struct IssueCommits {
-    /// Issue ID like ENG-123, or a URL; defaults to the current change's issue
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+pub struct Moved {
+    #[arg(hide = true, trailing_var_arg = true, allow_hyphen_values = true)]
+    pub rest: Vec<String>,
+}
+
+#[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
+pub struct IssueGh {
+    #[command(subcommand)]
+    pub command: IssueGhCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IssueGhCommand {
+    /// Open a GitHub pull request for one or more issues with gh
+    ///
+    /// Runs `gh pr create`. gh chooses the repository and, unless --head is
+    /// given, the branch; nothing is created or pushed first. The issues are
+    /// always named: IDs, or `@git` or `@jj` to read them from the
+    /// repository.
+    ///
+    /// For one distinct issue, the title is "<ID> <issue title>" (or
+    /// "<ID> <title>" with --title; an empty --title uses the issue title),
+    /// and the body is the template followed by the issue URL. For several
+    /// distinct issues, a nonblank --title is required and is used exactly as
+    /// supplied, and the body is the template, a "Fixes ENG-1, ENG-2, and
+    /// ENG-3" clause that Linear reads to close them on merge, and every
+    /// issue URL. --references writes a non-closing "References <IDs>"
+    /// clause instead; for one issue it adds that clause before the URL. It
+    /// changes only the clause the CLI writes, never a title or template you
+    /// supply. Repeated issues are included once, in the order first named.
+    /// Every issue is fetched before the pull request is opened.
+    ///
+    /// In a jj repository, use `linear issue jj pr`: it pushes a bookmark for
+    /// the change and tells gh the repository and head, so it also works when
+    /// git's HEAD is detached or there is no git checkout.
+    #[command(
+        alias = "pr",
+        override_usage = "linear issue gh pull-request [OPTIONS] <ISSUE>...",
+        after_long_help = ISSUE_REFERENCES
+    )]
+    PullRequest(IssuePullRequest),
 }
 
 #[derive(Debug, Args)]
 pub struct IssuePullRequest {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue IDs like ENG-123, URLs, numbers in the configured team, @git or
+    /// @jj (which may name several); at least one
+    // Optional to clap only so that leaving it out can say how to name it.
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_ids: Vec<IssueRef>,
     /// Branch to merge into
     #[arg(long, value_name = "BRANCH")]
     pub base: Option<String>,
     /// Open the pull request as a draft
     #[arg(long)]
     pub draft: bool,
-    /// Pull request title, after the issue ID [default: the issue title]
+    /// Title after the ID for one issue [default: the issue title]; required
+    /// and used verbatim for several issues
     #[arg(long, short)]
     pub title: Option<String>,
     /// Open the pull request in the browser
     #[arg(long)]
     pub web: bool,
-    /// Branch that holds the commits
-    #[arg(long, value_name = "BRANCH")]
+    /// Branch that holds the commits; accepts owner:branch
+    #[arg(long, value_name = "BRANCH", value_parser = NonBlank)]
     pub head: Option<String>,
-    /// Start the body from this template file; the issue URL is appended
+    /// Start the body from this template file, then append the issue links
     #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath, value_parser = NonBlank)]
     pub template: Option<String>,
     /// Ignore the pr_template setting
     #[arg(long)]
     pub no_template: bool,
+    /// Write a non-closing "References" clause instead of "Fixes"; also adds
+    /// it for one issue
+    #[arg(long, short, visible_alias = "ref")]
+    pub references: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueArchive {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, a URL, @git or @jj; required unless a --bulk
+    /// option is given
+    #[arg(
+        value_name = "ISSUE",
+        conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"],
+        required_unless_present_any = ["bulk", "bulk_file", "bulk_stdin"]
+    )]
+    pub issue_id: Option<IssueRef>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
     #[command(flatten)]
@@ -315,9 +559,14 @@ pub struct IssueArchive {
 
 #[derive(Debug, Args)]
 pub struct IssueDelete {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
-    #[arg(value_name = "ISSUE", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
-    pub issue_id: Option<String>,
+    /// Issue ID like ENG-123, a URL, @git or @jj; required unless a --bulk
+    /// option is given
+    #[arg(
+        value_name = "ISSUE",
+        conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"],
+        required_unless_present_any = ["bulk", "bulk_file", "bulk_stdin"]
+    )]
+    pub issue_id: Option<IssueRef>,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
     #[command(flatten)]
@@ -362,9 +611,9 @@ pub struct IssueCreate {
     /// Due date (YYYY-MM-DD)
     #[arg(long, value_name = "DATE", value_parser = super::values::date)]
     pub due_date: Option<NaiveDate>,
-    /// Parent issue, like ENG-123
-    #[arg(long, value_name = "ISSUE", value_parser = NonBlank)]
-    pub parent: Option<String>,
+    /// Parent issue: an ID like ENG-123, a URL, @git or @jj
+    #[arg(long, value_name = "ISSUE")]
+    pub parent: Option<IssueRef>,
     /// Project (ID, slug, or name)
     #[arg(long, value_parser = NonBlank)]
     pub project: Option<String>,
@@ -386,8 +635,8 @@ pub struct IssueCreate {
     /// Do not apply the team's default template
     #[arg(long)]
     pub no_use_default_template: bool,
-    /// Start the issue after creating it
-    #[arg(long)]
+    /// Create the issue in the team's first started status, assigned to you
+    #[arg(long, conflicts_with = "state")]
     pub start: bool,
     /// Ask for every field instead of taking them as flags
     ///
@@ -403,9 +652,9 @@ pub struct IssueCreate {
 
 #[derive(Debug, Args)]
 pub struct IssueUpdate {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
     /// New title
     #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
@@ -460,9 +709,9 @@ pub struct IssueUpdate {
     /// Remove the due date
     #[arg(long)]
     pub clear_due_date: bool,
-    /// Parent issue, like ENG-123
-    #[arg(long, value_name = "ISSUE", value_parser = NonBlank)]
-    pub parent: Option<String>,
+    /// Parent issue: an ID like ENG-123, a URL, @git or @jj
+    #[arg(long, value_name = "ISSUE")]
+    pub parent: Option<IssueRef>,
     /// Remove the parent
     #[arg(long)]
     pub clear_parent: bool,
@@ -534,9 +783,9 @@ const BULK_COMMENTS_HELP: &str = "More comment IDs; IDs from every source are co
 
 #[derive(Debug, Args)]
 pub struct IssueCommentAdd {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
     /// Comment text, in Markdown
     #[arg(long, short, value_name = "TEXT", value_parser = NonBlank)]
     pub body: Option<String>,
@@ -611,9 +860,9 @@ pub struct IssueCommentUpdate {
 
 #[derive(Debug, Args)]
 pub struct IssueCommentList {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
     /// Maximum number of comments to show (a number or `all`); with --resolved
     /// or --unresolved it counts the comments left, so it can cut a thread short
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
@@ -634,9 +883,9 @@ pub struct IssueCommentList {
 
 #[derive(Debug, Args)]
 pub struct IssueAttach {
-    /// Issue ID like ENG-123, or a URL
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: String,
+    pub issue_id: IssueRef,
     /// File to upload
     #[arg(value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub filepath: PathBuf,
@@ -653,11 +902,12 @@ pub struct IssueAttach {
 
 #[derive(Debug, Args)]
 pub struct IssueLink {
-    /// Issue ID like ENG-123; or, alone, the URL to link to the current branch's issue
-    #[arg(value_name = "ISSUE|URL")]
-    pub url_or_issue_id: String,
-    /// URL to link, when the issue is given first
-    pub url: Option<String>,
+    /// Issue ID like ENG-123, a URL, @git or @jj
+    #[arg(value_name = "ISSUE")]
+    pub issue_id: IssueRef,
+    /// URL to link (http:// or https://)
+    #[arg(value_name = "URL", value_parser = NonBlank)]
+    pub url: String,
     /// Link title
     #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
@@ -702,37 +952,37 @@ impl RelationType {
 
 #[derive(Debug, Args)]
 pub struct IssueRelationAdd {
-    /// Issue ID like ENG-123, or a URL
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: String,
+    pub issue_id: IssueRef,
     /// How ISSUE relates to RELATED
     #[arg(value_name = "RELATION", ignore_case = true)]
     pub relation_type: RelationType,
-    /// The other issue
+    /// The other issue: an ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "RELATED")]
-    pub related_issue_id: String,
+    pub related_issue_id: IssueRef,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueRelationDelete {
-    /// Issue ID like ENG-123, or a URL
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: String,
+    pub issue_id: IssueRef,
     /// How ISSUE relates to RELATED
     #[arg(value_name = "RELATION", ignore_case = true)]
     pub relation_type: RelationType,
-    /// The other issue
+    /// The other issue: an ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "RELATED")]
-    pub related_issue_id: String,
+    pub related_issue_id: IssueRef,
     #[command(flatten)]
     pub confirm: super::ConfirmArgs,
 }
 
 #[derive(Debug, Args)]
 pub struct IssueRelationList {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
 }
 
 #[derive(Debug, Args)]
@@ -753,9 +1003,9 @@ pub enum IssueAgentSessionCommand {
 
 #[derive(Debug, Args)]
 pub struct IssueAgentSessionList {
-    /// Issue ID like ENG-123, or a URL; defaults to the current branch's issue
+    /// Issue ID like ENG-123, a URL, @git or @jj
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<String>,
+    pub issue_id: IssueRef,
     /// Maximum number of sessions to show (a number or `all`)
     #[arg(long, value_parser = super::limit::parse, default_value = "all")]
     pub limit: super::Limit,

@@ -283,7 +283,6 @@ async fn a_submitted_issue_gets_trimmed_text_the_first_unstarted_state_and_its_c
     .await
     .expect("issue input");
     ui.done();
-    assert!(!created.start);
     let input = input(created);
     assert_eq!(input["title"], "Title 界");
     assert_eq!(input["description"], "body");
@@ -511,7 +510,7 @@ async fn empty_state_and_label_lists_skip_their_selection_prompts() {
     assert_eq!(ui.menus.len(), 2, "next action and fields only");
     assert_eq!(
         ui.shown.last().map(String::as_str),
-        Some("Start working on this issue now?")
+        Some(super::START_QUESTION)
     );
     assert!(
         ui.shown
@@ -594,7 +593,7 @@ async fn pickers_tell_apart_projects_and_labels_that_share_a_name() {
 }
 
 #[tokio::test]
-async fn a_team_picker_returns_the_selected_team_and_start_answer() {
+async fn a_team_picker_returns_the_selected_team_and_starting_sets_the_state_and_assignee() {
     let linear = Linear {
         teams: vec![
             ResolvedTeam {
@@ -618,8 +617,29 @@ async fn a_team_picker_returns_the_selected_team_and_start_answer() {
         .expect("issue input");
     ui.done();
     assert_eq!(ui.menus[0], ["Shared (ENG)", "Shared (OPS)"]);
-    assert!(created.start);
-    assert_eq!(input(created)["teamId"], "ops");
+    let input = input(created);
+    assert_eq!(input["teamId"], "ops");
+    assert_eq!(input["stateId"], "started", "the first started status");
+    assert_eq!(input["assigneeId"], "self-id", "despite assign-self never");
+}
+
+#[tokio::test]
+async fn starting_in_the_wizard_fails_when_the_team_has_no_started_status() {
+    let linear = Linear {
+        empty_states: true,
+        ..Linear::default()
+    };
+    let mut ui = Script::answering(&["Title", "", "Submit issue", "Yes"]);
+    let error = prompt(
+        &linear,
+        &mut ui,
+        &settings(AssignSelf::Never, false),
+        &Fields::default(),
+    )
+    .await
+    .err()
+    .expect("no started status");
+    assert_eq!(error.to_string(), "Team ENG has no started status");
 }
 
 #[test]

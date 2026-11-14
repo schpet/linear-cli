@@ -4,6 +4,7 @@ mod delete;
 mod list;
 
 use crate::cli::issue::{IssueRelationCommand, RelationType};
+use crate::cli::values::IssueRef;
 use crate::client::LinearClient;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
@@ -18,9 +19,9 @@ pub fn run(ctx: &Ctx, command: &IssueRelationCommand) -> Result<()> {
 }
 
 /// Both identifiers, resolved before any request.
-fn pair(ctx: &Ctx, a: &str, b: &str) -> Result<(String, String)> {
-    let resolve = |input: &str| {
-        super::resolve(ctx, Some(input))?
+fn pair(ctx: &Ctx, a: &IssueRef, b: &IssueRef) -> Result<(String, String)> {
+    let resolve = |input: &IssueRef| {
+        super::resolve(ctx, input)?
             .ok_or_else(|| Error::new(format!("Could not resolve issue identifier: {input}")))
     };
     Ok((resolve(a)?, resolve(b)?))

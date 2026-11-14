@@ -29,23 +29,20 @@ pub fn run(ctx: &Ctx, args: &IssueView) -> Result<()> {
 }
 
 fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
-    let multiple = args.issue_ids.len() > 1;
-    let identifiers = if args.issue_ids.is_empty() {
-        vec![super::require(ctx, None)?]
-    } else {
-        args.issue_ids
-            .iter()
-            .map(|input| {
-                super::require(ctx, Some(input)).map_err(|error| {
-                    if multiple {
-                        error.context(format!("Failed to resolve issue {input}"))
-                    } else {
-                        error
-                    }
-                })
-            })
-            .collect::<Result<Vec<_>>>()?
-    };
+    let several_inputs = args.issue_ids.len() > 1;
+    let mut identifiers = Vec::new();
+    for input in &args.issue_ids {
+        let named = super::reference::require_all(ctx, input).map_err(|error| {
+            if several_inputs {
+                error.context(format!("Failed to resolve issue {input}"))
+            } else {
+                error
+            }
+        })?;
+        identifiers.extend(named);
+    }
+    // A reference can name several issues, so the count is what was read.
+    let multiple = identifiers.len() > 1;
     if args.web || args.app {
         let workspace = ctx.workspace_url_key()?;
         for identifier in identifiers {

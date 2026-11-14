@@ -8,6 +8,12 @@ use crate::config::ChildEnvOverlay;
 use crate::error::{Error, Result};
 use crate::platform::process;
 
+/// Fails unless `gh` can be run, for a command that must not get halfway
+/// before finding that out.
+pub fn require(cwd: &Path, env: &ChildEnvOverlay) -> Result<()> {
+    process::output(process::command("gh", cwd, env).arg("--version")).map(|_| ())
+}
+
 /// Runs `gh` with `args`. When it fails it has said why on stderr, and the
 /// command fails with status 1 (130 when it was cancelled or interrupted),
 /// not with gh's own status codes.

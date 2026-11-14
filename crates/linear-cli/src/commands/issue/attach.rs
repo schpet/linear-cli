@@ -18,7 +18,7 @@ pub fn run(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
 }
 
 fn attach_file(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
-    let identifier = super::require(ctx, Some(&args.issue_id))?;
+    let identifier = super::require(ctx, &args.issue_id)?;
     upload::validate_file(&args.filepath)?;
     let client = ctx.client()?;
     let issue_uuid = ctx.spin(true, lookup(client, &identifier))?;

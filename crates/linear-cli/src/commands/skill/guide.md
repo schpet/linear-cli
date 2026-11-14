@@ -14,8 +14,12 @@ the installed `linear` binary, so it describes the commands that version has.
   array, views print one object.
 - Add `--no-input` to writes in scripts, so a missing value is an error instead
   of a prompt.
-- A team is inferred from the repository's `.linear.toml` or the current
-  branch when it can be. If a command asks for one, run `linear team list`.
+- Name the issue in every command (`ENG-123`, an issue URL, or a bare number
+  in the configured team). Nothing is read from the git branch or jj change
+  unless you pass `@git` or `@jj` (see "Use the issue of the current branch or
+  change").
+- The default team comes from `.linear.toml` or `LINEAR_TEAM_ID`. If a command
+  asks for one, pass `--team`; `linear team list` shows the teams.
 - Do not create, change or comment on anything the user's request does not
   call for.
 
@@ -70,6 +74,88 @@ linear issue update ENG-123 --remove-label sprint-42 --add-label sprint-43  # at
 linear issue update ENG-123 --label infra --label security   # replaces the label set
 ```
 
+### Start, complete or cancel an issue
+
+```bash
+linear issue start ENG-123      # to the team's first started status (e.g. In Progress)
+linear issue complete ENG-123   # to the team's completed status (e.g. Done)
+linear issue cancel ENG-123     # to the team's canceled status
+```
+
+These change only the status and never touch git or jj. An issue already in a
+status of that type is left alone, and `start` also leaves a closed issue
+alone. When the team has several completed or canceled statuses the command
+lists them: choose one with `linear issue update ENG-123 --state "<name>"`,
+which is also how to reach any other status (`In Review`, `Backlog`, ...).
+
+Only when a branch or jj change is wanted too: `linear issue git start ENG-123`
+creates or switches to the issue's git branch, and `linear issue jj start
+ENG-123` creates a new jj change (or reuses an empty, undescribed one) and
+writes its description: the issue title and `Linear-issue` trailers. Both
+then start the issue, and print one line per thing they did:
+
+```text
+✓ Reused empty, undescribed jj change <CHANGE-ID>
+✓ Wrote jj change <CHANGE-ID> description: "ENG-123 Fix the login"
+✓ Wrote trailers (keep both when rewording to use @jj):
+  Linear-issue: Fixes ENG-123
+  Linear-issue-url: https://linear.app/acme/issue/ENG-123/fix-the-login
+✓ Moved Linear issue ENG-123 from "Todo" to "In Progress"
+```
+
+Keep the trailers when you reword or squash that change, or `@jj` will not
+find the issue. If moving the issue fails, the branch or change stays as the
+printed lines say.
+
+### Use the issue of the current branch or change
+
+`@git` and `@jj` work wherever a command takes an issue, including `--parent`
+and `document --issue`:
+
+```bash
+linear issue id @git            # the first issue ID in the current git branch name
+linear issue id @jj             # each issue named by Linear-issue trailers in trunk()..@
+linear issue view @jj --json    # an array when @jj names several issues
+linear issue gh pr @git --draft
+```
+
+The issues a reference read are printed on stderr before anything is sent.
+A command that acts on one issue refuses a reference that names several, and
+`@jj` is refused when jj's `trunk()` is the root commit. Bulk input takes IDs
+only. When unsure what a reference stands for, run `linear issue id` with it
+first and pass the IDs it prints. In PowerShell, quote them: `'@git'`.
+
+### Open a pull request for one or more issues
+
+```bash
+linear issue gh pr ENG-123 --draft          # gh pr create, titled "ENG-123 <issue title>", issue URL in the body
+linear issue gh pr ENG-123 --head my-topic  # name the git branch yourself
+linear issue gh pr ENG-123 ENG-124 --title "Fix login"  # one pull request that closes both
+linear issue jj pr ENG-123 --draft          # jj: push a bookmark for the change, then gh pr create
+linear issue jj pr @jj --title "Fix login"  # every issue the trailers in trunk()..@ name
+linear issue jj pr @jj --head my-topic      # name the jj bookmark yourself
+```
+
+The issue is always named; `linear issue gh pr` on its own is an error. The
+command names the tool: `gh pr` only runs gh, which takes the repository and
+branch from the git checkout, and never creates or pushes anything.
+
+One pull request can cover several issues: pass their IDs, or a reference
+that names several. With more than one distinct issue `--title` is required
+and used as given, and the body gets `Fixes ENG-123 and ENG-124` (which
+Linear reads to close them on merge) and every issue URL. `--references`
+writes `References …` instead, to link without closing. Every issue is
+fetched before anything is pushed or opened.
+
+`jj pr` publishes without asking. It pushes a bookmark for the working-copy
+change (or its parent, when the working copy is empty and undescribed) with
+`jj git push`, creating one named after the (first) issue if the change has none,
+then runs gh with the repository and the bookmark, so it works without a git
+checkout. It never moves an existing bookmark: when it cannot tell which
+bookmark to use it says so and asks for `--head`. In a jj repository use it
+rather than `gh pr`. `@jj` reads `trunk()..@` even when `--head` names a
+bookmark elsewhere.
+
 ### Create from a template
 
 ```bash
@@ -115,7 +201,7 @@ comment, and a reply carries its thread's state in `parent.resolvedAt`.
 ### Close, delete or archive an issue
 
 ```bash
-linear issue update ENG-123 --state Done       # or Canceled; Linear archives closed issues later
+linear issue complete ENG-123                  # or `issue cancel`; Linear archives closed issues later
 linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
 linear issue archive ENG-123 --yes             # rarely appropriate, see below
 ```
@@ -192,7 +278,7 @@ After status 5, check whether a create or update took effect before retrying it.
 
 - `issue list` sorts by priority unless `--sort` (`manual` or `priority`), the
   `issue_sort` setting or `LINEAR_ISSUE_SORT` says otherwise, and it needs
-  `--team` when the team cannot be inferred.
+  `--team` when no team is configured.
 - `--no-pager` exists only on `issue list`, `issue query`, `issue view` and
   `project view`. Other commands reject it.
 - `linear api` takes the GraphQL document as its one argument and has no

@@ -14,10 +14,12 @@ mod uuid;
 pub mod workflow_states;
 mod workspace;
 
-pub use issue::{find_issue_identifier, prepare_issue_reference};
+pub use issue::prepare_issue_reference;
 pub use url::{LinearUrlKind, LinearUrlRef};
 pub use uuid::is_linear_uuid;
-pub use workspace::{WorkspaceScope, expect_url_kind, reject_comment_url, reject_linear_url};
+pub use workspace::{
+    WorkspaceScope, expect_url_kind, is_linear_url, reject_comment_url, reject_linear_url,
+};
 
 use crate::error::Error;
 

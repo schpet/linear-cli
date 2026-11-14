@@ -12,10 +12,10 @@ linear config               # setup your repo, it writes a config file
 linear issue list           # list unstarted issues assigned to you
 linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
-linear issue start          # choose an issue to start, creates a branch
-linear issue start ABC-123  # start a specific issue
-linear issue view           # see current branch's issue as markdown
-linear issue pr             # makes a PR with title/body preset, using gh cli
+linear issue start ABC-123  # move an issue to its team's first started status
+linear issue git start      # choose an issue, create its branch, and start it
+linear issue view ABC-123   # see an issue as markdown
+linear issue gh pr ABC-123  # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
 ```
 
@@ -27,13 +27,6 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 <summary><code>linear issue create -i</code></summary>
 
 <img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create -i command, interactively adding issue details">
-
-</details>
-
-<details>
-<summary><code>linear issue start</code></summary>
-
-<img width="600" src="docs/cast-issue-start.svg?1" alt="screencast showing the linear issue start command, interactively choosing an issue to start">
 
 </details>
 
@@ -127,32 +120,32 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 
 the CLI works with both git and jj version control systems:
 
-- **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
-- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`
+- **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
+- **jj**: `linear issue jj start ABC-123` starts a change (or reuses an empty, undescribed one) described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue jj pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+
+each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` always runs plain `gh pr create` from the git checkout, even in a jj repository. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it
 
 ## commands
 
 ### issue commands
 
-the current issue is determined by:
-
-- **git**: the issue id in the current branch name (e.g. `eng-123-my-feature`)
-- **jj**: the `Linear-issue` trailer in the current or ancestor commits
-
-note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest git branch names.
+every command takes the issue it acts on: an ID like `ENG-123`, an issue URL, a bare number in the configured team, or a reference that reads it from your repository. `@git` is the first issue ID in the current git branch's name; `@jj` is every issue named by the `Linear-issue` trailers of the changes in `trunk()..@`. the cli reads the repository only when you pass one of these, and says on stderr which issues it read before anything is sent. a command that acts on one issue refuses a reference that names several; `issue view` and the pull request commands take them all. in PowerShell, quote them: `'@git'`.
 
 ```bash
-linear issue view      # view current issue details in terminal
-linear issue view ABC-123
+linear issue view ABC-123  # view issue details in terminal
 linear issue view 123
 linear issue view ABC-123 ABC-124         # multiple issues, in argument order
 linear issue view ABC-123 ABC-124 --json  # an array; one issue returns an object
-linear issue view -w   # open issue in web browser
-linear issue view -a   # open issue in Linear.app
-linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
-linear issue title     # prints just the issue title
-linear issue url       # prints the Linear.app URL for the issue
-linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
+linear issue view ABC-123 -w   # open issue in web browser
+linear issue view ABC-123 -a   # open issue in Linear.app
+linear issue title ABC-123     # prints just the issue title
+linear issue url ABC-123       # prints the Linear.app URL for the issue
+linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`
+linear issue gh pr @git        # the same, for the issue in the current git branch's name
+linear issue gh pr ABC-123 ABC-124 --title "Fix login"  # one PR for several issues: "Fixes ABC-123 and ABC-124" and their URLs in the body
+linear issue jj pr ABC-123     # pushes a jj bookmark for the change, then creates the PR from it with `gh pr create`
+linear issue jj pr @jj --title "Fix login"  # one PR for every issue the trailers in trunk()..@ name
+linear issue id @jj            # prints the issues @jj reads, one per line
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
 linear issue list -w   # open issue list in web browser
@@ -161,7 +154,11 @@ linear issue query --search "login bug"  # search issues by text in your configu
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
 linear issue query --all-teams --json --limit all  # export all issues as JSON
-linear issue start     # create/switch to issue branch and mark as started
+linear issue start ENG-123     # move the issue to its team's first started status; touches nothing in your repo
+linear issue complete ENG-123  # move the issue to its team's completed status
+linear issue cancel ENG-123    # move the issue to its team's canceled status
+linear issue git start ENG-123 # create/switch to the issue's git branch, then start it (--branch, --from-ref); prints what it did
+linear issue jj start ENG-123  # start a jj change described with the issue, then start it; prints the change ID, description and trailers it wrote
 linear issue create    # create a new issue, asking for the title
 linear issue create -i # create a new issue, asking for every field
 linear issue create -t "title" -d "description"  # create with flags
@@ -172,13 +169,12 @@ linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing i
 linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
 linear issue archive ENG-123 --yes  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
 linear issue archive --yes --bulk ENG-123 ENG-124  # archive several issues
-linear issue delete    # delete an issue
-linear issue comment list          # list comments on current issue
-linear issue comment add           # add a comment to current issue
-linear issue comment add --reply-to <id>   # reply to a comment (-p / --parent are aliases)
-linear issue comment list --json   # comments as JSON, with quotedText and parent for inline comments and replies
+linear issue delete ENG-123   # delete an issue
+linear issue comment list ENG-123          # list comments on an issue
+linear issue comment add ENG-123           # add a comment to an issue
+linear issue comment add ENG-123 --reply-to <id>   # reply to a comment (-p / --parent are aliases)
+linear issue comment list ENG-123 --json   # comments as JSON, with quotedText and parent for inline comments and replies
 linear issue comment update <id>   # update a comment
-linear issue commits               # show all commits for an issue (jj only)
 ```
 
 #### attaching files
@@ -287,7 +283,7 @@ manage Linear documents from the command line. every document is attached to exa
 linear document list                            # list all accessible documents
 linear docs list                                # alias for document
 linear document list --project <project>        # filter by project (UUID, slug ID, or name)
-linear document list --issue TC-123             # filter by issue
+linear document list --issue TC-123             # filter by issue (or @git, @jj)
 linear document list --team ENG                 # filter by team
 linear document list --initiative <initiative>  # filter by initiative
 linear document list --team ENG --cycle active  # filter by cycle (team scopes the lookup)
@@ -367,10 +363,9 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | Issue sort      | `LINEAR_ISSUE_SORT`               | `issue_sort`               | `"priority"` or `"manual"`           | how to sort issue lists                                                                          |
 | Ask project     | `LINEAR_ISSUE_CREATE_ASK_PROJECT` | `issue_create_ask_project` | `true` or `false`                    | ask for a project during interactive `issue create`                                              |
 | Assign self     | `LINEAR_ISSUE_CREATE_ASSIGN_SELF` | `issue_create_assign_self` | `"always"`, `"auto"`, or `"never"`   | control default self-assignment during issue creation                                            |
-| VCS             | `LINEAR_VCS`                      | `vcs`                      | `"git"` or `"jj"`                    | version control system (default: git)                                                            |
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
 | Inline images   | `LINEAR_INLINE_IMAGES`            | `inline_images`            | `true` or `false`                    | draw downloaded PNG images in kitty, Ghostty and Rex (default: true; see below)                  |
-| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
+| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue gh pr` and `issue jj pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
 
 in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images they download right under their links, using the kitty graphics protocol's Unicode placeholders so they still show inside the pager. other image formats, other terminals, terminals inside tmux or screen, piped output and `NO_COLOR` keep the plain link. images show through `less` (the default pager); another `PAGER` may not show them. set `inline_images = false` or `LINEAR_INLINE_IMAGES=false` to turn them off, or pass `--no-download` for one view.
 
@@ -472,6 +467,6 @@ linear's UI is incredibly good but it slows me down. i find the following pretty
 - linear suggests a git branch, but i have to do the work of creating or switching to that branch
 - linear's suggested git branch doesn't account for it already existing or having a merged pull request
 
-this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
+this cli solves this. it does the work of preparing a branch or change for an issue, and will write your pull request details for you.
 
 [^1]: creating an API key requires member access, it is not available for guest accounts.

@@ -166,9 +166,11 @@ struct More {
     state: Option<String>,
     project: Option<String>,
 }
+/// The wizard's last question. Yes creates the issue in the team's first
+/// started status, assigned to its creator; nothing is done to the repository.
+pub const START_QUESTION: &str = "Start this issue now (first started status, assigned to you)?";
 pub struct Interactive {
     pub input: Input,
-    pub start: bool,
     /// The title and team key, for the final confirmation.
     pub title: String,
     pub team_key: String,
@@ -300,10 +302,13 @@ pub async fn prompt<B: Backend, U: Ui>(
             project = more.project.clone().or(project);
         }
     }
-    let start = ui.confirm("Start working on this issue now?", false)?;
+    // Starting is the last word on status and assignee, whatever was chosen above.
+    if ui.confirm(START_QUESTION, false)? {
+        more.state = Some(issue_create::first_started(&states, &team.key)?);
+        more.assignee = Some(backend.viewer().await?);
+    }
     let project = project.or_else(|| parent_data.and_then(|Parent { project_id, .. }| project_id));
     Ok(Interactive {
-        start,
         team_key: team.key,
         input: Input {
             title: Edit::Set(title.clone()),

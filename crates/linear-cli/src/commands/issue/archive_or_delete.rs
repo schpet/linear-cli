@@ -1,5 +1,6 @@
 //! What `issue archive` and `issue delete` share: one issue or a bulk list,
 //! confirmed unless `--yes` is given.
+use crate::cli::values::IssueRef;
 use crate::client::{LinearClient, RequestError};
 use crate::graphql::operations::common::IdVariables;
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
 };
 
 pub struct Request<'a> {
-    pub issue_id: Option<&'a str>,
+    pub issue_id: Option<&'a IssueRef>,
     /// `--yes`: no prompt.
     pub yes: bool,
     pub bulk: BulkInput<'a>,
@@ -26,16 +27,14 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     if request.bulk.requested() {
         return run_bulk(ctx, mode, request);
     }
-    let identifier = match (mode, request.issue_id) {
-        (Mode::Delete, None) => {
-            return Err(
-                Error::invalid("Issue ID required").with_hint("Use --bulk for multiple issues.")
-            );
-        }
-        (Mode::Archive, input) => super::require(ctx, input)?,
-        (Mode::Delete, Some(input)) => {
-            super::resolve(ctx, Some(input))?.ok_or_else(|| Error::not_found("Issue", input))?
-        }
+    // clap requires an issue unless a bulk option is given.
+    let input = request.issue_id.ok_or_else(|| {
+        Error::invalid("Issue ID required").with_hint("Pass an issue ID, or several after --bulk.")
+    })?;
+    let identifier = match mode {
+        Mode::Archive => super::require(ctx, input)?,
+        Mode::Delete => super::resolve(ctx, input)?
+            .ok_or_else(|| Error::not_found("Issue", &input.to_string()))?,
     };
     let client = ctx.client()?;
     let details = ctx.spin(true, single_details(client, &identifier))?;
@@ -55,6 +54,15 @@ pub fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
 
 fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
     let ids = bulk::collect_ids(&request.bulk, &mut std::io::stdin().lock())?;
+    // A bulk write is never widened by what the repository says.
+    if let Some(reference) = ids.iter().find(|id| id.starts_with('@')) {
+        return Err(Error::invalid(format!(
+            "Bulk input takes issue IDs, not references like {reference}"
+        ))
+        .with_hint(
+            "List the issue IDs, like ENG-123. To see what @git or @jj names, run `linear issue id @jj`.",
+        ));
+    }
     if ids.is_empty() {
         return Err(Error::new(format!(
             "No issue identifiers provided for bulk {}",
