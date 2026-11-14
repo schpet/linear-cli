@@ -121,7 +121,9 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 the CLI works with both git and jj version control systems:
 
 - **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
-- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue gh pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue jj pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+
+each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` always runs plain `gh pr create` from the git checkout, even in a jj repository. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it
 
 ## commands
 
@@ -138,8 +140,9 @@ linear issue view ABC-123 -w   # open issue in web browser
 linear issue view ABC-123 -a   # open issue in Linear.app
 linear issue title ABC-123     # prints just the issue title
 linear issue url ABC-123       # prints the Linear.app URL for the issue
-linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`; with jj, pushes a bookmark for it first
+linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`
 linear issue gh pr @git        # the same, for the issue in the current git branch's name
+linear issue jj pr ABC-123     # pushes a jj bookmark for the change, then creates the PR from it with `gh pr create`
 linear issue id @jj            # prints the issues @jj reads, one per line
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
@@ -358,10 +361,9 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | Issue sort      | `LINEAR_ISSUE_SORT`               | `issue_sort`               | `"priority"` or `"manual"`           | how to sort issue lists                                                                          |
 | Ask project     | `LINEAR_ISSUE_CREATE_ASK_PROJECT` | `issue_create_ask_project` | `true` or `false`                    | ask for a project during interactive `issue create`                                              |
 | Assign self     | `LINEAR_ISSUE_CREATE_ASSIGN_SELF` | `issue_create_assign_self` | `"always"`, `"auto"`, or `"never"`   | control default self-assignment during issue creation                                            |
-| VCS             | `LINEAR_VCS`                      | `vcs`                      | `"git"` or `"jj"`                    | version control system (default: git)                                                            |
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
 | Inline images   | `LINEAR_INLINE_IMAGES`            | `inline_images`            | `true` or `false`                    | draw downloaded PNG images in kitty, Ghostty and Rex (default: true; see below)                  |
-| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue gh pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
+| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue gh pr` and `issue jj pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
 
 in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images they download right under their links, using the kitty graphics protocol's Unicode placeholders so they still show inside the pager. other image formats, other terminals, terminals inside tmux or screen, piped output and `NO_COLOR` keep the plain link. images show through `less` (the default pager); another `PAGER` may not show them. set `inline_images = false` or `LINEAR_INLINE_IMAGES=false` to turn them off, or pass `--no-download` for one view.
 

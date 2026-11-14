@@ -5,11 +5,14 @@ use std::process::Command;
 use crate::{
     cli::issue::{IssueGitStart, IssueJjStart},
     commands::issue::transition::{self, Verb},
-    config::Vcs,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::issue::IssueTransitionDetails,
-    platform::{process, prompt::Choice, vcs},
+    platform::{
+        process,
+        prompt::Choice,
+        vcs::{self, RepositoryKind},
+    },
 };
 
 pub fn run_git(ctx: &Ctx, args: &IssueGitStart) -> Result<()> {
@@ -28,8 +31,7 @@ pub fn run_jj(ctx: &Ctx, args: &IssueJjStart) -> Result<()> {
         .context("Failed to start issue with jj")
 }
 
-/// What to prepare in the working copy. The command names the tool; the
-/// `vcs` option is not consulted.
+/// What to prepare in the working copy. The command names the tool.
 #[derive(Clone, Copy)]
 enum Prepare<'a> {
     Git {
@@ -40,10 +42,10 @@ enum Prepare<'a> {
 }
 
 impl Prepare<'_> {
-    fn vcs(self) -> Vcs {
+    fn kind(self) -> RepositoryKind {
         match self {
-            Self::Git { .. } => Vcs::Git,
-            Self::Jj => Vcs::Jj,
+            Self::Git { .. } => RepositoryKind::Git,
+            Self::Jj => RepositoryKind::Jj,
         }
     }
 }
@@ -59,7 +61,7 @@ fn work_on(ctx: &Ctx, identifier: String, prepare: Prepare<'_>) -> Result<()> {
     )?;
     let repo = Repo {
         ctx,
-        vcs: prepare.vcs(),
+        kind: prepare.kind(),
     };
     ctx.flush()?;
     let output = match prepare {
@@ -72,16 +74,16 @@ fn work_on(ctx: &Ctx, identifier: String, prepare: Prepare<'_>) -> Result<()> {
     ctx.print(output)?;
     let outcome = ctx
         .spin(true, transition::apply(client, Verb::Start, &issue))
-        .map_err(|error| prepared(error, prepare.vcs(), &issue.identifier))?;
+        .map_err(|error| prepared(error, prepare.kind(), &issue.identifier))?;
     ctx.print(transition::report(Verb::Start, &issue.identifier, &outcome))
 }
 
 /// `error` from starting the issue once the working copy is ready, saying so
 /// after whatever the error already suggests.
-fn prepared(error: Error, vcs: Vcs, identifier: &str) -> Error {
-    let ready = match vcs {
-        Vcs::Git => "The branch is ready",
-        Vcs::Jj => "The jj change is ready",
+fn prepared(error: Error, kind: RepositoryKind, identifier: &str) -> Error {
+    let ready = match kind {
+        RepositoryKind::Git => "The branch is ready",
+        RepositoryKind::Jj => "The jj change is ready",
     };
     let recovery =
         format!("{ready}; set the status with `linear issue update {identifier} --state <state>`.");
@@ -129,7 +131,7 @@ fn free_suffix(branch: &str, mut exists: impl FnMut(&str) -> Result<bool>) -> Re
 /// git and jj run in the working directory with the child environment.
 struct Repo<'a> {
     ctx: &'a Ctx,
-    vcs: Vcs,
+    kind: RepositoryKind,
 }
 
 impl Repo<'_> {
@@ -163,10 +165,10 @@ impl Repo<'_> {
     /// `error` from the first git or jj command, replaced by a plain
     /// explanation when the working directory is in no repository at all.
     fn outside_repository(&self, error: Error) -> Error {
-        if vcs::in_repository(self.vcs, self.ctx.cwd()) {
+        if vcs::in_repository(self.kind, self.ctx.cwd()) {
             return error;
         }
-        vcs::not_in_repository(self.vcs).with_hint(
+        vcs::not_in_repository(self.kind).with_hint(
             "Run it from your repository. To only change the issue's status, use `linear issue start <ISSUE>`.",
         )
     }

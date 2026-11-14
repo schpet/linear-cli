@@ -10,10 +10,10 @@ use serde::Deserialize;
 use crate::auth::ApiKeyInput;
 use crate::cli::values::IssueRef;
 use crate::commands::team_key::configured_team_key;
-use crate::config::Vcs;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::platform::{process, vcs};
+use crate::platform::process;
+use crate::platform::vcs::{self, RepositoryKind};
 use crate::refs::{self, WorkspaceScope};
 
 /// How every reference error's hint starts: the issue can always be named.
@@ -159,10 +159,10 @@ fn current_branch(ctx: &Ctx) -> Result<String> {
     let mut command = process::command("git", ctx.cwd(), &ctx.config().child_env);
     command.args(["symbolic-ref", "--quiet", "--short", "HEAD"]);
     let outside = |error: Error| {
-        if vcs::in_repository(Vcs::Git, ctx.cwd()) {
+        if vcs::in_repository(RepositoryKind::Git, ctx.cwd()) {
             error.context("Failed to read the current git branch for @git")
         } else {
-            vcs::not_in_repository(Vcs::Git).with_hint(format!(
+            vcs::not_in_repository(RepositoryKind::Git).with_hint(format!(
                 "@git reads the current branch. Run it from your repository, {OR_NAME_IT}."
             ))
         }
@@ -217,10 +217,10 @@ fn read_jj(ctx: &Ctx) -> Result<Read> {
         let mut command = jj(ctx);
         command.args(["log", "-r", revset, "--no-graph", "-T", template]);
         process::checked_output(&mut command).map_err(|error| {
-            if vcs::in_repository(Vcs::Jj, ctx.cwd()) {
+            if vcs::in_repository(RepositoryKind::Jj, ctx.cwd()) {
                 error.context("Failed to read @jj")
             } else {
-                vcs::not_in_repository(Vcs::Jj).with_hint(format!(
+                vcs::not_in_repository(RepositoryKind::Jj).with_hint(format!(
                     "@jj reads the changes in {RANGE}. Run it from your jj repository, {OR_NAME_IT}."
                 ))
             }

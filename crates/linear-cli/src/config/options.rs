@@ -28,7 +28,9 @@ pub enum OptionKey {
     IssueSort,
     IssueCreateAskProject,
     IssueCreateAssignSelf,
-    Vcs,
+    /// `vcs`, removed in 4.0. Still read so that an old setting is checked
+    /// and reported rather than silently ignored; see [`retired_vcs`].
+    RetiredVcs,
     DownloadImages,
     InlineImages,
     HyperlinkFormat,
@@ -39,14 +41,14 @@ pub enum OptionKey {
 
 impl OptionKey {
     #[cfg(test)]
-    pub const ALL: [Self; 13] = [
+    /// The options that still do something; [`Self::RetiredVcs`] is left out.
+    pub const ALL: [Self; 12] = [
         Self::TeamKey,
         Self::ApiKey,
         Self::Workspace,
         Self::IssueSort,
         Self::IssueCreateAskProject,
         Self::IssueCreateAssignSelf,
-        Self::Vcs,
         Self::DownloadImages,
         Self::InlineImages,
         Self::HyperlinkFormat,
@@ -63,7 +65,7 @@ impl OptionKey {
             Self::IssueSort => "issue_sort",
             Self::IssueCreateAskProject => "issue_create_ask_project",
             Self::IssueCreateAssignSelf => "issue_create_assign_self",
-            Self::Vcs => "vcs",
+            Self::RetiredVcs => "vcs",
             Self::DownloadImages => "download_images",
             Self::InlineImages => "inline_images",
             Self::HyperlinkFormat => "hyperlink_format",
@@ -75,6 +77,17 @@ impl OptionKey {
 
     pub fn env_name(self) -> String {
         format!("LINEAR_{}", self.name().to_ascii_uppercase())
+    }
+
+    /// The spelling the user wrote in `source`: `LINEAR_FOO` in the
+    /// environment, `foo` in a config file or flag.
+    pub fn spelling(self, source: &OptionSource) -> String {
+        match source {
+            OptionSource::Env | OptionSource::ProjectEnv { .. } => self.env_name(),
+            OptionSource::Cli
+            | OptionSource::ProjectConfig { .. }
+            | OptionSource::GlobalConfig { .. } => self.name().to_owned(),
+        }
     }
 }
 
@@ -176,9 +189,11 @@ pub enum AssignSelf {
     Never,
 }
 
+/// The values `vcs` took before 4.0 removed it. Parsed only to reject what
+/// was never valid; the value itself is discarded.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase", expecting = "git or jj")]
-pub enum Vcs {
+enum RetiredVcsValue {
     Git,
     Jj,
 }
@@ -268,12 +283,7 @@ impl ConfigOptionError {
     /// The spelling the user wrote: `LINEAR_FOO` in the environment,
     /// `foo` in a config file or flag.
     fn option_name(&self, key: OptionKey) -> String {
-        match self.source {
-            OptionSource::Env | OptionSource::ProjectEnv { .. } => key.env_name(),
-            OptionSource::Cli
-            | OptionSource::ProjectConfig { .. }
-            | OptionSource::GlobalConfig { .. } => key.name().to_owned(),
-        }
+        key.spelling(&self.source)
     }
 
     pub fn suggestion(&self) -> Option<String> {
@@ -465,6 +475,22 @@ fn select<T>(
     Ok(selected)
 }
 
+/// Every source that sets the removed `vcs` option (`LINEAR_VCS` in the
+/// environment), highest precedence first. Each value must still be one
+/// that 3.x accepted, `git` or `jj`, so a typo fails as it always did; the
+/// value has no effect. Kept through 4.x so that an old setting is reported
+/// instead of ignored.
+pub fn retired_vcs(inputs: &OptionInputs<'_>) -> Result<Vec<OptionSource>, ConfigOptionError> {
+    let key = OptionKey::RetiredVcs;
+    tiers(inputs, key)?
+        .into_iter()
+        .map(|(raw, source)| match raw.parse::<RetiredVcsValue>() {
+            Ok(RetiredVcsValue::Git | RetiredVcsValue::Jj) => Ok(source),
+            Err(reason) => Err(error(Some(key), source, reason)),
+        })
+        .collect()
+}
+
 fn parsed<T: DeserializeOwned>(raw: &Raw<'_>) -> Result<T, OptionErrorReason> {
     raw.parse()
 }
@@ -516,7 +542,6 @@ pub struct ConfigOptions {
     issue_sort: Option<Resolved<IssueSort>>,
     issue_create_ask_project: Option<Resolved<bool>>,
     issue_create_assign_self: Option<Resolved<AssignSelf>>,
-    vcs: Option<Resolved<Vcs>>,
     download_images: Option<Resolved<bool>>,
     inline_images: Option<Resolved<bool>>,
     hyperlink_format: Option<Resolved<String>>,
@@ -575,15 +600,23 @@ impl ConfigOptions {
                 OptionErrorReason::InvalidCwd,
             ));
         }
+        let team_key = select(&inputs, OptionKey::TeamKey, team_key)?;
+        let api_key = select(&inputs, OptionKey::ApiKey, parsed)?;
+        let workspace = select(&inputs, OptionKey::Workspace, parsed)?;
+        let issue_sort = select(&inputs, OptionKey::IssueSort, parsed)?;
+        let issue_create_ask_project = select(&inputs, OptionKey::IssueCreateAskProject, flag)?;
+        let issue_create_assign_self = select(&inputs, OptionKey::IssueCreateAssignSelf, parsed)?;
+        // Checked where it always was, so errors keep their order; the
+        // startup report warns about each source that sets it.
+        retired_vcs(&inputs)?;
         Ok(Self {
             cwd: inputs.env.cwd.clone(),
-            team_key: select(&inputs, OptionKey::TeamKey, team_key)?,
-            api_key: select(&inputs, OptionKey::ApiKey, parsed)?,
-            workspace: select(&inputs, OptionKey::Workspace, parsed)?,
-            issue_sort: select(&inputs, OptionKey::IssueSort, parsed)?,
-            issue_create_ask_project: select(&inputs, OptionKey::IssueCreateAskProject, flag)?,
-            issue_create_assign_self: select(&inputs, OptionKey::IssueCreateAssignSelf, parsed)?,
-            vcs: select(&inputs, OptionKey::Vcs, parsed)?,
+            team_key,
+            api_key,
+            workspace,
+            issue_sort,
+            issue_create_ask_project,
+            issue_create_assign_self,
             download_images: select(&inputs, OptionKey::DownloadImages, flag)?,
             inline_images: select(&inputs, OptionKey::InlineImages, flag)?,
             hyperlink_format: select(&inputs, OptionKey::HyperlinkFormat, parsed)?,
@@ -624,15 +657,6 @@ impl ConfigOptions {
         self.issue_create_assign_self
             .as_ref()
             .map_or(AssignSelf::Auto, |resolved| resolved.value)
-    }
-    pub fn vcs(&self) -> Vcs {
-        self.vcs
-            .as_ref()
-            .map_or(Vcs::Git, |resolved| resolved.value)
-    }
-    #[cfg(test)]
-    pub fn vcs_source(&self) -> Option<&OptionSource> {
-        self.vcs.as_ref().map(Resolved::source)
     }
     /// Whether issue and document views download images; on by default.
     pub fn download_images(&self) -> bool {

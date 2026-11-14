@@ -31,7 +31,6 @@ mod write_network;
 
 use crate::cli::issue::{IssueCommand, IssueGhCommand, IssueGitCommand, IssueJjCommand};
 use crate::cli::values::IssueRef;
-use crate::config::Vcs;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
 
@@ -50,17 +49,18 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         },
         IssueCommand::Jj(args) => match &args.command {
             IssueJjCommand::Start(args) => vcs_start::run_jj(ctx, args),
+            IssueJjCommand::PullRequest(args) => pull_request::run_jj(ctx, args),
         },
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
         IssueCommand::Gh(args) => match &args.command {
-            IssueGhCommand::PullRequest(args) => pull_request::run(ctx, args),
+            IssueGhCommand::PullRequest(args) => pull_request::run_gh(ctx, args),
         },
         IssueCommand::MovedPullRequest(_) => Err(Error::invalid(
             "`issue pull-request` moved to `issue gh pull-request`",
         )
         .with_hint(
-            "Run `linear issue gh pull-request` (or `linear issue gh pr`) with the same arguments.",
+            "Run `linear issue gh pr` with the same arguments, or `linear issue jj pr` to push a jj bookmark first.",
         )),
         IssueCommand::RemovedCommits(_) => {
             Err(Error::invalid("`issue commits` was removed in 4.0")
@@ -94,10 +94,6 @@ pub(crate) fn resolve(ctx: &Ctx, input: &IssueRef) -> Result<Option<String>> {
 /// Like [`resolve`], failing when `input` names no issue.
 pub(crate) fn require(ctx: &Ctx, input: &IssueRef) -> Result<String> {
     reference::require(ctx, input)
-}
-
-pub(crate) fn vcs(ctx: &Ctx) -> Vcs {
-    ctx.options().vcs()
 }
 
 /// A named issue as typed, for a command that resolves it itself, or the one

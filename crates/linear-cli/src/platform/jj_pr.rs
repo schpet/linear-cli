@@ -6,12 +6,13 @@ use std::process::Command;
 
 use serde::Deserialize;
 
-use crate::config::{ChildEnvOverlay, Vcs};
+use crate::config::ChildEnvOverlay;
 use crate::error::{Error, Result};
-use crate::platform::{process, vcs};
+use crate::platform::process;
+use crate::platform::vcs::{self, RepositoryKind};
 
-/// One commit's `json(self)`, then whether it is empty, immutable and conflicted.
-const COMMIT: &str = r#""[" ++ json(self) ++ "," ++ json(empty) ++ "," ++ json(immutable) ++ "," ++ json(conflict) ++ "]\n""#;
+/// One commit's `json(self)`, then whether it is empty and conflicted.
+const COMMIT: &str = r#""[" ++ json(self) ++ "," ++ json(empty) ++ "," ++ json(conflict) ++ "]\n""#;
 const BOOKMARK: &str = r#"json(self) ++ "\n""#;
 const CONFIG: &str = r#""[" ++ json(name) ++ "," ++ json(value) ++ "]\n""#;
 
@@ -29,7 +30,6 @@ pub struct Commit {
     pub parents: Vec<String>,
     pub described: bool,
     pub empty: bool,
-    pub immutable: bool,
     pub conflict: bool,
 }
 
@@ -127,11 +127,11 @@ impl<'a> Jj<'a> {
         snapshot.args(["--no-pager", "--color", "never"]);
         snapshot.args(["log", "-r", "@", "--no-graph", "-T", COMMIT]);
         let output = process::checked_output(&mut snapshot).map_err(|error| {
-            if vcs::in_repository(Vcs::Jj, self.cwd) {
+            if vcs::in_repository(RepositoryKind::Jj, self.cwd) {
                 error.context("Failed to inspect the jj working copy")
             } else {
-                vcs::not_in_repository(Vcs::Jj).with_hint(
-                    "Run it from your jj repository, or set `vcs = \"git\"` for a git checkout.",
+                vcs::not_in_repository(RepositoryKind::Jj).with_hint(
+                    "Run it from your jj repository. In a git checkout, use `linear issue gh pr` instead.",
                 )
             }
         })?;
@@ -149,15 +149,10 @@ impl<'a> Jj<'a> {
             ))
             .with_hint("Resolve the conflicts before opening a pull request."));
         }
-        if head.immutable {
-            return Err(Error::invalid(format!(
-                "The pull request revision {} is immutable, so there is nothing to open a pull request from",
-                short(&head.id)
-            ))
-            .with_hint(
-                "Finish a change on top of trunk first, or pass --head with the bookmark to open the pull request from.",
-            ));
-        }
+        // Immutability is not checked: it is jj's rewrite policy, and a tag
+        // or a remote bookmark can make unmerged work immutable. jj decides
+        // what it pushes, and gh whether there is anything to merge into the
+        // base.
         if !head.described {
             // jj refuses to push it; saying so now leaves no bookmark behind.
             return Err(Error::invalid(format!(
@@ -347,9 +342,8 @@ fn parse_lines<T: serde::de::DeserializeOwned>(stdout: &[u8], what: &str) -> Res
 }
 
 fn parse_commit(stdout: &[u8]) -> Result<Commit> {
-    let mut records: Vec<(CommitFields, bool, bool, bool)> = parse_lines(stdout, "jj log")?;
-    let (Some((fields, empty, immutable, conflict)), true) = (records.pop(), records.is_empty())
-    else {
+    let mut records: Vec<(CommitFields, bool, bool)> = parse_lines(stdout, "jj log")?;
+    let (Some((fields, empty, conflict)), true) = (records.pop(), records.is_empty()) else {
         return Err(malformed("jj log", "expected exactly one revision"));
     };
     Ok(Commit {
@@ -357,7 +351,6 @@ fn parse_commit(stdout: &[u8]) -> Result<Commit> {
         parents: fields.parents,
         described: !fields.description.trim().is_empty(),
         empty,
-        immutable,
         conflict,
     })
 }
