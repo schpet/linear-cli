@@ -121,7 +121,7 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 the CLI works with both git and jj version control systems:
 
 - **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
-- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `linear issue commits ABC-123` lists the changes whose trailers name the issue, and `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue gh pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+- **jj**: `linear issue jj start ABC-123` starts a change described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue gh pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
 
 ## commands
 
@@ -170,7 +170,6 @@ linear issue comment add ENG-123           # add a comment to an issue
 linear issue comment add ENG-123 --reply-to <id>   # reply to a comment (-p / --parent are aliases)
 linear issue comment list ENG-123 --json   # comments as JSON, with quotedText and parent for inline comments and replies
 linear issue comment update <id>   # update a comment
-linear issue commits ENG-123       # show all commits for an issue (jj only)
 ```
 
 #### attaching files

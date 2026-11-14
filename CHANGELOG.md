@@ -15,7 +15,7 @@
 
 - `issue create --start` and the last question of `issue create -i` no longer create a branch or a jj change. They create the issue in the team's first started status, assigned to you, in one request. `--start` cannot be combined with `--state`, and the wizard's question now reads `Start this issue now (first started status, assigned to you)?`
 - `issue pull-request` and its alias `issue pr` moved to `issue gh pull-request` and `issue gh pr`, with the same arguments and flags. The old spellings fail with an error that names the new command
-- the issue is no longer read from the git branch name or from jj `Linear-issue` trailers unless an argument asks for it with `@git` or `@jj` (see Added). Every command that defaulted to "the current branch's issue" now requires the issue as an argument (an ID like `ENG-123`, an issue URL, a bare number in the configured team, `@git` or `@jj`): `issue view`, `title`, `url`, `describe`, `commits`, `gh pull-request`, `update`, `archive`, `comment add`, `comment list`, `relation list` and `agent-session list`. Leaving it out is a usage error (exit 2) before anything is sent; for `issue gh pull-request` the error suggests an ID, `@git` or `@jj`. `issue archive` and `issue delete` need an issue or one of the `--bulk` options. An argument that names no issue fails with `Not an issue ID: …` instead of `Could not determine issue ID`
+- the issue is no longer read from the git branch name or from jj `Linear-issue` trailers unless an argument asks for it with `@git` or `@jj` (see Added). Every command that defaulted to "the current branch's issue" now requires the issue as an argument (an ID like `ENG-123`, an issue URL, a bare number in the configured team, `@git` or `@jj`): `issue view`, `title`, `url`, `describe`, `gh pull-request`, `update`, `archive`, `comment add`, `comment list`, `relation list` and `agent-session list`. Leaving it out is a usage error (exit 2) before anything is sent; for `issue gh pull-request` the error suggests an ID, `@git` or `@jj`. `issue archive` and `issue delete` need an issue or one of the `--bulk` options. An argument that names no issue fails with `Not an issue ID: …` instead of `Could not determine issue ID`
 
   | 3.x | 4.0 |
   | --- | --- |
@@ -25,6 +25,7 @@
   | `linear issue id` | `linear issue id @git` (or `@jj`) |
 
 - `@jj` reads the `Linear-issue` trailers of every change in `trunk()..@` and takes all the issues they name, where 3.x took the nearest trailer among all ancestors. It is refused when jj's `trunk()` is the root commit (no trunk bookmark it recognises), and a command that acts on one issue refuses it when it names several
+- `issue commits` is removed. Running it fails with exit 2 and shows the `jj log` search that replaces it, which lists the changes whose `Linear-issue` trailers name the issue: `jj log -p -r "description(regex:'(?mi)^Linear-issue:.*\bENG-123\b')"`
 - `issue link` takes the issue and the URL, `linear issue link ENG-123 https://example.com/doc`. The one-argument form that linked a URL to the current branch's issue is gone
 - `issue id` requires the issue argument and prints what it names: `linear issue id @git` prints the issue in the branch name, as `linear issue id` did, and `linear issue id @jj` prints each issue the trailers name on its own line. It needs no credentials unless the argument is a URL
 

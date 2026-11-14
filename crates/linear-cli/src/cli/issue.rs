@@ -77,8 +77,6 @@ pub enum IssueCommand {
     Url(IssueUrl),
     /// Print an issue's title and a Linear-issue trailer, for commit messages
     Describe(IssueDescribe),
-    /// List the commits that reference an issue (jj only)
-    Commits(IssueCommits),
     /// Open GitHub pull requests for issues
     Gh(IssueGh),
     // `issue gh pull-request` since 4.0; still parsed so that running it
@@ -90,6 +88,10 @@ pub enum IssueCommand {
         disable_help_flag = true
     )]
     MovedPullRequest(Moved),
+    // Removed in 4.0; still parsed so that running it says what to use
+    // instead.
+    #[command(name = "commits", hide = true, disable_help_flag = true)]
+    RemovedCommits(Moved),
     /// Add, list, edit, and delete comments on an issue
     Comment(IssueComment),
     /// Upload a file and attach it to an issue
@@ -388,13 +390,6 @@ pub struct IssueDescribe {
     /// Write "References" instead of "Fixes" in the trailer
     #[arg(long, short, visible_alias = "ref")]
     pub references: bool,
-}
-
-#[derive(Debug, Args)]
-pub struct IssueCommits {
-    /// Issue ID like ENG-123, a URL, @git or @jj
-    #[arg(value_name = "ISSUE")]
-    pub issue_id: IssueRef,
 }
 
 /// Whatever followed a command that has moved or been removed.
