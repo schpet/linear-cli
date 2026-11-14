@@ -4,7 +4,6 @@ mod archive;
 mod archive_or_delete;
 mod attach;
 mod comment;
-mod commits;
 mod create;
 mod create_prompt;
 mod delete;
@@ -54,7 +53,6 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         },
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
-        IssueCommand::Commits(args) => commits::run(ctx, args),
         IssueCommand::Gh(args) => match &args.command {
             IssueGhCommand::PullRequest(args) => pull_request::run(ctx, args),
         },
@@ -64,6 +62,10 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         .with_hint(
             "Run `linear issue gh pull-request` (or `linear issue gh pr`) with the same arguments.",
         )),
+        IssueCommand::RemovedCommits(_) => {
+            Err(Error::invalid("`issue commits` was removed in 4.0")
+                .with_hint(REMOVED_COMMITS_HINT))
+        }
         IssueCommand::Archive(args) => archive::run(ctx, args),
         IssueCommand::Delete(args) => delete::run(ctx, args),
         IssueCommand::Create(args) => create::run(ctx, args),
@@ -75,6 +77,11 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         IssueCommand::AgentSession(args) => agent_session::run(ctx, &args.command),
     }
 }
+
+/// What `issue commits` users run instead: jj's own search of the
+/// `Linear-issue` trailers.
+const REMOVED_COMMITS_HINT: &str = "Search the trailers with jj instead: \
+     jj log -p -r \"description(regex:'(?mi)^Linear-issue:.*\\bENG-123\\b')\"";
 
 /// The issue identifier `input` names: an identifier, a URL, or a bare number
 /// in the configured team, or the one issue `@git` or `@jj` reads. `None`
