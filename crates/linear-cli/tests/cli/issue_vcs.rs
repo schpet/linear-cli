@@ -687,11 +687,17 @@ fn jj_commit(id: &str, parent: &str, description: &str, empty: bool) -> String {
 /// `bookmark create` appends to. A push leaves `cwd/pushed` behind, and the
 /// gh stub refuses to run before it exists.
 fn jj_repo(cli: Cli, bookmarks: &str) -> Cli {
+    jj_repo_naming(cli, bookmarks, &["Fixes ENG-7"])
+}
+
+/// [`jj_repo`] whose described change `bbb` has these `Linear-issue`
+/// trailer values.
+fn jj_repo_naming(cli: Cli, bookmarks: &str, linear_issue: &[&str]) -> Cli {
     let scratch = jj_commit("aaa", "bbb", "", true);
     let work = jj_commit("bbb", "ccc", "ENG-7 Repair the widget\n", false);
     let trunk = jj_commit("ccc", "ddd", "trunk\n", false);
     let scratch_change = jj_change("aaa", &[]);
-    let work_change = jj_change("bbb", &["Fixes ENG-7"]);
+    let work_change = jj_change("bbb", linear_issue);
     cli.file("cwd/bookmarks", bookmarks)
         .stub_bin(
             "jj",
@@ -861,6 +867,7 @@ fn jj_pull_request_takes_head_as_a_bookmark_existing_or_new() {
     cli.run(&["issue", "jj", "pr", "ENG-7", "--head", "someone:topic"])
         .usage_error()
         .stderr_has("Cannot open a pull request from someone:topic with jj");
+    assert_eq!(api.operations().len(), 2, "refused before any request");
 }
 
 #[test]
@@ -895,6 +902,7 @@ fn jj_pull_request_stops_before_publishing_when_the_bookmark_is_unclear() {
 #[test]
 fn jj_pull_request_refuses_what_jj_would_not_push() {
     let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
     // An undescribed change under the head stops it before a bookmark exists.
     let cli = jj_repo(Cli::for_api(&api), "").file("cwd/unpushable", "0123456789ab\n");
     cli.run(&["issue", "jj", "pr", "ENG-7"])
@@ -959,8 +967,12 @@ fn jj_pull_request_does_not_run_gh_when_the_push_fails() {
 }
 
 #[test]
-fn jj_pull_request_needs_a_remote_and_a_repository_before_any_request() {
+fn jj_pull_request_needs_a_remote_and_a_repository_before_anything_is_published() {
     let api = MockLinear::start();
+    // Every issue is fetched before the repository is surveyed.
+    for _ in 0..3 {
+        api.on("GetIssueDetails", details());
+    }
     for (remotes, said) in [
         ("", "This jj repository has no git remote to push to"),
         (
@@ -992,7 +1004,7 @@ fn jj_pull_request_needs_a_remote_and_a_repository_before_any_request() {
         .failure()
         .stderr_has("Not in a jj repository")
         .stderr_has("use `linear issue gh pr` instead");
-    assert!(api.requests().is_empty());
+    assert_eq!(api.operations(), ["GetIssueDetails"; 3]);
 }
 
 #[test]
@@ -1361,8 +1373,7 @@ fn a_command_for_one_issue_refuses_a_reference_that_names_several() {
         &["issue", "archive", "@jj", "--yes"],
         &["issue", "relation", "add", "ENG-1", "blocks", "@jj"],
         &["issue", "update", "ENG-1", "--parent", "@jj"],
-        &["issue", "gh", "pr", "@jj"],
-        &["issue", "jj", "pr", "@jj"],
+        &["document", "list", "--issue", "@jj"],
     ] {
         let run = cli.run(args);
         run.usage_error()
@@ -1618,4 +1629,327 @@ fn gh_pull_request_leaves_a_detached_head_to_gh() {
     run.stderr_has("not on any branch");
     assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
     assert_eq!(cli.calls("gh").len(), 1);
+}
+
+/// The details of another issue than ENG-7, for pull requests that cover
+/// several.
+fn other(identifier: &str, title: &str) -> Value {
+    let mut other = details();
+    let slug = title.to_lowercase().replace(' ', "-");
+    other["issue"]["identifier"] = json!(identifier);
+    other["issue"]["title"] = json!(title);
+    other["issue"]["url"] = json!(other_url(identifier, title));
+    other["issue"]["branchName"] = json!(format!("{}-{slug}", identifier.to_lowercase()));
+    other
+}
+
+fn other_url(identifier: &str, title: &str) -> String {
+    let slug = title.to_lowercase().replace(' ', "-");
+    format!("https://linear.app/acme/issue/{identifier}/{slug}")
+}
+
+/// A mock that answers ENG-7 and these of DES-5 ("Design") and ENG-256
+/// ("Followup"), whatever order they are asked in.
+fn issues(api: &MockLinear, others: &[&str]) {
+    api.on_variables("GetIssueDetails", json!({ "id": "ENG-7" }), details());
+    for identifier in others {
+        let title = match *identifier {
+            "DES-5" => "Design",
+            "ENG-256" => "Followup",
+            unexpected => panic!("no fixture for {unexpected}"),
+        };
+        api.on_variables(
+            "GetIssueDetails",
+            json!({ "id": identifier }),
+            other(identifier, title),
+        );
+    }
+}
+
+/// ENG-7, DES-5 and ENG-256: see [`issues`].
+fn three_issues(api: &MockLinear) {
+    issues(api, &["DES-5", "ENG-256"]);
+}
+
+#[test]
+fn gh_pull_request_for_several_issues_takes_the_title_and_closes_them_all() {
+    let api = MockLinear::start();
+    three_issues(&api);
+    let cli = gh(Cli::for_api(&api))
+        .file("cwd/pr.md", "## Summary\nDescribe the change.\n\n")
+        .file("cwd/.linear.toml", "pr_template = \"pr.md\"\n");
+    let run = cli.run(&[
+        "issue",
+        "gh",
+        "pr",
+        "ENG-7",
+        "DES-5",
+        "ENG-256",
+        "--title",
+        " Widget and design ",
+        "--draft",
+    ]);
+    run.success();
+    assert_eq!(run.stdout, "https://github.com/acme/widgets/pull/1\n");
+    let body = format!(
+        "## Summary\nDescribe the change.\n\nFixes ENG-7, DES-5, and ENG-256\n\n{URL}\n{}\n{}",
+        other_url("DES-5", "Design"),
+        other_url("ENG-256", "Followup")
+    );
+    assert_eq!(
+        cli.calls("gh"),
+        [[
+            "pr",
+            "create",
+            "--title",
+            " Widget and design ",
+            "--body",
+            &body,
+            "--draft"
+        ]]
+    );
+    let mut fetched: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .map(|request| request.variables["id"].clone())
+        .collect();
+    fetched.sort_by_key(Value::to_string);
+    assert_eq!(fetched, [json!("DES-5"), json!("ENG-256"), json!("ENG-7")]);
+}
+
+#[test]
+fn several_issue_bodies_say_and_for_two_and_references_with_the_flag() {
+    for (flags, clause) in [
+        (&[][..], "Fixes ENG-7 and DES-5"),
+        (&["--references"], "References ENG-7 and DES-5"),
+        (&["--ref"], "References ENG-7 and DES-5"),
+        (&["-r", "--no-template"], "References ENG-7 and DES-5"),
+    ] {
+        let api = MockLinear::start();
+        issues(&api, &["DES-5"]);
+        let cli = gh(Cli::for_api(&api));
+        let mut args = vec!["issue", "gh", "pr", "ENG-7", "DES-5", "-t", "Both"];
+        args.extend(flags);
+        cli.run(&args).success();
+        assert_eq!(
+            cli.calls("gh")[0][3..6],
+            [
+                "Both".to_owned(),
+                "--body".to_owned(),
+                format!("{clause}\n\n{URL}\n{}", other_url("DES-5", "Design"))
+            ],
+            "{flags:?}"
+        );
+    }
+}
+
+#[test]
+fn one_issue_with_references_keeps_its_title_and_adds_the_clause() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details())
+        .on("GetIssueDetails", details());
+    let cli = gh(Cli::for_api(&api));
+    cli.run(&["issue", "gh", "pr", "ENG-7", "--references"])
+        .success();
+    cli.run(&["issue", "gh", "pr", "ENG-7", "-r", "--title", " "])
+        .success();
+    for call in cli.calls("gh") {
+        assert_eq!(
+            call,
+            [
+                "pr",
+                "create",
+                "--title",
+                "ENG-7 Repair the widget",
+                "--body",
+                &format!("References ENG-7\n\n{URL}")
+            ]
+        );
+    }
+}
+
+#[test]
+fn repeated_issues_are_one_issue_and_keep_the_one_issue_pull_request() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = gh(Cli::for_api(&api)).env("LINEAR_TEAM_ID", "ENG");
+    cli.run(&["issue", "gh", "pr", "ENG-7", "eng-7", URL, "7"])
+        .success();
+    assert_eq!(
+        cli.calls("gh"),
+        [[
+            "pr",
+            "create",
+            "--title",
+            "ENG-7 Repair the widget",
+            "--body",
+            URL
+        ]]
+    );
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
+}
+
+#[test]
+fn several_issues_without_a_title_fail_before_any_request() {
+    let api = MockLinear::start();
+    for tool in ["gh", "jj"] {
+        let cli = jj_repo_naming(Cli::for_api(&api), "", &["Fixes ENG-7", "Fixes DES-5"]);
+        for args in [
+            &["issue", tool, "pr", "ENG-7", "DES-5"][..],
+            &["issue", tool, "pr", "ENG-7", "DES-5", "--title", "  "],
+            &["issue", tool, "pr", "@jj", "ENG-7"],
+        ] {
+            let run = cli.run(args);
+            run.usage_error()
+                .stderr_has(
+                    "A title is required for a pull request covering several issues: ",
+                )
+                .stderr_has(
+                    "Pass --title \"<summary covering all issues>\". The title is used exactly as supplied.",
+                );
+            assert_eq!(run.stdout, "", "{run}");
+        }
+        let run = cli.run(&["issue", tool, "pr", "@jj", "ENG-7"]);
+        run.usage_error()
+            .stderr_has("covering several issues: DES-5, ENG-7\n");
+        assert!(gh_calls(&cli).is_empty());
+        assert!(
+            !jj_calls(&cli)
+                .iter()
+                .any(|call| !call.starts_with("log -r trunk()")),
+            "only @jj was read: {:?}",
+            jj_calls(&cli)
+        );
+    }
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn a_reference_naming_several_issues_covers_them_all_with_a_title() {
+    let api = MockLinear::start();
+    three_issues(&api);
+    let cli = gh(jj_repo_naming(
+        Cli::for_api(&api),
+        "",
+        &["Fixes ENG-7", "Fixes DES-5"],
+    ));
+    let run = cli.run(&[
+        "issue",
+        "gh",
+        "pr",
+        "ENG-256",
+        "@jj",
+        "--title",
+        "All three",
+    ]);
+    run.success()
+        .stderr_has("Using issues DES-5, ENG-7 from Linear-issue trailers in trunk()..@\n");
+    assert_eq!(run.stdout, "https://github.com/acme/widgets/pull/1\n");
+    assert_eq!(
+        cli.calls("gh")[0][3..6],
+        [
+            "All three".to_owned(),
+            "--body".to_owned(),
+            format!(
+                "Fixes ENG-256, DES-5, and ENG-7\n\n{}\n{}\n{URL}",
+                other_url("ENG-256", "Followup"),
+                other_url("DES-5", "Design"),
+            )
+        ]
+    );
+    let jj = jj_calls(&cli);
+    assert_eq!(jj.len(), 2, "gh pr only reads @jj: {jj:?}");
+}
+
+#[test]
+fn a_missing_issue_among_several_publishes_nothing() {
+    for tool in ["gh", "jj"] {
+        let api = MockLinear::start();
+        api.on_variables("GetIssueDetails", json!({ "id": "ENG-7" }), details())
+            .on_variables_error(
+                "GetIssueDetails",
+                json!({ "id": "DES-5" }),
+                "Entity not found: Issue",
+            );
+        let cli = jj_repo(Cli::for_api(&api), "");
+        let run = cli.run(&["issue", tool, "pr", "ENG-7", "DES-5", "--title", "Both"]);
+        assert_eq!(run.code, 3, "{run}");
+        run.stderr_has("Failed to create pull request: Failed to fetch issue DES-5: ")
+            .stderr_has("Issue not found: DES-5")
+            .stderr_has(
+                "No pull request was opened and no bookmark was created or pushed. Check the issue ID and access, then try again.",
+            );
+        assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
+        assert!(gh_calls(&cli).is_empty());
+        assert!(!cli.path("cwd/pushed").exists());
+    }
+}
+
+#[test]
+fn jj_pull_request_for_several_issues_names_a_new_bookmark_after_the_first() {
+    let api = MockLinear::start();
+    issues(&api, &["DES-5"]);
+    let cli = jj_repo(Cli::for_api(&api), "");
+    let run = cli.run(&[
+        "issue",
+        "jj",
+        "pr",
+        "DES-5",
+        "ENG-7",
+        "-t",
+        "Design and widget",
+    ]);
+    run.success()
+        .stderr_has("Creating jj bookmark des-5-design\n")
+        .stderr_has("Pushing jj bookmark des-5-design to origin\n");
+    let jj = jj_calls(&cli);
+    assert!(jj[0].starts_with("log -r @ --no-graph"), "{jj:?}");
+    assert_eq!(
+        jj[jj.len() - 3..],
+        [
+            "bookmark create -r bbb -- des-5-design",
+            "bookmark list -T json(self) ++ \"\\n\"",
+            "git push --remote origin --bookmark exact:des-5-design",
+        ]
+    );
+    assert_eq!(
+        gh_calls(&cli),
+        [[
+            "pr",
+            "create",
+            "--title",
+            "Design and widget",
+            "--body",
+            &format!(
+                "Fixes DES-5 and ENG-7\n\n{}\n{URL}",
+                other_url("DES-5", "Design")
+            ),
+            "--repo",
+            REPO,
+            "--head",
+            "des-5-design",
+        ]]
+    );
+    // A bookmark already on the head, or --head, still wins.
+    let api = MockLinear::start();
+    issues(&api, &["DES-5"]);
+    let cli = jj_repo(
+        Cli::for_api(&api),
+        "{\"name\":\"mine\",\"target\":[\"bbb\"]}\n",
+    );
+    cli.run(&["issue", "jj", "pr", "DES-5", "ENG-7", "-t", "Both"])
+        .success();
+    assert_eq!(gh_calls(&cli)[0][8..], ["--head", "mine"]);
+    let api = MockLinear::start();
+    issues(&api, &["DES-5"]);
+    let cli = jj_repo(Cli::for_api(&api), "");
+    cli.run(&[
+        "issue", "jj", "pr", "DES-5", "ENG-7", "-t", "Both", "--head", "topic",
+    ])
+    .success();
+    assert!(
+        jj_calls(&cli).contains(&"bookmark create -r bbb -- topic".to_owned()),
+        "{:?}",
+        jj_calls(&cli)
+    );
 }

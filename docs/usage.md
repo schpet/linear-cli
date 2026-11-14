@@ -112,7 +112,7 @@ linear issue id @jj             # print what a reference names, one ID per line
 linear issue update TEAM-123 --parent @git
 ```
 
-nothing is read from the repository unless you pass one of them. the issues a reference read are named on stderr before anything is sent. `@jj` reads without snapshotting the working copy, and is refused when jj's `trunk()` is the root commit (the repository has no trunk bookmark jj recognises), since `trunk()..@` would then be the whole history. a command that acts on one issue refuses a reference that names several; `issue view` shows them all. bulk input (`--bulk`, `--bulk-file`, `--bulk-stdin`) takes issue IDs only. in PowerShell, quote them: `'@git'`.
+nothing is read from the repository unless you pass one of them. the issues a reference read are named on stderr before anything is sent. `@jj` reads without snapshotting the working copy, and is refused when jj's `trunk()` is the root commit (the repository has no trunk bookmark jj recognises), since `trunk()..@` would then be the whole history. a command that acts on one issue refuses a reference that names several; `issue view`, `issue gh pr` and `issue jj pr` take them all. bulk input (`--bulk`, `--bulk-file`, `--bulk-stdin`) takes issue IDs only. in PowerShell, quote them: `'@git'`.
 
 #### start working on an issue
 
@@ -241,14 +241,18 @@ linear issue gh pull-request TEAM-123
 linear issue gh pr TEAM-123  # Short alias
 linear issue gh pr @git      # the issue in the current git branch's name
 linear issue jj pr TEAM-123  # jj: push a bookmark for the change, then open the pull request from it
-linear issue jj pr @jj       # the issue named by Linear-issue trailers in trunk()..@
+linear issue jj pr @jj       # the issues named by Linear-issue trailers in trunk()..@
+linear issue gh pr TEAM-123 TEAM-124 --title "Fix login"   # one pull request for several issues
+linear issue gh pr TEAM-123 --references                   # "References TEAM-123": link without closing on merge
 ```
 
 the issue is always named: `linear issue gh pr` (or `jj pr`) on its own is an error that suggests an ID, `@git` or `@jj`.
 
+for one issue, the title is `TEAM-123 <issue title>` (`--title` replaces the issue title after the ID) and the body is the template, then the issue URL. a pull request can cover several issues: pass several IDs, or a reference such as `@jj` that names several. repeated issues count once, in the order first named. with several, `--title` is required and used exactly as given, and the body is the template, then a clause Linear reads to close the issues when the pull request merges (`Fixes TEAM-1 and TEAM-2`, or `Fixes TEAM-1, TEAM-2, and TEAM-3`), then each issue's URL on its own line. `--references` (`-r`, `--ref`) writes `References …` instead, which links the issues without closing them, and adds that clause for one issue too; it never changes a title or template you supply. every issue is fetched before anything is created, pushed or opened, so an issue that cannot be fetched leaves nothing behind.
+
 `issue gh pr` runs `gh pr create` and nothing else: gh takes the repository and branch from your git checkout (or `--head <branch>`), and nothing is created or pushed first.
 
-`issue jj pr` pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests) with `jj git push`, then runs `gh pr create` with the remote's repository and the bookmark, so it needs no git checkout and works when git's HEAD is detached. `--head <bookmark>` names the bookmark to use or create. `@jj` always reads `trunk()..@`, even when `--head` names a bookmark elsewhere.
+`issue jj pr` pushes a bookmark for the change first (an existing one on the change, or a new one with the branch name linear suggests for the first issue) with `jj git push`, then runs `gh pr create` with the remote's repository and the bookmark, so it needs no git checkout and works when git's HEAD is detached. `--head <bookmark>` names the bookmark to use or create. `@jj` always reads `trunk()..@`, even when `--head` names a bookmark elsewhere.
 
 delete an issue:
 

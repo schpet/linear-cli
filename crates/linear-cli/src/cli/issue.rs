@@ -337,24 +337,26 @@ pub enum IssueJjCommand {
     /// `issue start` does. An issue that is already started or closed keeps
     /// its status.
     Start(IssueJjStart),
-    /// Push a jj bookmark and open a GitHub pull request for an issue
+    /// Push a jj bookmark and open a GitHub pull request for one or more issues
     ///
     /// The head is the working-copy change, or its parent when the working
     /// copy is empty and undescribed; an existing bookmark named by --head
     /// selects its change instead. A bookmark already on that change is
-    /// used, or one with the branch name Linear suggests (or the --head
-    /// name) is created there. The bookmark is pushed with `jj git push` to
-    /// the `git.push` remote (else the only remote, else origin) without
-    /// asking, then `gh pr create` runs with that remote's repository and the
-    /// bookmark as --head, so no git checkout is needed. A bookmark is never
-    /// moved. The title and body are those of `issue gh pr`.
+    /// used, or one with the branch name Linear suggests for the first issue
+    /// (or the --head name) is created there. The bookmark is pushed with
+    /// `jj git push` to the `git.push` remote (else the only remote, else
+    /// origin) without asking, then `gh pr create` runs with that remote's
+    /// repository and the bookmark as --head, so no git checkout is needed.
+    /// A bookmark is never moved. The title and body are those of
+    /// `issue gh pr`, and every issue is fetched before a bookmark is
+    /// created or anything is pushed.
     ///
-    /// The issue is always named: an ID, or `@git` or `@jj` to read it from
-    /// the repository. `@jj` reads the trailers in trunk()..@ even when
+    /// The issues are always named: IDs, or `@git` or `@jj` to read them
+    /// from the repository. `@jj` reads the trailers in trunk()..@ even when
     /// --head names a bookmark elsewhere.
     #[command(
         alias = "pr",
-        override_usage = "linear issue jj pull-request [OPTIONS] <ISSUE>",
+        override_usage = "linear issue jj pull-request [OPTIONS] <ISSUE>...",
         after_long_help = ISSUE_REFERENCES,
         mut_arg("head", |arg| arg.value_name("BOOKMARK").help(JJ_HEAD_HELP))
     )]
@@ -433,20 +435,31 @@ pub struct IssueGh {
 
 #[derive(Debug, Subcommand)]
 pub enum IssueGhCommand {
-    /// Open a GitHub pull request for an issue with gh
+    /// Open a GitHub pull request for one or more issues with gh
     ///
-    /// Runs `gh pr create` with the issue's ID and title as the title and
-    /// its URL in the body. gh chooses the repository and, unless --head is
-    /// given, the branch; nothing is created or pushed first. The issue is
-    /// always named: an ID, or `@git` or `@jj` to read it from the
+    /// Runs `gh pr create`. gh chooses the repository and, unless --head is
+    /// given, the branch; nothing is created or pushed first. The issues are
+    /// always named: IDs, or `@git` or `@jj` to read them from the
     /// repository.
+    ///
+    /// For one distinct issue, the title is "<ID> <issue title>" (or
+    /// "<ID> <title>" with --title; an empty --title uses the issue title),
+    /// and the body is the template followed by the issue URL. For several
+    /// distinct issues, a nonblank --title is required and is used exactly as
+    /// supplied, and the body is the template, a "Fixes ENG-1, ENG-2, and
+    /// ENG-3" clause that Linear reads to close them on merge, and every
+    /// issue URL. --references writes a non-closing "References <IDs>"
+    /// clause instead; for one issue it adds that clause before the URL. It
+    /// changes only the clause the CLI writes, never a title or template you
+    /// supply. Repeated issues are included once, in the order first named.
+    /// Every issue is fetched before the pull request is opened.
     ///
     /// In a jj repository, use `linear issue jj pr`: it pushes a bookmark for
     /// the change and tells gh the repository and head, so it also works when
     /// git's HEAD is detached or there is no git checkout.
     #[command(
         alias = "pr",
-        override_usage = "linear issue gh pull-request [OPTIONS] <ISSUE>",
+        override_usage = "linear issue gh pull-request [OPTIONS] <ISSUE>...",
         after_long_help = ISSUE_REFERENCES
     )]
     PullRequest(IssuePullRequest),
@@ -454,17 +467,19 @@ pub enum IssueGhCommand {
 
 #[derive(Debug, Args)]
 pub struct IssuePullRequest {
-    /// Issue ID like ENG-123, a URL, @git or @jj (required)
+    /// Issue IDs like ENG-123, URLs, numbers in the configured team, @git or
+    /// @jj (which may name several); at least one
     // Optional to clap only so that leaving it out can say how to name it.
     #[arg(value_name = "ISSUE")]
-    pub issue_id: Option<IssueRef>,
+    pub issue_ids: Vec<IssueRef>,
     /// Branch to merge into
     #[arg(long, value_name = "BRANCH")]
     pub base: Option<String>,
     /// Open the pull request as a draft
     #[arg(long)]
     pub draft: bool,
-    /// Pull request title, after the issue ID [default: the issue title]
+    /// Title after the ID for one issue [default: the issue title]; required
+    /// and used verbatim for several issues
     #[arg(long, short)]
     pub title: Option<String>,
     /// Open the pull request in the browser
@@ -473,12 +488,16 @@ pub struct IssuePullRequest {
     /// Branch that holds the commits; accepts owner:branch
     #[arg(long, value_name = "BRANCH", value_parser = NonBlank)]
     pub head: Option<String>,
-    /// Start the body from this template file; the issue URL is appended
+    /// Start the body from this template file, then append the issue links
     #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath, value_parser = NonBlank)]
     pub template: Option<String>,
     /// Ignore the pr_template setting
     #[arg(long)]
     pub no_template: bool,
+    /// Write a non-closing "References" clause instead of "Fixes"; also adds
+    /// it for one issue
+    #[arg(long, short, visible_alias = "ref")]
+    pub references: bool,
 }
 
 #[derive(Debug, Args)]

@@ -96,6 +96,20 @@ pub struct Jj<'a> {
     env: &'a ChildEnvOverlay,
 }
 
+/// Refuses a --head that names no bookmark of this repository, before
+/// anything is read or sent.
+pub fn check_head(explicit: Option<&str>) -> Result<()> {
+    match explicit {
+        Some(head) if head.contains(':') => Err(Error::invalid(format!(
+            "Cannot open a pull request from {head} with jj"
+        ))
+        .with_hint(
+            "With jj, --head names a bookmark in this repository. For a pull request from another repository, use `gh pr create` directly.",
+        )),
+        _ => Ok(()),
+    }
+}
+
 impl<'a> Jj<'a> {
     pub fn new(cwd: &'a Path, env: &'a ChildEnvOverlay) -> Self {
         Self { cwd, env }
@@ -111,16 +125,7 @@ impl<'a> Jj<'a> {
     /// Snapshots the working copy and settles the remote, the head commit
     /// and the bookmarks there are, without changing anything else.
     pub fn survey(&self, explicit: Option<&str>) -> Result<Survey> {
-        if let Some(head) = explicit
-            && head.contains(':')
-        {
-            return Err(Error::invalid(format!(
-                "Cannot open a pull request from {head} with jj"
-            ))
-            .with_hint(
-                "With jj, --head names a bookmark in this repository. For a pull request from another repository, use `gh pr create` directly.",
-            ));
-        }
+        check_head(explicit)?;
         // The one command that snapshots: what is on disk decides whether
         // `@` is an empty scratch change.
         let mut snapshot = process::command("jj", self.cwd, self.env);

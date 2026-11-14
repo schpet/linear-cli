@@ -129,7 +129,7 @@ each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), a
 
 ### issue commands
 
-every command takes the issue it acts on: an ID like `ENG-123`, an issue URL, a bare number in the configured team, or a reference that reads it from your repository. `@git` is the first issue ID in the current git branch's name; `@jj` is every issue named by the `Linear-issue` trailers of the changes in `trunk()..@`. the cli reads the repository only when you pass one of these, and says on stderr which issues it read before anything is sent. a command that acts on one issue refuses a reference that names several. in PowerShell, quote them: `'@git'`.
+every command takes the issue it acts on: an ID like `ENG-123`, an issue URL, a bare number in the configured team, or a reference that reads it from your repository. `@git` is the first issue ID in the current git branch's name; `@jj` is every issue named by the `Linear-issue` trailers of the changes in `trunk()..@`. the cli reads the repository only when you pass one of these, and says on stderr which issues it read before anything is sent. a command that acts on one issue refuses a reference that names several; `issue view` and the pull request commands take them all. in PowerShell, quote them: `'@git'`.
 
 ```bash
 linear issue view ABC-123  # view issue details in terminal
@@ -142,7 +142,9 @@ linear issue title ABC-123     # prints just the issue title
 linear issue url ABC-123       # prints the Linear.app URL for the issue
 linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`
 linear issue gh pr @git        # the same, for the issue in the current git branch's name
+linear issue gh pr ABC-123 ABC-124 --title "Fix login"  # one PR for several issues: "Fixes ABC-123 and ABC-124" and their URLs in the body
 linear issue jj pr ABC-123     # pushes a jj bookmark for the change, then creates the PR from it with `gh pr create`
+linear issue jj pr @jj --title "Fix login"  # one PR for every issue the trailers in trunk()..@ name
 linear issue id @jj            # prints the issues @jj reads, one per line
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
