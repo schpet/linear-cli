@@ -90,7 +90,24 @@ which is also how to reach any other status (`In Review`, `Backlog`, ...).
 
 Only when a branch or jj change is wanted too: `linear issue git start ENG-123`
 creates or switches to the issue's git branch, and `linear issue jj start
-ENG-123` starts a described jj change. Both then start the issue.
+ENG-123` creates a new jj change (or reuses an empty, undescribed one) and
+writes its description: the issue title and `Linear-issue` trailers. Both
+then start the issue, and print one line per thing they did:
+
+```text
+✓ Reused empty, undescribed jj change <CHANGE-ID>
+✓ Wrote jj change <CHANGE-ID> description: "ENG-123 Fix the login"
+✓ Wrote trailers (keep Linear-issue when rewording to use @jj):
+  Linear-issue: Fixes ENG-123
+  Linear-issue-url: https://linear.app/acme/issue/ENG-123/fix-the-login
+✓ @ is now the described change; run jj new to edit in an empty change on top
+✓ Moved Linear issue ENG-123 from "Todo" to "In Progress"
+```
+
+Keep the `Linear-issue` trailer when you reword or squash that change, or
+`@jj` will not find the issue. Run `jj new` before editing, so the edits land
+in an empty change on top of the described one. If moving the issue fails, the branch or change stays as the
+printed lines say.
 
 ### Use the issue of the current branch or change
 

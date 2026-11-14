@@ -333,12 +333,15 @@ fn short(id: &str) -> &str {
     id.get(..12).unwrap_or(id)
 }
 
-fn malformed(what: &str, error: impl std::fmt::Display) -> Error {
+pub(crate) fn malformed(what: &str, error: impl std::fmt::Display) -> Error {
     Error::new(format!("Unexpected output from `{what}`: {error}"))
         .with_hint("This needs jj 0.38 or newer; check `jj --version`.")
 }
 
-fn parse_lines<T: serde::de::DeserializeOwned>(stdout: &[u8], what: &str) -> Result<Vec<T>> {
+pub(crate) fn parse_lines<T: serde::de::DeserializeOwned>(
+    stdout: &[u8],
+    what: &str,
+) -> Result<Vec<T>> {
     let text = std::str::from_utf8(stdout).map_err(|error| malformed(what, error))?;
     text.lines()
         .filter(|line| !line.trim().is_empty())
