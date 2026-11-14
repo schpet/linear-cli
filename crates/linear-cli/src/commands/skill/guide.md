@@ -110,12 +110,14 @@ A command that acts on one issue refuses a reference that names several, and
 only. When unsure what a reference stands for, run `linear issue id` with it
 first and pass the IDs it prints. In PowerShell, quote them: `'@git'`.
 
-### Open a pull request for an issue
+### Open a pull request for one or more issues
 
 ```bash
 linear issue gh pr ENG-123 --draft          # gh pr create, titled "ENG-123 <issue title>", issue URL in the body
 linear issue gh pr ENG-123 --head my-topic  # name the git branch yourself
+linear issue gh pr ENG-123 ENG-124 --title "Fix login"  # one pull request that closes both
 linear issue jj pr ENG-123 --draft          # jj: push a bookmark for the change, then gh pr create
+linear issue jj pr @jj --title "Fix login"  # every issue the trailers in trunk()..@ name
 linear issue jj pr @jj --head my-topic      # name the jj bookmark yourself
 ```
 
@@ -123,9 +125,16 @@ The issue is always named; `linear issue gh pr` on its own is an error. The
 command names the tool: `gh pr` only runs gh, which takes the repository and
 branch from the git checkout, and never creates or pushes anything.
 
+One pull request can cover several issues: pass their IDs, or a reference
+that names several. With more than one distinct issue `--title` is required
+and used as given, and the body gets `Fixes ENG-123 and ENG-124` (which
+Linear reads to close them on merge) and every issue URL. `--references`
+writes `References …` instead, to link without closing. Every issue is
+fetched before anything is pushed or opened.
+
 `jj pr` publishes without asking. It pushes a bookmark for the working-copy
 change (or its parent, when the working copy is empty and undescribed) with
-`jj git push`, creating one named after the issue if the change has none,
+`jj git push`, creating one named after the (first) issue if the change has none,
 then runs gh with the repository and the bookmark, so it works without a git
 checkout. It never moves an existing bookmark: when it cannot tell which
 bookmark to use it says so and asks for `--head`. In a jj repository use it
