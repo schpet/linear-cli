@@ -1,4 +1,4 @@
-# runs the cli from source, e.g. `just dev issue list`
+# runs the cli from source, e.g. `just dev issue mine`
 dev *args:
     cargo run --quiet -- {{ args }}
 

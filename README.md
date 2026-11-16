@@ -9,7 +9,7 @@ here's how it works:
 ```bash
 linear config               # setup your repo, it writes a config file
 
-linear issue list           # list unstarted issues assigned to you
+linear issue mine           # list unstarted issues assigned to you
 linear issue query --all-teams  # query issues across all teams
 linear issue query --search "login bug"  # search issues in your configured team
 linear issue start ABC-123  # move an issue to its team's first started status
@@ -53,8 +53,8 @@ pnpm add -D @schpet/linear-cli
 then run via your package manager:
 
 ```bash
-npx linear issue list
-bunx linear issue list
+npx linear issue mine
+bunx linear issue mine
 ```
 
 > **note:** this package ships pre-built binaries
@@ -147,10 +147,10 @@ linear issue gh pr ABC-123 -F body.md  # your description, then the issue links
 linear issue gh pr ABC-123 -- --draft --base main  # everything after -- goes to `gh pr create`
 linear issue gh pr @jj --title "Fix login" -- --head my-topic  # one PR for every issue the trailers in trunk()..@ name, from a pushed branch
 linear issue id @jj            # prints the issues @jj reads, one per line
-linear issue list      # list your issues in a table view (supports -s/--state and --sort)
-linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
-linear issue list -w   # open issue list in web browser
-linear issue list -a   # open issue list in Linear.app
+linear issue mine      # list your issues in a table view (supports -s/--state and --sort)
+linear issue mine --project "My Project" --milestone "Phase 1"  # filter by milestone
+linear issue mine -w   # open your issues in the web browser
+linear issue mine -a   # open your issues in Linear.app
 linear issue query --search "login bug"  # search issues by text in your configured team
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
@@ -449,7 +449,7 @@ linear skill setup --force     # moves older copies to a backup directory, then 
 linear-cli is written in rust; the toolchain is pinned in `rust-toolchain.toml`. common tasks are in the `justfile`:
 
 ```bash
-just dev issue list   # run the cli from source (cargo run -- issue list)
+just dev issue mine   # run the cli from source (cargo run -- issue mine)
 just install          # install this checkout as `linear`
 just check            # cargo fmt --check, clippy, and tests, as CI runs them
 ```

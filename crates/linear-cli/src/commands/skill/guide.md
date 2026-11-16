@@ -43,11 +43,11 @@ linear issue query --project "Mobile App" --state backlog --state triage --unass
 linear issue query --assignee sam --label bug --updated-after 2026-01-01
 ```
 
-`issue list` (alias `issue mine`) shows your own issues. Use `issue query` for
+`issue mine` shows your own issues. Use `issue query` for
 anything scoped to other people or to a whole team or project.
 
 ```bash
-linear issue list --state started --sort priority
+linear issue mine --state started --sort priority
 ```
 
 ### View issues or get an issue's URL
@@ -240,7 +240,7 @@ linear issue archive ENG-123 --yes             # rarely appropriate, see below
 Prefer closing or deleting. Linear archives closed issues on its own after the
 team's configured period and offers no manual archive in its app
 (https://linear.app/docs/delete-archive-issues). `issue archive` bypasses those
-checks, and archived issues vanish from `issue list`, `issue query` and search
+checks, and archived issues vanish from `issue mine`, `issue query` and search
 unless `--include-archived` is passed. Archive only when the user asks for it.
 
 ### Several issues at once
@@ -307,10 +307,10 @@ After status 5, check whether a create or update took effect before retrying it.
 
 ## Things help does not make obvious
 
-- `issue list` sorts by priority unless `--sort` (`manual` or `priority`), the
+- `issue mine` sorts by priority unless `--sort` (`manual` or `priority`), the
   `issue_sort` setting or `LINEAR_ISSUE_SORT` says otherwise, and it needs
   `--team` when no team is configured.
-- `--no-pager` exists only on `issue list`, `issue query`, `issue view` and
+- `--no-pager` exists only on `issue mine`, `issue query`, `issue view` and
   `project view`. Other commands reject it.
 - `linear api` takes the GraphQL document as its one argument and has no
   subcommands. `linear issue query` is a separate command.

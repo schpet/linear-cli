@@ -122,28 +122,12 @@ fn destructive_commands_take_yes_and_every_old_spelling() {
 }
 
 #[test]
-fn issue_list_answers_to_its_old_names() {
-    use super::RootCommand;
-    use super::issue::IssueCommand;
-    for name in ["list", "mine", "l"] {
-        let cli = parses(&["issue", name, "-A"]);
-        let RootCommand::Issue(group) = cli.command else {
-            panic!("{name} is an issue command");
-        };
-        let IssueCommand::List(args) = group.command else {
-            panic!("{name} is issue list");
-        };
-        assert!(args.filters.all_assignees, "{name}");
-    }
-}
-
-#[test]
 fn renamed_and_hidden_flags_still_parse() {
     parses(&["label", "list", "--all"]);
     parses(&["issue", "query", "--all-assignees", "--all-states"]);
     parses(&["issue", "create", "--no-interactive", "-t", "x"]);
     parses(&["team", "create", "--no-interactive"]);
-    parses(&["--no-interactive", "issue", "list"]);
+    parses(&["--no-interactive", "issue", "mine"]);
 }
 
 /// Every command, depth first, with its path.

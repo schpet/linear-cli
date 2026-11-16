@@ -78,8 +78,8 @@ fn completions_offer_subcommand_names_not_their_short_aliases() {
         assert!(!commands.contains(&alias.to_owned()), "{commands:?}");
     }
     let issue = fish_candidates(&cli, &["issue", ""]);
-    assert!(issue.contains(&"list".to_owned()), "{issue:?}");
-    for alias in ["l", "q", "v", "d", "mine"] {
+    assert!(issue.contains(&"mine".to_owned()), "{issue:?}");
+    for alias in ["l", "q", "v", "d", "list"] {
         assert!(!issue.contains(&alias.to_owned()), "{issue:?}");
     }
     // The aliases still work.
@@ -90,9 +90,13 @@ fn completions_offer_subcommand_names_not_their_short_aliases() {
 fn unknown_subcommands_suggest_real_names_only() {
     let run = Cli::new().run(&["isue"]);
     run.usage_error().stderr_has("'issue'");
-    let run = Cli::new().run(&["--no-input", "issue", "lst"]);
-    run.usage_error().stderr_has("'list'");
-    assert!(!run.stderr.contains("'l'"), "{}", run.stderr);
+    let run = Cli::new().run(&["--no-input", "issue", "mne"]);
+    run.usage_error().stderr_has("'mine'");
+    let run = Cli::new().run(&["issue", "lst"]);
+    run.usage_error();
+    for removed in ["'list'", "'l'"] {
+        assert!(!run.stderr.contains(removed), "{run}");
+    }
 }
 
 #[test]
@@ -131,7 +135,7 @@ fn long_views_and_comment_lists_take_no_pager() {
     let cli = Cli::new();
     for command in [
         &["issue", "view"][..],
-        &["issue", "list"],
+        &["issue", "mine"],
         &["issue", "comment", "list"],
         &["issue", "agent-session", "view"],
         &["project", "view"],

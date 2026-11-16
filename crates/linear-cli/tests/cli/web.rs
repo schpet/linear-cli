@@ -96,10 +96,10 @@ fn issue_view_looks_up_the_workspace_once_for_multiple_issues() {
 }
 
 #[test]
-fn issue_list_opens_the_team_issue_view() {
+fn issue_mine_opens_the_team_issue_view() {
     let api = MockLinear::start();
     let cli = configured(&api).env("LINEAR_TEAM_ID", "ENG");
-    cli.run(&["issue", "list", "--web"]).success();
+    cli.run(&["issue", "mine", "--web"]).success();
     let urls = opened(&cli);
     assert_eq!(urls.len(), 1);
     assert!(

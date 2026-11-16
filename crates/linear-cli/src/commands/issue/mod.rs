@@ -12,8 +12,8 @@ mod details;
 mod filter;
 pub(crate) mod id;
 mod link;
-mod list;
 mod list_view;
+mod mine;
 mod pull_request;
 mod query;
 mod read;
@@ -37,7 +37,11 @@ use crate::error::{Error, Result};
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
         IssueCommand::Id(args) => id::run(ctx, args),
-        IssueCommand::List(args) => list::run(ctx, args),
+        IssueCommand::Mine(args) => mine::run(ctx, args),
+        IssueCommand::RemovedList(_) => Err(Error::invalid("`issue list` was removed in 4.0")
+            .with_hint(
+                "Run `linear issue mine` for your own issues; it takes the same options. Use `linear issue query` to filter across assignees, states and teams.",
+            )),
         IssueCommand::Query(args) => query::run(ctx, args),
         IssueCommand::Title(args) => title::run(ctx, args),
         IssueCommand::Url(args) => url::run(ctx, args),

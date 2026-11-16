@@ -16,8 +16,10 @@ pub struct Issue {
 #[derive(Debug, Subcommand)]
 pub enum IssueCommand {
     /// List issues, assigned to you by default
-    #[command(aliases = ["mine", "l"])]
-    List(IssueList),
+    Mine(IssueMine),
+    /// Removed in 4.0; use `issue mine` or `issue query`
+    #[command(name = "list", alias = "l", hide = true, disable_help_flag = true)]
+    RemovedList(Moved),
     /// Find issues by filters or full-text search
     #[command(alias = "q")]
     Query(IssueQuery),
@@ -37,7 +39,7 @@ pub enum IssueCommand {
     ///
     /// Linear archives closed issues on its own, so prefer closing an issue
     /// (`issue update --state`) and letting auto-archive run, or `issue delete`
-    /// to trash it. Archived issues drop out of list, query, and search results
+    /// to trash it. Archived issues drop out of mine, query, and search results
     /// unless --include-archived is passed. See
     /// https://linear.app/docs/delete-archive-issues
     #[command(mut_arg("bulk", |arg| arg.help(BULK_ISSUES_HELP)))]
@@ -111,7 +113,7 @@ pub enum IssueCommand {
 }
 
 #[derive(Debug, Args)]
-pub struct IssueList {
+pub struct IssueMine {
     /// Show issues in this state: a type (triage, backlog, unstarted, started,
     /// completed, canceled), name, or ID; repeatable
     #[arg(long, short, value_parser = NonBlank, default_values = ["unstarted"])]
@@ -141,7 +143,7 @@ pub struct IssueList {
     pub json: bool,
 }
 
-/// Filters `issue list` and `issue query` share.
+/// Filters `issue mine` and `issue query` share.
 #[derive(Debug, Args)]
 pub struct IssueFilters {
     /// Show only issues assigned to this user: a username, email, name, or @me

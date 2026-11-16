@@ -1,8 +1,8 @@
-//! `issue list` (alias `issue mine`): one team's issues, assigned to you by
+//! `issue mine`: one team's issues, assigned to you by
 //! default.
 use std::time::SystemTime;
 
-use crate::cli::issue::IssueList;
+use crate::cli::issue::IssueMine;
 use crate::commands::json;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
@@ -16,11 +16,11 @@ use super::{filter, list_view, read};
 const ASSIGNED_TO_ME: &str =
     "eyJhbmQiOlt7ImFzc2lnbmVlIjp7Im9yIjpbeyJpc01lIjp7ImVxIjp0cnVlfX1dfX1dfQ";
 
-pub fn run(ctx: &Ctx, args: &IssueList) -> Result<()> {
+pub fn run(ctx: &Ctx, args: &IssueMine) -> Result<()> {
     list(ctx, args).context("Failed to list issues")
 }
 
-fn list(ctx: &Ctx, args: &IssueList) -> Result<()> {
+fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
     let filters = &args.filters;
     let mine = filters.assignee.is_none() && !filters.unassigned && !filters.all_assignees;
     if args.team.is_none() && configured_team_key(ctx.options()).is_none() {

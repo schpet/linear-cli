@@ -15,7 +15,7 @@ Issues outside this scope may be closed.
 linear-cli is written in Rust. The toolchain version is pinned in `rust-toolchain.toml`, which rustup picks up automatically.
 
 ```sh
-cargo run -- issue list   # run the CLI from source
+cargo run -- issue mine   # run the CLI from source
 cargo test --workspace    # run the test suite
 just check                # format check, clippy, and tests, as CI runs them
 ```

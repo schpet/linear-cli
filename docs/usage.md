@@ -22,62 +22,62 @@ this writes the config at the repository root: `.config/linear.toml` when a `.co
 
 ### issues
 
-#### list issues
+#### your issues
 
 list your issues (shows unstarted issues by default):
 
 ```bash
-linear issue list
+linear issue mine
 ```
 
 list issues with different states:
 
 ```bash
 # List started issues
-linear issue list --state started
+linear issue mine --state started
 
 # List all issues regardless of state  
-linear issue list --all-states
+linear issue mine --all-states
 
 # List multiple states
-linear issue list --state unstarted --state started
+linear issue mine --state unstarted --state started
 
 # A state name or ID works too, and mixes with types
-linear issue list --state "In Review"
-linear issue list --state started --state "In Review"
+linear issue mine --state "In Review"
+linear issue mine --state started --state "In Review"
 ```
 
-filter by assignee:
+query issues across assignees (all states by default):
 
 ```bash
 # List issues assigned to you
-linear issue list --assignee @me
+linear issue query --assignee @me
 
 # List issues assigned to specific user
-linear issue list --assignee username
+linear issue query --assignee username
 
 # List all unassigned issues
-linear issue list --unassigned
+linear issue query --unassigned
 
 # List issues for all assignees
-linear issue list --all-assignees
+linear issue query
 ```
 
 other options:
 
 ```bash
 # List issues for specific team (key, name, or ID)
-linear issue list --team TEAM
-linear issue list --team "Team Name"
+linear issue mine --team TEAM
+linear issue mine --team "Team Name"
 
 # Sort by priority instead of manual order
-linear issue list --sort priority
+linear issue mine --sort priority
 
 # Open in web browser
-linear issue list --web
+linear issue mine --web
 
 # Open in Linear app
-linear issue list --app
+linear issue mine --app
 ```
 
 #### view issue details
@@ -302,7 +302,7 @@ linear issue archive --yes --bulk TEAM-123 TEAM-124   # several at once; --bulk-
 
 Archiving is normally something Linear does for you, not something you do by hand. Linear's [delete and archive issues](https://linear.app/docs/delete-archive-issues) docs state that "archiving happens automatically with no option to manually archive items": closed issues are auto-archived after the period set in Team settings, and the manual action Linear offers is delete, which keeps the issue in the trash for 30 days. Linear removed manual archiving from its app in 2021 because "most users used the archive as a trash can", reasoning that "the archive is something that Linear should manage for you while deleting issues is your own choice" ([changelog](https://linear.app/changelog/2021-04-15-auto-archive-cycles-and-projects-and-deleting-issues)). Its official MCP server has no archive tool either.
 
-`issue archive` calls the `issueArchive` mutation directly, so it skips the checks auto-archive applies (open parent, open sub-issues, active cycle or project), and archived issues disappear from `issue list`, `issue query`, and search unless you pass `--include-archived`. Reach for it only when an issue should leave the active workspace without being canceled or trashed; otherwise close it with `issue update --state` or remove it with `issue delete`. Archived issues can be restored from the team's archives page in Linear.
+`issue archive` calls the `issueArchive` mutation directly, so it skips the checks auto-archive applies (open parent, open sub-issues, active cycle or project), and archived issues disappear from `issue mine`, `issue query`, and search unless you pass `--include-archived`. Reach for it only when an issue should leave the active workspace without being canceled or trashed; otherwise close it with `issue update --state` or remove it with `issue delete`. Archived issues can be restored from the team's archives page in Linear.
 
 #### issue comments
 
@@ -526,7 +526,7 @@ every command accepts:
 - `--no-input` - never prompt; fail instead when a required value is missing
 - `--help` - show help for the command
 
-`issue list`, `issue query`, `issue view`, and `project view` page long output; pass `--no-pager` to disable it. color is used only on a terminal; set `NO_COLOR=1` to turn it off.
+`issue mine`, `issue query`, `issue view`, and `project view` page long output; pass `--no-pager` to disable it. color is used only on a terminal; set `NO_COLOR=1` to turn it off.
 
 ### exit status
 
@@ -557,7 +557,7 @@ linear issue view TEAM-123
 linear issue create --title "Fix login error" --label bug --start
 
 # List high priority issues
-linear issue list --sort priority
+linear issue mine --sort priority
 
 # Create a pull request for an issue
 linear issue gh pr TEAM-123

@@ -1,4 +1,4 @@
-//! Buffered stdout. A reader that closes the pipe early (`linear issue list |
+//! Buffered stdout. A reader that closes the pipe early (`linear issue mine |
 //! head`) ends the command quietly with success; every other write failure is
 //! an error.
 use std::cell::RefCell;
