@@ -9,9 +9,7 @@ mod source;
 mod startup;
 
 pub use network::NetworkEnv;
-pub use options::{
-    AssignSelf, ConfigOptions, ConfigSecret, IssueSort, OptionSource, PrTemplateCli,
-};
+pub use options::{AssignSelf, ConfigOptions, ConfigSecret, IssueSort, OptionSource};
 pub use parse::{ConfigTier, parse_config_tier};
 pub use runtime::ProcessEnvSnapshot;
 pub(crate) use source::absent;

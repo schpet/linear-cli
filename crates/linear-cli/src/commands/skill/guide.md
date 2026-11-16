@@ -147,7 +147,7 @@ The issue is always named; `linear issue gh pr` on its own is an error.
 
 The title is `--title` exactly as given, or `ENG-123 <issue title>` for one
 issue; with more than one distinct issue `--title` is required. The body is
-`--body` or `--body-file` (`-` for stdin; else the template), then
+`--body` or `--body-file` (`-` for stdin), then
 `Fixes ENG-123` (or `Fixes ENG-123 and ENG-124`, which Linear reads to close
 them on merge), then every issue URL. `--references` writes `References …`
 instead, to link without closing. Every issue is fetched before gh runs.

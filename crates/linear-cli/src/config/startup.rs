@@ -10,7 +10,8 @@ use super::discover::{ConfigCandidate, discover_config_paths};
 use super::dotenv::{ConfigDiagnostic, ConfigFailure, DiagnosticReason, SelectedEnv, load_env};
 use super::network::NetworkEnv;
 use super::options::{
-    ConfigOptionError, ConfigOptions, OptionInputs, OptionKey, OptionSource, retired_vcs,
+    ConfigOptionError, ConfigOptions, OptionInputs, OptionKey, OptionSource, retired_pr_template,
+    retired_vcs,
 };
 use super::parse::{ConfigParseError, ConfigTier, parse_config_tier};
 use super::runtime::ProcessEnvSnapshot;
@@ -109,6 +110,9 @@ pub enum StartupDiagnostic {
     Dotenv(ConfigDiagnostic),
     /// A source that sets `vcs` (`LINEAR_VCS`), which 4.0 removed.
     RetiredVcs(OptionSource),
+    /// A source that sets `pr_template` (`LINEAR_PR_TEMPLATE`), which 4.0
+    /// removed.
+    RetiredPrTemplate(OptionSource),
 }
 
 pub struct StartupReport {
@@ -274,6 +278,13 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
     if let Ok(sources) = retired_vcs(&inputs) {
         diagnostics.extend(sources.into_iter().map(StartupDiagnostic::RetiredVcs));
     }
+    if let Ok(sources) = retired_pr_template(&inputs) {
+        diagnostics.extend(
+            sources
+                .into_iter()
+                .map(StartupDiagnostic::RetiredPrTemplate),
+        );
+    }
     let options = match ConfigOptions::from_inputs(inputs) {
         Ok(options) => options,
         Err(error) => return fail(display, diagnostics, option_error(error)),
@@ -327,6 +338,18 @@ pub fn render_diagnostic(diagnostic: &StartupDiagnostic, color: bool) -> String 
                 ),
                 format!(
                     "  Remove {name}. Commands name their tool instead: `linear issue jj start` for jj, `linear issue git start` for git, and `linear issue gh pr` for pull requests."
+                ),
+            )
+        }
+        StartupDiagnostic::RetiredPrTemplate(source) => {
+            let name = OptionKey::RetiredPrTemplate.spelling(source);
+            (
+                format!(
+                    "Warning: {name} from {} was removed in 4.0 and does nothing.",
+                    source.label()
+                ),
+                format!(
+                    "  Remove {name}. To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it."
                 ),
             )
         }

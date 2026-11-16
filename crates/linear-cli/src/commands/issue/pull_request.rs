@@ -10,7 +10,6 @@ use crate::{
     },
     client::LinearClient,
     commands::text_input,
-    config::PrTemplateCli,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::issue::IssueDetails,
@@ -18,7 +17,6 @@ use crate::{
 };
 use futures_util::{StreamExt, TryStreamExt, stream};
 use std::collections::HashSet;
-use std::path::Path;
 
 /// What a failed fetch of one of several issues adds to its hint.
 const NOTHING_OPENED: &str =
@@ -29,6 +27,7 @@ pub fn run(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
 }
 
 fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    retired_template(args)?;
     moved_to_gh(args)?;
     // The issue is always named, by an ID or by `@git` / `@jj`; leaving it
     // out never reads it from the repository.
@@ -40,7 +39,7 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
     let description = match (args.body.as_deref(), args.body_file.as_ref()) {
         (Some(body), _) => Some(body.trim_end().to_owned()),
         (None, Some(source)) => Some(read_body_file(source)?),
-        (None, None) => template(ctx, args)?,
+        (None, None) => None,
     };
     let identifiers = distinct(ctx, &args.issue_ids)?;
     check_title(&identifiers, args.title.as_deref())?;
@@ -95,6 +94,22 @@ fn moved_to_gh(args: &IssuePullRequest) -> Result<()> {
     )
 }
 
+/// Refuses the 3.x template flags, retired with `pr_template`.
+fn retired_template(args: &IssuePullRequest) -> Result<()> {
+    let flag = if args.template.is_some() {
+        "--template"
+    } else if args.no_template {
+        "--no-template"
+    } else {
+        return Ok(());
+    };
+    Err(
+        Error::invalid(format!("{flag} was removed in 4.0, with pr_template")).with_hint(
+            "-F <FILE> gives the same body: the file's text, then the issue links. Add -- --editor to fill it in before creating.",
+        ),
+    )
+}
+
 /// The description in a `--body-file`, which must hold some.
 fn read_body_file(source: &TextSource) -> Result<String> {
     text_input::read_source(source)
@@ -108,21 +123,6 @@ fn read_body_file(source: &TextSource) -> Result<String> {
                 "Write the description into the file, or leave out --body-file for a body of just the issue links.",
             )
         })
-}
-
-/// The template's text, when one is selected.
-fn template(ctx: &Ctx, args: &IssuePullRequest) -> Result<Option<String>> {
-    let selected = if args.no_template {
-        PrTemplateCli::Disabled
-    } else if let Some(path) = args.template.as_deref() {
-        PrTemplateCli::Path(path)
-    } else {
-        PrTemplateCli::Unset
-    };
-    ctx.options()
-        .pr_template(selected)?
-        .map(|path| read_template(path.path()))
-        .transpose()
 }
 
 /// The distinct issues the arguments name, in the order they are first
@@ -257,46 +257,6 @@ fn listed(items: &[&str]) -> String {
     }
 }
 
-pub const TEMPLATE_SUGGESTION: &str = "Pass a readable file to --template, fix the pr_template config option, or use --no-template to skip the template.";
-fn unusable(reason: impl Into<String>) -> Error {
-    Error::new(format!(
-        "Cannot read pull request template: {}",
-        reason.into()
-    ))
-    .with_hint(TEMPLATE_SUGGESTION)
-}
-pub fn read_template(path: &Path) -> Result<String, Error> {
-    let display = path.to_string_lossy();
-    if display.trim().is_empty() {
-        return Err(unusable("the path is empty"));
-    }
-    let metadata = std::fs::metadata(path).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            unusable(format!("\"{display}\" does not exist"))
-        } else {
-            unusable(format!("\"{display}\" could not be read: {error}")).with_source(error)
-        }
-    })?;
-    if metadata.is_dir() {
-        return Err(unusable(format!(
-            "\"{display}\" is a directory, not a file"
-        )));
-    }
-    if !metadata.is_file() {
-        return Err(unusable(format!("\"{display}\" is not a regular file")));
-    }
-    let contents = text_input::read_file(path).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::InvalidData {
-            unusable(format!("\"{display}\" is not valid UTF-8 text")).with_source(error)
-        } else {
-            unusable(format!("\"{display}\" could not be read: {error}")).with_source(error)
-        }
-    })?;
-    if contents.contains('\0') {
-        return Err(unusable(format!("\"{display}\" is not a text file")));
-    }
-    Ok(contents)
-}
 /// The `gh pr create` arguments: linear's title and body, then `gh_args`
 /// unchanged, so that a flag repeated there wins.
 pub fn args(title: String, body: String, gh_args: &[String]) -> Vec<String> {

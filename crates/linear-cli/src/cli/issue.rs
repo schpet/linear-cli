@@ -460,13 +460,12 @@ pub enum IssueGhCommand {
     ///
     /// The title is --title exactly as given, or "<ID> <issue title>" for one
     /// issue; several distinct issues need --title. The body is --body or
-    /// --body-file (or the template), then a "Fixes ENG-1, ENG-2, and ENG-3"
-    /// clause that Linear reads to close the issues on merge, then each issue
-    /// URL on its own line. --references writes a non-closing
-    /// "References <IDs>" clause instead. Repeated issues are included once,
-    /// in the order first named, and every issue is fetched before gh runs.
-    /// The issues are always named: IDs, or `@git` or `@jj` to read them
-    /// from the repository.
+    /// --body-file, then a "Fixes ENG-1, ENG-2, and ENG-3" clause that Linear
+    /// reads to close the issues on merge, then each issue URL on its own
+    /// line. --references writes a non-closing "References <IDs>" clause
+    /// instead. Repeated issues are included once, in the order first named,
+    /// and every issue is fetched before gh runs. The issues are always
+    /// named: IDs, or `@git` or `@jj` to read them from the repository.
     ///
     /// A --title or --body after `--` replaces linear's, issue links
     /// included. gh's own --template cannot be used, since linear always
@@ -521,18 +520,12 @@ pub struct IssuePullRequest {
     #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
     /// Description, in Markdown; the issue links follow it
-    #[arg(long, short, value_name = "TEXT", value_parser = NonBlank, conflicts_with_all = ["body_file", "template"])]
+    #[arg(long, short, value_name = "TEXT", value_parser = NonBlank, conflicts_with = "body_file")]
     pub body: Option<String>,
     /// Read the description from a Markdown file (- for stdin); the issue
     /// links follow it
-    #[arg(long, short = 'F', value_name = "FILE", value_hint = ValueHint::FilePath, conflicts_with = "template")]
+    #[arg(long, short = 'F', value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<TextSource>,
-    /// Start the body from this template file, then append the issue links
-    #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath, value_parser = NonBlank)]
-    pub template: Option<String>,
-    /// Ignore the pr_template setting
-    #[arg(long)]
-    pub no_template: bool,
     /// Write a non-closing "References" clause instead of "Fixes"
     #[arg(long, short, visible_alias = "ref")]
     pub references: bool,
@@ -550,6 +543,12 @@ pub struct IssuePullRequest {
     pub web: bool,
     #[arg(long, hide = true, value_name = "BRANCH")]
     pub head: Option<String>,
+    // The 3.x template flags, retired with pr_template; still parsed so
+    // that using one says what to use instead.
+    #[arg(long, short = 'T', hide = true, value_name = "FILE")]
+    pub template: Option<String>,
+    #[arg(long, hide = true)]
+    pub no_template: bool,
 }
 
 #[derive(Debug, Args)]

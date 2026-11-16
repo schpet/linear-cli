@@ -23,12 +23,20 @@
   | `linear issue pr ENG-123 --head topic --web` | `linear issue gh pr ENG-123 -- --head topic --web` |
   | `linear issue pr ENG-123` (with `vcs = "jj"`) | `branch=$(linear issue view ENG-123 --json | jq -r .branchName)`, `jj git push --named "$branch=@-"`, then `linear issue gh pr ENG-123 -- --head "$branch"` |
 
-- `issue gh pull-request --title` is used exactly as given, for one issue as for several: 3.x put the issue ID in front of it (`ENG-123 <title>`). A blank `--title` is a usage error, where 3.x used the issue title. The body of a pull request for one issue now has the `Fixes ENG-123` clause between the template and the issue URL, as for several issues; `--references` writes `References ENG-123` instead, and changes only that clause, never a title or template you supply
+- `issue gh pull-request --title` is used exactly as given, for one issue as for several: 3.x put the issue ID in front of it (`ENG-123 <title>`). A blank `--title` is a usage error, where 3.x used the issue title. The body of a pull request for one issue now has the `Fixes ENG-123` clause between the description and the issue URL, as for several issues; `--references` writes `References ENG-123` instead, and changes only that clause, never a title or body you supply
 
   | 3.x | 4.0 |
   | --- | --- |
   | `linear issue pr ENG-123 --title "Fix login"` (title `ENG-123 Fix login`) | `linear issue gh pr ENG-123 --title "ENG-123 Fix login"` |
   | `linear issue pr ENG-123 --title ""` | `linear issue gh pr ENG-123` |
+- `issue gh pull-request` no longer reads a pull request template. `--template` (`-T`) and `--no-template` are removed, and so is the `pr_template` option (`LINEAR_PR_TEMPLATE`), which 3.x read as every pull request's starting body (a path relative to the config file that set it), with the issue URL appended. Pass the file with `--body-file` (`-F`) instead: the body is its text, then the `Fixes` clause and the issue URLs; add `-- --editor` to fill it in in gh before the pull request is created. `--template` and `--no-template` fail with exit 2 and say so. Through 4.x an existing `pr_template` still loads and does nothing, with a warning on stderr for each place that sets it naming `--body-file`; a value 3.x rejected, such as a blank one, is still an error
+
+  | 3.x | 4.0 |
+  | --- | --- |
+  | `linear issue pr ENG-123 --template .github/pr.md` | `linear issue gh pr ENG-123 -F .github/pr.md` |
+  | `linear issue pr ENG-123` (with `pr_template = ".github/pr.md"`) | `linear issue gh pr ENG-123 -F .github/pr.md` (relative to the current directory) |
+  | `linear issue pr ENG-123 --no-template` | `linear issue gh pr ENG-123` |
+
 - the `vcs` setting (`vcs` in a config file, `LINEAR_VCS` in the environment or `.env`) is removed. Every command that touches the repository names its tool instead (`issue git start`, `issue jj start`, `issue gh pull-request`), and the issue is read from the repository only with `@git` or `@jj`. Through 4.x an existing `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr for each place that sets it, saying it does nothing and which commands replace it; a value 3.x rejected is still an error. `linear config` does not write it
 
   | 3.x (with `vcs = "jj"`) | 4.0 |
