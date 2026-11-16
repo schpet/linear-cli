@@ -22,6 +22,14 @@ the installed `linear` binary, so it describes the commands that version has.
   asks for one, pass `--team`; `linear team list` shows the teams.
 - Do not create, change or comment on anything the user's request does not
   call for.
+- When asked to implement or fix an issue, run `linear issue start ENG-123` as
+  you begin, unless the user or the repository's instructions say otherwise.
+  Nothing else marks an issue as being worked on before its pull request
+  exists. Do not start an issue you were only asked to read, investigate or
+  plan.
+- Leave the later statuses alone unless asked: teams usually let Linear's
+  GitHub integration move an issue when its pull request opens, is reviewed
+  or merges.
 
 ## Common tasks
 
