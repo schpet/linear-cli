@@ -4,6 +4,8 @@
 
 ### Breaking
 
+- `issue list` and its `issue l` alias are removed. Run `linear issue mine` for your own issues or `linear issue query` for filtering and search. The old commands fail with exit 2 and a hint naming both replacements, including when passed old flags or `--help`.
+
 - `issue start` only changes the issue's status: it moves the issue to its team's first started status, as Linear's "Move issue to started status" does, and no longer creates a git branch or a jj change. An issue that is already started, completed, canceled or a duplicate is left as it is, where 3.x moved it back to the first started status. To keep the old behavior, run `linear issue git start` (git) or `linear issue jj start` (jj), which prepare the branch or change and then start the issue. `--branch` and `--from-ref` moved to `issue git start`, and passing them to `issue start` is an error that says so
 
   | 3.x | 4.0 |

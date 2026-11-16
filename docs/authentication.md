@@ -66,7 +66,7 @@ the `*` indicates the default workspace.
 linear auth default side-project
 
 # or use --workspace flag for a single command
-linear --workspace side-project issue list
+linear --workspace side-project issue mine
 linear --workspace acme issue create --title "Bug fix"
 ```
 

@@ -304,8 +304,8 @@ fn suggest_flag_names(
 }
 
 /// An unknown subcommand's "similar subcommand" tip names only real
-/// subcommands: clap also matches the short aliases, which make poor
-/// suggestions (`lst` is not a typo of `l`).
+/// subcommands: clap also matches short aliases and hidden commands kept
+/// only to report their removal, which make poor suggestions.
 fn suggest_names(
     mut error: clap::Error,
     root: &Command,
@@ -322,9 +322,9 @@ fn suggest_names(
     let names: Vec<String> = suggested
         .iter()
         .filter(|name| {
-            parent
-                .get_subcommands()
-                .any(|subcommand| subcommand.get_name() == name.as_str())
+            parent.get_subcommands().any(|subcommand| {
+                !subcommand.is_hide_set() && subcommand.get_name() == name.as_str()
+            })
         })
         .cloned()
         .collect();

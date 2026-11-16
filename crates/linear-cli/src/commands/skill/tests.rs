@@ -80,7 +80,7 @@ fn the_command_index_lists_every_visible_command_and_no_hidden_one() {
     }
     let described = index
         .lines()
-        .filter(|line| line.starts_with("linear issue list "))
+        .filter(|line| line.starts_with("linear issue mine "))
         .count();
     assert_eq!(described, 1, "each command has its description beside it");
 }
@@ -193,8 +193,24 @@ fn every_example_in_the_guide_parses() {
     let examples = guide_examples();
     assert!(examples.len() > 40, "found {} examples", examples.len());
     for example in examples {
-        if let Err(error) = cli::command().try_get_matches_from(shell_words(&example)) {
-            panic!("the guide's example does not parse: {example}\n{error}");
+        let root = cli::command();
+        let matches = root
+            .clone()
+            .try_get_matches_from(shell_words(&example))
+            .unwrap_or_else(|error| {
+                panic!("the guide's example does not parse: {example}\n{error}")
+            });
+        let mut command = &root;
+        let mut matches = &matches;
+        while let Some((name, child)) = matches.subcommand() {
+            command = command
+                .find_subcommand(name)
+                .expect("parsed subcommand exists");
+            assert!(
+                !command.is_hide_set(),
+                "the guide's example uses a removed command: {example}"
+            );
+            matches = child;
         }
     }
 }
