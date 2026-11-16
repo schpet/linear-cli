@@ -1,4 +1,4 @@
-use super::{Covered, Linkage, TEMPLATE_SUGGESTION, body, check_title, read_template, title};
+use super::{Covered, Linkage, body, check_title, title};
 use crate::graphql::operations::issue::IssueDetails;
 
 fn covered(identifier: &str) -> Covered {
@@ -111,38 +111,4 @@ fn several_issues_need_a_title() {
             "Pass --title \"<summary covering all issues>\". The title is used exactly as supplied."
         )
     );
-}
-
-#[test]
-fn templates_must_be_readable_utf8_text_files() {
-    let dir = tempfile::tempdir().expect("temp dir");
-    let file = dir.path().join("template");
-    std::fs::write(&file, b"\xef\xbb\xbfSummary\r\n").expect("write template");
-    assert_eq!(read_template(&file).expect("template"), "Summary\r\n");
-    #[cfg(unix)]
-    {
-        let link = dir.path().join("link");
-        std::os::unix::fs::symlink(&file, &link).expect("symlink");
-        assert_eq!(
-            read_template(&link).expect("linked template"),
-            "Summary\r\n"
-        );
-    }
-    for (path, reason) in [
-        (dir.path().join("missing"), "does not exist"),
-        (dir.path().to_owned(), "is a directory, not a file"),
-    ] {
-        let error = read_template(&path).expect_err(reason);
-        assert!(error.message().contains(reason), "{error}");
-        assert_eq!(error.hint(), Some(TEMPLATE_SUGGESTION));
-    }
-    std::fs::write(&file, b"Summary\xff").expect("write template");
-    let error = read_template(&file).expect_err("invalid UTF-8");
-    assert!(
-        error.message().ends_with("is not valid UTF-8 text"),
-        "{error}"
-    );
-    std::fs::write(&file, b"Summary\0").expect("write template");
-    let error = read_template(&file).expect_err("binary");
-    assert!(error.message().ends_with("is not a text file"), "{error}");
 }

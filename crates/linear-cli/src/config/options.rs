@@ -5,7 +5,7 @@
 //! overrides it, so a typo never lies dormant. No process state is read here.
 use std::error::Error as StdError;
 use std::fmt;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde::de::value::{Error as ValueError, StrDeserializer};
@@ -36,13 +36,17 @@ pub enum OptionKey {
     HyperlinkFormat,
     AttachmentDir,
     AutoDownloadAttachments,
-    PrTemplate,
+    /// `pr_template`, removed in 4.0. Still read so that an old setting is
+    /// checked and reported rather than silently ignored; see
+    /// [`retired_pr_template`].
+    RetiredPrTemplate,
 }
 
 impl OptionKey {
     #[cfg(test)]
-    /// The options that still do something; [`Self::RetiredVcs`] is left out.
-    pub const ALL: [Self; 12] = [
+    /// The options that still do something; [`Self::RetiredVcs`] and
+    /// [`Self::RetiredPrTemplate`] are left out.
+    pub const ALL: [Self; 11] = [
         Self::TeamKey,
         Self::ApiKey,
         Self::Workspace,
@@ -54,7 +58,6 @@ impl OptionKey {
         Self::HyperlinkFormat,
         Self::AttachmentDir,
         Self::AutoDownloadAttachments,
-        Self::PrTemplate,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -71,7 +74,7 @@ impl OptionKey {
             Self::HyperlinkFormat => "hyperlink_format",
             Self::AttachmentDir => "attachment_dir",
             Self::AutoDownloadAttachments => "auto_download_attachments",
-            Self::PrTemplate => "pr_template",
+            Self::RetiredPrTemplate => "pr_template",
         }
     }
 
@@ -101,15 +104,6 @@ pub enum OptionSource {
 }
 
 impl OptionSource {
-    /// The directory config-file paths are relative to. Paths from the
-    /// command line and environment are used as given.
-    pub fn config_dir(&self) -> Option<&Path> {
-        match self {
-            Self::ProjectConfig { path } | Self::GlobalConfig { path } => path.parent(),
-            Self::Cli | Self::Env | Self::ProjectEnv { .. } => None,
-        }
-    }
-
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::ProjectEnv { path }
@@ -491,6 +485,24 @@ pub fn retired_vcs(inputs: &OptionInputs<'_>) -> Result<Vec<OptionSource>, Confi
         .collect()
 }
 
+/// Every source that sets the removed `pr_template` option
+/// (`LINEAR_PR_TEMPLATE` in the environment), highest precedence first. Each
+/// value must still be one that 3.x accepted, a nonblank path, so a mistake
+/// fails as it always did; the value has no effect and no file is read.
+/// Kept through 4.x so that an old setting is reported instead of ignored.
+pub fn retired_pr_template(
+    inputs: &OptionInputs<'_>,
+) -> Result<Vec<OptionSource>, ConfigOptionError> {
+    let key = OptionKey::RetiredPrTemplate;
+    tiers(inputs, key)?
+        .into_iter()
+        .map(|(raw, source)| match template(&raw) {
+            Ok(_) => Ok(source),
+            Err(reason) => Err(error(Some(key), source, reason)),
+        })
+        .collect()
+}
+
 fn parsed<T: DeserializeOwned>(raw: &Raw<'_>) -> Result<T, OptionErrorReason> {
     raw.parse()
 }
@@ -506,6 +518,7 @@ fn flag(raw: &Raw<'_>) -> Result<bool, OptionErrorReason> {
     raw.parse::<Flag>().map(|Flag(value)| value)
 }
 
+/// A 3.x `pr_template` path: a nonblank string.
 fn template(raw: &Raw<'_>) -> Result<String, OptionErrorReason> {
     let value = raw.parse::<String>()?;
     let trimmed = value.trim();
@@ -516,26 +529,8 @@ fn template(raw: &Raw<'_>) -> Result<String, OptionErrorReason> {
     }
 }
 
-/// Lexically resolves `.` and `..` without touching the filesystem.
-fn normalized_config_path(path: &Path) -> PathBuf {
-    let mut result = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                result.pop();
-            }
-            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
-                result.push(component.as_os_str());
-            }
-        }
-    }
-    result
-}
-
 #[derive(Clone)]
 pub struct ConfigOptions {
-    cwd: PathBuf,
     team_key: Option<Resolved<Option<String>>>,
     api_key: Option<Resolved<ConfigSecret>>,
     workspace: Option<Resolved<String>>,
@@ -547,7 +542,6 @@ pub struct ConfigOptions {
     hyperlink_format: Option<Resolved<String>>,
     attachment_dir: Option<Resolved<String>>,
     auto_download_attachments: Option<Resolved<bool>>,
-    pr_template: Option<Resolved<String>>,
     endpoint: ResolvedEndpoint,
 }
 
@@ -556,37 +550,6 @@ impl fmt::Debug for ConfigOptions {
         f.debug_struct("ConfigOptions")
             .field("values", &"<redacted>")
             .field("endpoint", &self.endpoint)
-            .finish()
-    }
-}
-
-pub enum PrTemplateCli<'a> {
-    Unset,
-    Path(&'a str),
-    Disabled,
-}
-
-#[derive(Clone, Eq, PartialEq)]
-pub struct PrTemplatePath {
-    path: PathBuf,
-    source: OptionSource,
-}
-
-impl PrTemplatePath {
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-    #[cfg(test)]
-    pub fn source(&self) -> &OptionSource {
-        &self.source
-    }
-}
-
-impl fmt::Debug for PrTemplatePath {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PrTemplatePath")
-            .field("path", &"<redacted>")
-            .field("source", &self.source)
             .finish()
     }
 }
@@ -609,20 +572,25 @@ impl ConfigOptions {
         // Checked where it always was, so errors keep their order; the
         // startup report warns about each source that sets it.
         retired_vcs(&inputs)?;
+        let download_images = select(&inputs, OptionKey::DownloadImages, flag)?;
+        let inline_images = select(&inputs, OptionKey::InlineImages, flag)?;
+        let hyperlink_format = select(&inputs, OptionKey::HyperlinkFormat, parsed)?;
+        let attachment_dir = select(&inputs, OptionKey::AttachmentDir, parsed)?;
+        let auto_download_attachments = select(&inputs, OptionKey::AutoDownloadAttachments, flag)?;
+        // Checked where it always was, like `vcs`.
+        retired_pr_template(&inputs)?;
         Ok(Self {
-            cwd: inputs.env.cwd.clone(),
             team_key,
             api_key,
             workspace,
             issue_sort,
             issue_create_ask_project,
             issue_create_assign_self,
-            download_images: select(&inputs, OptionKey::DownloadImages, flag)?,
-            inline_images: select(&inputs, OptionKey::InlineImages, flag)?,
-            hyperlink_format: select(&inputs, OptionKey::HyperlinkFormat, parsed)?,
-            attachment_dir: select(&inputs, OptionKey::AttachmentDir, parsed)?,
-            auto_download_attachments: select(&inputs, OptionKey::AutoDownloadAttachments, flag)?,
-            pr_template: select(&inputs, OptionKey::PrTemplate, template)?,
+            download_images,
+            inline_images,
+            hyperlink_format,
+            attachment_dir,
+            auto_download_attachments,
             endpoint: endpoint(&inputs)?,
         })
     }
@@ -689,10 +657,6 @@ impl ConfigOptions {
             .as_ref()
             .is_none_or(|resolved| resolved.value)
     }
-    #[cfg(test)]
-    pub fn sourced_pr_template(&self) -> Option<&Resolved<String>> {
-        self.pr_template.as_ref()
-    }
     pub fn endpoint(&self) -> &ResolvedEndpoint {
         &self.endpoint
     }
@@ -706,34 +670,6 @@ impl ConfigOptions {
                 None => (IssueSort::Priority, None),
             },
         }
-    }
-
-    /// The pull request template path. Paths from config files are relative
-    /// to the file's directory.
-    pub fn pr_template(
-        &self,
-        cli: PrTemplateCli<'_>,
-    ) -> Result<Option<PrTemplatePath>, ConfigOptionError> {
-        let selected = match cli {
-            PrTemplateCli::Disabled => return Ok(None),
-            PrTemplateCli::Path(raw) => Some(Resolved {
-                value: template(&Raw::Text(raw)).map_err(|reason| {
-                    error(Some(OptionKey::PrTemplate), OptionSource::Cli, reason)
-                })?,
-                source: OptionSource::Cli,
-            }),
-            PrTemplateCli::Unset => self.pr_template.clone(),
-        };
-        Ok(selected.map(|selected| {
-            let path = match selected.source.config_dir() {
-                Some(base) => normalized_config_path(&self.cwd.join(base).join(&selected.value)),
-                None => PathBuf::from(&selected.value),
-            };
-            PrTemplatePath {
-                path,
-                source: selected.source,
-            }
-        }))
     }
 }
 

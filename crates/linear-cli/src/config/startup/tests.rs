@@ -303,9 +303,118 @@ fn retired(diagnostics: &[StartupDiagnostic]) -> Vec<OptionSource> {
         .iter()
         .filter_map(|diagnostic| match diagnostic {
             StartupDiagnostic::RetiredVcs(source) => Some(source.clone()),
-            StartupDiagnostic::Dotenv(_) => None,
+            StartupDiagnostic::Dotenv(_) | StartupDiagnostic::RetiredPrTemplate(_) => None,
         })
         .collect()
+}
+
+fn retired_templates(diagnostics: &[StartupDiagnostic]) -> Vec<OptionSource> {
+    diagnostics
+        .iter()
+        .filter_map(|diagnostic| match diagnostic {
+            StartupDiagnostic::RetiredPrTemplate(source) => Some(source.clone()),
+            StartupDiagnostic::Dotenv(_) | StartupDiagnostic::RetiredVcs(_) => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_retired_pr_template_setting_loads_and_warns_once_per_source_that_sets_it() {
+    let global = fixture_path("/global");
+    let files = MemFiles::default()
+        .file("/work/.env", b"LINEAR_PR_TEMPLATE=dotenv.md\n")
+        .file("/work/linear.toml", b"pr_template = 'pr.md'\nvcs = 'jj'\n")
+        .file("/global/linear/linear.toml", b"pr_template = 'g.md'\n");
+    let path = |path: &str| PathBuf::from(fixture_path(path));
+    let report = load_startup(
+        &process(&[
+            ("XDG_CONFIG_HOME", global.as_str()),
+            ("LINEAR_PR_TEMPLATE", "env.md"),
+        ]),
+        &files,
+    );
+    assert!(report.result.is_ok());
+    assert_eq!(
+        retired_templates(&report.diagnostics),
+        [
+            OptionSource::Env,
+            OptionSource::ProjectConfig {
+                path: path("/work/linear.toml")
+            },
+            OptionSource::GlobalConfig {
+                path: path("/global/linear/linear.toml")
+            },
+        ]
+    );
+    // Each retired option warns for itself.
+    assert_eq!(retired(&report.diagnostics).len(), 1);
+    let report = load_startup(&process(&[]), &files);
+    assert_eq!(
+        retired_templates(&report.diagnostics),
+        [
+            OptionSource::ProjectEnv {
+                path: path("/work/.env")
+            },
+            OptionSource::ProjectConfig {
+                path: path("/work/linear.toml")
+            },
+        ]
+    );
+}
+
+#[test]
+fn the_retired_pr_template_setting_still_rejects_what_was_never_valid() {
+    for (env, file, said) in [
+        (
+            Some(" "),
+            "",
+            "invalid config option LINEAR_PR_TEMPLATE from process environment",
+        ),
+        (
+            None,
+            "pr_template = 1\n",
+            "invalid config option pr_template from project config",
+        ),
+        (
+            None,
+            "pr_template = ''\n",
+            "invalid config option pr_template from project config",
+        ),
+    ] {
+        let files = MemFiles::default().file("/work/linear.toml", file.as_bytes());
+        let vars: Vec<(&str, &str)> = env
+            .map(|value| ("LINEAR_PR_TEMPLATE", value))
+            .into_iter()
+            .collect();
+        let report = load_startup(&process(&vars), &files);
+        let error = report.result.unwrap_err();
+        assert!(error.to_string().contains(said), "{error}");
+        assert!(
+            retired_templates(&report.diagnostics).is_empty(),
+            "{:?}",
+            report.diagnostics
+        );
+    }
+}
+
+#[test]
+fn the_retired_pr_template_warning_names_the_spelling_and_source_and_the_replacement() {
+    let hint = "To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it.";
+    for (source, said) in [
+        (
+            OptionSource::Env,
+            "Warning: LINEAR_PR_TEMPLATE from process environment was removed in 4.0 and does nothing.\n  Remove LINEAR_PR_TEMPLATE. ",
+        ),
+        (
+            OptionSource::ProjectConfig {
+                path: PathBuf::from("/work/.linear.toml"),
+            },
+            "Warning: pr_template from project config /work/.linear.toml was removed in 4.0 and does nothing.\n  Remove pr_template. ",
+        ),
+    ] {
+        let rendered = render_diagnostic(&StartupDiagnostic::RetiredPrTemplate(source), false);
+        assert_eq!(rendered, format!("{said}{hint}\n"));
+    }
 }
 
 #[test]

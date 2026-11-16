@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::*;
 use crate::config::{
@@ -69,7 +69,7 @@ pr_template = "  .github/pr.md  "
     let inputs = env(&[]);
     let selected = dotenv(&[]);
     let options = snapshot(&inputs, &selected, Some(&config), None).expect("valid options");
-    assert_eq!(OptionKey::ALL.len(), 12);
+    assert_eq!(OptionKey::ALL.len(), 11);
     assert_eq!(options.team_key(), Some("ENG"));
     assert_eq!(
         options.api_key().expect("key").value().expose(),
@@ -91,22 +91,10 @@ pr_template = "  .github/pr.md  "
     assert_eq!(options.attachment_dir(), Some("attachments"));
     assert!(!options.auto_download_attachments());
     assert_eq!(
-        options.sourced_pr_template().expect("template").value(),
-        ".github/pr.md"
-    );
-    assert_eq!(
         options.team_key_source(),
         Some(&OptionSource::ProjectConfig {
             path: PathBuf::from("/repo/linear.toml")
         })
-    );
-    assert_eq!(
-        options
-            .pr_template(PrTemplateCli::Unset)
-            .expect("template")
-            .expect("path")
-            .path(),
-        Path::new(&fixture_path("/repo/.github/pr.md"))
     );
 }
 
@@ -270,83 +258,41 @@ fn empty_strings_are_present_and_cli_overrides_are_closed() {
         options.issue_sort(Some(IssueSort::Manual)),
         (IssueSort::Manual, Some(OptionSource::Cli))
     );
-    assert!(
-        options
-            .pr_template(PrTemplateCli::Disabled)
-            .expect("disabled")
-            .is_none()
-    );
-    let template = options
-        .pr_template(PrTemplateCli::Path(" ./x "))
-        .expect("cli path")
-        .expect("present");
-    assert_eq!(template.path(), Path::new("./x"));
-    assert_eq!(template.source(), &OptionSource::Cli);
-    let error = options
-        .pr_template(PrTemplateCli::Path("  "))
-        .expect_err("empty CLI path");
-    assert_eq!(error.source, OptionSource::Cli);
-    assert_eq!(error.reason, OptionErrorReason::EmptyTemplate);
 }
 
 #[test]
-fn template_paths_resolve_against_their_config_file() {
-    let global = tier(
-        "/global/linear.toml",
-        "pr_template = '../../x'\nattachment_dir = 'files'",
-    );
-    let options = snapshot(&env(&[]), &dotenv(&[]), None, Some(&global)).expect("global");
-    assert_eq!(
-        options
-            .pr_template(PrTemplateCli::Unset)
-            .expect("path")
-            .expect("present")
-            .path(),
-        Path::new(&fixture_path("/x"))
-    );
-    assert_eq!(options.attachment_dir(), Some("files"));
-    let relative_global = tier("../cfg/linear/linear.toml", "pr_template = 't.md'");
-    let options = snapshot(&env(&[]), &dotenv(&[]), None, Some(&relative_global))
-        .expect("relative global path");
-    assert_eq!(
-        options
-            .pr_template(PrTemplateCli::Unset)
-            .expect("path")
-            .expect("present")
-            .path(),
-        Path::new(&fixture_path("/repo/cfg/linear/t.md"))
-    );
-    let env_options = snapshot(
-        &env(&[("LINEAR_PR_TEMPLATE", "relative.md")]),
-        &dotenv(&[]),
-        None,
-        None,
-    )
-    .expect("env path");
-    assert_eq!(
-        env_options
-            .pr_template(PrTemplateCli::Unset)
-            .expect("path")
-            .expect("present")
-            .path(),
-        Path::new("relative.md")
-    );
-    let selected = dotenv(&[("LINEAR_PR_TEMPLATE", "dotenv.md")]);
-    let dotenv_options = snapshot(&env(&[]), &selected, None, None).expect("dotenv path");
-    assert_eq!(
-        dotenv_options
-            .pr_template(PrTemplateCli::Unset)
-            .expect("path")
-            .expect("present")
-            .path(),
-        Path::new("dotenv.md")
-    );
+fn the_retired_pr_template_key_is_checked_in_every_tier_and_has_no_effect() {
+    let project = tier("/repo/linear.toml", "pr_template = '.github/pr.md'");
+    let global = tier("/global/linear.toml", "pr_template = '../../x'");
     let inputs = env(&[("LINEAR_PR_TEMPLATE", " x\t")]);
-    let options = snapshot(&inputs, &dotenv(&[]), None, None).expect("trimmed");
+    let selected = dotenv(&[("LINEAR_PR_TEMPLATE", "dotenv.md")]);
+    let options = OptionInputs {
+        env: &inputs,
+        dotenv: &selected,
+        project: Some(&project),
+        global: Some(&global),
+    };
     assert_eq!(
-        options.sourced_pr_template().expect("template").value(),
-        "x"
+        retired_pr_template(&options).expect("valid"),
+        [
+            OptionSource::Env,
+            OptionSource::ProjectEnv {
+                path: PathBuf::from("/repo/.env")
+            },
+            OptionSource::ProjectConfig {
+                path: PathBuf::from("/repo/linear.toml")
+            },
+            OptionSource::GlobalConfig {
+                path: PathBuf::from("/global/linear.toml")
+            },
+        ]
     );
+    snapshot(&inputs, &selected, Some(&project), Some(&global)).expect("loads");
+    // A shadowed value is checked too.
+    let poison = tier("/global/linear.toml", "pr_template = 42");
+    let err = snapshot(&inputs, &selected, Some(&project), Some(&poison)).expect_err("poison");
+    assert_eq!(err.key, Some(OptionKey::RetiredPrTemplate));
+    assert!(err.to_string().contains("integer `42`"), "{err}");
 }
 
 #[test]
@@ -362,6 +308,7 @@ fn empty_template_is_rejected_in_every_tier_including_shadowed() {
             path: PathBuf::from("/global/linear.toml")
         }
     );
+    assert_eq!(error.key, Some(OptionKey::RetiredPrTemplate));
     assert_eq!(error.reason, OptionErrorReason::EmptyTemplate);
     let inputs = env(&[("LINEAR_PR_TEMPLATE", "")]);
     assert_eq!(

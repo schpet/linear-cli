@@ -780,30 +780,58 @@ fn pull_request_refuses_blank_or_doubled_text_before_anything_is_read() {
 }
 
 #[test]
-fn pull_request_body_starts_with_the_template() {
+fn a_pr_template_setting_is_reported_and_no_longer_read() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details())
         .on("GetIssueDetails", details());
     let cli = git(gh(Cli::for_api(&api)))
         .file("cwd/pr.md", "## Summary\n")
         .file("cwd/.linear.toml", "pr_template = \"pr.md\"\n");
-    cli.run(&["issue", "gh", "pr", "ENG-7"]).success();
-    cli.run(&["issue", "gh", "pr", "ENG-7", "--no-template"])
-        .success();
-    let calls = cli.calls("gh");
-    assert_eq!(calls[0][5], format!("## Summary\n\nFixes ENG-7\n\n{URL}"));
-    assert_eq!(calls[1][5], format!("Fixes ENG-7\n\n{URL}"));
+    let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
+    run.success()
+        .stderr_has("Warning: pr_template from project config ")
+        .stderr_has("was removed in 4.0 and does nothing.")
+        .stderr_has("  Remove pr_template. To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it.");
+    let cli = cli.env("LINEAR_PR_TEMPLATE", "missing.md");
+    let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
+    run.success()
+        .stderr_has("Warning: LINEAR_PR_TEMPLATE from process environment was removed in 4.0");
+    assert_eq!(run.stderr.matches("Warning:").count(), 2, "{run}");
+    for call in cli.calls("gh") {
+        assert_eq!(call[5], format!("Fixes ENG-7\n\n{URL}"));
+    }
 }
 
 #[test]
-fn pull_request_with_a_missing_template_fails_before_any_request() {
+fn the_template_flags_say_to_pass_the_file_as_the_body_and_fetch_nothing() {
     let api = MockLinear::start();
-    let cli = git(gh(Cli::for_api(&api)));
-    cli.run(&["issue", "gh", "pr", "ENG-7", "--template", "missing.md"])
-        .failure()
-        .stderr_has("missing.md");
+    let cli = git(gh(Cli::for_api(&api))).file("cwd/pr.md", "## Summary\n");
+    let hint = "-F <FILE> gives the same body: the file's text, then the issue links. Add -- --editor to fill it in before creating.";
+    for (args, said) in [
+        (
+            &["--template", "pr.md"][..],
+            "--template was removed in 4.0, with pr_template",
+        ),
+        (
+            &["-T", "pr.md"],
+            "--template was removed in 4.0, with pr_template",
+        ),
+        (
+            &["--no-template"],
+            "--no-template was removed in 4.0, with pr_template",
+        ),
+    ] {
+        let mut argv = vec!["issue", "gh", "pr", "ENG-7"];
+        argv.extend(args);
+        let run = cli.run(&argv);
+        run.usage_error().stderr_has(said).stderr_has(hint);
+        assert_eq!(run.stdout, "", "{run}");
+    }
     assert!(api.requests().is_empty());
     assert!(cli.calls("gh").is_empty());
+    let help = cli.run(&["issue", "gh", "pr", "--help"]);
+    assert!(!help.stdout.contains("-T, --template"), "{help}");
+    assert!(!help.stdout.contains("--no-template"), "{help}");
 }
 
 #[test]
@@ -1164,7 +1192,7 @@ fn pull_requests_without_an_issue_say_how_to_name_one_and_read_nothing() {
     let cli = gh(repo_naming_an_issue(&api));
     for args in [
         &["issue", "gh", "pr", "-r"][..],
-        &["issue", "gh", "pull-request", "--template", "missing.md"],
+        &["issue", "gh", "pull-request", "-F", "missing.md"],
     ] {
         let run = cli.run(args);
         run.usage_error()
@@ -1677,9 +1705,7 @@ fn three_issues(api: &MockLinear) {
 fn gh_pull_request_for_several_issues_takes_the_title_and_closes_them_all() {
     let api = MockLinear::start();
     three_issues(&api);
-    let cli = git(gh(Cli::for_api(&api)))
-        .file("cwd/pr.md", "## Summary\nDescribe the change.\n\n")
-        .file("cwd/.linear.toml", "pr_template = \"pr.md\"\n");
+    let cli = git(gh(Cli::for_api(&api))).file("cwd/pr.md", "## Summary\nDescribe the change.\n\n");
     let run = cli.run(&[
         "issue",
         "gh",
@@ -1687,6 +1713,8 @@ fn gh_pull_request_for_several_issues_takes_the_title_and_closes_them_all() {
         "ENG-7",
         "DES-5",
         "ENG-256",
+        "-F",
+        "pr.md",
         "--title",
         " Widget and design ",
         "--",
@@ -1726,7 +1754,7 @@ fn several_issue_bodies_say_and_for_two_and_references_with_the_flag() {
         (&[][..], "Fixes ENG-7 and DES-5"),
         (&["--references"], "References ENG-7 and DES-5"),
         (&["--ref"], "References ENG-7 and DES-5"),
-        (&["-r", "--no-template"], "References ENG-7 and DES-5"),
+        (&["-r"], "References ENG-7 and DES-5"),
     ] {
         let api = MockLinear::start();
         issues(&api, &["DES-5"]);
