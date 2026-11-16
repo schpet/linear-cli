@@ -34,9 +34,10 @@ mod tests;
 
 /// Shown under `--help` for commands that take Markdown text.
 const LINEAR_MARKDOWN: &str = "\
-Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
-and `[Name](url)` do not. Get a person's URL from the `url` field of
-`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Linear Markdown: use plain Linear URLs for mentions and issue references, not
+bare issue IDs, `@name`, `@[Name](id)` or `[Name](url)`. Get a person's URL from
+the `url` field of `linear team members <TEAM> --json`, or an issue's from
+`linear issue url <ID>`.
 Run `linear markdown` for collapsible sections and the full reference.";
 
 /// What each exit status means. `linear --help` and the agent guide both print
@@ -179,7 +180,7 @@ pub enum RootCommand {
     /// startup rather than saving it to a file.
     #[command(verbatim_doc_comment)]
     Completions(completions::Completions),
-    /// Explain Linear-flavored Markdown: mentions and collapsible sections
+    /// Explain Linear-flavored Markdown: mentions, issue references and collapsible sections
     #[command(long_about = include_str!("markdown.txt").trim_end())]
     Markdown(markdown::Markdown),
     /// Teach coding agents to use linear

@@ -14,6 +14,9 @@ the installed `linear` binary, so it describes the commands that version has.
   array, views print one object.
 - Add `--no-input` to writes in scripts, so a missing value is an error instead
   of a prompt.
+- For comments and other Markdown bodies, follow "Markdown bodies" below
+  (`linear markdown` prints the same rules). Reference issues with bare URLs
+  instead of IDs, and @mention people with their profile URLs.
 - Name the issue in every command (`ENG-123`, an issue URL, or a bare number
   in the configured team). Nothing is read from the git branch or jj change
   unless you pass `@git` or `@jj` (see "Use the issue of the current branch or
@@ -289,8 +292,8 @@ EOF
 linear issue create --title "My issue" --description-file "${TMPDIR:-/tmp}/description.md"
 ```
 
-The rules for mentions and collapsible sections, as `linear markdown` prints
-them:
+The rules for mentions, issue references and collapsible sections, as
+`linear markdown` prints them:
 
 ```text
 {{MARKDOWN}}
