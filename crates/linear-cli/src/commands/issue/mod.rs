@@ -49,18 +49,17 @@ pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
         },
         IssueCommand::Jj(args) => match &args.command {
             IssueJjCommand::Start(args) => vcs_start::run_jj(ctx, args),
-            IssueJjCommand::PullRequest(args) => pull_request::run_jj(ctx, args),
         },
         IssueCommand::View(args) => view::run(ctx, args),
         IssueCommand::Describe(args) => describe::run(ctx, args),
         IssueCommand::Gh(args) => match &args.command {
-            IssueGhCommand::PullRequest(args) => pull_request::run_gh(ctx, args),
+            IssueGhCommand::PullRequest(args) => pull_request::run(ctx, args),
         },
         IssueCommand::MovedPullRequest(_) => Err(Error::invalid(
             "`issue pull-request` moved to `issue gh pull-request`",
         )
         .with_hint(
-            "Run `linear issue gh pr` with the same arguments, or `linear issue jj pr` to push a jj bookmark first.",
+            "Run `linear issue gh pr <ISSUE>`; gh options such as --draft or --base now go after `--`. From a jj repository, push a bookmark first and pass `-- --head <BRANCH>`.",
         )),
         IssueCommand::RemovedCommits(_) => {
             Err(Error::invalid("`issue commits` was removed in 4.0")

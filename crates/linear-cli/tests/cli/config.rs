@@ -213,7 +213,7 @@ fn the_retired_vcs_setting_still_loads_and_warns_on_stderr_only() {
             "Warning: LINEAR_VCS from process environment was removed in 4.0 and does nothing.",
         )
         .stderr_has("Warning: vcs from project config ")
-        .stderr_has("`linear issue jj pr`");
+        .stderr_has("`linear issue jj start` for jj");
     assert_eq!(run.stdout, "ENG-7\n");
     assert_eq!(run.stderr.matches("Warning:").count(), 2, "{run}");
     let token = Cli::new()

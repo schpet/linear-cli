@@ -412,7 +412,7 @@ fn gh(cli: Cli) -> Cli {
 fn pull_request_passes_the_issue_title_and_url_to_gh() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details());
-    let cli = gh(Cli::for_api(&api));
+    let cli = git(gh(Cli::for_api(&api)));
     cli.run(&["issue", "gh", "pull-request", "ENG-7"]).success();
     assert_eq!(
         cli.calls("gh"),
@@ -422,32 +422,361 @@ fn pull_request_passes_the_issue_title_and_url_to_gh() {
             "--title",
             "ENG-7 Repair the widget",
             "--body",
-            URL
+            &format!("Fixes ENG-7\n\n{URL}")
         ]]
     );
     assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-7" }));
+    // gh reads the repository and branch itself.
+    assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
 }
 
 #[test]
-fn pull_request_forwards_title_base_head_and_draft() {
+fn pull_request_passes_everything_after_the_separator_to_gh_after_its_own_flags() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details());
     let cli = git(gh(Cli::for_api(&api)));
     cli.run(&[
-        "issue", "gh", "pr", "ENG-7", "--title", "Custom", "--base", "main", "--head", "topic",
+        "issue",
+        "gh",
+        "pr",
+        "ENG-7",
+        "--title",
+        " Custom ",
+        "--",
         "--draft",
+        "--base",
+        "main",
+        "--reviewer",
+        "alice",
+        "--title",
+        "From gh",
+        "--body",
+        "Replaced",
+        "ENG-9",
+        "--",
+        "-r",
     ])
     .success();
-    let args = cli.calls("gh").remove(0);
+    // Unchanged and last, so gh takes the later --title and --body.
     assert_eq!(
-        args[..6],
-        ["pr", "create", "--title", "ENG-7 Custom", "--body", URL]
+        cli.calls("gh"),
+        [[
+            "pr",
+            "create",
+            "--title",
+            " Custom ",
+            "--body",
+            &format!("Fixes ENG-7\n\n{URL}"),
+            "--draft",
+            "--base",
+            "main",
+            "--reviewer",
+            "alice",
+            "--title",
+            "From gh",
+            "--body",
+            "Replaced",
+            "ENG-9",
+            "--",
+            "-r"
+        ]]
     );
-    let flags = &args[6..];
-    for expected in [["--base", "main"], ["--head", "topic"]] {
-        assert!(flags.windows(2).any(|pair| pair == expected), "{args:?}");
+    assert_eq!(api.operations(), ["GetIssueDetails"]);
+}
+
+#[test]
+fn pull_request_needs_no_git_checkout_and_leaves_gh_s_own_errors_as_they_are() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details())
+        .on("GetIssueDetails", details());
+    let cli = gh(Cli::for_api(&api)).stub_bin("git", NO_REPOSITORY);
+    cli.run(&[
+        "issue",
+        "gh",
+        "pr",
+        "ENG-7",
+        "--",
+        "--repo",
+        "upstream/project",
+        "--head",
+        "alice:topic",
+    ])
+    .success();
+    assert_eq!(
+        cli.calls("gh")[0][6..],
+        ["--repo", "upstream/project", "--head", "alice:topic"]
+    );
+    assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
+    let run = cli
+        .stub_bin(
+            "gh",
+            "echo 'could not determine the current branch: not on any branch' >&2; exit 1",
+        )
+        .run(&["issue", "gh", "pr", "ENG-7"]);
+    run.failure().stderr_has("not on any branch");
+}
+
+#[test]
+fn pull_request_says_where_the_flags_that_moved_to_gh_go_and_fetches_nothing() {
+    let api = MockLinear::start();
+    let cli = git(gh(Cli::for_api(&api)));
+    for (args, said, hint) in [
+        (
+            &["--draft"][..],
+            "--draft is now passed to gh",
+            "Put it after --: linear issue gh pr <ISSUE> -- --draft",
+        ),
+        (
+            &["--web"],
+            "--web is now passed to gh",
+            "Put it after --: linear issue gh pr <ISSUE> -- --web",
+        ),
+        (
+            &["--base", "main"],
+            "--base is now passed to gh",
+            "Put it after --: linear issue gh pr <ISSUE> -- --base <BRANCH>",
+        ),
+        (
+            &["--head", "topic"],
+            "--head is now passed to gh",
+            "Put it after --: linear issue gh pr <ISSUE> -- --head <BRANCH>",
+        ),
+        (
+            &["--draft", "--base", "main"],
+            "--base and --draft are now passed to gh",
+            "Put them after --: linear issue gh pr <ISSUE> -- --base <BRANCH> --draft",
+        ),
+    ] {
+        let mut argv = vec!["issue", "gh", "pr", "ENG-7"];
+        argv.extend(args);
+        let run = cli.run(&argv);
+        run.usage_error().stderr_has(said).stderr_has(hint);
+        assert_eq!(run.stdout, "", "{run}");
     }
-    assert!(flags.contains(&"--draft".to_owned()), "{args:?}");
+    assert!(api.requests().is_empty());
+    assert!(cli.calls("gh").is_empty());
+    let help = cli.run(&["issue", "gh", "pr", "--help"]);
+    for hidden in ["--draft ", "--web ", "--base <", "--head <"] {
+        assert!(
+            !help.stdout.contains(&format!("      {hidden}")),
+            "{hidden}: {help}"
+        );
+    }
+}
+
+#[test]
+fn pull_request_body_is_the_given_description_then_the_clause_and_links() {
+    let api = MockLinear::start();
+    for _ in 0..4 {
+        api.on("GetIssueDetails", details());
+    }
+    let cli = git(gh(Cli::for_api(&api)))
+        .file("cwd/body.md", "\u{feff}## Summary\n\nMine.\n\n")
+        .stdin(b"From stdin\n");
+    cli.run(&["issue", "gh", "pr", "ENG-7", "-b", "Inline\n \n"])
+        .success();
+    cli.run(&["issue", "gh", "pr", "ENG-7", "--body-file", "body.md"])
+        .success();
+    cli.run(&["issue", "gh", "pr", "ENG-7", "-F", "-", "-r"])
+        .success();
+    cli.run(&["issue", "gh", "pr", "ENG-7", "--body", "Mine", "--ref"])
+        .success();
+    let bodies: Vec<String> = cli
+        .calls("gh")
+        .into_iter()
+        .map(|call| call[5].clone())
+        .collect();
+    assert_eq!(
+        bodies,
+        [
+            format!("Inline\n\nFixes ENG-7\n\n{URL}"),
+            format!("## Summary\n\nMine.\n\nFixes ENG-7\n\n{URL}"),
+            format!("From stdin\n\nReferences ENG-7\n\n{URL}"),
+            format!("Mine\n\nReferences ENG-7\n\n{URL}"),
+        ]
+    );
+}
+
+#[test]
+fn pull_request_for_several_issues_puts_the_description_before_one_clause() {
+    let api = MockLinear::start();
+    issues(&api, &["DES-5"]);
+    let cli = git(gh(Cli::for_api(&api))).file("cwd/body.md", "Both at once\n");
+    cli.run(&[
+        "issue", "gh", "pr", "ENG-7", "DES-5", "-t", "Both", "-F", "body.md",
+    ])
+    .success();
+    assert_eq!(
+        cli.calls("gh")[0][3..6],
+        [
+            "Both".to_owned(),
+            "--body".to_owned(),
+            format!(
+                "Both at once\n\nFixes ENG-7 and DES-5\n\n{URL}\n{}",
+                other_url("DES-5", "Design")
+            )
+        ]
+    );
+}
+
+/// A git stub that answers as git does when it finds no repository.
+const NO_REPOSITORY: &str =
+    "echo 'fatal: not a git repository (or any of the parent directories): .git' >&2; exit 128";
+
+#[test]
+fn at_git_keeps_every_other_git_answer_as_an_error() {
+    for (case, git, said) in [
+        (
+            "an unexpected failure, with no .git anywhere",
+            Some("echo 'fatal: bad object HEAD' >&2; exit 128"),
+            "fatal: bad object HEAD",
+        ),
+        (
+            "git's own exit status for something else",
+            Some("echo 'error: unknown' >&2; exit 2"),
+            "error: unknown",
+        ),
+        ("a signal", Some("kill -9 $$"), "`git` failed (signal: 9"),
+        (
+            "more than one line",
+            Some("printf 'notice\\nmain\\n'"),
+            "Unexpected output from `git symbolic-ref`: \"notice\\nmain\\n\"",
+        ),
+        (
+            "no branch name",
+            Some("printf '\\n'"),
+            "Unexpected output from `git symbolic-ref`",
+        ),
+        (
+            "invalid UTF-8",
+            Some("printf 'ma\\377in\\n'"),
+            "Unexpected output from `git symbolic-ref`",
+        ),
+        (
+            "padding around the name",
+            Some("printf ' main\\n'"),
+            "Unexpected output from `git symbolic-ref`",
+        ),
+        ("no git on PATH", None, "Could not find `git`"),
+    ] {
+        let mut cli = Cli::new();
+        if let Some(git) = git {
+            cli = cli.stub_bin("git", git);
+        }
+        let run = cli.run(&["issue", "id", "@git"]);
+        run.failure()
+            .stderr_has("Failed to read the current git branch for @git")
+            .stderr_has(said);
+        assert!(
+            !run.stderr.contains("Not in a git repository"),
+            "{case}: {run}"
+        );
+        assert_eq!(run.stdout, "", "{case}: {run}");
+    }
+}
+
+/// Runs the real git, from `PATH=/usr/bin:/bin`, with its calls recorded.
+fn real_git(cli: Cli) -> Cli {
+    cli.stub_bin("git", "exec git \"$@\"")
+}
+
+/// Runs the real git in `dir` to set up a repository for a test.
+fn git_setup(dir: &std::path::Path, args: &[&str]) {
+    let status = std::process::Command::new("git")
+        .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("HOME", dir)
+        .stdout(std::process::Stdio::null())
+        .status()
+        .expect("run git");
+    assert!(status.success(), "git {args:?} in {}", dir.display());
+}
+
+#[test]
+fn at_git_reads_the_branch_wherever_real_git_finds_one() {
+    // Unborn: a branch with no commit yet is still the current branch.
+    let cli = real_git(Cli::new());
+    git_setup(&cli.path("cwd"), &["init", "-q", "-b", "eng-7-unborn"]);
+    assert_eq!(
+        cli.run(&["issue", "id", "@git"]).success().stdout,
+        "ENG-7\n"
+    );
+    // A linked worktree, whose .git is a file.
+    let cli = real_git(Cli::new()).cwd("worktree");
+    let main = cli.path("main");
+    std::fs::create_dir_all(&main).expect("main repository");
+    git_setup(&main, &["init", "-q", "-b", "main"]);
+    git_setup(&main, &["commit", "-q", "--allow-empty", "-m", "first"]);
+    git_setup(
+        &main,
+        &["worktree", "add", "-q", "-b", "eng-8-wt", "../worktree"],
+    );
+    assert!(cli.path("worktree/.git").is_file());
+    assert_eq!(
+        cli.run(&["issue", "id", "@git"]).success().stdout,
+        "ENG-8\n"
+    );
+    // A bare repository named by GIT_DIR, outside any checkout.
+    let cli = real_git(Cli::new());
+    let bare = cli.path("bare.git");
+    std::fs::create_dir_all(&bare).expect("bare repository");
+    git_setup(&bare, &["init", "-q", "--bare", "-b", "eng-9-bare"]);
+    let cli = cli.env("GIT_DIR", &bare.display().to_string());
+    assert_eq!(
+        cli.run(&["issue", "id", "@git"]).success().stdout,
+        "ENG-9\n"
+    );
+}
+
+#[test]
+fn at_git_tells_real_git_s_no_repository_from_a_bad_git_dir() {
+    let cli = real_git(Cli::new());
+    let root = cli.path("").display().to_string();
+    let cli = cli.env("GIT_CEILING_DIRECTORIES", &root);
+    cli.run(&["issue", "id", "@git"])
+        .failure()
+        .stderr_has("Not in a git repository")
+        .stderr_has("@git reads the current branch.");
+    let run = cli
+        .env("GIT_DIR", "/nonexistent/repo")
+        .run(&["issue", "id", "@git"]);
+    run.failure()
+        .stderr_has("Failed to read the current git branch for @git")
+        .stderr_has("not a git repository: '/nonexistent/repo'");
+    assert!(!run.stderr.contains("Not in a git repository"), "{run}");
+}
+
+#[test]
+fn pull_request_refuses_blank_or_doubled_text_before_anything_is_read() {
+    let api = MockLinear::start();
+    let cli = git(gh(Cli::for_api(&api))).file("cwd/empty.md", " \n\n");
+    for (args, said) in [
+        (
+            &["issue", "gh", "pr", "ENG-7", "--title", ""][..],
+            "--title",
+        ),
+        (&["issue", "gh", "pr", "ENG-7", "-t", " \t"], "--title"),
+        (&["issue", "gh", "pr", "ENG-7", "-b", " "], "--body"),
+        (
+            &["issue", "gh", "pr", "ENG-7", "-b", "x", "-F", "empty.md"],
+            "cannot be used with",
+        ),
+    ] {
+        let run = cli.run(args);
+        run.usage_error().stderr_has(said);
+        assert_eq!(run.stdout, "", "{run}");
+    }
+    let run = cli.run(&["issue", "gh", "pr", "ENG-7", "-F", "empty.md"]);
+    run.usage_error()
+        .stderr_has("Body file is empty: empty.md")
+        .stderr_has("leave out --body-file");
+    let run = cli.run(&["issue", "gh", "pr", "ENG-7", "-F", "missing.md"]);
+    run.failure()
+        .stderr_has("Failed to read body file: missing.md");
+    assert!(api.requests().is_empty());
+    assert!(cli.calls("gh").is_empty());
 }
 
 #[test]
@@ -455,21 +784,21 @@ fn pull_request_body_starts_with_the_template() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details())
         .on("GetIssueDetails", details());
-    let cli = gh(Cli::for_api(&api))
+    let cli = git(gh(Cli::for_api(&api)))
         .file("cwd/pr.md", "## Summary\n")
         .file("cwd/.linear.toml", "pr_template = \"pr.md\"\n");
     cli.run(&["issue", "gh", "pr", "ENG-7"]).success();
     cli.run(&["issue", "gh", "pr", "ENG-7", "--no-template"])
         .success();
     let calls = cli.calls("gh");
-    assert_eq!(calls[0][5], format!("## Summary\n\n{URL}"));
-    assert_eq!(calls[1][5], URL);
+    assert_eq!(calls[0][5], format!("## Summary\n\nFixes ENG-7\n\n{URL}"));
+    assert_eq!(calls[1][5], format!("Fixes ENG-7\n\n{URL}"));
 }
 
 #[test]
 fn pull_request_with_a_missing_template_fails_before_any_request() {
     let api = MockLinear::start();
-    let cli = gh(Cli::for_api(&api));
+    let cli = git(gh(Cli::for_api(&api)));
     cli.run(&["issue", "gh", "pr", "ENG-7", "--template", "missing.md"])
         .failure()
         .stderr_has("missing.md");
@@ -485,7 +814,7 @@ fn pull_request_fails_with_status_1_when_gh_fails_and_130_when_it_is_cancelled()
     ] {
         let api = MockLinear::start();
         api.on("GetIssueDetails", details());
-        let run = Cli::for_api(&api)
+        let run = git(Cli::for_api(&api))
             .stub_bin("gh", script)
             .run(&["issue", "gh", "pr", "ENG-7"]);
         assert_eq!(run.code, code, "{run}");
@@ -549,16 +878,6 @@ fn jj_start_stops_when_the_change_probe_fails() {
         .stderr_has("concurrent operation");
     assert_eq!(calls(&cli, "jj").len(), 1);
     assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
-}
-
-#[test]
-fn pull_request_with_an_empty_title_uses_the_issue_title() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let cli = gh(Cli::for_api(&api));
-    cli.run(&["issue", "gh", "pr", "ENG-7", "--title", ""])
-        .success();
-    assert_eq!(cli.calls("gh")[0][3], "ENG-7 Repair the widget");
 }
 
 #[test]
@@ -761,342 +1080,6 @@ fn start_rejects_all_assignees_with_unassigned() {
     assert!(api.requests().is_empty());
 }
 
-/// The jj stub's answer for one commit: its ID, parents, description, and
-/// whether it is empty.
-fn jj_commit(id: &str, parent: &str, description: &str, empty: bool) -> String {
-    json!([
-        { "commit_id": id, "parents": [parent], "description": description },
-        empty, false
-    ])
-    .to_string()
-}
-
-/// A jj repository for `issue jj pr`: an empty scratch `@` (`aaa`) on the
-/// described change `bbb`, itself on the trunk change `ccc`, with the remote
-/// `origin`. Local bookmarks are the lines of `cwd/bookmarks`, which
-/// `bookmark create` appends to. A push leaves `cwd/pushed` behind, and the
-/// gh stub refuses to run before it exists.
-fn jj_repo(cli: Cli, bookmarks: &str) -> Cli {
-    jj_repo_naming(cli, bookmarks, &["Fixes ENG-7"])
-}
-
-/// [`jj_repo`] whose described change `bbb` has these `Linear-issue`
-/// trailer values.
-fn jj_repo_naming(cli: Cli, bookmarks: &str, linear_issue: &[&str]) -> Cli {
-    let scratch = jj_commit("aaa", "bbb", "", true);
-    let work = jj_commit("bbb", "ccc", "ENG-7 Repair the widget\n", false);
-    let trunk = jj_commit("ccc", "ddd", "trunk\n", false);
-    let scratch_change = jj_change("aaa", &[]);
-    let work_change = jj_change("bbb", linear_issue);
-    cli.file("cwd/bookmarks", bookmarks)
-        .stub_bin(
-            "jj",
-            &format!(
-                "case \"$*\" in\n\
-                 *'log -r @ '*) printf '%s\\n' '{scratch}' ;;\n\
-                 *'log -r bbb '*) printf '%s\\n' '{work}' ;;\n\
-                 *'log -r ccc '*) printf '%s\\n' '{trunk}' ;;\n\
-                 *'log -r trunk() '*) echo false ;;\n\
-                 *'log -r trunk()..@ '*) printf '%s\\n' '{scratch_change}' '{work_change}' ;;\n\
-                 *'log -r (remote_bookmarks'*) cat unpushable 2>/dev/null || true ;;\n\
-                 *'config list git.push '*) ;;\n\
-                 *'git remote list') echo 'origin git@github.com:acme/widgets.git' ;;\n\
-                 *'bookmark list '*) cat bookmarks ;;\n\
-                 *'bookmark create -r '*) for name; do :; done\n\
-                   printf '{{\"name\":\"%s\",\"target\":[\"%s\"]}}\\n' \"$name\" \"$8\" >> bookmarks ;;\n\
-                 *'git push '*) echo 'Changes to push to origin:' >&2; touch pushed ;;\n\
-                 *) echo \"unexpected jj $*\" >&2; exit 1 ;;\n\
-                 esac"
-            ),
-        )
-        .stub_bin(
-            "gh",
-            "test -e pushed || { echo 'gh ran before the push' >&2; exit 1; }\n\
-             echo https://github.com/acme/widgets/pull/1",
-        )
-        .stub_bin("git", "exit 1")
-}
-
-/// What `calls` recorded for jj, without the global flags every call starts with.
-fn jj_calls(cli: &Cli) -> Vec<String> {
-    calls(cli, "jj")
-        .into_iter()
-        .map(|args| {
-            let skip = if args[0] == "--ignore-working-copy" {
-                4
-            } else {
-                3
-            };
-            args[skip..].join(" ")
-        })
-        .collect()
-}
-
-/// gh calls other than the `--version` check that precedes any push.
-fn gh_calls(cli: &Cli) -> Vec<Vec<String>> {
-    cli.calls("gh")
-        .into_iter()
-        .filter(|args| args[..] != ["--version"])
-        .collect()
-}
-
-const REPO: &str = "git@github.com:acme/widgets.git";
-
-#[test]
-fn jj_pull_request_creates_and_pushes_a_bookmark_for_the_parent_of_a_scratch_change() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let cli = jj_repo(Cli::for_api(&api), "");
-    let run = cli.run(&["issue", "jj", "pr", "ENG-7", "--draft"]);
-    run.success()
-        .stderr_has("Creating jj bookmark eng-7-repair-the-widget\n")
-        .stderr_has("Pushing jj bookmark eng-7-repair-the-widget to origin\n")
-        .stderr_has("Changes to push to origin:");
-    assert_eq!(run.stdout, "https://github.com/acme/widgets/pull/1\n");
-    let jj = jj_calls(&cli);
-    assert!(jj[0].starts_with("log -r @ --no-graph"), "{jj:?}");
-    assert!(
-        !jj.iter().any(|call| call.contains("trunk()")),
-        "a named issue needs no trunk: {jj:?}"
-    );
-    assert_eq!(
-        calls(&cli, "jj")[0][..3],
-        ["--no-pager", "--color", "never"],
-        "only the first call snapshots the working copy"
-    );
-    assert_eq!(
-        jj[jj.len() - 3..],
-        [
-            "bookmark create -r bbb -- eng-7-repair-the-widget",
-            "bookmark list -T json(self) ++ \"\\n\"",
-            "git push --remote origin --bookmark exact:eng-7-repair-the-widget",
-        ]
-    );
-    assert_eq!(
-        gh_calls(&cli),
-        [[
-            "pr",
-            "create",
-            "--title",
-            "ENG-7 Repair the widget",
-            "--body",
-            URL,
-            "--repo",
-            REPO,
-            "--head",
-            "eng-7-repair-the-widget",
-            "--draft"
-        ]]
-    );
-    assert!(calls(&cli, "git").is_empty(), "gh needs no git checkout");
-}
-
-#[test]
-fn jj_pull_request_reuses_a_bookmark_on_the_head_and_pushes_it() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let cli = jj_repo(
-        Cli::for_api(&api),
-        "{\"name\":\"mine\",\"target\":[\"bbb\"]}\n\
-         {\"name\":\"mine\",\"remote\":\"origin\",\"target\":[\"bbb\"]}\n\
-         {\"name\":\"elsewhere\",\"target\":[\"ccc\"]}\n",
-    );
-    cli.run(&["issue", "jj", "pull-request", "ENG-7", "--base", "main"])
-        .success();
-    let jj = jj_calls(&cli);
-    assert!(
-        !jj.iter().any(|call| call.starts_with("bookmark create")),
-        "{jj:?}"
-    );
-    assert_eq!(
-        jj.last().map(String::as_str),
-        Some("git push --remote origin --bookmark exact:mine")
-    );
-    let gh = gh_calls(&cli).remove(0);
-    assert_eq!(
-        gh[6..],
-        ["--repo", REPO, "--base", "main", "--head", "mine"]
-    );
-}
-
-#[test]
-fn jj_pull_request_takes_head_as_a_bookmark_existing_or_new() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
-        .on("GetIssueDetails", details());
-    // An existing bookmark decides the revision, even one on trunk that jj
-    // treats as immutable: whether there is anything to merge is gh's call.
-    let cli = jj_repo(
-        Cli::for_api(&api),
-        "{\"name\":\"release\",\"target\":[\"ccc\"]}\n",
-    );
-    cli.run(&["issue", "jj", "pr", "ENG-7", "--head", "release"])
-        .success();
-    let jj = jj_calls(&cli);
-    assert!(
-        !jj.iter().any(|call| call.starts_with("bookmark create")),
-        "{jj:?}"
-    );
-    assert_eq!(
-        jj.last().map(String::as_str),
-        Some("git push --remote origin --bookmark exact:release")
-    );
-    assert_eq!(
-        gh_calls(&cli)[0][6..],
-        ["--repo", REPO, "--head", "release"]
-    );
-    // A new name is created on the automatic head.
-    cli.run(&["issue", "jj", "pr", "ENG-7", "--head", "topic"])
-        .success();
-    assert!(
-        jj_calls(&cli).contains(&"bookmark create -r bbb -- topic".to_owned()),
-        "{:?}",
-        jj_calls(&cli)
-    );
-    assert_eq!(gh_calls(&cli)[1][6..], ["--repo", REPO, "--head", "topic"]);
-    cli.run(&["issue", "jj", "pr", "ENG-7", "--head", "someone:topic"])
-        .usage_error()
-        .stderr_has("Cannot open a pull request from someone:topic with jj");
-    assert_eq!(api.operations().len(), 2, "refused before any request");
-}
-
-#[test]
-fn jj_pull_request_stops_before_publishing_when_the_bookmark_is_unclear() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
-        .on("GetIssueDetails", details());
-    for (bookmarks, said) in [
-        (
-            "{\"name\":\"one\",\"target\":[\"bbb\"]}\n{\"name\":\"two\",\"target\":[\"bbb\"]}\n",
-            "Several jj bookmarks point at the pull request revision: one, two",
-        ),
-        (
-            "{\"name\":\"eng-7-repair-the-widget\",\"target\":[\"ccc\"]}\n",
-            "The jj bookmark eng-7-repair-the-widget already exists at another revision",
-        ),
-    ] {
-        let cli = jj_repo(Cli::for_api(&api), bookmarks);
-        cli.run(&["issue", "jj", "pr", "ENG-7"])
-            .usage_error()
-            .stderr_has(said);
-        let jj = jj_calls(&cli);
-        assert!(
-            !jj.iter()
-                .any(|call| call.starts_with("bookmark create") || call.starts_with("git push")),
-            "{jj:?}"
-        );
-        assert!(gh_calls(&cli).is_empty());
-    }
-}
-
-#[test]
-fn jj_pull_request_refuses_what_jj_would_not_push() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    // An undescribed change under the head stops it before a bookmark exists.
-    let cli = jj_repo(Cli::for_api(&api), "").file("cwd/unpushable", "0123456789ab\n");
-    cli.run(&["issue", "jj", "pr", "ENG-7"])
-        .usage_error()
-        .stderr_has("jj will not push the pull request: 0123456789ab under it has no description");
-    let jj = jj_calls(&cli);
-    assert!(
-        !jj.iter().any(|call| call.starts_with("bookmark create")),
-        "{jj:?}"
-    );
-    assert!(cli.calls("gh").iter().all(|args| args[..] == ["--version"]));
-}
-
-#[test]
-fn jj_pull_request_needs_gh_before_it_pushes_anything() {
-    let api = MockLinear::start();
-    let cli = jj_repo(Cli::for_api(&api), "").stub_bin("gh", "exit 127");
-    std::fs::remove_file(cli.path("bin/gh")).expect("remove the gh stub");
-    cli.run(&["issue", "jj", "pr", "ENG-7"])
-        .failure()
-        .stderr_has("Could not find `gh`");
-    assert!(calls(&cli, "jj").is_empty());
-    assert!(api.requests().is_empty());
-}
-
-#[test]
-fn jj_pull_request_without_credentials_fails_before_touching_the_repository() {
-    let cli = jj_repo(Cli::new(), "");
-    cli.run(&["issue", "jj", "pr", "ENG-7"]).auth_failure();
-    assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
-    assert!(cli.calls("gh").is_empty(), "{:?}", cli.calls("gh"));
-    // Naming the issue with a reference still needs no credentials.
-    cli.run(&["issue", "id", "@jj"])
-        .success()
-        .stdout_has("ENG-7");
-}
-
-#[test]
-fn jj_pull_request_does_not_run_gh_when_the_push_fails() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let cli = jj_repo(Cli::for_api(&api), "").stub_bin(
-        "jj",
-        &format!(
-            "case \"$*\" in\n\
-             *'log -r @ '*) printf '%s\\n' '{}' ;;\n\
-             *'config list '*) ;;\n\
-             *'git remote list') echo 'origin https://github.com/acme/widgets.git' ;;\n\
-             *'bookmark list '*) echo '{{\"name\":\"mine\",\"target\":[\"aaa\"]}}' ;;\n\
-             *'log -r (remote_bookmarks'*) ;;\n\
-             *) echo 'Error: remote rejected' >&2; exit 1 ;;\n\
-             esac",
-            jj_commit("aaa", "bbb", "ENG-7 work\n", false)
-        ),
-    );
-    let run = cli.run(&["issue", "jj", "pr", "ENG-7"]);
-    assert_eq!(run.code, 1, "{run}");
-    run.stderr_has("Failed to push the jj bookmark mine to origin")
-        .stderr_has("remote rejected")
-        .stderr_has("No pull request was opened");
-    assert!(gh_calls(&cli).is_empty());
-}
-
-#[test]
-fn jj_pull_request_needs_a_remote_and_a_repository_before_anything_is_published() {
-    let api = MockLinear::start();
-    // Every issue is fetched before the repository is surveyed.
-    for _ in 0..3 {
-        api.on("GetIssueDetails", details());
-    }
-    for (remotes, said) in [
-        ("", "This jj repository has no git remote to push to"),
-        (
-            "echo 'origin /srv/git/widgets.git'",
-            "Cannot tell which GitHub repository the jj remote origin is",
-        ),
-    ] {
-        let cli = jj_repo(Cli::for_api(&api), "").stub_bin(
-            "jj",
-            &format!(
-                "case \"$*\" in\n\
-                 *'log -r @ '*) printf '%s\\n' '{}' ;;\n\
-                 *'git remote list') {remotes} ;;\n\
-                 esac",
-                jj_commit("aaa", "bbb", "ENG-7 work\n", false)
-            ),
-        );
-        cli.run(&["issue", "jj", "pr", "ENG-7"])
-            .failure()
-            .stderr_has(said);
-        assert!(gh_calls(&cli).is_empty());
-    }
-    gh(Cli::for_api(&api))
-        .stub_bin(
-            "jj",
-            "echo 'Error: There is no jj repo in \".\"' >&2; exit 1",
-        )
-        .run(&["issue", "jj", "pr", "ENG-7"])
-        .failure()
-        .stderr_has("Not in a jj repository")
-        .stderr_has("use `linear issue gh pr` instead");
-    assert_eq!(api.operations(), ["GetIssueDetails"; 3]);
-}
-
 #[test]
 fn the_old_pull_request_spellings_say_where_the_command_went() {
     let api = MockLinear::start();
@@ -1109,11 +1092,10 @@ fn the_old_pull_request_spellings_say_where_the_command_went() {
         cli.run(args)
             .usage_error()
             .stderr_has("`issue pull-request` moved to `issue gh pull-request`")
-            .stderr_has("linear issue gh pr")
-            .stderr_has("linear issue jj pr");
+            .stderr_has("Run `linear issue gh pr <ISSUE>`; gh options such as --draft or --base now go after `--`. From a jj repository, push a bookmark first and pass `-- --head <BRANCH>`.");
     }
     assert!(api.requests().is_empty());
-    assert!(gh_calls(&cli).is_empty());
+    assert!(cli.calls("gh").is_empty());
     let help = cli.run(&["issue", "--help"]);
     help.success().stdout_has("  gh ");
     assert!(!help.stdout.contains("pull-request"), "{help}");
@@ -1179,52 +1161,55 @@ fn a_named_issue_is_used_without_asking_the_repository() {
 #[test]
 fn pull_requests_without_an_issue_say_how_to_name_one_and_read_nothing() {
     let api = MockLinear::start();
-    for tool in ["gh", "jj"] {
-        let cli = gh(repo_naming_an_issue(&api));
-        for args in [
-            &["issue", tool, "pr", "--draft"][..],
-            &["issue", tool, "pull-request", "--template", "missing.md"],
-        ] {
-            let run = cli.run(args);
-            run.usage_error()
-                .stderr_has("No issue to open a pull request for")
-                .stderr_has(&format!("linear issue {tool} pr ENG-123"))
-                .stderr_has("`@git`")
-                .stderr_has("`@jj`");
-            assert_eq!(run.stdout, "", "{run}");
-        }
-        assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
-        assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
-        assert!(cli.calls("gh").is_empty());
-        let help = cli.run(&["issue", tool, "pr", "--help"]);
-        help.success()
-            .stdout_has(&format!(
-                "Usage: linear issue {tool} pull-request [OPTIONS] <ISSUE>"
-            ))
-            .stdout_has("@git");
+    let cli = gh(repo_naming_an_issue(&api));
+    for args in [
+        &["issue", "gh", "pr", "-r"][..],
+        &["issue", "gh", "pull-request", "--template", "missing.md"],
+    ] {
+        let run = cli.run(args);
+        run.usage_error()
+            .stderr_has("No issue to open a pull request for")
+            .stderr_has("linear issue gh pr ENG-123")
+            .stderr_has("`@git`")
+            .stderr_has("`@jj`");
+        assert_eq!(run.stdout, "", "{run}");
     }
+    assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
+    assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
+    assert!(cli.calls("gh").is_empty());
+    cli.run(&["issue", "gh", "pr", "--help"])
+        .success()
+        .stdout_has("Usage: linear issue gh pull-request [OPTIONS] <ISSUE>")
+        .stdout_has("@git");
     assert!(api.requests().is_empty());
 }
 
 #[test]
-fn the_pull_request_commands_describe_their_own_head() {
+fn pull_request_help_states_the_rule_and_how_to_push_from_jj() {
     let cli = Cli::new();
     let gh = cli.run(&["issue", "gh", "pr", "--help"]);
     gh.success()
-        .stdout_has("--head <BRANCH>")
-        .stdout_has("accepts owner:branch")
-        .stdout_has("use `linear issue jj pr`");
+        .stdout_has("Usage: linear issue gh pull-request [OPTIONS] <ISSUE>... [-- <GH_ARGS>...]")
+        .stdout_has("Before `--` is what linear builds from the issues: the title and the\nbody. Everything after `--` is passed to `gh pr create` as it is,")
+        .stdout_has("A --title or --body after `--` replaces linear's, issue links\nincluded.")
+        .stdout_has("gh's own --template cannot be used")
+        .stdout_has("`gh pr create --help`")
+        .stdout_has("  linear issue gh pr ENG-7 -- --draft --base main\n")
+        .stdout_has("  linear issue gh pr ENG-7 -- --editor ")
+        .stdout_has("linear itself never creates, moves or pushes a branch or bookmark.")
+        .stdout_has("  jj git push --named \"$branch=@-\"\n")
+        .stdout_has("  linear issue gh pr ENG-7 -- --head \"$branch\"\n")
+        .stdout_has("right after `issue jj start`, @ is\nthe described change, so run `jj new` first (or push @)")
+        .stdout_has("Later, `jj git push --bookmark \"$branch\"` updates the pull request.")
+        .stdout_has("first run `jj bookmark move \"$branch\" --to @-`.");
     assert!(!gh.stdout.contains("vcs"), "{gh}");
-    let jj = cli.run(&["issue", "jj", "pull-request", "--help"]);
-    jj.success()
-        .stdout_has("--head <BOOKMARK>")
-        .stdout_has("jj git push")
-        .stdout_has("trunk()..@ even when");
-    assert!(!jj.stdout.contains("vcs"), "{jj}");
-    cli.run(&["issue", "jj", "--help"])
-        .success()
-        .stdout_has("  start ")
-        .stdout_has("  pull-request ");
+    assert!(!gh.stdout.contains("jj pr"), "{gh}");
+    let jj = cli.run(&["issue", "jj", "--help"]);
+    jj.success().stdout_has("  start ");
+    assert!(!jj.stdout.contains("pull-request"), "{jj}");
+    cli.run(&["issue", "jj", "pr", "ENG-7"]).usage_error();
+    cli.run(&["issue", "jj", "pull-request", "ENG-7"])
+        .usage_error();
 }
 
 #[test]
@@ -1397,7 +1382,7 @@ fn at_git_fails_before_any_request_when_the_branch_names_no_issue() {
             .stderr_has(hint);
     }
     Cli::for_api(&api)
-        .stub_bin("git", "echo 'fatal: not a git repository' >&2; exit 128")
+        .stub_bin("git", NO_REPOSITORY)
         .run(&["issue", "url", "@git"])
         .failure()
         .stderr_has("Not in a git repository")
@@ -1586,6 +1571,7 @@ fn gh_pull_request_takes_the_issue_from_at_git_and_never_from_head() {
         "gh",
         "pr",
         "@git",
+        "--",
         "--head",
         "someone:ops-1-other",
         "--draft",
@@ -1601,7 +1587,7 @@ fn gh_pull_request_takes_the_issue_from_at_git_and_never_from_head() {
             "--title",
             "ENG-7 Repair the widget",
             "--body",
-            URL,
+            &format!("Fixes ENG-7\n\n{URL}"),
             "--head",
             "someone:ops-1-other",
             "--draft"
@@ -1610,115 +1596,41 @@ fn gh_pull_request_takes_the_issue_from_at_git_and_never_from_head() {
 }
 
 #[test]
-fn jj_pull_request_takes_the_issue_from_at_jj_and_snapshots_once() {
+fn gh_pull_request_reads_at_jj_without_a_snapshot_and_whatever_head_names() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details());
-    let cli = jj_repo(Cli::for_api(&api), "");
-    let run = cli.run(&["issue", "jj", "pr", "@jj"]);
+    // A colocated jj repository (git's HEAD detached), with the retired
+    // setting that used to select jj.
+    let cli = git_on(
+        jj_refs(
+            Cli::for_api(&api),
+            false,
+            &[("aaa", &[]), ("bbb", &["Fixes ENG-7"])],
+        ),
+        "",
+    )
+    .env("LINEAR_VCS", "jj");
+    let run = cli.run(&["issue", "gh", "pr", "@jj", "--", "--head", "elsewhere"]);
     run.success()
+        .stderr_has("LINEAR_VCS from process environment was removed in 4.0")
         .stderr_has("Using issue ENG-7 from Linear-issue trailers in trunk()..@\n");
-    let snapshots = calls(&cli, "jj")
-        .into_iter()
-        .filter(|args| args[0] != "--ignore-working-copy")
-        .count();
-    assert_eq!(
-        snapshots,
-        1,
-        "only the survey snapshots: {:?}",
-        cli.calls("jj")
-    );
-    let jj = jj_calls(&cli);
-    assert!(jj[0].starts_with("log -r trunk() "), "{jj:?}");
-    assert!(jj[1].starts_with("log -r trunk()..@ "), "{jj:?}");
-    assert_eq!(gh_calls(&cli).len(), 1);
-}
-
-#[test]
-fn jj_pull_request_reads_at_jj_from_the_working_copy_even_when_head_is_elsewhere() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let cli = jj_repo(
-        Cli::for_api(&api),
-        "{\"name\":\"elsewhere\",\"target\":[\"ccc\"]}\n",
-    );
-    cli.run(&["issue", "jj", "pr", "@jj", "--head", "elsewhere"])
-        .success()
-        .stderr_has("Using issue ENG-7 from Linear-issue trailers in trunk()..@\n");
-    assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-7" }));
-    let jj = jj_calls(&cli);
-    assert!(jj[1].starts_with("log -r trunk()..@ "), "{jj:?}");
-    assert_eq!(
-        jj.last().map(String::as_str),
-        Some("git push --remote origin --bookmark exact:elsewhere")
-    );
-    assert_eq!(
-        gh_calls(&cli)[0][6..],
-        ["--repo", REPO, "--head", "elsewhere"]
-    );
-}
-
-#[test]
-fn gh_pull_request_never_runs_the_jj_path_even_in_a_jj_repository() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details())
-        .on("GetIssueDetails", details());
-    // A jj repository, with the retired setting that used to select jj.
-    let cli =
-        gh(jj_repo(Cli::for_api(&api), "").file("cwd/.jj/repo/store", "")).env("LINEAR_VCS", "jj");
-    let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
-    run.success()
-        .stderr_has("LINEAR_VCS from process environment was removed in 4.0");
     assert_eq!(run.stdout, "https://github.com/acme/widgets/pull/1\n");
-    assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
-    // An explicit @jj reads the trailers, and still nothing is pushed: gh
-    // gets no repository or head it was not given.
-    let run = cli.run(&["issue", "gh", "pr", "@jj", "--draft"]);
-    run.success()
-        .stderr_has("Using issue ENG-7 from Linear-issue trailers in trunk()..@\n");
-    let jj = jj_calls(&cli);
-    assert_eq!(jj.len(), 2, "{jj:?}");
-    assert!(jj[0].starts_with("log -r trunk() "), "{jj:?}");
-    assert!(jj[1].starts_with("log -r trunk()..@ "), "{jj:?}");
+    assert_eq!(jj_reads(&cli), ["trunk()", "trunk()..@"]);
     assert_eq!(
         cli.calls("gh"),
-        [
-            vec![
-                "pr",
-                "create",
-                "--title",
-                "ENG-7 Repair the widget",
-                "--body",
-                URL
-            ],
-            vec![
-                "pr",
-                "create",
-                "--title",
-                "ENG-7 Repair the widget",
-                "--body",
-                URL,
-                "--draft"
-            ],
-        ]
+        [[
+            "pr",
+            "create",
+            "--title",
+            "ENG-7 Repair the widget",
+            "--body",
+            &format!("Fixes ENG-7\n\n{URL}"),
+            "--head",
+            "elsewhere"
+        ]]
     );
-}
-
-#[test]
-fn gh_pull_request_leaves_a_detached_head_to_gh() {
-    let api = MockLinear::start();
-    api.on("GetIssueDetails", details());
-    let cli = Cli::for_api(&api)
-        .file("cwd/.jj/repo/store", "")
-        .stub_bin("jj", "echo \"unexpected jj $*\" >&2; exit 1")
-        .stub_bin(
-            "gh",
-            "echo 'could not determine the current branch: not on any branch' >&2; exit 1",
-        );
-    let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
-    assert_eq!(run.code, 1, "{run}");
-    run.stderr_has("not on any branch");
-    assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
-    assert_eq!(cli.calls("gh").len(), 1);
+    // --head given: git is not asked for a branch.
+    assert!(calls(&cli, "git").is_empty(), "{:?}", cli.calls("git"));
 }
 
 /// The details of another issue than ENG-7, for pull requests that cover
@@ -1765,7 +1677,7 @@ fn three_issues(api: &MockLinear) {
 fn gh_pull_request_for_several_issues_takes_the_title_and_closes_them_all() {
     let api = MockLinear::start();
     three_issues(&api);
-    let cli = gh(Cli::for_api(&api))
+    let cli = git(gh(Cli::for_api(&api)))
         .file("cwd/pr.md", "## Summary\nDescribe the change.\n\n")
         .file("cwd/.linear.toml", "pr_template = \"pr.md\"\n");
     let run = cli.run(&[
@@ -1777,6 +1689,7 @@ fn gh_pull_request_for_several_issues_takes_the_title_and_closes_them_all() {
         "ENG-256",
         "--title",
         " Widget and design ",
+        "--",
         "--draft",
     ]);
     run.success();
@@ -1817,7 +1730,7 @@ fn several_issue_bodies_say_and_for_two_and_references_with_the_flag() {
     ] {
         let api = MockLinear::start();
         issues(&api, &["DES-5"]);
-        let cli = gh(Cli::for_api(&api));
+        let cli = git(gh(Cli::for_api(&api)));
         let mut args = vec!["issue", "gh", "pr", "ENG-7", "DES-5", "-t", "Both"];
         args.extend(flags);
         cli.run(&args).success();
@@ -1834,15 +1747,14 @@ fn several_issue_bodies_say_and_for_two_and_references_with_the_flag() {
 }
 
 #[test]
-fn one_issue_with_references_keeps_its_title_and_adds_the_clause() {
+fn one_issue_with_references_keeps_its_title_and_writes_that_clause() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details())
         .on("GetIssueDetails", details());
-    let cli = gh(Cli::for_api(&api));
+    let cli = git(gh(Cli::for_api(&api)));
     cli.run(&["issue", "gh", "pr", "ENG-7", "--references"])
         .success();
-    cli.run(&["issue", "gh", "pr", "ENG-7", "-r", "--title", " "])
-        .success();
+    cli.run(&["issue", "gh", "pr", "ENG-7", "--ref"]).success();
     for call in cli.calls("gh") {
         assert_eq!(
             call,
@@ -1862,7 +1774,7 @@ fn one_issue_with_references_keeps_its_title_and_adds_the_clause() {
 fn repeated_issues_are_one_issue_and_keep_the_one_issue_pull_request() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details());
-    let cli = gh(Cli::for_api(&api)).env("LINEAR_TEAM_ID", "ENG");
+    let cli = git(gh(Cli::for_api(&api))).env("LINEAR_TEAM_ID", "ENG");
     cli.run(&["issue", "gh", "pr", "ENG-7", "eng-7", URL, "7"])
         .success();
     assert_eq!(
@@ -1873,7 +1785,7 @@ fn repeated_issues_are_one_issue_and_keep_the_one_issue_pull_request() {
             "--title",
             "ENG-7 Repair the widget",
             "--body",
-            URL
+            &format!("Fixes ENG-7\n\n{URL}")
         ]]
     );
     assert_eq!(api.operations(), ["GetIssueDetails"]);
@@ -1882,35 +1794,31 @@ fn repeated_issues_are_one_issue_and_keep_the_one_issue_pull_request() {
 #[test]
 fn several_issues_without_a_title_fail_before_any_request() {
     let api = MockLinear::start();
-    for tool in ["gh", "jj"] {
-        let cli = jj_repo_naming(Cli::for_api(&api), "", &["Fixes ENG-7", "Fixes DES-5"]);
-        for args in [
-            &["issue", tool, "pr", "ENG-7", "DES-5"][..],
-            &["issue", tool, "pr", "ENG-7", "DES-5", "--title", "  "],
-            &["issue", tool, "pr", "@jj", "ENG-7"],
-        ] {
-            let run = cli.run(args);
-            run.usage_error()
-                .stderr_has(
-                    "A title is required for a pull request covering several issues: ",
-                )
-                .stderr_has(
-                    "Pass --title \"<summary covering all issues>\". The title is used exactly as supplied.",
-                );
-            assert_eq!(run.stdout, "", "{run}");
-        }
-        let run = cli.run(&["issue", tool, "pr", "@jj", "ENG-7"]);
+    let cli = git(gh(jj_refs(
+        Cli::for_api(&api),
+        false,
+        &[("bbb", &["Fixes ENG-7", "Fixes DES-5"])],
+    )));
+    for args in [
+        &["issue", "gh", "pr", "ENG-7", "DES-5"][..],
+        &["issue", "gh", "pr", "@jj", "ENG-7"],
+    ] {
+        let run = cli.run(args);
         run.usage_error()
-            .stderr_has("covering several issues: DES-5, ENG-7\n");
-        assert!(gh_calls(&cli).is_empty());
-        assert!(
-            !jj_calls(&cli)
-                .iter()
-                .any(|call| !call.starts_with("log -r trunk()")),
-            "only @jj was read: {:?}",
-            jj_calls(&cli)
-        );
+            .stderr_has("A title is required for a pull request covering several issues: ")
+            .stderr_has(
+                "Pass --title \"<summary covering all issues>\". The title is used exactly as supplied.",
+            );
+        assert_eq!(run.stdout, "", "{run}");
     }
+    let run = cli.run(&["issue", "gh", "pr", "@jj", "ENG-7"]);
+    run.usage_error()
+        .stderr_has("covering several issues: DES-5, ENG-7\n");
+    assert!(cli.calls("gh").is_empty());
+    assert_eq!(
+        jj_reads(&cli),
+        ["trunk()", "trunk()..@", "trunk()", "trunk()..@"]
+    );
     assert!(api.requests().is_empty());
 }
 
@@ -1918,11 +1826,11 @@ fn several_issues_without_a_title_fail_before_any_request() {
 fn a_reference_naming_several_issues_covers_them_all_with_a_title() {
     let api = MockLinear::start();
     three_issues(&api);
-    let cli = gh(jj_repo_naming(
+    let cli = git(gh(jj_refs(
         Cli::for_api(&api),
-        "",
-        &["Fixes ENG-7", "Fixes DES-5"],
-    ));
+        false,
+        &[("bbb", &["Fixes ENG-7", "Fixes DES-5"])],
+    )));
     let run = cli.run(&[
         "issue",
         "gh",
@@ -1947,101 +1855,26 @@ fn a_reference_naming_several_issues_covers_them_all_with_a_title() {
             )
         ]
     );
-    let jj = jj_calls(&cli);
-    assert_eq!(jj.len(), 2, "gh pr only reads @jj: {jj:?}");
+    assert_eq!(jj_reads(&cli), ["trunk()", "trunk()..@"]);
 }
 
 #[test]
-fn a_missing_issue_among_several_publishes_nothing() {
-    for tool in ["gh", "jj"] {
-        let api = MockLinear::start();
-        api.on_variables("GetIssueDetails", json!({ "id": "ENG-7" }), details())
-            .on_variables_error(
-                "GetIssueDetails",
-                json!({ "id": "DES-5" }),
-                "Entity not found: Issue",
-            );
-        let cli = jj_repo(Cli::for_api(&api), "");
-        let run = cli.run(&["issue", tool, "pr", "ENG-7", "DES-5", "--title", "Both"]);
-        assert_eq!(run.code, 3, "{run}");
-        run.stderr_has("Failed to create pull request: Failed to fetch issue DES-5: ")
-            .stderr_has("Issue not found: DES-5")
-            .stderr_has(
-                "No pull request was opened and no bookmark was created or pushed. Check the issue ID and access, then try again.",
-            );
-        assert!(calls(&cli, "jj").is_empty(), "{:?}", cli.calls("jj"));
-        assert!(gh_calls(&cli).is_empty());
-        assert!(!cli.path("cwd/pushed").exists());
-    }
-}
-
-#[test]
-fn jj_pull_request_for_several_issues_names_a_new_bookmark_after_the_first() {
+fn a_missing_issue_among_several_opens_nothing() {
     let api = MockLinear::start();
-    issues(&api, &["DES-5"]);
-    let cli = jj_repo(Cli::for_api(&api), "");
-    let run = cli.run(&[
-        "issue",
-        "jj",
-        "pr",
-        "DES-5",
-        "ENG-7",
-        "-t",
-        "Design and widget",
-    ]);
-    run.success()
-        .stderr_has("Creating jj bookmark des-5-design\n")
-        .stderr_has("Pushing jj bookmark des-5-design to origin\n");
-    let jj = jj_calls(&cli);
-    assert!(jj[0].starts_with("log -r @ --no-graph"), "{jj:?}");
-    assert_eq!(
-        jj[jj.len() - 3..],
-        [
-            "bookmark create -r bbb -- des-5-design",
-            "bookmark list -T json(self) ++ \"\\n\"",
-            "git push --remote origin --bookmark exact:des-5-design",
-        ]
-    );
-    assert_eq!(
-        gh_calls(&cli),
-        [[
-            "pr",
-            "create",
-            "--title",
-            "Design and widget",
-            "--body",
-            &format!(
-                "Fixes DES-5 and ENG-7\n\n{}\n{URL}",
-                other_url("DES-5", "Design")
-            ),
-            "--repo",
-            REPO,
-            "--head",
-            "des-5-design",
-        ]]
-    );
-    // A bookmark already on the head, or --head, still wins.
-    let api = MockLinear::start();
-    issues(&api, &["DES-5"]);
-    let cli = jj_repo(
-        Cli::for_api(&api),
-        "{\"name\":\"mine\",\"target\":[\"bbb\"]}\n",
-    );
-    cli.run(&["issue", "jj", "pr", "DES-5", "ENG-7", "-t", "Both"])
-        .success();
-    assert_eq!(gh_calls(&cli)[0][8..], ["--head", "mine"]);
-    let api = MockLinear::start();
-    issues(&api, &["DES-5"]);
-    let cli = jj_repo(Cli::for_api(&api), "");
-    cli.run(&[
-        "issue", "jj", "pr", "DES-5", "ENG-7", "-t", "Both", "--head", "topic",
-    ])
-    .success();
-    assert!(
-        jj_calls(&cli).contains(&"bookmark create -r bbb -- topic".to_owned()),
-        "{:?}",
-        jj_calls(&cli)
-    );
+    api.on_variables("GetIssueDetails", json!({ "id": "ENG-7" }), details())
+        .on_variables_error(
+            "GetIssueDetails",
+            json!({ "id": "DES-5" }),
+            "Entity not found: Issue",
+        );
+    let cli = git(gh(Cli::for_api(&api)));
+    let run = cli.run(&["issue", "gh", "pr", "ENG-7", "DES-5", "--title", "Both"]);
+    assert_eq!(run.code, 3, "{run}");
+    run.stderr_has("Failed to create pull request: Failed to fetch issue DES-5: ")
+        .stderr_has("Issue not found: DES-5")
+        .stderr_has("No pull request was opened. Check the issue ID and access, then try again.");
+    assert!(!run.stderr.contains("bookmark"), "{run}");
+    assert!(cli.calls("gh").is_empty());
 }
 
 /// A mock for one successful `issue git start` or `issue jj start` of ENG-7,

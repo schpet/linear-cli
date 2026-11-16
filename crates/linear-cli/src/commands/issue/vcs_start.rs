@@ -17,7 +17,6 @@ use crate::{
     error::{Error, Result, ResultExt},
     graphql::operations::issue::IssueTransitionDetails,
     platform::{
-        jj_pr::{malformed, parse_lines},
         process,
         prompt::Choice,
         terminal_text::single_line,
@@ -319,6 +318,20 @@ fn parse_change(stdout: &[u8]) -> Result<Change> {
         id: fields.change_id,
         scratch: empty && fields.description.is_empty(),
     })
+}
+
+fn malformed(what: &str, error: impl std::fmt::Display) -> Error {
+    Error::new(format!("Unexpected output from `{what}`: {error}"))
+        .with_hint("This needs jj 0.38 or newer; check `jj --version`.")
+}
+
+/// Each nonblank line of `what`'s output, read as JSON.
+fn parse_lines<T: serde::de::DeserializeOwned>(stdout: &[u8], what: &str) -> Result<Vec<T>> {
+    let text = std::str::from_utf8(stdout).map_err(|error| malformed(what, error))?;
+    text.lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str(line).map_err(|error| malformed(what, error)))
+        .collect()
 }
 
 /// git and jj run in the working directory with the child environment.

@@ -1,115 +1,52 @@
-//! `issue gh pull-request` and `issue jj pull-request`: open a GitHub pull
-//! request for one or more issues with `gh`, which owns the browser, editor
-//! and interactive flow. The jj command settles and pushes the head bookmark
-//! first; the gh command leaves the repository and head to gh.
+//! `issue gh pull-request`: open a GitHub pull request for one or more
+//! issues with `gh`, which owns the browser, editor and interactive flow.
+//! linear builds the title and body; everything after `--` goes to
+//! `gh pr create` unchanged, after them. linear creates, moves and pushes
+//! nothing itself.
 use crate::{
-    cli::{issue::IssuePullRequest, values::IssueRef},
+    cli::{
+        issue::IssuePullRequest,
+        values::{IssueRef, TextSource},
+    },
     client::LinearClient,
     commands::text_input,
     config::PrTemplateCli,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::issue::IssueDetails,
-    platform::{
-        gh,
-        jj_pr::{self, Jj},
-    },
+    platform::gh,
 };
 use futures_util::{StreamExt, TryStreamExt, stream};
 use std::collections::HashSet;
 use std::path::Path;
 
-/// Which command runs: the one that names the tool decides what is done to
-/// the repository, never a setting.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Route {
-    /// `issue gh pr`: gh alone, from the git checkout.
-    Gh,
-    /// `issue jj pr`: push a jj bookmark, then gh with its repository and head.
-    Jj,
-}
-
-impl Route {
-    fn command(self) -> &'static str {
-        match self {
-            Self::Gh => "linear issue gh pr",
-            Self::Jj => "linear issue jj pr",
-        }
-    }
-}
-
 /// What a failed fetch of one of several issues adds to its hint.
-const NOTHING_PUBLISHED: &str = "No pull request was opened and no bookmark was created or pushed. Check the issue ID and access, then try again.";
+const NOTHING_OPENED: &str =
+    "No pull request was opened. Check the issue ID and access, then try again.";
 
-pub fn run_gh(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
-    create_pull_request(ctx, args, Route::Gh).context("Failed to create pull request")
+pub fn run(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    create_pull_request(ctx, args).context("Failed to create pull request")
 }
 
-pub fn run_jj(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
-    create_pull_request(ctx, args, Route::Jj).context("Failed to create pull request")
-}
-
-fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest, route: Route) -> Result<()> {
+fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    moved_to_gh(args)?;
     // The issue is always named, by an ID or by `@git` / `@jj`; leaving it
     // out never reads it from the repository.
     if args.issue_ids.is_empty() {
-        return Err(
-            Error::invalid("No issue to open a pull request for").with_hint(format!(
-                "Name it: an issue ID like `{} ENG-123`, `@git` for the issue in the git branch name, or `@jj` for the ones in the Linear-issue trailers of trunk()..@.",
-                route.command()
-            )),
-        );
+        return Err(Error::invalid("No issue to open a pull request for").with_hint(
+            "Name it: an issue ID like `linear issue gh pr ENG-123`, `@git` for the issue in the git branch name, or `@jj` for the ones in the Linear-issue trailers of trunk()..@.",
+        ));
     }
-    let selected = if args.no_template {
-        PrTemplateCli::Disabled
-    } else if let Some(path) = args.template.as_deref() {
-        PrTemplateCli::Path(path)
-    } else {
-        PrTemplateCli::Unset
+    let description = match (args.body.as_deref(), args.body_file.as_ref()) {
+        (Some(body), _) => Some(body.trim_end().to_owned()),
+        (None, Some(source)) => Some(read_body_file(source)?),
+        (None, None) => template(ctx, args)?,
     };
-    let template = ctx
-        .options()
-        .pr_template(selected)?
-        .map(|path| read_template(path.path()))
-        .transpose()?;
-    if route == Route::Jj {
-        jj_pr::check_head(args.head.as_deref())?;
-    }
     let identifiers = distinct(ctx, &args.issue_ids)?;
     check_title(&identifiers, args.title.as_deref())?;
-    // Credentials first: a missing login fails before jj snapshots the
-    // working copy or anything else is touched.
     let client = ctx.client()?;
-    if route == Route::Jj {
-        // Nothing is pushed for a pull request that gh cannot open.
-        gh::require(ctx.cwd(), &ctx.config().child_env)?;
-    }
-    // Every issue is fetched before the repository is touched, so a missing
-    // one leaves nothing behind.
+    // Every issue is fetched before gh runs, so a missing one opens nothing.
     let issues = ctx.spin(true, fetch_all(client, identifiers))?;
-    let first = issues.first().expect("a pull request covers an issue");
-    // gh reads the current git branch itself. jj has no current branch, so
-    // its head is settled here, before anything is sent.
-    let jj = Jj::new(ctx.cwd(), &ctx.config().child_env);
-    let published = match route {
-        Route::Gh => None,
-        Route::Jj => {
-            let survey = jj.survey(args.head.as_deref())?;
-            // A new bookmark is named after the first issue.
-            let head = survey.head(&first.details.branch_name)?;
-            let remote = &survey.remote.name;
-            if head.create {
-                ctx.eprint(format!("Creating jj bookmark {}\n", head.name))?;
-            }
-            ctx.eprint(format!("Pushing jj bookmark {} to {remote}\n", head.name))?;
-            ctx.eprint(jj.publish(&survey, &head)?)?;
-            Some((survey.remote.url, head.name))
-        }
-    };
-    let (repo, head) = match &published {
-        Some((repo, head)) => (Some(repo.as_str()), Some(head.as_str())),
-        None => (None, args.head.as_deref()),
-    };
     let linkage = if args.references {
         Linkage::References
     } else {
@@ -117,17 +54,75 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest, route: Route) -> Resu
     };
     let argv = self::args(
         title(&issues, args.title.as_deref()),
-        body(template.as_deref(), &issues, linkage),
-        Options {
-            repo,
-            base: args.base.as_deref(),
-            head,
-            draft: args.draft,
-            web: args.web,
-        },
+        body(description.as_deref(), &issues, linkage),
+        &args.gh_args,
     );
     ctx.flush()?;
     gh::run(&argv, ctx.cwd(), &ctx.config().child_env)
+}
+
+/// Refuses the 3.x flags that now go to gh after `--`, naming where to put
+/// them.
+fn moved_to_gh(args: &IssuePullRequest) -> Result<()> {
+    let moved: Vec<(&str, &str)> = [
+        ("--base", args.base.is_some(), " <BRANCH>"),
+        ("--draft", args.draft, ""),
+        ("--web", args.web, ""),
+        ("--head", args.head.is_some(), " <BRANCH>"),
+    ]
+    .into_iter()
+    .filter(|(_, given, _)| *given)
+    .map(|(flag, _, value)| (flag, value))
+    .collect();
+    if moved.is_empty() {
+        return Ok(());
+    }
+    let flags: Vec<&str> = moved.iter().map(|(flag, _)| *flag).collect();
+    let forms: Vec<String> = moved
+        .iter()
+        .map(|(flag, value)| format!("{flag}{value}"))
+        .collect();
+    let (subject, verb) = match flags.as_slice() {
+        [one] => ((*one).to_owned(), "is"),
+        several => (listed(several), "are"),
+    };
+    Err(
+        Error::invalid(format!("{subject} {verb} now passed to gh")).with_hint(format!(
+            "Put {} after --: linear issue gh pr <ISSUE> -- {}",
+            if flags.len() == 1 { "it" } else { "them" },
+            forms.join(" ")
+        )),
+    )
+}
+
+/// The description in a `--body-file`, which must hold some.
+fn read_body_file(source: &TextSource) -> Result<String> {
+    text_input::read_source(source)
+        .map_err(|error| {
+            Error::new(format!("Failed to read body file: {source}"))
+                .with_hint(format!("Error: {error}"))
+                .with_source(error)
+        })?
+        .ok_or_else(|| {
+            Error::invalid(format!("Body file is empty: {source}")).with_hint(
+                "Write the description into the file, or leave out --body-file for a body of just the issue links.",
+            )
+        })
+}
+
+/// The template's text, when one is selected.
+fn template(ctx: &Ctx, args: &IssuePullRequest) -> Result<Option<String>> {
+    let selected = if args.no_template {
+        PrTemplateCli::Disabled
+    } else if let Some(path) = args.template.as_deref() {
+        PrTemplateCli::Path(path)
+    } else {
+        PrTemplateCli::Unset
+    };
+    ctx.options()
+        .pr_template(selected)?
+        .map(|path| read_template(path.path()))
+        .transpose()
 }
 
 /// The distinct issues the arguments name, in the order they are first
@@ -154,12 +149,11 @@ fn distinct(ctx: &Ctx, inputs: &[IssueRef]) -> Result<Vec<String>> {
 }
 
 /// A pull request for several issues has no one issue to take its title
-/// from, so it must be given.
+/// from, so it must be given. clap has refused a blank --title.
 fn check_title(identifiers: &[String], title: Option<&str>) -> Result<()> {
-    let given = title.is_some_and(|title| !title.trim().is_empty());
     match identifiers {
         [] | [_] => Ok(()),
-        _ if given => Ok(()),
+        _ if title.is_some() => Ok(()),
         several => Err(Error::invalid(format!(
             "A title is required for a pull request covering several issues: {}",
             several.join(", ")
@@ -190,8 +184,8 @@ async fn fetch_all(client: &LinearClient, identifiers: Vec<String>) -> Result<Ve
                 }),
                 Err(error) if several => {
                     let hint = match error.hint() {
-                        Some(hint) => format!("{hint} {NOTHING_PUBLISHED}"),
-                        None => NOTHING_PUBLISHED.to_owned(),
+                        Some(hint) => format!("{hint} {NOTHING_OPENED}"),
+                        None => NOTHING_OPENED.to_owned(),
                     };
                     Err(error
                         .with_hint(hint)
@@ -222,46 +216,32 @@ impl Linkage {
     }
 }
 
-/// One issue: `<ID> <title>`, the title being --title unless it is blank.
-/// Several: --title as given, which [`check_title`] required.
+/// --title as given; without it, `<ID> <title>` for the one issue.
+/// [`check_title`] required it for several.
 pub fn title(issues: &[Covered], custom: Option<&str>) -> String {
-    match issues {
-        [issue] => format!(
-            "{} {}",
-            issue.identifier,
-            custom
-                .filter(|title| !title.trim().is_empty())
-                .unwrap_or(&issue.details.title)
-        ),
-        _ => custom
-            .expect("a pull request for several issues has a title")
-            .to_owned(),
+    match (custom, issues) {
+        (Some(custom), _) => custom.to_owned(),
+        (None, [issue]) => format!("{} {}", issue.identifier, issue.details.title),
+        (None, _) => unreachable!("a pull request for several issues has a title"),
     }
 }
 
-/// The template, then Linear's linking clause, then each issue's URL. One
-/// issue gets no clause unless it is [`Linkage::References`], so that its
-/// body stays the template and the URL.
-pub fn body(template: Option<&str>, issues: &[Covered], linkage: Linkage) -> String {
-    let template = template.unwrap_or("").trim_end();
-    let clause = match (issues, linkage) {
-        ([_], Linkage::Fixes) => None,
-        _ => {
-            let identifiers: Vec<&str> = issues
-                .iter()
-                .map(|issue| issue.identifier.as_str())
-                .collect();
-            Some(format!("{} {}", linkage.keyword(), listed(&identifiers)))
-        }
-    };
+/// The description, then Linear's linking clause, then each issue's URL on
+/// its own line.
+pub fn body(description: Option<&str>, issues: &[Covered], linkage: Linkage) -> String {
+    let description = description.unwrap_or("").trim_end();
+    let identifiers: Vec<&str> = issues
+        .iter()
+        .map(|issue| issue.identifier.as_str())
+        .collect();
+    let clause = format!("{} {}", linkage.keyword(), listed(&identifiers));
     let urls: Vec<&str> = issues
         .iter()
         .map(|issue| issue.details.url.as_str())
         .collect();
     let urls = urls.join("\n");
-    [Some(template), clause.as_deref(), Some(urls.as_str())]
+    [description, clause.as_str(), urls.as_str()]
         .into_iter()
-        .flatten()
         .filter(|part| !part.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
@@ -317,17 +297,9 @@ pub fn read_template(path: &Path) -> Result<String, Error> {
     }
     Ok(contents)
 }
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Options<'a> {
-    /// The repository to open the pull request in, when gh is not to work
-    /// it out from the checkout.
-    pub repo: Option<&'a str>,
-    pub base: Option<&'a str>,
-    pub head: Option<&'a str>,
-    pub draft: bool,
-    pub web: bool,
-}
-pub fn args(title: String, body: String, options: Options<'_>) -> Vec<String> {
+/// The `gh pr create` arguments: linear's title and body, then `gh_args`
+/// unchanged, so that a flag repeated there wins.
+pub fn args(title: String, body: String, gh_args: &[String]) -> Vec<String> {
     let mut args = vec![
         "pr".to_owned(),
         "create".to_owned(),
@@ -336,22 +308,7 @@ pub fn args(title: String, body: String, options: Options<'_>) -> Vec<String> {
         "--body".to_owned(),
         body,
     ];
-    for (flag, value) in [
-        ("--repo", options.repo),
-        ("--base", options.base),
-        ("--head", options.head),
-    ] {
-        if let Some(value) = value.filter(|value| !value.is_empty()) {
-            args.push(flag.to_owned());
-            args.push(value.to_owned());
-        }
-    }
-    if options.draft {
-        args.push("--draft".to_owned());
-    }
-    if options.web {
-        args.push("--web".to_owned());
-    }
+    args.extend(gh_args.iter().cloned());
     args
 }
 

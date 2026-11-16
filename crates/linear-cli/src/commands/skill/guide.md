@@ -118,7 +118,7 @@ and `document --issue`:
 linear issue id @git            # the first issue ID in the current git branch name
 linear issue id @jj             # each issue named by Linear-issue trailers in trunk()..@
 linear issue view @jj --json    # an array when @jj names several issues
-linear issue gh pr @git --draft
+linear issue gh pr @git -- --draft
 ```
 
 The issues a reference read are printed on stderr before anything is sent.
@@ -130,33 +130,54 @@ first and pass the IDs it prints. In PowerShell, quote them: `'@git'`.
 ### Open a pull request for one or more issues
 
 ```bash
-linear issue gh pr ENG-123 --draft          # gh pr create, titled "ENG-123 <issue title>", issue URL in the body
-linear issue gh pr ENG-123 --head my-topic  # name the git branch yourself
+linear issue gh pr ENG-123                      # gh pr create, titled "ENG-123 <issue title>"
+linear issue gh pr ENG-123 -F body.md           # your description, then the issue links
 linear issue gh pr ENG-123 ENG-124 --title "Fix login"  # one pull request that closes both
-linear issue jj pr ENG-123 --draft          # jj: push a bookmark for the change, then gh pr create
-linear issue jj pr @jj --title "Fix login"  # every issue the trailers in trunk()..@ name
-linear issue jj pr @jj --head my-topic      # name the jj bookmark yourself
+linear issue gh pr ENG-123 -- --draft --base main --reviewer alice
+linear issue gh pr ENG-123 -- --head my-topic   # from a branch that is already pushed
 ```
 
-The issue is always named; `linear issue gh pr` on its own is an error. The
-command names the tool: `gh pr` only runs gh, which takes the repository and
-branch from the git checkout, and never creates or pushes anything.
+Before `--` is what linear builds: the title and the body. Everything after
+`--` goes to `gh pr create` unchanged, after linear's `--title` and `--body`,
+so a flag there wins: a `--title` or `--body` after `--` replaces linear's,
+issue links included. gh's own `--template` cannot be used, since linear
+always passes a body. See `gh pr create --help` for the rest; `-- --editor`
+edits the title and body before creating, `-- --web` finishes in the browser.
+The issue is always named; `linear issue gh pr` on its own is an error.
 
-One pull request can cover several issues: pass their IDs, or a reference
-that names several. With more than one distinct issue `--title` is required
-and used as given, and the body gets `Fixes ENG-123 and ENG-124` (which
-Linear reads to close them on merge) and every issue URL. `--references`
-writes `References …` instead, to link without closing. Every issue is
-fetched before anything is pushed or opened.
+The title is `--title` exactly as given, or `ENG-123 <issue title>` for one
+issue; with more than one distinct issue `--title` is required. The body is
+`--body` or `--body-file` (`-` for stdin; else the template), then
+`Fixes ENG-123` (or `Fixes ENG-123 and ENG-124`, which Linear reads to close
+them on merge), then every issue URL. `--references` writes `References …`
+instead, to link without closing. Every issue is fetched before gh runs.
 
-`jj pr` publishes without asking. It pushes a bookmark for the working-copy
-change (or its parent, when the working copy is empty and undescribed) with
-`jj git push`, creating one named after the (first) issue if the change has none,
-then runs gh with the repository and the bookmark, so it works without a git
-checkout. It never moves an existing bookmark: when it cannot tell which
-bookmark to use it says so and asks for `--head`. In a jj repository use it
-rather than `gh pr`. `@jj` reads `trunk()..@` even when `--head` names a
-bookmark elsewhere.
+linear itself never creates, moves or pushes a branch or bookmark. Without
+`-- --head`, gh uses the current git branch and in a terminal may offer to
+push it (or fork the repository) first; `-- --head <branch>` names a branch
+that is already pushed and turns that off. When gh cannot tell what to open
+the pull request from, its own error is shown.
+
+From jj, push a bookmark yourself first, then pass it with `-- --head`. Stop
+if a step fails. `@-` assumes `@` is an empty scratch change on top of the
+finished one; right after `issue jj start`, `@` is the described change, so
+run `jj new` first (or push `@`):
+
+```bash
+branch=$(linear issue view ENG-123 --json | jq -r .branchName)
+jj git push --named "$branch=@-"               # first push: creates the bookmark
+linear issue gh pr ENG-123 -- --head "$branch"
+```
+
+Later, `jj git push --bookmark "$branch"` updates the pull request. The
+bookmark follows a rewritten change on its own; after adding new commits on
+top, first run `jj bookmark move "$branch" --to @-`.
+
+Add `--remote <REMOTE>` to `jj git push` for a remote other than jj's
+default, and `-- --repo OWNER/REPO` to the pull request command when there is
+no git checkout (a non-colocated jj repository). For a fork, push there and
+pass `-- --repo upstream/project --head alice:topic`. `@jj` names the issues
+from `trunk()..@` whatever `--head` names.
 
 ### Create from a template
 

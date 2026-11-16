@@ -381,34 +381,7 @@ pub enum IssueJjCommand {
     /// and the lines already printed say what was done.
     #[command(verbatim_doc_comment)]
     Start(IssueJjStart),
-    /// Push a jj bookmark and open a GitHub pull request for one or more issues
-    ///
-    /// The head is the working-copy change, or its parent when the working
-    /// copy is empty and undescribed; an existing bookmark named by --head
-    /// selects its change instead. A bookmark already on that change is
-    /// used, or one with the branch name Linear suggests for the first issue
-    /// (or the --head name) is created there. The bookmark is pushed with
-    /// `jj git push` to the `git.push` remote (else the only remote, else
-    /// origin) without asking, then `gh pr create` runs with that remote's
-    /// repository and the bookmark as --head, so no git checkout is needed.
-    /// A bookmark is never moved. The title and body are those of
-    /// `issue gh pr`, and every issue is fetched before a bookmark is
-    /// created or anything is pushed.
-    ///
-    /// The issues are always named: IDs, or `@git` or `@jj` to read them
-    /// from the repository. `@jj` reads the trailers in trunk()..@ even when
-    /// --head names a bookmark elsewhere.
-    #[command(
-        alias = "pr",
-        override_usage = "linear issue jj pull-request [OPTIONS] <ISSUE>...",
-        after_long_help = ISSUE_REFERENCES,
-        mut_arg("head", |arg| arg.value_name("BOOKMARK").help(JJ_HEAD_HELP))
-    )]
-    PullRequest(IssuePullRequest),
 }
-
-const JJ_HEAD_HELP: &str =
-    "Bookmark to open the pull request from, created on the head change if it does not exist";
 
 #[derive(Debug, Args)]
 pub struct IssueJjStart {
@@ -481,29 +454,56 @@ pub struct IssueGh {
 pub enum IssueGhCommand {
     /// Open a GitHub pull request for one or more issues with gh
     ///
-    /// Runs `gh pr create`. gh chooses the repository and, unless --head is
-    /// given, the branch; nothing is created or pushed first. The issues are
-    /// always named: IDs, or `@git` or `@jj` to read them from the
-    /// repository.
+    /// Before `--` is what linear builds from the issues: the title and the
+    /// body. Everything after `--` is passed to `gh pr create` as it is,
+    /// after linear's --title and --body, so a flag given there wins.
     ///
-    /// For one distinct issue, the title is "<ID> <issue title>" (or
-    /// "<ID> <title>" with --title; an empty --title uses the issue title),
-    /// and the body is the template followed by the issue URL. For several
-    /// distinct issues, a nonblank --title is required and is used exactly as
-    /// supplied, and the body is the template, a "Fixes ENG-1, ENG-2, and
-    /// ENG-3" clause that Linear reads to close them on merge, and every
-    /// issue URL. --references writes a non-closing "References <IDs>"
-    /// clause instead; for one issue it adds that clause before the URL. It
-    /// changes only the clause the CLI writes, never a title or template you
-    /// supply. Repeated issues are included once, in the order first named.
-    /// Every issue is fetched before the pull request is opened.
+    /// The title is --title exactly as given, or "<ID> <issue title>" for one
+    /// issue; several distinct issues need --title. The body is --body or
+    /// --body-file (or the template), then a "Fixes ENG-1, ENG-2, and ENG-3"
+    /// clause that Linear reads to close the issues on merge, then each issue
+    /// URL on its own line. --references writes a non-closing
+    /// "References <IDs>" clause instead. Repeated issues are included once,
+    /// in the order first named, and every issue is fetched before gh runs.
+    /// The issues are always named: IDs, or `@git` or `@jj` to read them
+    /// from the repository.
     ///
-    /// In a jj repository, use `linear issue jj pr`: it pushes a bookmark for
-    /// the change and tells gh the repository and head, so it also works when
-    /// git's HEAD is detached or there is no git checkout.
+    /// A --title or --body after `--` replaces linear's, issue links
+    /// included. gh's own --template cannot be used, since linear always
+    /// passes a body. See `gh pr create --help` for everything after `--`:
+    ///
+    ///   linear issue gh pr ENG-7 -- --draft --base main
+    ///   linear issue gh pr ENG-7 -F body.md            # your own description
+    ///   linear issue gh pr ENG-7 -- --editor           # edit it all before creating
+    ///   linear issue gh pr ENG-7 -- --web              # finish in the browser
+    ///   linear issue gh pr ENG-7 -- --reviewer alice
+    ///
+    /// linear itself never creates, moves or pushes a branch or bookmark.
+    /// Without `-- --head`, gh opens the pull request from the current git
+    /// branch, and in a terminal it may offer to push that branch, or to fork
+    /// the repository, first. `-- --head <BRANCH>` names a branch that is
+    /// already pushed and turns gh's pushing and forking off.
+    ///
+    /// From jj, push a bookmark first. @- assumes @ is an empty scratch
+    /// change on top of the finished one; right after `issue jj start`, @ is
+    /// the described change, so run `jj new` first (or push @):
+    ///
+    ///   branch=$(linear issue view ENG-7 --json | jq -r .branchName)
+    ///   jj git push --named "$branch=@-"
+    ///   linear issue gh pr ENG-7 -- --head "$branch"
+    ///
+    /// Later, `jj git push --bookmark "$branch"` updates the pull request.
+    /// The bookmark follows a rewritten change on its own; after adding new
+    /// commits on top, first run `jj bookmark move "$branch" --to @-`.
+    ///
+    /// Add --remote <REMOTE> to `jj git push` for a remote other than jj's
+    /// default. Without a git checkout (a non-colocated jj repository), also
+    /// pass `-- --repo OWNER/REPO`. For a fork, push the branch there and
+    /// pass `-- --repo upstream/project --head alice:topic`.
+    #[command(verbatim_doc_comment)]
     #[command(
         alias = "pr",
-        override_usage = "linear issue gh pull-request [OPTIONS] <ISSUE>...",
+        override_usage = "linear issue gh pull-request [OPTIONS] <ISSUE>... [-- <GH_ARGS>...]",
         after_long_help = ISSUE_REFERENCES
     )]
     PullRequest(IssuePullRequest),
@@ -516,32 +516,40 @@ pub struct IssuePullRequest {
     // Optional to clap only so that leaving it out can say how to name it.
     #[arg(value_name = "ISSUE")]
     pub issue_ids: Vec<IssueRef>,
-    /// Branch to merge into
-    #[arg(long, value_name = "BRANCH")]
-    pub base: Option<String>,
-    /// Open the pull request as a draft
-    #[arg(long)]
-    pub draft: bool,
-    /// Title after the ID for one issue [default: the issue title]; required
-    /// and used verbatim for several issues
-    #[arg(long, short)]
+    /// Title, used exactly as given [default: "<ID> <issue title>" for one
+    /// issue]; required for several issues
+    #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
-    /// Open the pull request in the browser
-    #[arg(long)]
-    pub web: bool,
-    /// Branch that holds the commits; accepts owner:branch
-    #[arg(long, value_name = "BRANCH", value_parser = NonBlank)]
-    pub head: Option<String>,
+    /// Description, in Markdown; the issue links follow it
+    #[arg(long, short, value_name = "TEXT", value_parser = NonBlank, conflicts_with_all = ["body_file", "template"])]
+    pub body: Option<String>,
+    /// Read the description from a Markdown file (- for stdin); the issue
+    /// links follow it
+    #[arg(long, short = 'F', value_name = "FILE", value_hint = ValueHint::FilePath, conflicts_with = "template")]
+    pub body_file: Option<TextSource>,
     /// Start the body from this template file, then append the issue links
     #[arg(long, short = 'T', value_name = "FILE", value_hint = ValueHint::FilePath, value_parser = NonBlank)]
     pub template: Option<String>,
     /// Ignore the pr_template setting
     #[arg(long)]
     pub no_template: bool,
-    /// Write a non-closing "References" clause instead of "Fixes"; also adds
-    /// it for one issue
+    /// Write a non-closing "References" clause instead of "Fixes"
     #[arg(long, short, visible_alias = "ref")]
     pub references: bool,
+    /// Arguments for `gh pr create`, passed after linear's --title and
+    /// --body, unchanged
+    #[arg(last = true, value_name = "GH_ARGS")]
+    pub gh_args: Vec<String>,
+    // The 3.x flags that now go to gh after `--`; still parsed so that
+    // using one says so.
+    #[arg(long, hide = true, value_name = "BRANCH")]
+    pub base: Option<String>,
+    #[arg(long, hide = true)]
+    pub draft: bool,
+    #[arg(long, hide = true)]
+    pub web: bool,
+    #[arg(long, hide = true, value_name = "BRANCH")]
+    pub head: Option<String>,
 }
 
 #[derive(Debug, Args)]
