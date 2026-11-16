@@ -154,39 +154,74 @@ fn one(reference: &IssueRef, read: &Read) -> Result<String> {
     }
 }
 
-/// The current git branch: `git symbolic-ref --quiet --short HEAD`.
-fn current_branch(ctx: &Ctx) -> Result<String> {
+/// What git has checked out, as `git symbolic-ref --quiet --short HEAD`
+/// says.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum GitHead {
+    /// The current branch, born or not.
+    Branch(String),
+    /// A detached HEAD, as in a colocated jj repository.
+    Detached,
+    /// git found no repository from here, as in a jj repository without a
+    /// git checkout.
+    NoCheckout,
+}
+
+/// How git's own message starts when its search for a repository from the
+/// working directory finds none. A `GIT_DIR` that names no repository says
+/// `not a git repository: '<path>'` instead, which stays an error.
+const NO_REPOSITORY_FOUND: &str = "fatal: not a git repository (or any ";
+
+/// What git has checked out in the working directory. Only git's own
+/// answers are classified: a branch (exit 0), a detached HEAD (exit 1), or
+/// no repository found (exit 128 with that message, in the C locale).
+/// Anything else, including a git that cannot be run, output that is not
+/// one branch name, or a signal, is an error that keeps git's diagnostic.
+fn git_head(ctx: &Ctx) -> Result<GitHead> {
     let mut command = process::command("git", ctx.cwd(), &ctx.config().child_env);
-    command.args(["symbolic-ref", "--quiet", "--short", "HEAD"]);
-    let outside = |error: Error| {
-        if vcs::in_repository(RepositoryKind::Git, ctx.cwd()) {
-            error.context("Failed to read the current git branch for @git")
-        } else {
-            vcs::not_in_repository(RepositoryKind::Git).with_hint(format!(
-                "@git reads the current branch. Run it from your repository, {OR_NAME_IT}."
-            ))
-        }
-    };
-    let output = process::output(&mut command).map_err(outside)?;
+    command
+        .args(["symbolic-ref", "--quiet", "--short", "HEAD"])
+        .env("LC_ALL", "C");
+    let output = process::output(&mut command)?;
     match output.status.code() {
-        Some(0) => {
-            let branch = process::text(&output.stdout);
-            if branch.is_empty() {
-                return Err(Error::new("git named no current branch for @git"));
-            }
-            Ok(branch)
+        Some(0) => branch_name(&output.stdout).map(GitHead::Branch),
+        Some(1) => Ok(GitHead::Detached),
+        Some(128) if output.stderr.starts_with(NO_REPOSITORY_FOUND.as_bytes()) => {
+            Ok(GitHead::NoCheckout)
         }
-        // A detached HEAD has no branch.
-        Some(1) => Err(
-            Error::invalid("Cannot read @git: git HEAD is detached").with_hint(format!(
+        _ => Err(process::failed(&command, output.status, &output.stderr)),
+    }
+}
+
+/// The output of a successful `git symbolic-ref --short`: exactly one
+/// nonblank line of UTF-8, the branch name.
+fn branch_name(stdout: &[u8]) -> Result<String> {
+    let malformed = || {
+        Error::new(format!(
+            "Unexpected output from `git symbolic-ref`: {:?}",
+            String::from_utf8_lossy(stdout)
+        ))
+    };
+    let text = std::str::from_utf8(stdout).map_err(|_| malformed())?;
+    let line = text.strip_suffix('\n').unwrap_or(text);
+    if line.is_empty() || line.contains(['\n', '\r']) || line.trim() != line {
+        return Err(malformed());
+    }
+    Ok(line.to_owned())
+}
+
+/// The current git branch, for `@git`.
+fn current_branch(ctx: &Ctx) -> Result<String> {
+    match git_head(ctx) {
+        Ok(GitHead::Branch(branch)) => Ok(branch),
+        Ok(GitHead::Detached) => Err(Error::invalid("Cannot read @git: git HEAD is detached")
+            .with_hint(format!(
                 "{NAME_IT}, or switch to a branch whose name contains its ID."
-            )),
-        ),
-        _ => Err(outside(process::failed(
-            &command,
-            output.status,
-            &output.stderr,
-        ))),
+            ))),
+        Ok(GitHead::NoCheckout) => Err(vcs::not_in_repository(RepositoryKind::Git).with_hint(
+            format!("@git reads the current branch. Run it from your repository, {OR_NAME_IT}."),
+        )),
+        Err(error) => Err(error.context("Failed to read the current git branch for @git")),
     }
 }
 

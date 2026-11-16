@@ -478,7 +478,7 @@ fn warning_templates_are_colored_only_on_request() {
 
 #[test]
 fn the_retired_vcs_warning_names_the_spelling_and_source_and_the_replacements() {
-    let hint = "Commands name their tool instead: `linear issue jj pr` and `linear issue jj start` for jj, `linear issue gh pr` and `linear issue git start` for git.";
+    let hint = "Commands name their tool instead: `linear issue jj start` for jj, `linear issue git start` for git, and `linear issue gh pr` for pull requests.";
     for (source, said) in [
         (
             OptionSource::Env,

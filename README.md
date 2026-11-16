@@ -121,9 +121,9 @@ see [docs/authentication.md](docs/authentication.md) for multi-workspace support
 the CLI works with both git and jj version control systems:
 
 - **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
-- **jj**: `linear issue jj start ABC-123` starts a change (or reuses an empty, undescribed one) described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). `linear issue jj pr ABC-123` opens the pull request from the working-copy change (or its parent, when the working copy is an empty undescribed change): it reuses a bookmark on that change or creates one with the branch name Linear suggests, pushes it with `jj git push`, and tells `gh` the repository and head, so it works in colocated and non-colocated repositories. pass `--head <bookmark>` to choose the bookmark yourself
+- **jj**: `linear issue jj start ABC-123` starts a change (or reuses an empty, undescribed one) described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). to open a pull request, push a bookmark with jj first and name it with `--head` (see below)
 
-each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` always runs plain `gh pr create` from the git checkout, even in a jj repository. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it
+each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` builds the title and body and runs `gh pr create`; linear itself never creates, moves or pushes a branch or bookmark. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it
 
 ## commands
 
@@ -143,8 +143,9 @@ linear issue url ABC-123       # prints the Linear.app URL for the issue
 linear issue gh pr ABC-123     # creates a GitHub PR with issue details via `gh pr create`
 linear issue gh pr @git        # the same, for the issue in the current git branch's name
 linear issue gh pr ABC-123 ABC-124 --title "Fix login"  # one PR for several issues: "Fixes ABC-123 and ABC-124" and their URLs in the body
-linear issue jj pr ABC-123     # pushes a jj bookmark for the change, then creates the PR from it with `gh pr create`
-linear issue jj pr @jj --title "Fix login"  # one PR for every issue the trailers in trunk()..@ name
+linear issue gh pr ABC-123 -F body.md  # your description, then the issue links
+linear issue gh pr ABC-123 -- --draft --base main  # everything after -- goes to `gh pr create`
+linear issue gh pr @jj --title "Fix login" -- --head my-topic  # one PR for every issue the trailers in trunk()..@ name, from a pushed branch
 linear issue id @jj            # prints the issues @jj reads, one per line
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
@@ -176,6 +177,18 @@ linear issue comment add ENG-123 --reply-to <id>   # reply to a comment (-p / --
 linear issue comment list ENG-123 --json   # comments as JSON, with quotedText and parent for inline comments and replies
 linear issue comment update <id>   # update a comment
 ```
+
+#### pull requests
+
+`issue gh pr` fetches the issues, builds the title and body, and runs `gh pr create`. before `--` is what linear builds; everything after `--` goes to gh unchanged, after linear's `--title` and `--body`, so a flag there wins (a `--title` or `--body` after `--` replaces linear's, issue links included; gh's own `--template` cannot be used, since linear always passes a body). the title is `--title` as given, or `ABC-123 <issue title>` for one issue; the body is `--body` or `--body-file` (else the template), then `Fixes ABC-123` (or `References …` with `--references`), then each issue URL. linear itself never pushes: without `-- --head`, gh opens the pull request from the current git branch and, in a terminal, may offer to push it (or fork the repository) first; `-- --head <branch>` names a branch that is already pushed and turns that off. from jj, push the bookmark first, then pass it with `-- --head`. `@-` assumes `@` is an empty scratch change on top of the finished one; right after `issue jj start`, `@` is the described change, so run `jj new` first (or push `@`):
+
+```bash
+branch=$(linear issue view ABC-123 --json | jq -r .branchName)
+jj git push --named "$branch=@-"             # first push: creates the bookmark
+linear issue gh pr ABC-123 -- --head "$branch"  # add --repo OWNER/REPO after -- in a non-colocated jj repository
+```
+
+later, `jj git push --bookmark "$branch"` updates the pull request. the bookmark follows a rewritten change on its own; after adding new commits on top, first run `jj bookmark move "$branch" --to @-`.
 
 #### attaching files
 
@@ -365,7 +378,7 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | Assign self     | `LINEAR_ISSUE_CREATE_ASSIGN_SELF` | `issue_create_assign_self` | `"always"`, `"auto"`, or `"never"`   | control default self-assignment during issue creation                                            |
 | Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                    | download images when viewing issues                                                              |
 | Inline images   | `LINEAR_INLINE_IMAGES`            | `inline_images`            | `true` or `false`                    | draw downloaded PNG images in kitty, Ghostty and Rex (default: true; see below)                  |
-| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue gh pr` and `issue jj pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
+| PR template     | `LINEAR_PR_TEMPLATE`              | `pr_template`              | `".github/pull_request_template.md"` | template file for `issue gh pr` bodies (the Linear issue URL is appended; `--no-template` skips it) |
 
 in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images they download right under their links, using the kitty graphics protocol's Unicode placeholders so they still show inside the pager. other image formats, other terminals, terminals inside tmux or screen, piped output and `NO_COLOR` keep the plain link. images show through `less` (the default pager); another `PAGER` may not show them. set `inline_images = false` or `LINEAR_INLINE_IMAGES=false` to turn them off, or pass `--no-download` for one view.
 

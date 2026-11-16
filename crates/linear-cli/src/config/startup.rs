@@ -326,7 +326,7 @@ pub fn render_diagnostic(diagnostic: &StartupDiagnostic, color: bool) -> String 
                     source.label()
                 ),
                 format!(
-                    "  Remove {name}. Commands name their tool instead: `linear issue jj pr` and `linear issue jj start` for jj, `linear issue gh pr` and `linear issue git start` for git."
+                    "  Remove {name}. Commands name their tool instead: `linear issue jj start` for jj, `linear issue git start` for git, and `linear issue gh pr` for pull requests."
                 ),
             )
         }
