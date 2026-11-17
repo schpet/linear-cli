@@ -466,6 +466,49 @@ fn view_text_shows_issue_and_open_threads() {
     assert!(!run.stdout.contains("Resolved thread body"), "{run}");
 }
 
+/// An issue whose one thread is anchored to a passage of its description,
+/// with a reply that quotes nothing.
+fn issue_with_anchored_thread() -> Value {
+    let mut issue = issue(true);
+    let mut root = comment("anchored", "Worth doing?", None, None);
+    root["quotedText"] = json!("First quoted line\nsecond quoted line.");
+    issue["comments"]["nodes"] = json!([root, comment("reply", "Agreed", Some("anchored"), None)]);
+    issue
+}
+
+#[test]
+fn view_text_quotes_the_description_passage_a_thread_is_anchored_to() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueDetailsWithComments",
+        details(issue_with_anchored_thread()),
+    );
+    let run = Cli::for_api(&api).run(&["issue", "view", "ENG-1", "--no-download", "--no-pager"]);
+    run.success().stdout_has(
+        "[anchored]\n\n  > First quoted line\n  > second quoted line.\n  \n  Worth doing?\n\n  - **@Alice Example** replied",
+    );
+    assert!(!run.stdout.contains("> Agreed"), "{run}");
+}
+
+#[test]
+fn view_tty_quotes_the_description_passage_a_thread_is_anchored_to() {
+    let api = MockLinear::start();
+    api.on(
+        "GetIssueDetailsWithComments",
+        details(issue_with_anchored_thread()),
+    );
+    let run = Cli::for_api(&api).run_tty(
+        &["issue", "view", "ENG-1", "--no-download", "--no-pager"],
+        &[],
+    );
+    run.success()
+        .stdout_has("First quoted line")
+        .stdout_has("second quoted line.");
+    let quote = run.stdout.find("First quoted line").expect("quote shown");
+    let body = run.stdout.find("Worth doing?").expect("body shown");
+    assert!(quote < body, "the quote comes before the comment: {run}");
+}
+
 #[test]
 fn view_text_can_include_resolved_threads() {
     let api = MockLinear::start();

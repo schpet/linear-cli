@@ -5,6 +5,7 @@
 ### Changed
 
 - The README now notes that it covers the upcoming 4.0 release and links to stable instructions for v3.1.0.
+- `issue view` shows the description passage an inline comment is anchored to as a block quote above the comment, as `comment list` already did.
 
 ### Breaking
 
