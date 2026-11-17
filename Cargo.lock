@@ -1104,7 +1104,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "linear"
-version = "4.0.0-alpha.3"
+version = "4.0.0-alpha.4"
 dependencies = [
  "base64",
  "chrono",
@@ -1139,7 +1139,7 @@ dependencies = [
 
 [[package]]
 name = "linear-schema"
-version = "4.0.0-alpha.3"
+version = "4.0.0-alpha.4"
 dependencies = [
  "cynic",
  "cynic-codegen",

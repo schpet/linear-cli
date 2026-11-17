@@ -105,6 +105,24 @@
 - Built-in templates use consistent LF line endings in Windows builds, fixing CRLF in generated commit descriptions and pull request bodies. Custom template text and data retain their original whitespace.
 - `auth login` on a machine without a system keyring now says how to install `secret-tool` on Linux, and when an API key is already configured (`LINEAR_API_KEY`, a `.env` file, or `api_key` in a config file) it says that other commands already use it instead of suggesting to set `LINEAR_API_KEY`. It still fails there, since it has nowhere to store a key; `--plaintext` stores one in the credentials file ([#231](https://github.com/schpet/linear-cli/issues/231), [#301](https://github.com/schpet/linear-cli/pull/301); thanks @bitnahian)
 
+## [4.0.0-alpha.4] - 2026-11-17
+
+### Added
+
+- `linear config check` validates configuration offline.
+- Skill setup installs startup reminders for Claude Code and Codex to help agents load the generated Linear guide.
+
+### Changed
+
+- Stable and alpha release preparation now runs through Rust xtask commands, with native regression tests included in the normal workspace test suite.
+- Retired VCS settings are ignored quietly; retired pull request template settings show migration guidance during pull request creation and offline config checks.
+- `issue view` quotes the description passage an inline comment is anchored to.
+
+### Fixed
+
+- Release tooling checks exact svbump version handling, dated release titles, package versions and prerelease metadata before publishing, without Python or jq scripts.
+- Native Apple silicon CI and release builds use the supported macOS 15 image after macos-latest repeatedly failed to acquire a runner.
+
 ## [4.0.0-alpha.3] - 2026-11-17
 
 ### Added
@@ -857,6 +875,7 @@ Every `--json` output follows one rule. Lists are a JSON array of entities, with
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
+[4.0.0-alpha.4]: https://github.com/schpet/linear-cli/compare/v4.0.0-alpha.3...v4.0.0-alpha.4
 [4.0.0-alpha.3]: https://github.com/schpet/linear-cli/compare/v4.0.0-alpha.2...v4.0.0-alpha.3
 [Unreleased]: https://github.com/schpet/linear-cli/compare/v3.1.0...HEAD
 [3.1.0]: https://github.com/schpet/linear-cli/compare/v3.0.0...v3.1.0
