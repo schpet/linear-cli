@@ -84,6 +84,7 @@ impl fmt::Debug for ChildEnvOverlay {
 
 pub struct StartupConfig {
     pub options: ConfigOptions,
+    pub templates: crate::templates::TemplateConfig,
     pub child_env: ChildEnvOverlay,
     pub network_env: NetworkEnv,
     /// Process PAGER value; dotenv files cannot set it either.
@@ -190,7 +191,7 @@ fn config_failure(error: ConfigFailure) -> Error {
     }
 }
 
-fn read_tier(
+pub(super) fn read_tier(
     candidates: &[ConfigCandidate],
     files: &impl FileSource,
 ) -> Result<Option<ConfigTier>, Error> {
@@ -266,6 +267,11 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         Ok(project) => project,
         Err(error) => return fail(display, diagnostics, error),
     };
+    let templates =
+        match crate::templates::TemplateConfig::from_tiers(global.iter().chain(project.iter())) {
+            Ok(templates) => templates,
+            Err(error) => return fail(display, diagnostics, error),
+        };
     let inputs = OptionInputs {
         env: &process.inputs,
         dotenv: &dotenv,
@@ -311,6 +317,7 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         diagnostics,
         result: Ok(StartupConfig {
             options,
+            templates,
             child_env,
             pager,
             cache_dir: crate::platform::markdown_assets::cache_root(

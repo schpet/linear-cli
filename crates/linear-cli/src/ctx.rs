@@ -112,6 +112,10 @@ impl Ctx {
         &self.config.options
     }
 
+    pub fn templates(&self) -> &crate::templates::TemplateConfig {
+        &self.config.templates
+    }
+
     /// The global `--workspace` flag.
     pub fn workspace(&self) -> Option<&str> {
         self.workspace.as_deref()

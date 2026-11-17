@@ -17,3 +17,4 @@ mod error;
 mod graphql;
 mod platform;
 mod refs;
+mod templates;
