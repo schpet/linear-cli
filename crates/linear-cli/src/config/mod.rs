@@ -7,6 +7,7 @@ mod parse;
 mod runtime;
 mod source;
 mod startup;
+mod templates;
 
 pub use network::NetworkEnv;
 pub use options::{AssignSelf, ConfigOptions, ConfigSecret, IssueSort, OptionSource};
@@ -16,11 +17,13 @@ pub(crate) use source::absent;
 /// Crate-internal lexical path normalization shared with credential discovery.
 pub(crate) use source::lexical as lexical_config_path;
 pub use source::{
-    FileKind, FileSource, MAX_CONFIG_BYTES, OsFamily, RawConfigFile, RealFileSource, repo_root,
+    ConfigInputs, FileKind, FileSource, MAX_CONFIG_BYTES, OsFamily, RawConfigFile, RealFileSource,
+    repo_root,
 };
 pub use startup::{
     ChildEnvOverlay, DisplaySettings, StartupConfig, load_startup, render_diagnostic,
 };
+pub use templates::{apply_template_overrides, load_template_config};
 
 #[cfg(test)]
 mod test_support;
@@ -31,5 +34,6 @@ pub(crate) use test_support::fixture_path;
 pub(crate) use dotenv::{ConfigDiagnostic, DiagnosticReason, SelectedEnv};
 #[cfg(test)]
 pub(crate) use options::OptionInputs;
+
 #[cfg(test)]
-pub(crate) use source::ConfigInputs;
+mod templates_tests;
