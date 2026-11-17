@@ -10,6 +10,9 @@ pub struct Skill {
 
 #[derive(Debug, Subcommand)]
 pub enum SkillCommand {
+    /// Print the startup reminder used by an agent's SessionStart hook
+    #[command(hide = true)]
+    SessionStart(SkillSessionStart),
     /// Print the guide that teaches an agent to use linear
     ///
     /// The guide is Markdown and comes from this binary, so it describes the
@@ -28,6 +31,11 @@ pub enum SkillCommand {
     /// OpenCode and Pi all read the shared ~/.agents/skills directory, which
     /// is always written. Claude Code has its own directory, which is written
     /// when Claude Code is set up on this machine. Use --agent to choose.
+    /// Also adds SessionStart reminders for Claude Code (settings.json) and
+    /// Codex (hooks.json), preserving other settings and hooks. Codex's account
+    /// hook follows CODEX_HOME and is installed by default when that directory
+    /// exists, or explicitly with --agent codex. Review it in Codex's /hooks menu.
+    /// These reminders point to the skill even when its catalog description is omitted.
     ///
     /// Run this once per account. Running it again is safe, and updates a
     /// skill an older linear installed.
@@ -42,6 +50,7 @@ pub enum SkillCommand {
     ///
     /// Lists each directory an agent reads the skill from and what is there.
     /// Nothing is changed.
+    /// Also reports Claude Code and Codex SessionStart reminders.
     ///
     ///   current     installed and up to date
     ///   outdated    installed by an older linear
@@ -63,7 +72,35 @@ pub enum SkillCommand {
     /// into, or from those of the agents named with --agent. Only the file
     /// setup installed is removed. A linear-cli skill it did not install, and
     /// any other file beside the skill, is left as it was.
+    /// Also removes unedited Claude Code and Codex SessionStart reminders,
+    /// preserving all other settings and hooks.
     Remove(SkillRemove),
+}
+
+#[derive(Debug, Args)]
+pub struct SkillSessionStart {
+    /// Agent receiving the startup reminder
+    #[arg(long, value_enum, default_value = "claude")]
+    pub agent: HookAgent,
+}
+
+/// Agents with a supported SessionStart hook integration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum HookAgent {
+    Claude,
+    Codex,
+}
+
+impl HookAgent {
+    pub const ALL: [Self; 2] = [Self::Claude, Self::Codex];
+
+    pub fn agent(self) -> Agent {
+        match self {
+            Self::Claude => Agent::Claude,
+            Self::Codex => Agent::Codex,
+        }
+    }
 }
 
 #[derive(Debug, Args)]
@@ -86,6 +123,8 @@ pub struct SkillSetup {
     /// Writes .agents/skills and .claude/skills at the root of the
     /// repository, or in the current directory outside one. Commit them to
     /// share the skill with everyone who works here.
+    /// Claude Code's reminder is written to .claude/settings.json there.
+    /// Codex project hooks are skipped; set up its account reminder instead.
     #[arg(long)]
     pub project: bool,
     /// Report what would change without changing anything

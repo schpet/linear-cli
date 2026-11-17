@@ -422,13 +422,19 @@ linear skill remove           # remove it again
 
 `setup` installs a small skill that tells the agent to run `linear skill show`, which prints the guide. upgrading linear updates the guide, so the installed skill never needs to change.
 
+for Claude Code, `setup` also adds a `SessionStart` hook to `~/.claude/settings.json` (or `.claude/settings.json` with `--project`). it injects a short reminder to load `/linear-cli` or run `linear skill show` before using linear, even when a large skill catalog leaves out the skill's description. it runs on startup, resume, clear and compaction; the full guide is loaded only when needed. run `linear skill setup` again to add the reminder to an existing installation.
+
+for Codex, account setup adds the same reminder to `~/.codex/hooks.json` (or `$CODEX_HOME/hooks.json`), pointing to `$linear-cli`. the hook is installed by default when the Codex configuration directory exists; `--agent codex` installs it explicitly. review and trust the hook in Codex's `/hooks` menu before it runs. project setup installs the skill alone for Codex and recommends account hook setup, because project hooks also require a trusted project. linear never changes Codex's trust settings.
+
+existing settings and hooks are preserved, though writing a hook may reorder and reformat the JSON. `status` reports the reminders alongside the skill, `--dry-run` previews hook changes, and `remove` removes only linear's unedited hooks. settings-file symlinks and existing file permissions are preserved; project settings must resolve inside the repository. custom command variants are separate hooks and are managed by hand. OpenCode and Pi continue to use the skill without a startup hook.
+
 codex, opencode and pi all read `~/.agents/skills`, which is always written. claude code reads `~/.claude/skills`, which is written when claude code is set up on the machine. `--agent` chooses agents explicitly and `--dry-run` shows what would change. in a project, pi loads the skill once the project is trusted.
 
 an agent without skills can run `linear skill show` itself, for example from a line in `AGENTS.md`.
 
 ### skills.sh
 
-the same skill can be installed with [skills.sh](https://skills.sh):
+the same skill can be installed with [skills.sh](https://skills.sh), without changing hook configuration:
 
 ```bash
 npx skills add schpet/linear-cli

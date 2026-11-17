@@ -34,6 +34,476 @@ const OLD_SKILL: &str = "---\nname: linear-cli\ndescription: Manage Linear issue
 
 const SHARED: &str = "home/.agents/skills/linear-cli/SKILL.md";
 const CLAUDE: &str = "home/.claude/skills/linear-cli/SKILL.md";
+const CLAUDE_SETTINGS: &str = "home/.claude/settings.json";
+const SESSION_START: &str = "linear skill session-start";
+const CODEX_HOOKS: &str = "home/.codex/hooks.json";
+const CODEX_SESSION_START: &str = "linear skill session-start --agent codex";
+
+#[test]
+fn an_edited_claude_hook_does_not_block_codex_installation() {
+    let edited = serde_json::json!({"hooks":{"SessionStart":[{"hooks":[{
+        "type":"command","command":SESSION_START,"timeout":60
+    }]}]}})
+    .to_string();
+    let cli = with_claude()
+        .file(CLAUDE_SETTINGS, &edited)
+        .file(CODEX_HOOKS, "{}");
+    let dry = cli.run(&["skill", "setup", "--dry-run", "--json"]);
+    dry.failure();
+    assert_eq!(dry.json()["hooks"][1]["change"], "created");
+    let actual = cli.run(&["skill", "setup", "--json"]);
+    actual.failure();
+    assert_eq!(actual.json()["hooks"][1]["change"], "created");
+    assert_eq!(cli.read(CLAUDE_SETTINGS), edited);
+    assert!(cli.read(CODEX_HOOKS).contains(CODEX_SESSION_START));
+}
+
+#[test]
+fn project_removal_explains_how_to_remove_the_codex_account_hook() {
+    let cli = Cli::new();
+    let run = cli.run(&["skill", "remove", "--project", "--dry-run"]);
+    run.success()
+        .stderr_has("linear skill remove --agent codex");
+    assert!(!run.stderr.contains("linear skill setup"));
+}
+
+#[test]
+fn hook_reports_accept_non_utf8_home_and_agent_paths() {
+    use std::os::unix::ffi::OsStringExt;
+    let cli = Cli::new();
+    let path = cli
+        .path("non-utf8")
+        .join(std::ffi::OsString::from_vec(b"config-\xff".to_vec()));
+    for variable in ["HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR"] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_linear"))
+            .env_clear()
+            .env("HOME", cli.path("home"))
+            .env(variable, &path)
+            .env("NO_COLOR", "1")
+            .current_dir(cli.path("cwd"))
+            .args(["skill", "status", "--json"])
+            .output()
+            .expect("status");
+        assert!(
+            output.status.success(),
+            "{variable}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("JSON report");
+        assert!(
+            value["hooks"]
+                .as_array()
+                .expect("hooks")
+                .iter()
+                .any(|hook| {
+                    hook["path"]
+                        .as_str()
+                        .expect("path")
+                        .starts_with(path.to_string_lossy().as_ref())
+                })
+        );
+    }
+}
+
+#[test]
+fn project_settings_cannot_escape_through_file_or_directory_symlinks() {
+    for directory_link in [false, true] {
+        for existing in [false, true] {
+            if !directory_link && !existing {
+                continue;
+            }
+            let cli = Cli::new();
+            std::fs::create_dir_all(cli.path("outside")).expect("mkdir");
+            if existing {
+                std::fs::write(cli.path("outside/settings.json"), "{\"secret\":\"keep\"}")
+                    .expect("write");
+            }
+            if directory_link {
+                std::os::unix::fs::symlink(cli.path("outside"), cli.path("cwd/.claude"))
+                    .expect("link dir");
+            } else {
+                std::fs::create_dir_all(cli.path("cwd/.claude")).expect("mkdir");
+                std::os::unix::fs::symlink(
+                    cli.path("outside/settings.json"),
+                    cli.path("cwd/.claude/settings.json"),
+                )
+                .expect("link file");
+            }
+            cli.run(&["skill", "setup", "--project", "--agent", "claude"])
+                .failure()
+                .stderr_has("outside the project");
+            assert!(!cli.path("cwd/.agents").exists());
+            if existing {
+                assert_eq!(cli.read("outside/settings.json"), "{\"secret\":\"keep\"}");
+            } else {
+                assert!(!cli.path("outside/settings.json").exists());
+            }
+        }
+    }
+}
+
+#[test]
+fn existing_settings_permissions_are_preserved_in_both_scopes() {
+    use std::os::unix::fs::PermissionsExt;
+    for project in [false, true] {
+        for mode in [0o600, 0o640, 0o644] {
+            let settings = if project {
+                "cwd/.claude/settings.json"
+            } else {
+                CLAUDE_SETTINGS
+            };
+            let cli = Cli::new().file(settings, "{}");
+            std::fs::set_permissions(cli.path(settings), std::fs::Permissions::from_mode(mode))
+                .expect("chmod");
+            let mut args = vec!["skill", "setup", "--agent", "claude"];
+            if project {
+                args.push("--project");
+            }
+            cli.run(&args).success();
+            assert_eq!(
+                std::fs::metadata(cli.path(settings))
+                    .expect("stat")
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                mode
+            );
+            args[1] = "remove";
+            cli.run(&args).success();
+            assert_eq!(
+                std::fs::metadata(cli.path(settings))
+                    .expect("stat")
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                mode
+            );
+        }
+    }
+}
+
+#[test]
+fn dangling_project_configuration_directory_is_rejected_before_installation() {
+    let cli = Cli::new();
+    std::os::unix::fs::symlink(cli.path("absent/outside"), cli.path("cwd/.claude")).expect("link");
+    cli.run(&["skill", "setup", "--project"])
+        .failure()
+        .stderr_has("Failed to resolve");
+    assert!(!cli.path("cwd/.agents").exists());
+    assert!(!cli.path("absent").exists());
+}
+
+#[test]
+fn first_created_user_settings_are_private_and_project_settings_follow_umask() {
+    use std::os::unix::fs::PermissionsExt;
+    let cli = Cli::new().file("cwd/umask-probe", "");
+    cli.run(&["skill", "setup", "--agent", "claude"]).success();
+    assert_eq!(
+        std::fs::metadata(cli.path(CLAUDE_SETTINGS))
+            .expect("stat")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    cli.run(&["skill", "setup", "--project", "--agent", "claude"])
+        .success();
+    let mode = |path: &str| {
+        std::fs::metadata(cli.path(path))
+            .expect("stat")
+            .permissions()
+            .mode()
+            & 0o777
+    };
+    assert_eq!(mode("cwd/.claude/settings.json"), mode("cwd/umask-probe"));
+}
+
+#[test]
+fn codex_startup_uses_its_skill_syntax_and_needs_no_configuration() {
+    let run = Cli::new()
+        .env_remove("HOME")
+        .env("LINEAR_TIMEOUT", "invalid")
+        .file("cwd/.linear.toml", "not toml [")
+        .run(&["skill", "session-start", "--agent", "codex"]);
+    run.success()
+        .stdout_has("$linear-cli")
+        .stdout_has("linear skill show");
+    assert!(!run.stdout.contains("/linear-cli"));
+    assert_eq!(run.stderr, "", "{run}");
+    Cli::new()
+        .run(&["skill", "session-start", "--agent", "pi"])
+        .usage_error();
+}
+
+#[test]
+fn codex_hook_lifecycle_preserves_existing_hooks_and_settings() {
+    let original = serde_json::json!({
+        "description":"existing hooks", "hooks":{
+            "SessionStart":[{"hooks":[{"type":"command","command":"other-tool context"}]}],
+            "Stop":[{"hooks":[{"type":"command","command":"other-tool stop"}]}]
+        }
+    });
+    let cli = Cli::new().file(CODEX_HOOKS, &original.to_string());
+    let dry = cli.run(&["skill", "setup", "--agent", "codex", "--dry-run", "--json"]);
+    dry.success();
+    assert_eq!(dry.json()["hooks"][0]["agent"], "codex");
+    assert_eq!(cli.read(CODEX_HOOKS), original.to_string());
+    let setup = cli.run(&["skill", "setup", "--agent", "codex", "--json"]);
+    setup.success().stderr_has("/hooks");
+    assert_eq!(setup.json()["hooks"][0]["change"], "created");
+    let installed: serde_json::Value = serde_json::from_str(&cli.read(CODEX_HOOKS)).expect("JSON");
+    assert_eq!(installed["description"], original["description"]);
+    assert_eq!(installed["hooks"]["Stop"], original["hooks"]["Stop"]);
+    assert_eq!(
+        installed["hooks"]["SessionStart"][0],
+        original["hooks"]["SessionStart"][0]
+    );
+    assert_eq!(
+        installed["hooks"]["SessionStart"][1]["hooks"][0]["command"],
+        CODEX_SESSION_START
+    );
+    let bytes = cli.read(CODEX_HOOKS);
+    cli.run(&["skill", "setup", "--agent", "codex"]).success();
+    assert_eq!(cli.read(CODEX_HOOKS), bytes);
+    let status = cli.run(&["skill", "status", "--json"]);
+    status.success().stderr_has("/hooks");
+    assert_eq!(status.json()["hooks"][1]["state"], "current");
+    cli.run(&["skill", "remove", "--agent", "claude"]).success();
+    assert_eq!(cli.read(CODEX_HOOKS), bytes);
+    cli.run(&["skill", "remove", "--agent", "codex", "--dry-run"])
+        .success();
+    assert_eq!(cli.read(CODEX_HOOKS), bytes);
+    cli.run(&["skill", "remove", "--agent", "codex"]).success();
+    let removed: serde_json::Value = serde_json::from_str(&cli.read(CODEX_HOOKS)).expect("JSON");
+    assert_eq!(removed, original);
+    assert!(
+        !cli.path("home/.codex/config.toml").exists(),
+        "hook trust is left to Codex"
+    );
+}
+
+#[test]
+fn codex_hooks_follow_codex_home_detection_and_project_policy() {
+    let cli = Cli::new();
+    cli.run(&["skill", "setup"]).success();
+    assert!(
+        !cli.path(CODEX_HOOKS).exists(),
+        "do not create an absent agent's configuration by default"
+    );
+    let moved = cli.path("elsewhere/codex");
+    std::fs::create_dir_all(&moved).expect("mkdir");
+    let cli = cli.env("CODEX_HOME", &moved.display().to_string());
+    cli.run(&["skill", "setup"]).success();
+    assert!(
+        std::fs::read_to_string(moved.join("hooks.json"))
+            .expect("hooks")
+            .contains(CODEX_SESSION_START)
+    );
+    assert!(!cli.path(CODEX_HOOKS).exists());
+    cli.run(&["skill", "setup", "--project", "--agent", "codex"])
+        .success()
+        .stderr_has("linear skill setup --agent codex");
+    assert!(!cli.path("cwd/.codex/hooks.json").exists());
+    assert!(cli.path("cwd/.agents/skills/linear-cli/SKILL.md").exists());
+}
+
+#[test]
+fn invalid_or_edited_codex_hooks_are_not_replaced() {
+    let cli = Cli::new().file(CODEX_HOOKS, "not JSON");
+    cli.run(&["skill", "setup", "--agent", "codex", "--force"])
+        .failure()
+        .stderr_has("hooks.json");
+    assert_eq!(cli.read(CODEX_HOOKS), "not JSON");
+    assert!(!cli.path(SHARED).exists());
+    let edited = serde_json::json!({"hooks":{"SessionStart":[{"hooks":[{
+        "type":"command", "command":CODEX_SESSION_START, "timeout":60
+    }]}]}})
+    .to_string();
+    let cli = Cli::new().file(CODEX_HOOKS, &edited);
+    cli.run(&["skill", "setup", "--agent", "codex", "--force"])
+        .failure()
+        .stderr_has("edited");
+    cli.run(&["skill", "remove", "--agent", "codex"]).success();
+    assert_eq!(cli.read(CODEX_HOOKS), edited);
+}
+
+#[test]
+fn session_start_prints_a_small_reminder_without_loading_configuration() {
+    let run = Cli::new()
+        .env_remove("HOME")
+        .env("LINEAR_TIMEOUT", "invalid")
+        .file("cwd/.linear.toml", "not toml [")
+        .run(&["skill", "session-start"]);
+    run.success()
+        .stdout_has("/linear-cli")
+        .stdout_has("linear skill show")
+        .stdout_has("before your first `linear` command");
+    assert!(run.stdout.len() < 600, "{run}");
+    assert_eq!(run.stderr, "", "{run}");
+}
+
+#[test]
+fn setup_manages_a_startup_hook_without_replacing_other_claude_settings() {
+    let original = serde_json::json!({
+        "model": "opus",
+        "env": {"EXAMPLE": "preserve me"},
+        "hooks": {
+            "SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "other-tool context"}]}],
+            "Stop": [{"hooks": [{"type": "command", "command": "other-tool stop"}]}]
+        }
+    });
+    let cli = with_claude().file(CLAUDE_SETTINGS, &original.to_string());
+    let run = cli.run(&["skill", "setup", "--json"]);
+    run.success();
+    assert_eq!(run.json()["hooks"][0]["change"], "created");
+    let installed: serde_json::Value =
+        serde_json::from_str(&cli.read(CLAUDE_SETTINGS)).expect("JSON");
+    assert_eq!(installed["model"], original["model"]);
+    assert_eq!(installed["env"], original["env"]);
+    assert_eq!(installed["hooks"]["Stop"], original["hooks"]["Stop"]);
+    assert_eq!(
+        installed["hooks"]["SessionStart"][0],
+        original["hooks"]["SessionStart"][0]
+    );
+    assert_eq!(
+        installed["hooks"]["SessionStart"][1]["hooks"][0]["command"],
+        SESSION_START
+    );
+    let bytes = cli.read(CLAUDE_SETTINGS);
+    cli.run(&["skill", "setup"]).success();
+    assert_eq!(cli.read(CLAUDE_SETTINGS), bytes, "repeat setup is a no-op");
+    let status = cli.run(&["skill", "status", "--json"]);
+    status.success();
+    assert_eq!(status.json()["hooks"][0]["state"], "current");
+
+    cli.run(&["skill", "remove", "--dry-run"]).success();
+    assert_eq!(cli.read(CLAUDE_SETTINGS), bytes);
+    cli.run(&["skill", "remove"]).success();
+    let removed: serde_json::Value =
+        serde_json::from_str(&cli.read(CLAUDE_SETTINGS)).expect("JSON");
+    assert_eq!(removed, original, "only linear's hook is removed");
+}
+
+#[test]
+fn hooks_follow_agent_selection_scope_and_dry_runs() {
+    let cli = with_claude();
+    cli.run(&["skill", "setup", "--dry-run"]).success();
+    assert!(!cli.path(CLAUDE_SETTINGS).exists());
+    cli.run(&["skill", "setup", "--agent", "codex"]).success();
+    assert!(!cli.path(CLAUDE_SETTINGS).exists());
+    cli.run(&["skill", "setup", "--agent", "claude"]).success();
+    let settings = cli.read(CLAUDE_SETTINGS);
+    cli.run(&["skill", "remove", "--agent", "codex"]).success();
+    assert_eq!(cli.read(CLAUDE_SETTINGS), settings);
+    cli.run(&["skill", "setup", "--project", "--agent", "claude"])
+        .success();
+    assert!(
+        cli.read("cwd/.claude/settings.json")
+            .contains(SESSION_START)
+    );
+    assert_eq!(cli.read(CLAUDE_SETTINGS), settings);
+}
+
+#[test]
+fn malformed_claude_settings_are_rejected_before_installing_anything() {
+    for contents in [
+        "not json",
+        "[]",
+        r#"{"hooks":null}"#,
+        r#"{"hooks":{"SessionStart":{}}}"#,
+        r#"{"hooks":{"SessionStart":[{"matcher":null,"hooks":[]}]}}"#,
+        r#"{"hooks":{"SessionStart":[{"hooks":[false]}]}}"#,
+    ] {
+        let cli = with_claude().file(CLAUDE_SETTINGS, contents);
+        cli.run(&["skill", "setup", "--force"])
+            .failure()
+            .stderr_has("settings.json");
+        assert_eq!(cli.read(CLAUDE_SETTINGS), contents);
+        assert!(!cli.path(SHARED).exists());
+        let status = cli.run(&["skill", "status", "--json"]);
+        status.failure().stderr_has("settings.json");
+        assert!(
+            !status.json()["items"]
+                .as_array()
+                .expect("skill items")
+                .is_empty()
+        );
+        assert_eq!(status.json()["hooks"][0]["state"], "unreadable");
+        cli.run(&["skill", "remove"])
+            .failure()
+            .stderr_has("settings.json");
+        assert_eq!(cli.read(CLAUDE_SETTINGS), contents);
+    }
+}
+
+#[test]
+fn customized_linear_hooks_are_reported_and_kept() {
+    let contents = serde_json::json!({"hooks":{"SessionStart":[{"hooks":[{
+        "type":"command", "command":SESSION_START, "timeout":60
+    }]}]}})
+    .to_string();
+    let cli = with_claude().file(CLAUDE_SETTINGS, &contents);
+    cli.run(&["skill", "setup", "--force"])
+        .failure()
+        .stderr_has("edited");
+    assert_eq!(cli.read(CLAUDE_SETTINGS), contents);
+    cli.run(&["skill", "remove"]).success();
+    assert_eq!(cli.read(CLAUDE_SETTINGS), contents);
+}
+
+#[test]
+fn removing_the_only_hook_leaves_no_empty_registration() {
+    let cli = with_claude();
+    cli.run(&["skill", "setup"]).success();
+    cli.run(&["skill", "remove"]).success();
+    let settings: serde_json::Value =
+        serde_json::from_str(&cli.read(CLAUDE_SETTINGS)).expect("JSON");
+    assert_eq!(settings, serde_json::json!({}));
+}
+
+#[test]
+fn removal_preserves_other_commands_in_the_same_group_and_empty_groups() {
+    let cli = with_claude();
+    cli.run(&["skill", "setup"]).success();
+    let mut settings: serde_json::Value =
+        serde_json::from_str(&cli.read(CLAUDE_SETTINGS)).expect("JSON");
+    let other = serde_json::json!({"type":"command", "command":"other-tool context"});
+    settings["hooks"]["SessionStart"][0]["hooks"]
+        .as_array_mut()
+        .expect("array")
+        .push(other.clone());
+    settings["hooks"]["SessionStart"]
+        .as_array_mut()
+        .expect("array")
+        .push(serde_json::json!({"hooks":[]}));
+    let cli = cli.file(CLAUDE_SETTINGS, &settings.to_string());
+    cli.run(&["skill", "remove"]).success();
+    let removed: serde_json::Value =
+        serde_json::from_str(&cli.read(CLAUDE_SETTINGS)).expect("JSON");
+    assert_eq!(
+        removed,
+        serde_json::json!({"hooks":{"SessionStart":[{"hooks":[other]},{"hooks":[]}]}})
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn settings_symlinks_are_preserved_when_managing_the_hook() {
+    let cli = with_claude().file("dotfiles/claude.json", r#"{"model":"opus"}"#);
+    std::os::unix::fs::symlink(cli.path("dotfiles/claude.json"), cli.path(CLAUDE_SETTINGS))
+        .expect("symlink");
+    cli.run(&["skill", "setup"]).success();
+    assert!(
+        std::fs::symlink_metadata(cli.path(CLAUDE_SETTINGS))
+            .expect("stat")
+            .is_symlink()
+    );
+    assert!(cli.read("dotfiles/claude.json").contains(SESSION_START));
+    cli.run(&["skill", "remove"]).success();
+    let settings: serde_json::Value =
+        serde_json::from_str(&cli.read("dotfiles/claude.json")).expect("JSON");
+    assert_eq!(settings, serde_json::json!({"model":"opus"}));
+}
 
 /// A sandbox in which Claude Code looks set up.
 fn with_claude() -> Cli {
@@ -298,6 +768,11 @@ fn claude_code_s_directory_follows_its_configuration_variable() {
     let cli = cli.env("CLAUDE_CONFIG_DIR", &moved.display().to_string());
     cli.run(&["skill", "setup"]).success();
     assert!(moved.join("skills/linear-cli/SKILL.md").exists());
+    assert!(
+        std::fs::read_to_string(moved.join("settings.json"))
+            .expect("settings")
+            .contains(SESSION_START)
+    );
     assert!(!cli.path("home/.claude").exists());
 }
 

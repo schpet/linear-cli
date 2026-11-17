@@ -9,7 +9,7 @@
 use std::collections::BTreeSet;
 
 use crate::cli;
-use crate::cli::skill::{Agent, SkillCommand, SkillRemove, SkillSetup, SkillStatus};
+use crate::cli::skill::{Agent, HookAgent, SkillCommand, SkillRemove, SkillSetup, SkillStatus};
 use crate::commands::json;
 use crate::config::RealFileSource;
 use crate::error::{Error, Result};
@@ -18,6 +18,7 @@ use crate::templates::TemplateConfig;
 
 mod apply;
 mod guide;
+mod hooks;
 mod plan;
 mod report;
 mod slots;
@@ -32,6 +33,7 @@ use slots::{Layout, Scope, SkillEnv};
 
 pub fn run(command: &SkillCommand, templates: Option<&TemplateConfig>) -> Result<()> {
     match command {
+        SkillCommand::SessionStart(args) => hooks::session_start(args.agent),
         SkillCommand::Show(args) => {
             show(args, templates.expect("show loads template configuration"))
         }
@@ -103,18 +105,27 @@ fn setup(
     let layout = layout(env, args.project)?;
     let agents = layout.setup_agents(&args.agent);
     let mut steps = plan::setup(&layout, &agents, args.force, stubs, stamp);
+    let mut hooks = plan_hooks(&layout, &agents, &args.agent, Action::Setup)?;
     if !args.dry_run {
         apply::apply(&mut steps, stubs, files);
+        apply_hooks(&mut hooks, &steps, files);
     }
+    let hook_reports = hooks
+        .into_iter()
+        .map(|hook| hook.report)
+        .collect::<Vec<_>>();
     let stdout = if args.json {
         json::render(&report::changes_json(
             &layout,
             Action::Setup,
             args.dry_run,
             &steps,
+            &hook_reports,
         ))
     } else {
-        report::changes_text(&steps, args.dry_run, env.home.as_deref()).into_bytes()
+        (report::changes_text(&steps, args.dry_run, env.home.as_deref())
+            + &report::hooks_text(&hook_reports, args.dry_run, env.home.as_deref()))
+            .into_bytes()
     };
 
     let mut notes = Vec::new();
@@ -128,6 +139,15 @@ fn setup(
                 .to_owned(),
         );
     }
+    if layout.scope == Scope::Project && agents.contains(&Agent::Codex) {
+        notes.push(CODEX_PROJECT_NOTE.to_owned());
+    }
+    if hook_reports.iter().any(|hook| {
+        hook.agent == HookAgent::Codex
+            && matches!(hook.change, Some(Change::Created | Change::Unchanged))
+    }) {
+        notes.push(CODEX_TRUST_NOTE.to_owned());
+    }
     if let Some(note) = twice(&steps) {
         notes.push(note);
     }
@@ -136,7 +156,9 @@ fn setup(
             step.change,
             Change::Created | Change::Updated | Change::Replaced
         )
-    });
+    }) || hook_reports
+        .iter()
+        .any(|hook| hook.change.is_some_and(Change::mutates));
     if installed && !args.dry_run {
         if !env.linear_on_path() {
             notes.push(
@@ -149,7 +171,11 @@ fn setup(
             notes.push("Pi reads a project's skills only after the project is trusted.".to_owned());
         }
     }
-    Ok((stdout, note_lines(&notes), setup_result(&steps, args)))
+    Ok((
+        stdout,
+        note_lines(&notes),
+        setup_result(&steps, args).and_then(|()| hook_result(&hook_reports)),
+    ))
 }
 
 /// A note for a machine where one agent reads two of the directories the
@@ -226,10 +252,17 @@ fn setup_result(steps: &[Step], args: &SkillSetup) -> Result<()> {
 fn status(args: &SkillStatus, env: &SkillEnv, stubs: Stubs) -> Result<Outcome> {
     let layout = layout(env, args.project)?;
     let items = plan::status(&layout, stubs);
+    let hook_reports = HookAgent::ALL
+        .into_iter()
+        .filter(|agent| hook_supported(&layout, *agent))
+        .map(|agent| hooks::status(&layout, agent))
+        .collect::<Vec<_>>();
     let stdout = if args.json {
-        json::render(&report::status_json(&layout, &items))
+        json::render(&report::status_json(&layout, &items, &hook_reports))
     } else {
-        report::status_text(&items, env.home.as_deref()).into_bytes()
+        (report::status_text(&items, env.home.as_deref())
+            + &report::hooks_text(&hook_reports, false, env.home.as_deref()))
+            .into_bytes()
     };
     let project = if args.project { " --project" } else { "" };
     let mut notes = Vec::new();
@@ -240,6 +273,10 @@ fn status(args: &SkillStatus, env: &SkillEnv, stubs: Stubs) -> Result<Outcome> {
         item.slot.location == slots::Location::Canonical
             && matches!(item.seen.state, State::Missing | State::Outdated)
             && item.slot.agents.iter().any(|agent| wanted.contains(agent))
+    }) || hook_reports.iter().any(|hook| {
+        hook.state == State::Missing
+            && wanted.contains(&hook.agent.agent())
+            && (hook.agent == HookAgent::Claude || layout.codex_present)
     });
     if needs_setup {
         notes.push(format!(
@@ -252,11 +289,27 @@ fn status(args: &SkillStatus, env: &SkillEnv, stubs: Stubs) -> Result<Outcome> {
              and installs over it."
         ));
     }
+    if hook_reports
+        .iter()
+        .any(|hook| hook.agent == HookAgent::Codex && hook.state == State::Current)
+    {
+        notes.push(CODEX_TRUST_NOTE.to_owned());
+    }
     let result = if items
         .iter()
         .any(|item| item.seen.state == State::Unreadable)
     {
         Err(Error::new("A skill directory could not be read"))
+    } else if let Some(hook) = hook_reports
+        .iter()
+        .find(|hook| hook.state == State::Unreadable)
+    {
+        Err(Error::new(
+            hook.reason
+                .as_deref()
+                .unwrap_or("Agent hook settings could not be read"),
+        )
+        .with_hint("Fix the hook settings and run `linear skill status` again"))
     } else {
         Ok(())
     };
@@ -271,22 +324,34 @@ fn remove(args: &SkillRemove, env: &SkillEnv, stubs: Stubs, files: &impl Files) 
         args.agent.iter().copied().collect()
     };
     let mut steps = plan::remove(&layout, &agents, stubs);
+    let mut hooks = plan_hooks(&layout, &agents, &args.agent, Action::Remove)?;
     if !args.dry_run {
         apply::apply(&mut steps, stubs, files);
+        apply_hooks(&mut hooks, &steps, files);
     }
+    let hook_reports = hooks
+        .into_iter()
+        .map(|hook| hook.report)
+        .collect::<Vec<_>>();
     let stdout = if args.json {
         json::render(&report::changes_json(
             &layout,
             Action::Remove,
             args.dry_run,
             &steps,
+            &hook_reports,
         ))
     } else {
-        report::changes_text(&steps, args.dry_run, env.home.as_deref()).into_bytes()
+        (report::changes_text(&steps, args.dry_run, env.home.as_deref())
+            + &report::hooks_text(&hook_reports, args.dry_run, env.home.as_deref()))
+            .into_bytes()
     };
     let mut notes = Vec::new();
     if args.dry_run {
         notes.push("Dry run: nothing was changed.".to_owned());
+    }
+    if layout.scope == Scope::Project && agents.contains(&Agent::Codex) {
+        notes.push(CODEX_PROJECT_REMOVE_NOTE.to_owned());
     }
     let result = match steps.iter().find(|step| step.change.failed()) {
         Some(step) => Err(Error::new(format!(
@@ -296,7 +361,77 @@ fn remove(args: &SkillRemove, env: &SkillEnv, stubs: Stubs, files: &impl Files) 
         ))),
         None => Ok(()),
     };
-    Ok((stdout, note_lines(&notes), result))
+    Ok((
+        stdout,
+        note_lines(&notes),
+        result.and_then(|()| hook_result(&hook_reports)),
+    ))
+}
+
+const CODEX_PROJECT_NOTE: &str = "Codex project hooks require project and per-hook trust, so only the skill is installed there. Run `linear skill setup --agent codex` for an account startup reminder.";
+const CODEX_TRUST_NOTE: &str =
+    "Codex runs new or changed hooks only after you review and trust them in its /hooks menu.";
+const CODEX_PROJECT_REMOVE_NOTE: &str = "Project removal leaves Codex account hooks alone. Run `linear skill remove --agent codex` without --project to remove the account reminder.";
+
+fn hook_supported(layout: &Layout, agent: HookAgent) -> bool {
+    match (layout.scope, agent) {
+        (Scope::User, _) | (Scope::Project, HookAgent::Claude) => true,
+        (Scope::Project, HookAgent::Codex) => false,
+    }
+}
+
+fn plan_hooks(
+    layout: &Layout,
+    agents: &BTreeSet<Agent>,
+    explicit: &[Agent],
+    action: Action,
+) -> Result<Vec<hooks::Plan>> {
+    HookAgent::ALL
+        .into_iter()
+        .filter(|agent| agents.contains(&agent.agent()) && hook_supported(layout, *agent))
+        .filter(|agent| {
+            *agent != HookAgent::Codex
+                || action == Action::Remove
+                || layout.codex_present
+                || explicit.contains(&Agent::Codex)
+        })
+        .map(|agent| hooks::plan(layout, agent, Some(action)).map_err(|error| {
+            if action == Action::Remove {
+                error.with_hint("Fix the hook settings, or use --agent to remove other agents' skills and hooks")
+            } else { error }
+        }))
+        .collect()
+}
+
+fn apply_hooks(hooks: &mut [hooks::Plan], steps: &[Step], files: &impl Files) {
+    let mut stopped = steps.iter().any(|step| filesystem_failed(step.change));
+    for hook in hooks {
+        hook.apply(files, stopped);
+        stopped |= hook.report.change.is_some_and(filesystem_failed);
+    }
+}
+
+fn filesystem_failed(change: Change) -> bool {
+    matches!(change, Change::Failed | Change::NotRun)
+}
+
+fn hook_result(reports: &[hooks::Report]) -> Result<()> {
+    match reports
+        .iter()
+        .find(|hook| hook.change.is_some_and(Change::failed))
+    {
+        Some(hook) => Err(Error::new(format!(
+            "Failed to configure the SessionStart hook at {}: {}",
+            hook.path.display(),
+            hook.reason
+                .as_deref()
+                .unwrap_or("the operation did not complete")
+        ))
+        .with_hint(
+            "Fix the settings file and run the command again; edited hooks are never overwritten",
+        )),
+        None => Ok(()),
+    }
 }
 
 fn note_lines(notes: &[String]) -> String {

@@ -15,6 +15,14 @@ pub trait Files {
     fn create_dir(&self, path: &Path) -> io::Result<()>;
     /// Replaces the file at `path` in one step.
     fn write(&self, path: &Path, contents: &[u8]) -> io::Result<()>;
+    /// Writes settings that may contain private environment values.
+    fn write_private(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
+        self.write(path, contents)
+    }
+    /// Replaces existing settings without changing their access permissions.
+    fn write_preserving(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
+        self.write(path, contents)
+    }
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()>;
     fn remove_file(&self, path: &Path) -> io::Result<()>;
     /// Removes an empty directory.
@@ -34,6 +42,14 @@ impl Files for RealFiles {
 
     fn write(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
         private_file::write_atomic_shared(path, contents)
+    }
+
+    fn write_private(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
+        private_file::write_atomic(path, contents)
+    }
+
+    fn write_preserving(&self, path: &Path, contents: &[u8]) -> io::Result<()> {
+        private_file::write_atomic_preserving(path, contents)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
