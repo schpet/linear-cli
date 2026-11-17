@@ -16,6 +16,7 @@
 - `.github/workflows/actions.lock` pins every action the workflows use to a commit, and a workflow that disagrees with it does not start. after changing a `uses:` line, run `just actions-lock` (needs `gh extension install github/gh-actions-lock`) and commit the result with the workflow. never edit it by hand
 - add an entry under `## [Unreleased]` in `CHANGELOG.md` for user-facing changes
 - ask before adding a new dependency
+- release stable and alpha builds with the process in CONTRIBUTING.md: add matching dated changelog notes, use `just prepare-release <version>` to verify svbump and cargo-dist, then `just tag <version>` to check and publish only that tag
 
 ## layout of `crates/linear-cli/src`
 

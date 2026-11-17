@@ -20,19 +20,26 @@ sync-schema:
 licenses:
     cargo xtask licenses
 
-# tags the newest release in the changelog
-tag: check
-    svbump write "$(changelog version latest)" workspace.package.version Cargo.toml
-    cargo update --workspace
+# checks release preparation guards using isolated fixtures
+release-check:
+    python3 scripts/test_prepare_release.py
 
-    jj commit -m "chore: Release linear-cli version $(svbump read workspace.package.version Cargo.toml)"
+# prepares a stable or alpha version without committing, tagging or pushing
+prepare-release version="latest":
+    ./scripts/prepare-release {{quote(version)}}
+
+# prepares, checks, commits and publishes exactly one release tag
+tag version="latest": (prepare-release version) check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version=$(svbump read workspace.package.version Cargo.toml)
+    jj commit -m "chore: Release linear-cli version $version"
     jj bookmark set main -r @-
-    jj tag set "v$(svbump read workspace.package.version Cargo.toml)" -r @-
     jj git push --bookmark main
-
-    git push origin --tags
-
-    @echo "released v$(svbump read workspace.package.version Cargo.toml)"
+    jj tag set "v$version" -r @-
+    revision=$(jj log --ignore-working-copy --no-graph -r @- -T commit_id)
+    git push origin "$revision:refs/tags/v$version"
+    echo "released v$version"
 
 # regenerates .github/workflows/release.yml with the dist version pinned in mise.toml
 dist-generate:
