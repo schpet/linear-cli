@@ -22,14 +22,6 @@ pub enum Slot {
 }
 
 impl Slot {
-    pub const ALL: [Self; 5] = [
-        Self::Skill,
-        Self::SkillCommand,
-        Self::CommitDescription,
-        Self::PrTitle,
-        Self::PrBody,
-    ];
-
     pub const fn name(self) -> &'static str {
         match self {
             Self::Skill => "skill",
@@ -200,10 +192,6 @@ fn engine_error(
 }
 
 impl TemplateConfig {
-    pub fn defaults_toml() -> &'static str {
-        DEFAULTS
-    }
-
     pub fn builtin() -> Self {
         let table = DEFAULTS
             .parse::<toml::Table>()
@@ -254,33 +242,6 @@ impl TemplateConfig {
 
     pub fn entries(&self) -> &BTreeMap<String, TemplateEntry> {
         &self.entries
-    }
-
-    /// Registers application-generated empty skill hooks without replacing
-    /// shipped or configured guidance. Normally all Clap hooks exist already.
-    pub fn register_skill_hooks(&mut self, names: impl IntoIterator<Item = String>) -> Result<()> {
-        for name in names {
-            if !name.starts_with("skill_") || !valid_name(&name) {
-                return Err(config_error(
-                    "command registry",
-                    &name,
-                    "invalid skill hook name",
-                ));
-            }
-            self.template_names.insert(name.clone());
-            let entry = TemplateEntry {
-                body: String::new(),
-                origin: TemplateOrigin {
-                    source: BUILTIN_SOURCE.to_owned(),
-                    key: format!("templates.{name}"),
-                },
-            };
-            self.entries
-                .entry(name.clone())
-                .or_insert_with(|| entry.clone());
-            self.builtins.entry(name).or_insert(entry);
-        }
-        self.rebuild()
     }
 
     pub fn apply_tier(&mut self, tier: &ConfigTier) -> Result<()> {

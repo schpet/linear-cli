@@ -11,7 +11,7 @@ skill = '''
 {% include "skill_how_to_work" -%}
 {% include "skill_common_tasks" -%}
 {{ command_guidance -}}
-{% include "skill_markdown" -%}
+{% include "skill_markdown_rules" -%}
 {% include "skill_exit_status" -%}
 {% include "skill_help_notes" -%}
 {% include "skill_commands" -%}
@@ -23,7 +23,7 @@ skill_command = '''
 {% include "skill_how_to_work" -%}
 {{ command_help -}}
 {{ command_guidance -}}
-{% include "skill_markdown" -%}
+{% include "skill_markdown_rules" -%}
 {% include "skill_exit_status" -%}
 {% endblock %}'''
 
@@ -398,7 +398,7 @@ linear label create --name "Bug" --color "#EB5757"
 
 {% endblock %}'''
 
-skill_markdown = '''
+skill_markdown_rules = '''
 {% block content -%}
 ## Markdown bodies
 

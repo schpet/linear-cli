@@ -146,15 +146,12 @@ commit_description = '{% extends "builtin/commit_description" %}{% block content
 }
 
 #[test]
-fn canonical_empty_hooks_exist_and_registration_keeps_overrides() {
+fn canonical_empty_hooks_exist_and_keep_overrides() {
     let layer = tier(
         "project.toml",
         "[templates]\nskill_issue_comment = 'local policy'",
     );
-    let mut config = TemplateConfig::from_tiers([&layer]).expect("load");
-    config
-        .register_skill_hooks(["skill_issue_comment".to_owned(), "skill_custom".to_owned()])
-        .expect("register");
+    let config = TemplateConfig::from_tiers([&layer]).expect("load");
     assert_eq!(
         config
             .render_named("skill_issue_comment", &SkillContext::default())
@@ -163,7 +160,7 @@ fn canonical_empty_hooks_exist_and_registration_keeps_overrides() {
     );
     assert_eq!(
         config
-            .render_named("skill_custom", &SkillContext::default())
+            .render_named("skill_milestone_update", &SkillContext::default())
             .expect("empty"),
         ""
     );

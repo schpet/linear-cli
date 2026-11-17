@@ -7,6 +7,7 @@ pub mod comment_add;
 pub mod comments;
 pub mod completions;
 pub mod config_generate;
+pub mod config_inspect;
 pub mod confirm;
 pub mod cycle;
 pub mod document;

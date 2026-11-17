@@ -13,8 +13,9 @@ pub enum SkillCommand {
     /// Print the guide that teaches an agent to use linear
     ///
     /// The guide is Markdown and comes from this binary, so it describes the
-    /// commands this version has. It needs no login, configuration or network
-    /// connection. Run `linear COMMAND --help` for a command's full options.
+    /// commands this version has, with global and project template preferences.
+    /// It needs no login or network. Use --builtin to bypass all configuration.
+    /// Name a command path for its inherited guidance and full options.
     ///
     /// An agent with the skill installed reads the guide through the skill. An
     /// agent without it can run this command to read the same guide.
@@ -66,7 +67,14 @@ pub enum SkillCommand {
 }
 
 #[derive(Debug, Args)]
-pub struct SkillShow {}
+pub struct SkillShow {
+    /// Command path, accepting the same aliases as the CLI (e.g. issue comment add)
+    #[arg(value_name = "COMMAND")]
+    pub command: Vec<String>,
+    /// Print shipped guidance, ignoring all configuration and template overlays
+    #[arg(long)]
+    pub builtin: bool,
+}
 
 #[derive(Debug, Args)]
 pub struct SkillSetup {
