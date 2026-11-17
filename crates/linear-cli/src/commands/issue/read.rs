@@ -118,6 +118,8 @@ impl From<SearchIssuesSearchIssuesNodes> for ListedIssue {
     /// tables.
     fn from(r: SearchIssuesSearchIssuesNodes) -> Self {
         Self {
+            trashed: r.trashed,
+            archived_at: r.archived_at,
             id: r.id,
             identifier: r.identifier,
             title: r.title,

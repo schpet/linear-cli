@@ -61,6 +61,16 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
     let client = ctx.client()?;
     // Every issue is fetched before gh runs, so a missing one opens nothing.
     let issues = ctx.spin(true, fetch_all(client, identifiers))?;
+    for issue in &issues {
+        let lifecycle =
+            super::lifecycle::Lifecycle::of(issue.details.trashed, issue.details.archived_at);
+        lifecycle
+            .ensure_not_deleted(&issue.identifier)
+            .map_err(|error| {
+                error.with_hint("Restore it in Linear first. No pull request was opened.")
+            })?;
+        lifecycle.warn(ctx, &issue.identifier)?;
+    }
     let linkage = if args.references {
         Linkage::References
     } else {

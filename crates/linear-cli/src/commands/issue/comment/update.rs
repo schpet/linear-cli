@@ -59,20 +59,42 @@ pub async fn existing_body(client: &LinearClient, id: &str) -> Result<String, Er
     Ok(comment.body.unwrap_or_default())
 }
 pub async fn submit(client: &LinearClient, id: &str, body: String) -> Result<Vec<u8>, Error> {
-    let result: UpdateComment = client
+    let result: Result<UpdateComment, _> = client
         .mutate(UpdateCommentVariables {
             id: id.to_owned(),
             input: CommentUpdateInput { body },
         })
-        .await
-        .map_err(|failure| {
+        .await;
+    let result = match result {
+        Ok(result) => result,
+        Err(failure) => {
+            let missing_issue = failure.is_missing_entity("Issue");
             let uncertain = failure.outcome_unknown();
             let mut error = Error::from(failure);
             if uncertain {
                 error.push_message("; the comment may already be updated");
             }
-            error
-        })?;
+            if missing_issue {
+                let ownership: Result<GetCommentIssueLifecycle, _> = client
+                    .query(GetCommentVariables { id: id.to_owned() })
+                    .await;
+                error = match ownership {
+                    Ok(response) => match response.comment.and_then(|comment| comment.issue) {
+                        Some(issue) => {
+                            super::super::lifecycle::of(&issue).explain(&issue.identifier, error)
+                        }
+                        None => error,
+                    },
+                    Err(failure) => super::super::lifecycle::diagnostic_failed(
+                        error,
+                        &format!("comment {id}'s issue"),
+                        failure.into(),
+                    ),
+                };
+            }
+            return Err(error);
+        }
+    };
     if !result.comment_update.success {
         return Err(Error::new("Linear did not update the comment"));
     }

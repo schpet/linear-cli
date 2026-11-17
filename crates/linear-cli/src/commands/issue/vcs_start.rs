@@ -69,6 +69,9 @@ fn work_on(ctx: &Ctx, identifier: String, prepare: Prepare<'_>) -> Result<()> {
         true,
         super::details::fetch_for_transition(client, identifier),
     )?;
+    let lifecycle = super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at);
+    lifecycle.ensure_not_deleted(&issue.identifier)?;
+    lifecycle.warn(ctx, &issue.identifier)?;
     let repo = Repo {
         ctx,
         kind: prepare.kind(),

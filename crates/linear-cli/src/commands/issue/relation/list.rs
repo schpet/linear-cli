@@ -76,19 +76,27 @@ async fn fetch(client: &LinearClient, identifier: &str) -> Result<ListedIssue> {
 }
 
 fn render(issue: &ListedIssue) -> String {
-    let mut text = format!("Relations for {}: {}\n\n", issue.identifier, issue.title);
+    use super::super::lifecycle::Lifecycle;
+    let subject = format!(
+        "{}{}",
+        issue.identifier,
+        Lifecycle::of(issue.trashed, issue.archived_at).marker()
+    );
+    let mut text = format!("Relations for {subject}: {}\n\n", issue.title);
     if issue.relations.nodes.is_empty() && issue.inverse_relations.nodes.is_empty() {
         text.push_str("  No relations\n");
     }
     if !issue.relations.nodes.is_empty() {
         text.push_str("Outgoing:\n");
         for relation in &issue.relations.nodes {
+            let target = &relation.related_issue;
             text.push_str(&format!(
-                "  {} {} {}: {}\n",
-                issue.identifier,
+                "  {} {} {}{}: {}\n",
+                subject,
                 relation.relation_type,
-                relation.related_issue.identifier,
-                relation.related_issue.title
+                target.identifier,
+                Lifecycle::of(target.trashed, target.archived_at).marker(),
+                target.title
             ));
         }
     }
@@ -103,9 +111,14 @@ fn render(issue: &ListedIssue) -> String {
             } else {
                 &relation.relation_type
             };
+            let target = &relation.issue;
             text.push_str(&format!(
-                "  {} {} {}: {}\n",
-                issue.identifier, kind, relation.issue.identifier, relation.issue.title
+                "  {} {} {}{}: {}\n",
+                subject,
+                kind,
+                target.identifier,
+                Lifecycle::of(target.trashed, target.archived_at).marker(),
+                target.title
             ));
         }
     }

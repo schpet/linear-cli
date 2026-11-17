@@ -384,6 +384,7 @@ fn comment(id: &str, body: &str, user: &str, parent: Option<&str>) -> Value {
 fn comments_page(nodes: Vec<Value>, end_cursor: Value, has_next: bool) -> Value {
     json!({
         "issue": {
+            "trashed": null, "archivedAt": null,
             "comments": {
                 "nodes": nodes,
                 "pageInfo": { "hasNextPage": has_next, "endCursor": end_cursor }
@@ -1319,4 +1320,205 @@ fn list_resolved_and_unresolved_conflict() {
         ])
         .usage_error();
     assert!(api.requests().is_empty());
+}
+
+#[test]
+fn add_explains_a_deleted_issue_after_linear_rejects_the_comment() {
+    let api = MockLinear::start();
+    api.on_raw("AddComment", 400, r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"code":"INPUT_ERROR","userError":true,"userPresentableMessage":"Could not find referenced Issue."}}]}"#)
+        .on("GetIssueLifecycle", json!({ "issue": {
+            "identifier": "ENG-1", "trashed": true, "archivedAt": "2026-11-09T20:50:36.574Z"
+        } }));
+    let run = Cli::for_api(&api).run(&["issue", "comment", "add", "ENG-1", "--body", "Hello"]);
+    run.not_found()
+        .stderr_has("ENG-1 was deleted on 2026-11-09")
+        .stderr_has("Restore it in Linear first");
+    assert!(run.stdout.is_empty(), "{run}");
+    assert_eq!(api.operations(), ["AddComment", "GetIssueLifecycle"]);
+    assert_eq!(api.variables("GetIssueLifecycle"), json!({ "id": "ENG-1" }));
+}
+
+#[test]
+fn rejected_comment_preserves_other_errors_and_diagnoses_only_missing_issues() {
+    for (message, diagnostic, expected) in [
+        (
+            "Entity not found: Issue",
+            Some(json!({ "issue": null })),
+            "Issue not found: ENG-1",
+        ),
+        (
+            "Entity not found: Issue",
+            Some(
+                json!({ "issue": { "identifier": "ENG-1", "trashed": false, "archivedAt": null } }),
+            ),
+            "Entity not found: Issue",
+        ),
+        (
+            "Entity not found: Issue",
+            Some(
+                json!({ "issue": { "identifier": "ENG-1", "trashed": null, "archivedAt": "2026-11-09T20:50:36.574Z" } }),
+            ),
+            "ENG-1 was archived on 2026-11-09",
+        ),
+        (
+            "Entity not found: Comment",
+            None,
+            "Entity not found: Comment",
+        ),
+        (
+            "Entity not found: WorkflowState",
+            None,
+            "Entity not found: WorkflowState",
+        ),
+        ("Permission denied", None, "Permission denied"),
+    ] {
+        let api = MockLinear::start();
+        api.on_error("AddComment", message);
+        if let Some(response) = &diagnostic {
+            api.on("GetIssueLifecycle", response.clone());
+        }
+        let run = Cli::for_api(&api).run(&["issue", "comment", "add", "ENG-1", "-b", "Hi"]);
+        assert_ne!(run.code, 0, "{run}");
+        run.stderr_has(expected);
+        assert!(!run.stderr.contains("was deleted"), "{run}");
+        assert!(run.stdout.is_empty(), "{run}");
+        assert_eq!(
+            api.requests().len(),
+            if diagnostic.is_some() { 2 } else { 1 }
+        );
+    }
+}
+
+#[test]
+fn rejected_comment_keeps_the_write_error_when_the_diagnosis_fails() {
+    let api = MockLinear::start();
+    api.on_error("AddComment", "Entity not found: Issue")
+        .on_error("GetIssueLifecycle", "Lifecycle lookup unavailable");
+    let run = Cli::for_api(&api).run(&["issue", "comment", "add", "ENG-1", "-b", "Hi"]);
+    run.not_found()
+        .stderr_has("Entity not found: Issue")
+        .stderr_has("Could not check whether ENG-1 is deleted or archived")
+        .stderr_has("Lifecycle lookup unavailable");
+    assert_eq!(api.operations(), ["AddComment", "GetIssueLifecycle"]);
+}
+
+#[test]
+fn comment_update_explains_the_owning_deleted_issue() {
+    let api = MockLinear::start();
+    api.on_error("UpdateComment", "Entity not found: Issue").on(
+        "GetCommentIssueLifecycle",
+        json!({ "comment": { "issue": {
+            "identifier": "ENG-7", "trashed": true, "archivedAt": null
+        } } }),
+    );
+    let run = Cli::for_api(&api).run(&["issue", "comment", "update", COMMENT_ID, "-b", "Hi"]);
+    run.not_found()
+        .stderr_has("ENG-7 was deleted (in trash)")
+        .stderr_has("Restore it in Linear first");
+    assert_eq!(
+        api.operations(),
+        ["UpdateComment", "GetCommentIssueLifecycle"]
+    );
+    assert_eq!(
+        api.variables("GetCommentIssueLifecycle"),
+        json!({ "id": COMMENT_ID })
+    );
+}
+
+#[test]
+fn comment_list_warns_once_without_polluting_text_or_json() {
+    for json_output in [false, true] {
+        let api = MockLinear::start();
+        let mut first = comments_page(
+            vec![comment("c1", "Hello", "alice", None)],
+            json!("next"),
+            true,
+        );
+        first["issue"]["trashed"] = json!(true);
+        let mut last = comments_page(vec![], Value::Null, false);
+        last["issue"]["trashed"] = json!(true);
+        api.on("GetIssueComments", first)
+            .on("GetIssueComments", last);
+        let mut args = vec!["issue", "comment", "list", "ENG-7"];
+        if json_output {
+            args.push("--json");
+        }
+        let run = Cli::for_api(&api).run(&args);
+        run.success()
+            .stderr_has("Warning: ENG-7 was deleted (in trash)");
+        assert_eq!(run.stderr.matches("Warning:").count(), 1, "{run}");
+        assert!(!run.stdout.contains("Warning:"), "{run}");
+        if json_output {
+            assert_eq!(run.json_nodes().len(), 1);
+        } else {
+            run.stdout_has("Hello");
+        }
+    }
+    let api = MockLinear::start();
+    let mut page = comments_page(vec![], Value::Null, false);
+    page["issue"]["trashed"] = json!(true);
+    api.on("GetIssueComments", page);
+    Cli::for_api(&api)
+        .run(&["issue", "comment", "list", "ENG-7"])
+        .success()
+        .stderr_has("Warning: ENG-7 was deleted")
+        .stdout_has("No comments found for this issue");
+}
+
+#[test]
+fn comment_diagnosis_uses_presentable_issue_errors_but_never_masks_authentication() {
+    for authenticated in [true, false] {
+        let api = MockLinear::start();
+        let errors = if authenticated {
+            json!([{ "message": "Input rejected", "extensions": { "userPresentableMessage": "Could not find referenced Issue." } }])
+        } else {
+            json!([
+                { "message": "Entity not found: Issue" },
+                { "message": "Key rejected", "extensions": { "code": "AUTHENTICATION_ERROR" } }
+            ])
+        };
+        api.on_raw("AddComment", 400, &json!({ "errors": errors }).to_string());
+        if authenticated {
+            api.on(
+                "GetIssueLifecycle",
+                json!({ "issue": { "identifier": "ENG-1", "trashed": true, "archivedAt": null } }),
+            );
+        }
+        let run = Cli::for_api(&api).run(&[
+            "issue",
+            "comment",
+            "add",
+            "https://linear.app/acme/issue/ENG-1/widget",
+            "-b",
+            "Hi",
+        ]);
+        if authenticated {
+            run.not_found().stderr_has("ENG-1 was deleted");
+            assert_eq!(api.variables("GetIssueLifecycle"), json!({ "id": "ENG-1" }));
+        } else {
+            run.auth_failure();
+            assert!(!run.stderr.contains("was deleted"), "{run}");
+            assert_eq!(api.operations(), ["AddComment"]);
+        }
+    }
+}
+
+#[test]
+fn comment_update_keeps_original_error_if_ownership_cannot_confirm_deletion() {
+    for response in [
+        json!({ "comment": null }),
+        json!({ "comment": { "issue": null } }),
+        json!({ "comment": { "issue": { "identifier": "ENG-1", "trashed": null, "archivedAt": null } } }),
+    ] {
+        let api = MockLinear::start();
+        api.on_error("UpdateComment", "Entity not found: Issue")
+            .on("GetCommentIssueLifecycle", response);
+        let run = Cli::for_api(&api).run(&["issue", "comment", "update", COMMENT_ID, "-b", "Hi"]);
+        run.not_found().stderr_has("Entity not found: Issue");
+        assert!(!run.stderr.contains("was deleted"), "{run}");
+        assert_eq!(
+            api.operations(),
+            ["UpdateComment", "GetCommentIssueLifecycle"]
+        );
+    }
 }

@@ -373,6 +373,8 @@ pub struct GetIssuesForQueryIssuesNodesProjectMilestone {
 #[cynic(schema = "linear", graphql_type = "Issue")]
 #[serde(rename_all = "camelCase")]
 pub struct ListedIssue {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
@@ -432,6 +434,8 @@ pub struct SearchIssuesVariables {
 #[cynic(schema = "linear", graphql_type = "IssueSearchResult")]
 #[serde(rename_all = "camelCase")]
 pub struct SearchIssuesSearchIssuesNodes {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
@@ -558,6 +562,8 @@ pub struct GetIssueDetailsIssueTeam {
 #[cynic(schema = "linear", graphql_type = "Issue")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssueDetailsIssueParent {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub identifier: String,
     pub title: String,
     pub state: GetIssueDetailsIssueState,
@@ -619,6 +625,8 @@ pub struct GetIssueDetailsIssueDocuments {
 #[cynic(schema = "linear", graphql_type = "Issue")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssueDetailsIssue {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,
@@ -708,6 +716,8 @@ pub struct GetIssueDetailsWithCommentsIssueComments {
 #[cynic(schema = "linear", graphql_type = "Issue")]
 #[serde(rename_all = "camelCase")]
 pub struct GetIssueDetailsWithCommentsIssue {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub identifier: String,
     pub title: String,
     pub description: Option<String>,

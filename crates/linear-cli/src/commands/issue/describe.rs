@@ -16,6 +16,7 @@ fn describe(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
     let identifier = super::require(ctx, &args.issue_id)?;
     let client = ctx.client()?;
     let detail = ctx.spin(true, details::fetch(client, identifier.clone()))?;
+    super::lifecycle::Lifecycle::of(detail.trashed, detail.archived_at).warn(ctx, &identifier)?;
     let mut issue = IssueData {
         identifier,
         title: detail.title,

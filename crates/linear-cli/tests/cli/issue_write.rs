@@ -672,6 +672,7 @@ fn update_of_a_missing_issue_names_it_and_prints_nothing_first() {
         200,
         r#"{"errors":[{"message":"Entity not found: Issue","extensions":{"userPresentableMessage":"Could not find referenced Issue."}}]}"#,
     );
+    api.on("GetIssueLifecycle", json!({ "issue": null }));
     let run = Cli::for_api(&api).run(&["issue", "update", "ENG-9999", "-t", "x"]);
     run.not_found().stderr_has("Issue not found: ENG-9999");
     assert_eq!(run.stdout, "", "{run}");
@@ -1686,4 +1687,46 @@ fn delegate_cannot_be_blank_or_combined_with_interactive_create() {
     cli.run(&["issue", "create", "--interactive", "--delegate", "linear"])
         .usage_error();
     assert!(api.requests().is_empty(), "{:?}", api.operations());
+}
+
+#[test]
+fn update_explains_a_deleted_issue_without_retrying_the_mutation() {
+    let api = MockLinear::start();
+    api.on_error("UpdateIssue", "Entity not found: Issue").on(
+        "GetIssueLifecycle",
+        json!({ "issue": {
+            "identifier": "ENG-1", "trashed": true, "archivedAt": "2026-11-09T20:50:36.574Z"
+        } }),
+    );
+    let run = Cli::for_api(&api).run(&["issue", "update", "ENG-1", "-t", "New title"]);
+    run.not_found()
+        .stderr_has("ENG-1 was deleted on 2026-11-09")
+        .stderr_has("Restore it in Linear first");
+    assert!(run.stdout.is_empty(), "{run}");
+    assert_eq!(api.operations(), ["UpdateIssue", "GetIssueLifecycle"]);
+}
+
+#[test]
+fn update_explains_a_deleted_parent_when_the_target_is_live() {
+    let api = MockLinear::start();
+    api.on("GetIssueId", json!({ "issue": { "id": PARENT_ID } }))
+        .on_error("UpdateIssue", "Entity not found: Issue")
+        .on_variables(
+            "GetIssueLifecycle",
+            json!({ "id": "ENG-1" }),
+            json!({ "issue": {
+            "identifier": "ENG-1", "trashed": null, "archivedAt": null
+        } }),
+        )
+        .on_variables(
+            "GetIssueLifecycle",
+            json!({ "id": PARENT_ID }),
+            json!({ "issue": {
+            "identifier": "ENG-2", "trashed": true, "archivedAt": null
+        } }),
+        );
+    Cli::for_api(&api)
+        .run(&["issue", "update", "ENG-1", "--parent", "ENG-2"])
+        .not_found()
+        .stderr_has("ENG-2 was deleted");
 }

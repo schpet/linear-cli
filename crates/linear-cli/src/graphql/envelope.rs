@@ -273,5 +273,22 @@ fn names_missing_entity(error: &ResponseGraphQlError) -> bool {
         })
 }
 
+/// The entity name is meaningful for post-failure diagnostics. Keep message
+/// recognition at this boundary, alongside the general not-found classifier.
+pub(crate) fn names_missing_entity_type(error: &ResponseGraphQlError, entity: &str) -> bool {
+    let presentable = error
+        .extensions
+        .as_ref()
+        .and_then(|extensions| extensions.get("userPresentableMessage"))
+        .and_then(Value::as_str);
+    [Some(error.message.as_str()), presentable]
+        .into_iter()
+        .flatten()
+        .any(|message| {
+            message.eq_ignore_ascii_case(&format!("Entity not found: {entity}"))
+                || message.eq_ignore_ascii_case(&format!("Could not find referenced {entity}."))
+        })
+}
+
 #[cfg(test)]
 mod tests;

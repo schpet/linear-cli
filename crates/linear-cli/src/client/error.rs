@@ -362,6 +362,22 @@ impl RequestError {
         self.failure() == Failure::NotFound
     }
 
+    /// A definite missing entity of this type, without an auth or server error.
+    pub fn is_missing_entity(&self, entity: &str) -> bool {
+        self.is_not_found()
+            && match self {
+                Self::GraphQl { errors, .. } => errors.iter().any(|error| {
+                    crate::graphql::envelope::names_missing_entity_type(error, entity)
+                }),
+                Self::RequestBody(_)
+                | Self::Http { .. }
+                | Self::Response(_)
+                | Self::ResponseTooLarge { .. }
+                | Self::Timeout { .. }
+                | Self::Network { .. } => false,
+            }
+    }
+
     /// [`Error::not_found`] for `entity` `identifier` when Linear answered
     /// that it does not exist, else this failure as an error.
     pub fn or_not_found(self, entity: &str, identifier: &str) -> Error {

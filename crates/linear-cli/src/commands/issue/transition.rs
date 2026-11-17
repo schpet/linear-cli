@@ -160,6 +160,8 @@ pub(super) async fn apply(
     issue: &IssueTransitionDetails,
 ) -> Result<Outcome> {
     let identifier = &issue.identifier;
+    super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at)
+        .ensure_not_deleted(identifier)?;
     let current = Kind::parse(&issue.state.state_type).ok_or_else(|| {
         Error::new(format!(
             "Issue {identifier} is in a status of unknown type {}",
@@ -178,12 +180,18 @@ pub(super) async fn apply(
     let team = &issue.team.key;
     let states = crate::refs::workflow_states::fetch(client, team.clone()).await?;
     let state = destination(verb, team, identifier, states)?;
-    let response: UpdateIssueState = client
+    let response: std::result::Result<UpdateIssueState, _> = client
         .mutate(UpdateIssueStateVariables {
             issue_id: identifier.clone(),
             state_id: state.id.inner().to_owned(),
         })
-        .await?;
+        .await;
+    let response = match response {
+        Ok(response) => response,
+        Err(failure) => {
+            return Err(super::lifecycle::write_error(client, &[identifier], failure).await);
+        }
+    };
     if !response.issue_update.success {
         return Err(Error::new("Linear did not update the issue"));
     }

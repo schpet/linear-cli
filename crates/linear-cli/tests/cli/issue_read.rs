@@ -6,6 +6,7 @@ use crate::team::{resolve_vars, resolved};
 
 fn issue(comments: bool) -> Value {
     let mut issue = json!({
+        "trashed": null, "archivedAt": null,
         "identifier": "ENG-1", "title": "Fix the widget",
         "description": "## Body\n\nPlain **bold** text.",
         "url": "https://linear.app/acme/issue/ENG-1/fix-the-widget",
@@ -23,11 +24,13 @@ fn issue(comments: bool) -> Value {
         "team": { "activeCycle": { "number": 7 } },
         "labels": { "nodes": [{ "id": "label-bug", "name": "Bug", "color": "#ff00ff" }] },
         "parent": {
-            "identifier": "ENG-99", "title": "Parent work",
+            "trashed": null, "archivedAt": null,
+        "identifier": "ENG-99", "title": "Parent work",
             "state": { "name": "Done", "color": "#123456" }
         },
         "children": { "nodes": [{
-            "identifier": "ENG-2", "title": "Child work",
+            "trashed": null, "archivedAt": null,
+        "identifier": "ENG-2", "title": "Child work",
             "state": { "name": "Started", "color": "#112233" }
         }] },
         "attachments": { "nodes": [{
@@ -718,6 +721,7 @@ fn title_and_url_print_single_fields() {
 fn list_issue(number: u32, team: &str, state_type: &str) -> Value {
     json!({
         "id": format!("issue-{team}-{number}"),
+        "trashed": null, "archivedAt": null,
         "identifier": format!("{team}-{number}"),
         "title": format!("Issue {number} title"),
         "url": format!("https://linear.app/acme/issue/{team}-{number}"),
@@ -2208,4 +2212,168 @@ fn view_never_draws_a_local_file_the_markdown_names_itself() {
     let run = cli.run_tty(&VIEW_IMAGE, &[]);
     run.success().stdout_has("Image: x");
     assert!(!run.terminal.contains("\x1b_G"), "{run}");
+}
+
+#[test]
+fn view_surfaces_lifecycle_without_replacing_workflow_state() {
+    let at = json!("2026-11-09T20:50:36.574Z");
+    for comments in [false, true] {
+        for (trashed, archived, banner, state) in [
+            (
+                json!(true),
+                at.clone(),
+                "**Deleted:** 2026-11-09 (in trash; restore it in Linear to edit or comment)",
+                "Started (deleted)",
+            ),
+            (
+                json!(true),
+                Value::Null,
+                "**Deleted:** In trash; restore it in Linear to edit or comment",
+                "Started (deleted)",
+            ),
+            (
+                json!(false),
+                at.clone(),
+                "**Archived:** 2026-11-09",
+                "Started (archived)",
+            ),
+            (
+                Value::Null,
+                at.clone(),
+                "**Archived:** 2026-11-09",
+                "Started (archived)",
+            ),
+            (Value::Null, Value::Null, "", "Started"),
+            (json!(false), Value::Null, "", "Started"),
+        ] {
+            let api = MockLinear::start();
+            let mut value = issue(comments);
+            value["trashed"] = trashed.clone();
+            value["archivedAt"] = archived.clone();
+            let operation = if comments {
+                "GetIssueDetailsWithComments"
+            } else {
+                "GetIssueDetails"
+            };
+            api.on(operation, details(value.clone()))
+                .on(operation, details(value));
+            let cli = Cli::for_api(&api);
+            let mut args = vec!["issue", "view", "ENG-1", "--no-download"];
+            if !comments {
+                args.push("--no-comments");
+            }
+            let text = cli.run(&args);
+            text.success().stdout_has(&format!("**State:** {state}\n"));
+            if banner.is_empty() {
+                assert!(!text.stdout.contains("**Deleted:**"), "{text}");
+                assert!(!text.stdout.contains("**Archived:**"), "{text}");
+            } else {
+                text.stdout_has(&format!("# ENG-1: Fix the widget\n\n{banner}\n"));
+            }
+            args.push("--json");
+            let output = cli.run(&args).success().json();
+            assert_eq!(output.get("trashed"), Some(&trashed));
+            assert_eq!(output.get("archivedAt"), Some(&archived));
+            assert_eq!(output["state"]["name"], "Started");
+            for request in api.requests() {
+                assert!(request.query.contains("trashed"));
+                assert!(request.query.contains("archivedAt"));
+            }
+        }
+    }
+}
+
+#[test]
+fn query_and_search_preserve_lifecycle_in_json_and_tables() {
+    for search in [false, true] {
+        let operation = if search {
+            "SearchIssues"
+        } else {
+            "GetIssuesForQuery"
+        };
+        let api = MockLinear::start();
+        let mut deleted = list_issue(1, "ENG", "unstarted");
+        deleted["trashed"] = json!(true);
+        deleted["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+        let mut rows = vec![deleted, list_issue(2, "ENG", "started")];
+        let mut response = issues(rows.clone(), None);
+        if search {
+            for row in &mut rows {
+                row["metadata"] = json!({});
+            }
+            response = json!({ "searchIssues": { "nodes": rows, "pageInfo": { "hasNextPage": false, "endCursor": null } } });
+        }
+        api.on(operation, response.clone()).on(operation, response);
+        let cli = Cli::for_api(&api);
+        let mut args = vec!["issue", "query", "--all-teams", "--include-archived"];
+        if search {
+            args.extend(["--search", "widget"]);
+        }
+        let text = cli.run(&args);
+        text.success().stdout_has("[deleted]");
+        args.push("--json");
+        let output = cli.run(&args).success().json_nodes();
+        let deleted = output
+            .iter()
+            .find(|row| row["identifier"] == "ENG-1")
+            .expect("deleted row");
+        assert_eq!(deleted.get("trashed"), Some(&json!(true)));
+        assert_eq!(deleted["archivedAt"], "2026-11-09T20:50:36.574Z");
+        let live = output
+            .iter()
+            .find(|row| row["identifier"] == "ENG-2")
+            .expect("live row");
+        assert_eq!(live.get("trashed"), Some(&Value::Null));
+        assert_eq!(live.get("archivedAt"), Some(&Value::Null));
+        for request in api.requests() {
+            assert!(request.query.contains("trashed"));
+            assert!(request.query.contains("archivedAt"));
+            assert_eq!(request.variables["includeArchived"], true);
+        }
+    }
+}
+
+#[test]
+fn view_marks_parent_and_paginated_child_lifecycle() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    value["parent"]["trashed"] = json!(true);
+    let mut child = value["children"]["nodes"][0].clone();
+    child["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+    value["children"]["pageInfo"] = json!({ "hasNextPage": true, "endCursor": "children-next" });
+    api.on("GetIssueDetails", details(value)).on(
+        "GetIssueChildrenPage",
+        json!({ "issue": { "children": {
+        "nodes": [child], "pageInfo": { "hasNextPage": false, "endCursor": null }
+    } } }),
+    );
+    Cli::for_api(&api)
+        .run(&["issue", "view", "ENG-1", "--no-comments", "--no-download"])
+        .success()
+        .stdout_has("ENG-99 [deleted]")
+        .stdout_has("ENG-2 [archived]");
+}
+
+#[test]
+fn terminal_view_shows_the_deleted_banner_and_state_suffix() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    value["trashed"] = json!(true);
+    value["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+    api.on("GetIssueDetails", details(value));
+    Cli::for_api(&api)
+        .run_tty(
+            &[
+                "issue",
+                "view",
+                "ENG-1",
+                "--no-comments",
+                "--no-download",
+                "--no-pager",
+            ],
+            &[],
+        )
+        .success()
+        .stdout_has("Deleted: 2026-11-09")
+        .stdout_has("State: Started (deleted)");
 }

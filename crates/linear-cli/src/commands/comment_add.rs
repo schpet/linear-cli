@@ -217,10 +217,22 @@ pub async fn create(
     client: &LinearClient,
     input: CommentCreateInput,
 ) -> Result<CreatedComment, Error> {
-    let result: AddComment = client
-        .mutate(AddCommentVariables { input })
-        .await
-        .map_err(|failure| failure.into_create_error("comment"))?;
+    let issue_id = input.issue_id.clone();
+    let result: Result<AddComment, _> = client.mutate(AddCommentVariables { input }).await;
+    let result = match result {
+        Ok(result) => result,
+        Err(failure) => {
+            let uncertain = failure.outcome_unknown();
+            let mut error = match issue_id {
+                Some(id) => super::issue::lifecycle::write_error(client, &[&id], failure).await,
+                None => return Err(failure.into_create_error("comment")),
+            };
+            if uncertain {
+                error.push_message("; comment may already exist");
+            }
+            return Err(error);
+        }
+    };
     if !result.comment_create.success {
         return Err(Error::new("Failed to create comment"));
     }

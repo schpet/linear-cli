@@ -2,11 +2,13 @@
 //! optionally only the resolved or the open threads.
 use crate::cli::Limit;
 use crate::cli::issue::IssueCommentList;
-use crate::commands::comments::{self, CommentSource};
+use crate::client::LinearClient;
+use crate::commands::comments;
 use crate::ctx::Ctx;
 use crate::error::{Result, ResultExt};
-use crate::graphql::operations::comment::CommentConnection;
+use crate::graphql::operations::comment::CommentNode;
 use crate::graphql::operations::comment::{GetIssueComments, GetIssueCommentsVariables};
+use crate::graphql::pagination::{self, Page};
 
 pub fn run(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
     list(ctx, args).context("Failed to list comments")
@@ -48,10 +50,7 @@ fn list(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
     } else {
         args.limit
     };
-    let mut nodes = ctx.spin(
-        !args.json,
-        comments::fetch::<GetIssueComments>(client, &identifier, &identifier, fetch_limit),
-    )?;
+    let mut nodes = ctx.spin(!args.json, fetch(ctx, client, &identifier, fetch_limit))?;
     let Some(filter) = filter else {
         return comments::print(ctx, &nodes, args.json, "issue", !args.no_pager);
     };
@@ -66,19 +65,36 @@ fn list(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
     comments::print(ctx, &nodes, args.json, "issue", !args.no_pager)
 }
 
-impl CommentSource for GetIssueComments {
-    const ENTITY: &'static str = "Issue";
-    type Variables = GetIssueCommentsVariables;
-
-    fn variables(id: &str, after: Option<String>, first: i32) -> Self::Variables {
-        GetIssueCommentsVariables {
-            id: id.to_owned(),
+async fn fetch(
+    ctx: &Ctx,
+    client: &LinearClient,
+    identifier: &str,
+    limit: Limit,
+) -> Result<Vec<CommentNode>> {
+    pagination::collect(limit.max(), |after, first| {
+        let first_page = after.is_none();
+        let variables = GetIssueCommentsVariables {
+            id: identifier.to_owned(),
             after,
             first,
+        };
+        async move {
+            let response: GetIssueComments = client
+                .query(variables)
+                .await
+                .map_err(|failure| failure.or_not_found("Issue", identifier))?;
+            let issue = response
+                .issue
+                .ok_or_else(|| crate::error::Error::not_found("Issue", identifier))?;
+            if first_page {
+                super::super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at)
+                    .warn(ctx, identifier)?;
+            }
+            Ok(Page {
+                nodes: issue.comments.nodes,
+                page_info: issue.comments.page_info,
+            })
         }
-    }
-
-    fn comments(self) -> Option<CommentConnection> {
-        self.issue.map(|issue| issue.comments)
-    }
+    })
+    .await
 }

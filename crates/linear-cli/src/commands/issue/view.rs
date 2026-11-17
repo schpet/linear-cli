@@ -182,6 +182,8 @@ impl Fetched {
         match self {
             Self::With(i) => i,
             Self::Without(i) => Issue {
+                trashed: i.trashed,
+                archived_at: i.archived_at,
                 identifier: i.identifier,
                 title: i.title,
                 description: i.description,
@@ -443,16 +445,22 @@ fn hierarchy(issue: &Issue) -> String {
     let mut out = String::new();
     if let Some(parent) = &issue.parent {
         out.push_str(&format!(
-            "\n\n## Parent\n\n- **{}**: {} _[{}]_\n",
-            parent.identifier, parent.title, parent.state.name
+            "\n\n## Parent\n\n- **{}{}**: {} _[{}]_\n",
+            parent.identifier,
+            super::lifecycle::Lifecycle::of(parent.trashed, parent.archived_at).marker(),
+            parent.title,
+            parent.state.name
         ));
     }
     if !issue.children.nodes.is_empty() {
         out.push_str("\n\n## Sub-issues\n\n");
         for child in &issue.children.nodes {
             out.push_str(&format!(
-                "- **{}**: {} _[{}]_\n",
-                child.identifier, child.title, child.state.name
+                "- **{}{}**: {} _[{}]_\n",
+                child.identifier,
+                super::lifecycle::Lifecycle::of(child.trashed, child.archived_at).marker(),
+                child.title,
+                child.state.name
             ));
         }
     }
@@ -499,8 +507,13 @@ fn user_name(user: &GetIssueDetailsIssueAssignee) -> Option<&str> {
 
 /// The title, one metadata field per line, and the description.
 fn body(issue: &Issue, now: DateTime<Utc>) -> Result<String, Error> {
+    let lifecycle = super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at);
     let mut parts = vec![
-        format!("**State:** {}", issue.state.name),
+        format!(
+            "**State:** {}{}",
+            issue.state.name,
+            lifecycle.state_suffix()
+        ),
         format!(
             "**Priority:** {}",
             super::list_view::priority(issue.priority)
@@ -514,6 +527,9 @@ fn body(issue: &Issue, now: DateTime<Utc>) -> Result<String, Error> {
                 .unwrap_or_else(|| "Unassigned".to_owned())
         ),
     ];
+    if let Some(banner) = lifecycle.banner() {
+        parts.insert(0, banner);
+    }
     if let Some(delegate) = &issue.delegate {
         parts.push(format!("**Delegate:** @{}", delegate.display_name));
     }
