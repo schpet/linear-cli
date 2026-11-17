@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The README now notes that it covers the upcoming 4.0 release and links to stable instructions for v3.1.0.
+
 ### Breaking
 
 - `issue list` and its `issue l` alias are removed. Run `linear issue mine` for your own issues or `linear issue query` for filtering and search. The old commands fail with exit 2 and a hint naming both replacements, including when passed old flags or `--help`.
