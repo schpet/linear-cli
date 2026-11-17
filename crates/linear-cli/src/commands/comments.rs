@@ -320,12 +320,18 @@ pub fn render_reply(markdown: &str, options: &RenderOptions) -> String {
 
 /// A comment's body as Markdown, after the text it quotes as a block quote.
 fn body_markdown(node: &CommentNode) -> String {
-    match &node.quoted_text {
+    quoted_body(node.quoted_text.as_deref(), &node.body)
+}
+
+/// `body` as Markdown, after `quote` as a block quote. An inline comment
+/// quotes the passage of the description or document it is anchored to.
+pub fn quoted_body(quote: Option<&str>, body: &str) -> String {
+    match quote {
         Some(quote) => {
             let quoted: Vec<String> = quote.lines().map(|line| format!("> {line}")).collect();
-            format!("{}\n\n{}", quoted.join("\n"), node.body)
+            format!("{}\n\n{body}", quoted.join("\n"))
         }
-        None => node.body.clone(),
+        None => body.to_owned(),
     }
 }
 

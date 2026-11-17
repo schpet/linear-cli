@@ -652,6 +652,12 @@ fn summary(hidden: usize) -> String {
         if hidden == 1 { "thread" } else { "threads" }
     )
 }
+/// A comment's body as Markdown, after the description passage it is
+/// anchored to, if any.
+fn body_markdown(c: &Comment) -> String {
+    comments::quoted_body(c.quoted_text.as_deref(), &c.body)
+}
+
 pub fn markdown(
     issue: &Issue,
     paths: &HashMap<String, String>,
@@ -675,14 +681,14 @@ pub fn markdown(
                 author(root),
                 date(root, now),
                 suffix.join(" "),
-                root.body.replace('\n', "\n  ")
+                body_markdown(root).replace('\n', "\n  ")
             ));
             for reply in threads.replies.get(root.id.inner()).into_iter().flatten() {
                 out.push_str(&format!(
                     "  - **@{}** replied *{}*\n\n    {}\n\n",
                     author(reply),
                     date(reply, now),
-                    reply.body.replace('\n', "\n    ")
+                    body_markdown(reply).replace('\n', "\n    ")
                 ));
             }
         }
@@ -726,12 +732,12 @@ pub fn terminal(
             }
             out.push_str(&header(root, "commented", suffix(root, links), ""));
             out.push('\n');
-            out.push_str(&markdown_terminal::render(&root.body, options));
+            out.push_str(&markdown_terminal::render(&body_markdown(root), options));
             for reply in threads.replies.get(root.id.inner()).into_iter().flatten() {
                 out.push('\n');
                 out.push_str(&header(reply, "replied", Vec::new(), "  "));
                 out.push('\n');
-                out.push_str(&comments::render_reply(&reply.body, options));
+                out.push_str(&comments::render_reply(&body_markdown(reply), options));
             }
         }
     }
