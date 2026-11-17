@@ -338,7 +338,7 @@ fn full_and_targeted_guides_merge_preferences_and_inherit_ancestors_once() {
             "home/.config/linear/linear.toml",
             r#"
 [templates]
-skill_how_to_work = '{% include "builtin/skill_how_to_work" %}GLOBAL BASICS'
+guide_how_to_work = '{% include "builtin/guide_how_to_work" %}GLOBAL BASICS'
 skill_issue_comment = 'COMMENT POLICY'
 skill_issue_comment_update = 'UPDATE SIBLING'
 skill_milestone_update = 'NO PROSE COMMAND POLICY'
@@ -375,7 +375,7 @@ skill_issue_delete = 'DELETE SIBLING'
 fn target_aliases_canonicalize_and_unknown_or_hidden_commands_fail() {
     let cli = Cli::new().file(
         "cwd/.linear.toml",
-        "[templates]\nskill_issue_gh_pull_request='PR POLICY'\n",
+        "[templates]\nskill_issue_gh_pull-request='PR POLICY'\n",
     );
     let run = cli.run(&["skill", "show", "issue", "gh", "pr"]);
     run.success()
@@ -401,7 +401,7 @@ fn empty_hooks_disappear_and_custom_text_and_inheritance_are_preserved() {
 [templates]
 skill_issue_comment = ''
 skill_milestone_update = '{% extends "builtin/skill_milestone_update" %}{% block content %}{{ super() }}MILESTONE POLICY{% endblock %}'
-skill_how_to_work = '{% extends "builtin/skill_how_to_work" %}{% block content %}{{ super() }}ADDED RULE{% endblock %}'
+guide_how_to_work = '{% extends "builtin/guide_how_to_work" %}{% block content %}{{ super() }}ADDED RULE{% endblock %}'
 "#);
     for args in [
         &["skill", "show"][..],
@@ -420,17 +420,17 @@ skill_how_to_work = '{% extends "builtin/skill_how_to_work" %}{% block content %
 #[test]
 fn overlays_apply_files_before_snippets_and_fail_without_partial_stdout() {
     let cli = Cli::new()
-        .file("cwd/one.toml", "[templates]\nskill_intro='FILE ONE'\n")
-        .file("cwd/two.toml", "[templates]\nskill_intro='FILE TWO'\n");
+        .file("cwd/one.toml", "[templates]\nguide_intro='FILE ONE'\n")
+        .file("cwd/two.toml", "[templates]\nguide_intro='FILE TWO'\n");
     let run = cli.run(&[
         "--config",
-        "templates.skill_intro='FIRST SNIPPET'",
+        "templates.guide_intro='FIRST SNIPPET'",
         "skill",
         "show",
         "--config-file",
         "one.toml",
         "--config",
-        "templates.skill_intro='LAST SNIPPET'",
+        "templates.guide_intro='LAST SNIPPET'",
         "--config-file",
         "two.toml",
     ]);
@@ -451,9 +451,9 @@ fn overlays_apply_files_before_snippets_and_fail_without_partial_stdout() {
         vec!["--config", "team_id='ENG'"],
         vec![
             "--config",
-            "templates.skill_intro='{% include \"missing\" %}'",
+            "templates.guide_intro='{% include \"missing\" %}'",
         ],
-        vec!["--config", "templates.skill_intro='{{ version.missing }}'"],
+        vec!["--config", "templates.guide_intro='{{ version.missing }}'"],
     ] {
         let mut args = vec!["skill", "show"];
         args.extend(flags);
@@ -533,4 +533,66 @@ fn installation_commands_keep_bypassing_all_template_configuration() {
         ])
         .success();
     }
+}
+
+#[test]
+fn command_hook_names_keep_hyphens_and_separate_nested_commands() {
+    let cli = Cli::new().file(
+        "cwd/.linear.toml",
+        r#"[templates]
+skill_project_update = 'EDIT PROJECT POLICY'
+skill_project-update = 'PROJECT STATUS POLICY'
+skill_initiative_update = 'EDIT INITIATIVE POLICY'
+skill_initiative-update = 'INITIATIVE STATUS POLICY'
+"#,
+    );
+    let full = cli.run(&["skill", "show"]);
+    full.success();
+    for (path, own, other) in [
+        (
+            vec!["project", "update"],
+            "EDIT PROJECT POLICY",
+            "PROJECT STATUS POLICY",
+        ),
+        (
+            vec!["project-update"],
+            "PROJECT STATUS POLICY",
+            "EDIT PROJECT POLICY",
+        ),
+        (
+            vec!["initiative", "update"],
+            "EDIT INITIATIVE POLICY",
+            "INITIATIVE STATUS POLICY",
+        ),
+        (
+            vec!["initiative-update"],
+            "INITIATIVE STATUS POLICY",
+            "EDIT INITIATIVE POLICY",
+        ),
+    ] {
+        assert_eq!(full.stdout.matches(own).count(), 1, "{full}");
+        let mut args = vec!["skill", "show"];
+        args.extend(path);
+        let target = cli.run(&args);
+        target.success().stdout_has(own);
+        assert!(!target.stdout.contains(other), "{target}");
+    }
+}
+
+#[test]
+fn hyphenated_hooks_work_in_inline_config_and_inspection() {
+    let value = "templates.skill_issue_gh_pull-request='HYPHENATED PR POLICY'";
+    let cli = Cli::new();
+    cli.run(&["--config", value, "skill", "show", "issue", "gh", "pr"])
+        .success()
+        .stdout_has("HYPHENATED PR POLICY");
+    let inspected = cli.run(&[
+        "--config",
+        value,
+        "config",
+        "get",
+        "templates.skill_issue_gh_pull-request",
+    ]);
+    inspected.success();
+    assert_eq!(inspected.stdout, "HYPHENATED PR POLICY");
 }

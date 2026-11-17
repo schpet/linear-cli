@@ -445,3 +445,73 @@ fn builtin_detection_follows_the_effective_body() {
     assert!(!config.is_builtin(Slot::PrTitle));
     assert!(config.is_builtin(Slot::CommitDescription));
 }
+
+#[test]
+fn command_hook_names_are_unique_and_shipped_names_have_known_roles() {
+    fn walk(
+        command: &clap::Command,
+        path: &mut Vec<String>,
+        names: &mut BTreeSet<String>,
+        count: &mut usize,
+    ) {
+        for child in command
+            .get_subcommands()
+            .filter(|child| !child.is_hide_set())
+        {
+            assert!(
+                !child.get_name().contains('_'),
+                "command segments cannot contain underscores"
+            );
+            path.push(child.get_name().to_owned());
+            let parts: Vec<_> = path.iter().map(String::as_str).collect();
+            let name = skill_hook(&parts);
+            assert!(names.insert(name.clone()), "duplicate hook {name}");
+            *count += 1;
+            walk(child, path, names, count);
+            path.pop();
+        }
+    }
+    let mut names = BTreeSet::new();
+    let mut count = 0;
+    walk(
+        &crate::cli::Cli::command(),
+        &mut Vec::new(),
+        &mut names,
+        &mut count,
+    );
+    assert_eq!(count, names.len());
+    assert_eq!(names, command_hooks());
+    let shipped: toml::Table = DEFAULTS.parse().expect("shipped TOML");
+    let templates = shipped
+        .get("templates")
+        .expect("templates")
+        .as_table()
+        .expect("table");
+    for name in templates.keys().filter(|name| name.starts_with("skill_")) {
+        assert!(names.contains(name), "orphan shipped hook {name}");
+    }
+    let guide_names: BTreeSet<_> = templates
+        .keys()
+        .filter(|name| name.as_str() == "guide" || name.starts_with("guide_"))
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        guide_names,
+        BTreeSet::from([
+            "guide",
+            "guide_targeted",
+            "guide_intro",
+            "guide_how_to_work",
+            "guide_common_tasks",
+            "guide_markdown_rules",
+            "guide_exit_status",
+            "guide_help_notes",
+            "guide_commands",
+            "guide_graphql",
+        ])
+    );
+    for partial in ["guide_custom", "skill_custom", "guide", "guide_targeted"] {
+        let text = format!("[template-aliases]\n{partial}='text'");
+        assert!(TemplateConfig::from_tiers([&tier("reserved.toml", &text)]).is_err());
+    }
+}

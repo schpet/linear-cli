@@ -408,11 +408,11 @@ fn defaults_inspection_bypasses_bad_config_and_overlays() {
     ]);
     get.success();
     assert_eq!(get.stdout, hook);
-    cli.run(&["config", "get", "templates.skill", "--defaults"])
+    cli.run(&["config", "get", "templates.guide", "--defaults"])
         .success()
         .stdout_has("command_guidance");
     cli.run(&["config", "--team", "ENG", "list"]).usage_error();
-    cli.run(&["config", "--sort", "priority", "get", "templates.skill"])
+    cli.run(&["config", "--sort", "priority", "get", "templates.guide"])
         .usage_error();
 }
 
@@ -423,7 +423,7 @@ fn ordinary_startup_applies_template_overlays_before_authentication() {
         "team",
         "list",
         "--config",
-        "templates.skill='{{ missing }}'",
+        "templates.guide='{{ missing }}'",
     ]);
     run.failure()
         .stderr_has("--config #1")

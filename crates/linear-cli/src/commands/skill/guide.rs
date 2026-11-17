@@ -69,9 +69,9 @@ pub fn render(root: &Command, templates: &TemplateConfig, target: &[String]) -> 
     context.command_guidance = guidance;
     templates.render(
         if target.is_empty() {
-            Slot::Skill
+            Slot::Guide
         } else {
-            Slot::SkillCommand
+            Slot::GuideTargeted
         },
         &context,
     )

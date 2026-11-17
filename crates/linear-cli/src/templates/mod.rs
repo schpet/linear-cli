@@ -16,8 +16,8 @@ const EMPTY_SKILL_HOOK: &str = "{% block content %}{% endblock %}";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Slot {
-    Skill,
-    SkillCommand,
+    Guide,
+    GuideTargeted,
     CommitDescription,
     PrTitle,
     PrBody,
@@ -26,8 +26,8 @@ pub enum Slot {
 impl Slot {
     pub const fn name(self) -> &'static str {
         match self {
-            Self::Skill => "skill",
-            Self::SkillCommand => "skill_command",
+            Self::Guide => "guide",
+            Self::GuideTargeted => "guide_targeted",
             Self::CommitDescription => "commit_description",
             Self::PrTitle => "pr_title",
             Self::PrBody => "pr_body",
@@ -96,9 +96,9 @@ impl std::fmt::Debug for TemplateConfig {
 }
 
 /// The canonical command hook name. CLI aliases resolve to a canonical path
-/// before calling this function; hyphens in command names become underscores.
+/// before calling this function; hyphens within command names are preserved.
 pub fn skill_hook(path: &[&str]) -> String {
-    format!("skill_{}", path.join("_").replace('-', "_"))
+    format!("skill_{}", path.join("_"))
 }
 
 fn command_hooks() -> BTreeSet<String> {
@@ -298,12 +298,14 @@ impl TemplateConfig {
                     ));
                 }
                 if section == "template-aliases"
-                    && (candidate.template_names.contains(name) || name.starts_with("skill_"))
+                    && (candidate.template_names.contains(name)
+                        || name.starts_with("skill_")
+                        || name.starts_with("guide_"))
                 {
                     return Err(config_error(
                         source,
                         &key,
-                        "partial name collides with a reserved template or skill hook",
+                        "partial name collides with a reserved template namespace",
                     ));
                 }
                 let body = value
@@ -399,14 +401,16 @@ fn context_fields(name: &str) -> Option<&'static [&'static str]> {
             "references",
             "issue_clause",
         ]),
-        name if name == "skill" || name.starts_with("skill_") => Some(&[
-            "version",
-            "commands",
-            "command_guidance",
-            "command_help",
-            "markdown_rules",
-            "exit_status",
-        ]),
+        name if name == "guide" || name.starts_with("guide_") || name.starts_with("skill_") => {
+            Some(&[
+                "version",
+                "commands",
+                "command_guidance",
+                "command_help",
+                "markdown_rules",
+                "exit_status",
+            ])
+        }
         _ => None,
     }
 }
