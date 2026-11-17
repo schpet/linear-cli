@@ -22,6 +22,7 @@ use crate::{
         terminal_text::single_line,
         vcs::{self, RepositoryKind},
     },
+    templates::IssueData,
 };
 
 pub fn run_git(ctx: &Ctx, args: &IssueGitStart) -> Result<()> {
@@ -76,8 +77,21 @@ fn work_on(ctx: &Ctx, identifier: String, prepare: Prepare<'_>) -> Result<()> {
     match prepare {
         Prepare::Git { branch, from_ref } => repo.git_branch(&issue, branch, from_ref)?,
         Prepare::Jj => {
+            let description = super::describe::render(
+                ctx.templates(),
+                IssueData {
+                    identifier: issue.identifier.clone(),
+                    title: issue.title.clone(),
+                    url: issue.url.clone(),
+                    description: issue.description.clone().unwrap_or_default(),
+                },
+                false,
+            )?;
+            // Match jj's existing description boundary; the shared template's
+            // final newline remains intact in `issue describe` output.
+            let description = description.trim_end_matches('\n');
             let prepared = repo.jj_prepare()?;
-            repo.jj_describe(&prepared, &issue)?;
+            repo.jj_describe(&prepared, description)?;
         }
     }
     let outcome = ctx
@@ -546,26 +560,17 @@ impl Repo<'_> {
         }
     }
 
-    /// Describes the prepared change with the issue title and its
-    /// `Linear-issue` trailers, then says exactly what was written.
-    fn jj_describe(&self, prepared: &JjPrepared, issue: &IssueTransitionDetails) -> Result<()> {
-        let IssueTransitionDetails {
-            identifier,
-            title,
-            url,
-            ..
-        } = issue;
+    /// Describes the prepared change with the already rendered template, then
+    /// reports the text and any actual Linear trailers it contains.
+    fn jj_describe(&self, prepared: &JjPrepared, description: &str) -> Result<()> {
         let change = prepared.change();
-        let description = format!(
-            "{identifier} {title}\n\nLinear-issue: Fixes {identifier}\nLinear-issue-url: {url}"
-        );
         // `@` is the change just probed. Its change ID is only for display: it
         // names several commits when the change is divergent, and jj then
         // refuses it as a revision.
         process::checked_output(self.command("jj").args([
             "describe",
             "-m",
-            &description,
+            description,
             "-r",
             "@",
         ]))
@@ -575,18 +580,46 @@ impl Repo<'_> {
                 &prepared.describe_failed(),
             )
         })?;
-        self.say(format!(
-            "✓ Wrote jj change {} description: {}\n\
-             ✓ Wrote trailers (keep Linear-issue when rewording to use @jj):\n\
-             \x20 Linear-issue: Fixes {}\n\
-             \x20 Linear-issue-url: {}\n\
-             ✓ @ is now the described change; run jj new to edit in an empty change on top\n",
-            single_line(change),
-            shown(&format!("{identifier} {title}")),
-            single_line(identifier),
-            single_line(url),
-        ))
+        self.say(description_report(change, description))
     }
+}
+
+/// Preserve the compact default report, deriving every displayed trailer from
+/// the text actually passed to jj. Other customized descriptions are quoted in
+/// full, so no body text disappears from the report.
+fn description_report(change: &str, description: &str) -> String {
+    let parts = description.rsplit_once("\n\n").filter(|(_, tail)| {
+        !tail.is_empty()
+            && tail.lines().all(|line| {
+                line.starts_with("Linear-issue: ") || line.starts_with("Linear-issue-url: ")
+            })
+    });
+    let (text, trailers) = match parts {
+        Some((text, trailers)) => (text, Some(trailers)),
+        None => (description, None),
+    };
+    let mut report = format!(
+        "✓ Wrote jj change {} description: {}\n",
+        single_line(change),
+        shown(text),
+    );
+    if let Some(trailers) = trailers {
+        if trailers
+            .lines()
+            .any(|line| line.starts_with("Linear-issue: "))
+        {
+            report.push_str("✓ Wrote trailers (keep Linear-issue when rewording to use @jj):\n");
+        } else {
+            report.push_str("✓ Wrote trailers:\n");
+        }
+        for line in trailers.lines() {
+            report.push_str(&format!("  {}\n", single_line(line)));
+        }
+    }
+    report.push_str(
+        "✓ @ is now the described change; run jj new to edit in an empty change on top\n",
+    );
+    report
 }
 
 #[cfg(test)]

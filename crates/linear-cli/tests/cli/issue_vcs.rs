@@ -2309,3 +2309,245 @@ fn start_help_lists_the_steps_the_output_reports() {
         .stdout_has("3. Moves the issue")
         .stdout_has("No bookmark is created and nothing is pushed.");
 }
+
+#[test]
+fn describe_and_jj_start_share_the_configured_commit_text_and_real_issue_description() {
+    let api = MockLinear::start();
+    let mut reply = details();
+    let description = "Details {{ inert }} {% include '/etc/passwd' %}";
+    reply["issue"]["description"] = json!(description);
+    api.on("GetIssueDetails", reply.clone())
+        .on("GetIssueDetails", reply.clone())
+        .on("GetIssueTransitionDetails", reply)
+        .on("GetWorkflowStates", states())
+        .on(
+            "UpdateIssueState",
+            json!({"issueUpdate": {"success": true}}),
+        );
+    let cli = jj(Cli::for_api(&api)).file("cwd/linear.toml", r#"[templates]
+commit_description = "{{ issue.identifier }}: {{ issue.title }}\n\n{{ issue.description }}\n{{ linkage }} {{ issue.url }}\n"
+"#);
+    let expected = format!("ENG-7: Repair the widget\n\n{description}\nFixes {URL}\n");
+    let run = cli.run(&["issue", "describe", "ENG-7"]);
+    run.success();
+    assert_eq!(run.stdout, expected);
+    let run = cli.run(&["issue", "describe", "ENG-7", "--references"]);
+    run.success();
+    assert_eq!(run.stdout, expected.replace("Fixes", "References"));
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.success().stdout_has("Details {{ inert }}");
+    assert_eq!(describes(&cli)[0][2], expected.trim_end_matches('\n'));
+    assert!(!run.stdout.contains("Wrote trailers"), "{run}");
+    assert!(
+        api.requests()
+            .iter()
+            .filter(|request| matches!(
+                request.operation.as_deref(),
+                Some("GetIssueDetails" | "GetIssueTransitionDetails")
+            ))
+            .all(|request| request.query.contains("description"))
+    );
+}
+
+#[test]
+fn jj_start_reports_the_custom_trailers_it_actually_wrote() {
+    let api = MockLinear::start();
+    started(&api);
+    let cli = jj(Cli::for_api(&api)).file("cwd/linear.toml", r#"[templates]
+commit_description = "Custom {{ issue.identifier }}\n\nLinear-issue: References OPS-4\nLinear-issue-url: https://linear.app/acme/issue/OPS-4/other\n"
+"#);
+    let run = cli.run(&["issue", "jj", "start", "ENG-7"]);
+    run.success()
+        .stdout_has("description: \"Custom ENG-7\"")
+        .stdout_has("  Linear-issue: References OPS-4\n")
+        .stdout_has("  Linear-issue-url: https://linear.app/acme/issue/OPS-4/other\n");
+    assert!(!run.stdout.contains("Linear-issue: Fixes ENG-7"), "{run}");
+    assert_eq!(
+        describes(&cli)[0][2],
+        "Custom ENG-7\n\nLinear-issue: References OPS-4\nLinear-issue-url: https://linear.app/acme/issue/OPS-4/other"
+    );
+}
+
+#[test]
+fn blank_or_runtime_failed_commit_templates_print_nothing_and_prepare_no_jj_change() {
+    for configuration in [
+        "[templates]\ncommit_description = '   '",
+        "[templates]\ncommit_description = 'prefix {% include \"broken\" %}'\n[template-aliases]\nbroken = '{{ issue[\"missing\"] }}'",
+    ] {
+        let api = MockLinear::start();
+        api.on("GetIssueDetails", details())
+            .on("GetIssueTransitionDetails", details());
+        let cli = jj(Cli::for_api(&api)).file("cwd/linear.toml", configuration);
+        for command in [
+            &["issue", "describe", "ENG-7"][..],
+            &["issue", "jj", "start", "ENG-7"],
+        ] {
+            let run = cli.run(command);
+            run.failure();
+            assert_eq!(run.stdout, "", "{run}");
+        }
+        assert!(calls(&cli, "jj").is_empty());
+        assert_eq!(
+            api.operations(),
+            ["GetIssueDetails", "GetIssueTransitionDetails"]
+        );
+    }
+}
+
+#[test]
+fn invalid_commit_configuration_fails_before_fetching_or_preparing_anything() {
+    for body in ["{% if %}", "{{ issue.missing }}"] {
+        let api = MockLinear::start();
+        let cli = jj(Cli::for_api(&api));
+        let configuration = format!("templates.commit_description={body:?}");
+        let run = cli.run(&["--config", &configuration, "issue", "jj", "start", "ENG-7"]);
+        run.failure().stderr_has("templates.commit_description");
+        assert_eq!(run.stdout, "", "{run}");
+        assert!(calls(&cli, "jj").is_empty());
+        assert!(api.requests().is_empty());
+    }
+}
+
+#[test]
+fn configured_pull_request_templates_use_all_distinct_issues_and_description_data() {
+    let api = MockLinear::start();
+    let mut first = details();
+    first["issue"]["description"] = json!("remote {{ inert }}");
+    let mut second = other("DES-5", "Design");
+    second["issue"]["description"] = json!("Design details");
+    api.on_variables("GetIssueDetails", json!({"id": "ENG-7"}), first)
+        .on_variables("GetIssueDetails", json!({"id": "DES-5"}), second);
+    let cli = gh(Cli::for_api(&api)).file("cwd/linear.toml", r#"[templates]
+pr_title = '{% for issue in issues %}{{ issue.identifier }}{% if not loop.last %} + {% endif %}{% endfor %}'
+pr_body = "  {{ description }}\n{% for issue in issues %}{{ issue.title }}: {{ issue.description }}\n{% endfor %}{% if references %}Nonclosing\n{% endif %}{% include 'pr_issue_links' %}\n  "
+"#);
+    let run = cli.run(&[
+        "issue",
+        "gh",
+        "pr",
+        "ENG-7",
+        "DES-5",
+        "ENG-7",
+        "--body",
+        "Given {{ literal }}\n \n",
+        "--references",
+    ]);
+    run.success();
+    assert_eq!(
+        cli.calls("gh"),
+        [vec![
+            "pr".to_owned(),
+            "create".to_owned(),
+            "--title".to_owned(),
+            "ENG-7 + DES-5".to_owned(),
+            "--body".to_owned(),
+            format!(
+                "  Given {{{{ literal }}}}\nRepair the widget: remote {{{{ inert }}}}\nDesign: Design details\nNonclosing\nReferences ENG-7 and DES-5\n\n{URL}\n{}\n  ",
+                other_url("DES-5", "Design")
+            ),
+        ]]
+    );
+    assert_eq!(api.requests().len(), 2);
+}
+
+#[test]
+fn an_explicit_title_bypasses_the_title_template_and_gh_passthrough_remains_last() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = gh(Cli::for_api(&api)).file(
+        "cwd/linear.toml",
+        r#"[templates]
+pr_title = '{{ issues[0]["missing"] }}'
+pr_body = 'Rendered {{ description }}'
+"#,
+    );
+    cli.run(&[
+        "issue",
+        "gh",
+        "pr",
+        "ENG-7",
+        "--title",
+        " Manual {{ inert }} ",
+        "--body",
+        "input",
+        "--",
+        "--title",
+        "gh title",
+        "--body",
+        "gh body",
+    ])
+    .success();
+    assert_eq!(
+        cli.calls("gh"),
+        [[
+            "pr",
+            "create",
+            "--title",
+            " Manual {{ inert }} ",
+            "--body",
+            "Rendered input",
+            "--title",
+            "gh title",
+            "--body",
+            "gh body",
+        ]]
+    );
+}
+
+#[test]
+fn configured_pr_body_receives_file_input_and_can_replace_the_whole_body() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details());
+    let cli = gh(Cli::for_api(&api)).file("cwd/body.md", "From file\n\n");
+    let run = cli.run(&[
+        "--config",
+        "templates.pr_body='Only {{ description }}'",
+        "issue",
+        "gh",
+        "pr",
+        "ENG-7",
+        "--body-file",
+        "body.md",
+    ]);
+    run.success();
+    assert_eq!(cli.calls("gh")[0][5], "Only From file");
+}
+
+#[test]
+fn blank_or_runtime_failed_pr_text_never_runs_gh() {
+    for configuration in [
+        "[templates]\npr_title = ' '",
+        "[templates]\npr_body = ' '",
+        "[templates]\npr_title = 'prefix {{ issues[0][\"missing\"] }}'",
+        "[templates]\npr_body = 'prefix {% include \"broken\" %}'\n[template-aliases]\nbroken = '{{ issues[0][\"missing\"] }}'",
+    ] {
+        let api = MockLinear::start();
+        api.on("GetIssueDetails", details());
+        let cli = gh(Cli::for_api(&api)).file("cwd/linear.toml", configuration);
+        let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
+        run.failure();
+        assert_eq!(run.stdout, "", "{run}");
+        assert!(cli.calls("gh").is_empty());
+        assert_eq!(api.operations(), ["GetIssueDetails"]);
+    }
+}
+
+#[test]
+fn describe_sanitizes_remote_fields_for_a_terminal_and_keeps_description_lines() {
+    let api = MockLinear::start();
+    let mut issue = details();
+    issue["issue"]["title"] = json!("first\nsecond");
+    issue["issue"]["description"] = json!("one\n\u{1b}[2Jtwo");
+    issue["issue"]["url"] = json!(format!("{URL}\u{1b}[2J"));
+    api.on("GetIssueDetails", issue);
+    let cli = Cli::for_api(&api).file(
+        "cwd/linear.toml",
+        r#"[templates]
+commit_description = "{{ issue.title }}\n{{ issue.description }}\n{{ issue.url }}\n"
+"#,
+    );
+    let run = cli.run_tty(&["issue", "describe", "ENG-7"], &[]);
+    run.success().stdout_has(&format!(
+        "first second\none\n\u{fffd}[2Jtwo\n{URL}\u{fffd}[2J\n"
+    ));
+}

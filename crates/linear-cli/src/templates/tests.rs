@@ -362,3 +362,30 @@ pr_body = '{% for a in issues %}{% for b in issues %}{% for c in issues %}x{% en
     let error = config.render(Slot::PrBody, &pr).expect_err("fuel limit");
     assert!(error.to_string().contains("fuel"), "{error}");
 }
+
+#[test]
+fn builtin_detection_follows_the_effective_body() {
+    let mut config = TemplateConfig::builtin();
+    assert!(config.is_builtin(Slot::PrTitle));
+    let body = config
+        .entries()
+        .get("pr_title")
+        .expect("title entry")
+        .body
+        .clone();
+    config
+        .apply_tier(&tier(
+            "project.toml",
+            &format!("[templates]\npr_title = {body:?}"),
+        ))
+        .expect("same body");
+    assert!(config.is_builtin(Slot::PrTitle));
+    config
+        .apply_tier(&tier(
+            "project.toml",
+            "[templates]\npr_title = 'custom title'",
+        ))
+        .expect("custom body");
+    assert!(!config.is_builtin(Slot::PrTitle));
+    assert!(config.is_builtin(Slot::CommitDescription));
+}

@@ -14,6 +14,7 @@ use crate::{
     error::{Error, Result, ResultExt},
     graphql::operations::issue::IssueDetails,
     platform::gh,
+    templates::{IssueData, PullRequestContext, Slot, TemplateConfig},
 };
 use futures_util::{StreamExt, TryStreamExt, stream};
 use std::collections::HashSet;
@@ -42,7 +43,11 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
         (None, None) => None,
     };
     let identifiers = distinct(ctx, &args.issue_ids)?;
-    check_title(&identifiers, args.title.as_deref())?;
+    // Keep the default's early usage error, while allowing configured title
+    // templates to summarize any number of issues after their data is fetched.
+    if ctx.templates().is_builtin(Slot::PrTitle) {
+        check_title(&identifiers, args.title.as_deref())?;
+    }
     let client = ctx.client()?;
     // Every issue is fetched before gh runs, so a missing one opens nothing.
     let issues = ctx.spin(true, fetch_all(client, identifiers))?;
@@ -51,11 +56,14 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
     } else {
         Linkage::Fixes
     };
-    let argv = self::args(
-        title(&issues, args.title.as_deref()),
-        body(description.as_deref(), &issues, linkage),
-        &args.gh_args,
-    );
+    let (title, body) = render(
+        ctx.templates(),
+        &issues,
+        args.title.as_deref(),
+        description.as_deref(),
+        linkage,
+    )?;
+    let argv = self::args(title, body, &args.gh_args);
     ctx.flush()?;
     gh::run(&argv, ctx.cwd(), &ctx.config().child_env)
 }
@@ -216,35 +224,58 @@ impl Linkage {
     }
 }
 
-/// --title as given; without it, `<ID> <title>` for the one issue.
-/// [`check_title`] required it for several.
-pub fn title(issues: &[Covered], custom: Option<&str>) -> String {
-    match (custom, issues) {
-        (Some(custom), _) => custom.to_owned(),
-        (None, [issue]) => format!("{} {}", issue.identifier, issue.details.title),
-        (None, _) => unreachable!("a pull request for several issues has a title"),
-    }
-}
-
-/// The description, then Linear's linking clause, then each issue's URL on
-/// its own line.
-pub fn body(description: Option<&str>, issues: &[Covered], linkage: Linkage) -> String {
-    let description = description.unwrap_or("").trim_end();
+/// Build only explicit issue and input data. Config and credentials are never
+/// part of the template context. Input descriptions retain the CLI's existing
+/// trailing-whitespace normalization; rendered output retains its whitespace.
+fn context(issues: &[Covered], description: Option<&str>, linkage: Linkage) -> PullRequestContext {
     let identifiers: Vec<&str> = issues
         .iter()
         .map(|issue| issue.identifier.as_str())
         .collect();
-    let clause = format!("{} {}", linkage.keyword(), listed(&identifiers));
-    let urls: Vec<&str> = issues
-        .iter()
-        .map(|issue| issue.details.url.as_str())
-        .collect();
-    let urls = urls.join("\n");
-    [description, clause.as_str(), urls.as_str()]
-        .into_iter()
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n\n")
+    PullRequestContext {
+        issues: issues
+            .iter()
+            .map(|issue| IssueData {
+                identifier: issue.identifier.clone(),
+                title: issue.details.title.clone(),
+                url: issue.details.url.clone(),
+                description: issue.details.description.clone().unwrap_or_default(),
+            })
+            .collect(),
+        description: description.unwrap_or("").trim_end().to_owned(),
+        linkage: linkage.keyword().to_owned(),
+        references: linkage == Linkage::References,
+        issue_clause: format!("{} {}", linkage.keyword(), listed(&identifiers)),
+    }
+}
+
+/// Finish both outputs before gh is invoked. --title is already parsed as
+/// nonblank and bypasses the title template entirely, including runtime errors.
+fn render(
+    templates: &TemplateConfig,
+    issues: &[Covered],
+    custom_title: Option<&str>,
+    description: Option<&str>,
+    linkage: Linkage,
+) -> Result<(String, String)> {
+    let context = context(issues, description, linkage);
+    let title = match custom_title {
+        Some(title) => title.to_owned(),
+        None => templates.render(Slot::PrTitle, &context)?,
+    };
+    let body = templates.render(Slot::PrBody, &context)?;
+    for (name, text) in [("pr_title", &title), ("pr_body", &body)] {
+        if text.trim().is_empty() {
+            return Err(Error::new(format!(
+                "templates.{name} produced an empty pull request {}",
+                if name == "pr_title" { "title" } else { "body" }
+            ))
+            .with_hint(format!(
+                "Configure templates.{name} to render nonblank text."
+            )));
+        }
+    }
+    Ok((title, body))
 }
 
 /// `A`, `A and B`, `A, B, and C`: the list Linear reads after a magic word.

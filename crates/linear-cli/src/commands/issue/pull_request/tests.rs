@@ -1,11 +1,36 @@
-use super::{Covered, Linkage, body, check_title, title};
+use super::{Covered, Linkage, check_title, render};
 use crate::graphql::operations::issue::IssueDetails;
+use crate::templates::TemplateConfig;
 
+fn body(description: Option<&str>, issues: &[Covered], linkage: Linkage) -> String {
+    render(
+        &TemplateConfig::builtin(),
+        issues,
+        Some("test title"),
+        description,
+        linkage,
+    )
+    .expect("render")
+    .1
+}
+
+fn title(issues: &[Covered], custom: Option<&str>) -> String {
+    render(
+        &TemplateConfig::builtin(),
+        issues,
+        custom,
+        None,
+        Linkage::Fixes,
+    )
+    .expect("render")
+    .0
+}
 fn covered(identifier: &str) -> Covered {
     Covered {
         identifier: identifier.to_owned(),
         details: IssueDetails {
             title: format!("{identifier} title"),
+            description: None,
             url: format!("https://linear.app/acme/issue/{identifier}/slug"),
         },
     }

@@ -244,6 +244,20 @@ impl TemplateConfig {
         &self.entries
     }
 
+    /// Whether an output still uses the shipped definition. A layer that
+    /// repeats the same body retains the same behavior regardless of its source.
+    pub fn is_builtin(&self, slot: Slot) -> bool {
+        let effective = self
+            .entries
+            .get(slot.name())
+            .expect("all output slots are registered");
+        let builtin = self
+            .builtins
+            .get(slot.name())
+            .expect("all output slots have a shipped definition");
+        effective.body == builtin.body
+    }
+
     pub fn apply_tier(&mut self, tier: &ConfigTier) -> Result<()> {
         self.apply_table(&tier.path.display().to_string(), &tier.table)
     }

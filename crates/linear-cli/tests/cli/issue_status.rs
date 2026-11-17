@@ -6,7 +6,7 @@ use crate::support::{Cli, MockLinear};
 
 fn issue(state: &str, state_type: &str) -> Value {
     json!({ "issue": {
-        "identifier": "ENG-7", "title": "Repair the widget",
+        "identifier": "ENG-7", "title": "Repair the widget", "description": null,
         "url": "https://linear.app/acme/issue/ENG-7/repair-the-widget",
         "branchName": "eng-7-repair-the-widget",
         "team": { "key": "ENG" },
