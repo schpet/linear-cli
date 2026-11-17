@@ -67,6 +67,7 @@
 
 ### Added
 
+- `linear skill setup` also installs `SessionStart` reminders for Claude Code and Codex to load the `linear-cli` skill or run `linear skill show` before using Linear, independently of the skill catalog. Setup, status, removal, agent selection and dry runs manage the hooks while preserving unrelated settings and hooks. Claude Code also supports project setup; Codex hooks are account-only, honor `CODEX_HOME`, and require review in Codex's `/hooks` menu.
 - Layered MiniJinja templates for agent guidance, shared `issue describe` / `issue jj start` descriptions, and pull request titles and bodies. Configure `[templates]` and reusable `[template-aliases]` globally, per project, or with repeatable `--config-file` / `--config` overlays. Shipped defaults remain available through `builtin/<name>`. Explicit `--title` and gh arguments after `--` retain precedence; a custom template can generate a title for several issues.
 - Targeted `linear skill show issue comment add` guidance inherits parent hooks; ordinary `skill show` includes custom hooks even for commands with no shipped prose. `config list`, `config get`, and `config list --show-origin` inspect templates offline. `skill show --builtin` and `config list --defaults` bypass local configuration for recovery. Ordinary `skill show` now validates selected template configuration.
 - `linear config` preserves existing template preferences and unknown TOML values when updating workspace, team and sort settings, while removing the retired `vcs` and `pr_template` settings. Comments may be reformatted.

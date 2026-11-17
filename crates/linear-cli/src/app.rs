@@ -41,7 +41,7 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
             let templates = match &args.command {
                 cli::skill::SkillCommand::Show(show) => Some(offline_templates(show.builtin, &global)
                     .map_err(|error| error.with_hint("Fix the template configuration, or run `linear skill show --builtin` for the shipped guide."))?),
-                cli::skill::SkillCommand::Setup(_) | cli::skill::SkillCommand::Status(_) | cli::skill::SkillCommand::Remove(_) => None,
+                cli::skill::SkillCommand::Setup(_) | cli::skill::SkillCommand::Status(_) | cli::skill::SkillCommand::Remove(_) | cli::skill::SkillCommand::SessionStart(_) => None,
             };
             return commands::skill::run(&args.command, templates.as_ref());
         }

@@ -139,6 +139,11 @@ pub struct Layout {
     /// Claude Code's configuration directory, when the scope is the user's
     /// account and that directory exists: the sign Claude Code is set up.
     pub claude_present: bool,
+    /// Claude's settings file in this scope, independent of skill symlinks.
+    pub claude_settings: PathBuf,
+    /// Codex's account hooks, independent of the shared skills directory.
+    pub codex_hooks: PathBuf,
+    pub codex_present: bool,
 }
 
 impl Layout {
@@ -181,6 +186,9 @@ impl Layout {
         Ok(Self {
             scope: Scope::User,
             claude_present: claude.is_dir(),
+            claude_settings: claude.join("settings.json"),
+            codex_hooks: codex.join("hooks.json"),
+            codex_present: codex.is_dir(),
             root: home,
             slots: distinct(slots),
         })
@@ -216,6 +224,9 @@ impl Layout {
         }
         Ok(Self {
             scope: Scope::Project,
+            claude_settings: root.join(".claude/settings.json"),
+            codex_hooks: root.join(".codex/hooks.json"),
+            codex_present: false,
             root,
             slots: distinct(slots),
             claude_present: false,

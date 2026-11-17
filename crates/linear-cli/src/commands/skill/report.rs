@@ -4,6 +4,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use super::hooks;
 use super::plan::{Change, Item, State, Step, titles};
 use super::slots::{Layout, Location, Scope};
 use crate::cli::skill::Agent;
@@ -21,6 +22,7 @@ struct StatusJson<'a> {
     scope: Scope,
     root: String,
     items: Vec<ItemJson<'a>>,
+    hooks: &'a [hooks::Report],
 }
 
 #[derive(Serialize)]
@@ -41,6 +43,7 @@ struct ChangesJson<'a> {
     action: Action,
     dry_run: bool,
     steps: Vec<StepJson<'a>>,
+    hooks: &'a [hooks::Report],
 }
 
 #[derive(Serialize)]
@@ -59,10 +62,15 @@ fn text(path: &Path) -> String {
     path.display().to_string()
 }
 
-pub fn status_json(layout: &Layout, items: &[Item]) -> impl Serialize {
+pub fn status_json<'a>(
+    layout: &Layout,
+    items: &'a [Item],
+    hooks: &'a [hooks::Report],
+) -> impl Serialize + use<'a> {
     StatusJson {
         scope: layout.scope,
         root: text(&layout.root),
+        hooks,
         items: items
             .iter()
             .map(|item| ItemJson {
@@ -81,10 +89,12 @@ pub fn changes_json<'a>(
     action: Action,
     dry_run: bool,
     steps: &'a [Step],
+    hooks: &'a [hooks::Report],
 ) -> impl Serialize + use<'a> {
     ChangesJson {
         scope: layout.scope,
         root: text(&layout.root),
+        hooks,
         action,
         dry_run,
         steps: steps
@@ -193,5 +203,23 @@ pub fn changes_text(steps: &[Step], dry_run: bool, home: Option<&Path>) -> Strin
             )
         })
         .collect();
+    lines(&rows)
+}
+
+pub fn hooks_text(hooks: &[hooks::Report], dry_run: bool, home: Option<&Path>) -> String {
+    let rows = hooks
+        .iter()
+        .map(|hook| {
+            (
+                short(&hook.path, home),
+                match hook.change {
+                    Some(change) => change_word(change, dry_run),
+                    None => state_word(hook.state),
+                },
+                format!("{} SessionStart hook", hook.agent.agent().title()),
+                hook.reason.iter().cloned().collect(),
+            )
+        })
+        .collect::<Vec<_>>();
     lines(&rows)
 }

@@ -20,13 +20,25 @@ pub fn write_atomic_shared(path: &Path, contents: &[u8]) -> io::Result<()> {
     write_atomic_as(path, contents, Access::Default)
 }
 
+/// Atomically replaces an existing file with its current permissions. A file
+/// that disappears before the write is recreated owner-only.
+pub fn write_atomic_preserving(path: &Path, contents: &[u8]) -> io::Result<()> {
+    match fs::metadata(path) {
+        Ok(metadata) => write_atomic_as(path, contents, Access::Preserve(metadata.permissions())),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => write_atomic(path, contents),
+        Err(error) => Err(error),
+    }
+}
+
 /// Who may read a newly created file.
-#[derive(Clone, Copy)]
 enum Access {
     /// Only its owner.
     Owner,
     /// Whoever the process's umask allows.
     Default,
+    /// The temporary file stays owner-only until its complete contents are
+    /// written, then receives the original permissions before the rename.
+    Preserve(fs::Permissions),
 }
 
 fn write_atomic_as(path: &Path, contents: &[u8], access: Access) -> io::Result<()> {
@@ -37,9 +49,13 @@ fn write_atomic_as(path: &Path, contents: &[u8], access: Access) -> io::Result<(
     let name = path
         .file_name()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file name"))?;
-    let (temp, mut file) = create_temp(directory, &name.to_string_lossy(), access)?;
+    let (temp, mut file) = create_temp(directory, &name.to_string_lossy(), &access)?;
     let written = file
         .write_all(contents)
+        .and_then(|()| match access {
+            Access::Preserve(permissions) => file.set_permissions(permissions),
+            Access::Owner | Access::Default => Ok(()),
+        })
         .and_then(|()| file.sync_all())
         .and_then(|()| {
             drop(file);
@@ -56,14 +72,14 @@ fn write_atomic_as(path: &Path, contents: &[u8], access: Access) -> io::Result<(
 
 /// A new, empty file named after `name` in `directory`, readable as `access`
 /// says.
-fn create_temp(directory: &Path, name: &str, access: Access) -> io::Result<(PathBuf, File)> {
+fn create_temp(directory: &Path, name: &str, access: &Access) -> io::Result<(PathBuf, File)> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(match access {
-            Access::Owner => 0o600,
+            Access::Owner | Access::Preserve(_) => 0o600,
             Access::Default => 0o666,
         });
     }
@@ -144,7 +160,7 @@ pub fn private_dir(directory: &Path) -> io::Result<()> {
 #[cfg(unix)]
 fn current_user(directory: &Path) -> io::Result<u32> {
     use std::os::unix::fs::MetadataExt;
-    let (probe, file) = create_temp(directory, "owner", Access::Owner)?;
+    let (probe, file) = create_temp(directory, "owner", &Access::Owner)?;
     let user = file.metadata().map(|metadata| metadata.uid());
     drop(file);
     fs::remove_file(&probe)?;
