@@ -10,6 +10,7 @@
 )]
 
 mod licenses;
+mod release;
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -30,6 +31,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Task {
+    /// Validate and prepare a stable or alpha version without publishing
+    PrepareRelease {
+        /// Exact SemVer version, or latest to use the newest changelog entry
+        #[arg(default_value = "latest")]
+        version: String,
+    },
     /// Write the license notices of every third-party crate in Cargo.lock to
     /// one Markdown file, as shipped in release archives
     Licenses {
@@ -46,6 +53,7 @@ fn main() -> ExitCode {
         .parent()
         .expect("xtask lives in a directory of the workspace root");
     let result: Result<(), Box<dyn Error>> = match cli.task {
+        Task::PrepareRelease { version } => release::run(workspace, &version),
         Task::Licenses { output } => licenses::run(workspace, output),
     };
     match result {

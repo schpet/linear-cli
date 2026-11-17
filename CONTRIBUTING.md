@@ -29,7 +29,7 @@ Keep changes focused, and add tests for new behavior. Command behavior is tested
 ## Releases
 
 Use the fixed `svbump` build that preserves explicit prerelease versions, plus
-`changelog`, `just`, `jq`, `jj`, and the `dist` version pinned in `mise.toml`.
+`changelog`, `just`, `jj`, and the `dist` version pinned in `mise.toml`.
 Run `mise install` in a trusted checkout to install that dist version.
 
 For an alpha, keep the complete upcoming stable-release notes in `[Unreleased]`.
@@ -43,7 +43,7 @@ Start from a clean, up-to-date `main` and an empty mutable jj scratch change.
 Then prepare and inspect before publishing:
 
 ```sh
-just release-check  # Python 3.11+, with isolated fixtures; publishes nothing
+just release-check  # Rust tests with isolated fixtures; publishes nothing
 just prepare-release 4.0.0-alpha.3
 jj diff
 just check
@@ -51,7 +51,7 @@ just check
 just tag 4.0.0-alpha.3
 ```
 
-`prepare-release` verifies an exact svbump round trip on a temporary manifest
+`cargo xtask prepare-release` (also available through `just prepare-release`) verifies an exact svbump round trip on a temporary manifest
 before editing the real version, updates the workspace lockfile, and validates
 cargo-dist's title, tag, versions and prerelease flag. It never commits or pushes.
 `tag` repeats preparation, runs checks against the new version, then commits,
