@@ -71,8 +71,9 @@ Environment:
   LINEAR_DEBUG=1            Show the details and causes of errors
   LINEAR_IGNORE_ENV_FILE=1  Do not load .env files
 
-Every .linear.toml setting can also be set with a LINEAR_* variable; run
-`linear config` to write one for the current repository.
+Scalar .linear.toml settings can also be set with LINEAR_* variables; run
+`linear config` to write one for the current repository. Template preferences
+use [templates] / [template-aliases], --config-file and --config.
 
 ",
     exit_status!()
@@ -110,6 +111,19 @@ pub struct GlobalArgs {
     /// Never prompt; fail instead when a required value is missing
     #[arg(long, global = true, alias = "no-interactive", display_order = 1001)]
     pub no_input: bool,
+    /// Template-only TOML overlay (repeatable; files apply in order before all --config values)
+    #[arg(long, global = true, value_name = "FILE", display_order = 1002)]
+    pub config_file: Vec<PathBuf>,
+    /// Template preference KEY=TOML-VALUE (repeatable; values apply in order after all files)
+    ///
+    /// Example: --config 'templates.skill_issue_comment="Ask before posting."'
+    #[arg(
+        long,
+        global = true,
+        value_name = "KEY=TOML-VALUE",
+        display_order = 1003
+    )]
+    pub config: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -154,9 +168,11 @@ pub enum RootCommand {
     User(user::User),
     /// Log in to workspaces and manage their credentials
     Auth(auth::Auth),
-    /// Write a .linear.toml for the current repository
+    /// Generate project config or inspect template preferences offline
     ///
-    /// Asks for the settings the flags leave out.
+    /// Without a subcommand, writes .linear.toml for the current repository,
+    /// asking for settings the flags leave out. `config list` and `config get`
+    /// inspect templates only; they do not need login or network access.
     #[command(alias = "configure")]
     Config(config::Config),
     /// Send a raw GraphQL request to the Linear API

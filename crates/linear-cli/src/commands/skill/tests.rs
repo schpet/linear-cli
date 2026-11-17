@@ -15,7 +15,12 @@ use crate::cli::skill::Agent;
 use crate::config::{FileKind, FileSource, RealFileSource};
 
 fn rendered() -> String {
-    guide::render(&cli::command())
+    guide::render(
+        &cli::command(),
+        &crate::templates::TemplateConfig::builtin(),
+        &[],
+    )
+    .expect("builtin guide")
 }
 
 /// Every command path a user can run, such as `linear issue comment add`.
@@ -38,6 +43,23 @@ fn the_guide_fills_every_placeholder_and_stays_short() {
     // An agent reads the whole guide on every load.
     let lines = guide.lines().count();
     assert!(lines < 600, "the guide is {lines} lines");
+}
+
+#[test]
+fn general_reference_sections_appear_once() {
+    let guide = rendered();
+    for section in [
+        "## Markdown bodies",
+        "## GraphQL fallback",
+        "## Exit status",
+        "## Commands",
+    ] {
+        assert_eq!(
+            guide.lines().filter(|line| *line == section).count(),
+            1,
+            "{section}"
+        );
+    }
 }
 
 #[test]
@@ -142,7 +164,7 @@ fn guide_examples() -> Vec<String> {
     let mut examples = Vec::new();
     let mut checking = false;
     let mut pending = String::new();
-    for line in include_str!("guide.md").lines() {
+    for line in rendered().lines() {
         if let Some(info) = line.strip_prefix("```") {
             checking = info == "bash";
             pending.clear();

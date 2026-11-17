@@ -3,9 +3,9 @@
 //!
 //! The guide ships in the binary, so what an agent reads always matches the
 //! commands it can run. The installed skill is a stub that says to run
-//! `linear skill show`; it changes only if that instruction does. None of
-//! this needs configuration, credentials or the network; `app` runs it
-//! before any of those load.
+//! `linear skill show`; it changes only if that instruction does. Skill
+//! installation needs no configuration, credentials or network. Guide
+//! rendering loads only template preferences, before authentication or dotenv.
 use std::collections::BTreeSet;
 
 use crate::cli;
@@ -14,6 +14,7 @@ use crate::commands::json;
 use crate::config::RealFileSource;
 use crate::error::{Error, Result};
 use crate::platform::output::{self, Stdout};
+use crate::templates::TemplateConfig;
 
 mod apply;
 mod guide;
@@ -29,9 +30,11 @@ use plan::{Change, State, Step, Stubs};
 use report::Action;
 use slots::{Layout, Scope, SkillEnv};
 
-pub fn run(command: &SkillCommand) -> Result<()> {
+pub fn run(command: &SkillCommand, templates: Option<&TemplateConfig>) -> Result<()> {
     match command {
-        SkillCommand::Show(_) => show(),
+        SkillCommand::Show(args) => {
+            show(args, templates.expect("show loads template configuration"))
+        }
         SkillCommand::Setup(args) => {
             let (stdout, stderr, result) = setup(
                 args,
@@ -70,9 +73,10 @@ fn print(stdout: &[u8], stderr: &str) -> Result<()> {
 
 /// Prints the guide as raw Markdown: no pager, color or wrapping, so an agent
 /// reads all of it in one call.
-fn show() -> Result<()> {
+fn show(args: &cli::skill::SkillShow, templates: &TemplateConfig) -> Result<()> {
+    let rendered = guide::render(&cli::command(), templates, &args.command)?;
     let stdout = Stdout::new();
-    stdout.write(guide::render(&cli::command()).as_bytes())?;
+    stdout.write(rendered.as_bytes())?;
     stdout.flush()
 }
 

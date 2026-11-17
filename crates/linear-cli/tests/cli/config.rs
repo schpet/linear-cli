@@ -267,3 +267,90 @@ fn config_replaces_a_file_with_the_retired_vcs_setting_without_it() {
     run.success();
     assert!(!run.stderr.contains("Warning"), "{run}");
 }
+
+#[test]
+fn inspect_templates_offline_with_namespaces_origins_and_no_secrets() {
+    let cli = Cli::new()
+        .credentials("secret credential text, invalid toml [")
+        .env("LINEAR_GRAPHQL_ENDPOINT", "not a url")
+        .env("HTTPS_PROXY", "not a proxy")
+        .file(
+            "cwd/.linear.toml",
+            r#"
+workspace = 'SECRET WORKSPACE'
+team_id = 123
+[templates]
+skill_issue_comment = 'COMMENT POLICY'
+[template-aliases]
+team_policy = 'ALIAS CONTENT'
+"#,
+        );
+    let list = cli.run(&["config", "list", "--show-origin"]);
+    list.success()
+        .stdout_has("# Source:")
+        .stdout_has(".linear.toml")
+        .stdout_has("COMMENT POLICY");
+    let parsed: toml::Table = list.stdout.parse().expect("valid TOML listing");
+    assert_eq!(parsed.len(), 2);
+    assert_eq!(
+        parsed["template-aliases"]["team_policy"].as_str(),
+        Some("ALIAS CONTENT")
+    );
+    assert!(!list.stdout.contains("SECRET WORKSPACE"));
+    assert!(!list.stdout.contains("secret credential"));
+    let get = cli.run(&["config", "get", "templates.skill_issue_comment"]);
+    get.success();
+    assert_eq!(get.stdout, "COMMENT POLICY");
+    let get = cli.run(&["config", "get", "template-aliases.team_policy"]);
+    get.success();
+    assert_eq!(get.stdout, "ALIAS CONTENT");
+    for key in [
+        "workspace",
+        "templates.team_policy",
+        "template-aliases.skill",
+        "templates.missing",
+    ] {
+        cli.run(&["config", "get", key]).usage_error();
+    }
+}
+
+#[test]
+fn defaults_inspection_bypasses_bad_config_and_overlays() {
+    let cli = Cli::new()
+        .env_remove("HOME")
+        .file("cwd/.linear.toml", "bad [");
+    cli.run(&["config", "list"])
+        .failure()
+        .stderr_has(".linear.toml");
+    let run = cli.run(&["config", "list", "--defaults", "--config-file", "missing"]);
+    run.success();
+    let parsed: toml::Table = run.stdout.parse().expect("TOML defaults");
+    assert_eq!(
+        parsed["templates"]["skill_milestone_update"].as_str(),
+        Some("")
+    );
+    cli.run(&["config", "get", "templates.skill", "--defaults"])
+        .success()
+        .stdout_has("command_guidance");
+    cli.run(&["config", "--team", "ENG", "list"]).usage_error();
+    cli.run(&["config", "--sort", "priority", "get", "templates.skill"])
+        .usage_error();
+}
+
+#[test]
+fn ordinary_startup_applies_template_overlays_before_authentication() {
+    let cli = Cli::new();
+    let run = cli.run(&[
+        "team",
+        "list",
+        "--config",
+        "templates.skill='{{ missing }}'",
+    ]);
+    run.failure()
+        .stderr_has("--config #1")
+        .stderr_has("unknown context field");
+    assert!(run.stdout.is_empty());
+    cli.run(&["team", "list", "--config-file", "missing.toml"])
+        .failure()
+        .stderr_has("missing.toml");
+}

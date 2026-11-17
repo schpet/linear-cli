@@ -8,7 +8,7 @@ fn show_prints_the_guide_without_configuration_credentials_or_network() {
         .env("HTTPS_PROXY", "http://proxy.example.invalid:3128")
         .env("SSL_CERT_FILE", "/missing/ca.pem")
         .env_remove("HOME")
-        .run(&["skill", "show"]);
+        .run(&["skill", "show", "--builtin"]);
     run.success()
         .stdout_has(&format!(
             "# Linear CLI (linear {})",
@@ -299,4 +299,231 @@ fn claude_code_s_directory_follows_its_configuration_variable() {
     cli.run(&["skill", "setup"]).success();
     assert!(moved.join("skills/linear-cli/SKILL.md").exists());
     assert!(!cli.path("home/.claude").exists());
+}
+
+#[test]
+fn normal_show_is_offline_but_bad_selected_config_requires_builtin_recovery() {
+    let cli = Cli::new()
+        .env_remove("HOME")
+        .env("LINEAR_GRAPHQL_ENDPOINT", "not a url")
+        .env("LINEAR_TIMEOUT", "not a number")
+        .env("HTTPS_PROXY", "not a proxy")
+        .file("cwd/.env", "not dotenv [");
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("# Linear CLI");
+    let cli = cli.file("cwd/.linear.toml", "this is not toml [");
+    let run = cli.run(&["skill", "show"]);
+    run.failure()
+        .stderr_has(".linear.toml")
+        .stderr_has("--builtin");
+    assert!(run.stdout.is_empty(), "{run}");
+    cli.run(&[
+        "skill",
+        "show",
+        "--builtin",
+        "--config-file",
+        "absent.toml",
+        "--config",
+        "bad",
+    ])
+    .success()
+    .stdout_has("# Linear CLI");
+}
+
+#[test]
+fn full_and_targeted_guides_merge_preferences_and_inherit_ancestors_once() {
+    let cli = Cli::new()
+        .file(
+            "home/.config/linear/linear.toml",
+            r#"
+[templates]
+skill_how_to_work = '{% include "builtin/skill_how_to_work" %}GLOBAL BASICS'
+skill_issue_comment = 'COMMENT POLICY'
+skill_issue_comment_update = 'UPDATE SIBLING'
+skill_milestone_update = 'NO PROSE COMMAND POLICY'
+"#,
+        )
+        .file(
+            "cwd/.linear.toml",
+            r#"
+[templates]
+skill_issue_comment_add = '{% include "builtin/skill_issue_comment_add" %}PROJECT ADD'
+skill_issue_delete = 'DELETE SIBLING'
+"#,
+        );
+    let full = cli.run(&["skill", "show"]);
+    full.success()
+        .stdout_has("COMMENT POLICY")
+        .stdout_has("PROJECT ADD")
+        .stdout_has("UPDATE SIBLING")
+        .stdout_has("NO PROSE COMMAND POLICY");
+    assert_eq!(full.stdout.matches("COMMENT POLICY").count(), 1);
+    let target = cli.run(&["skill", "show", "i", "comment", "add"]);
+    target
+        .success()
+        .stdout_has("GLOBAL BASICS")
+        .stdout_has("COMMENT POLICY")
+        .stdout_has("PROJECT ADD")
+        .stdout_has("Usage: linear issue comment add");
+    assert!(!target.stdout.contains("UPDATE SIBLING"));
+    assert!(!target.stdout.contains("DELETE SIBLING"));
+    assert_eq!(target.stdout.matches("COMMENT POLICY").count(), 1);
+}
+
+#[test]
+fn target_aliases_canonicalize_and_unknown_or_hidden_commands_fail() {
+    let cli = Cli::new().file(
+        "cwd/.linear.toml",
+        "[templates]\nskill_issue_gh_pull_request='PR POLICY'\n",
+    );
+    let run = cli.run(&["skill", "show", "issue", "gh", "pr"]);
+    run.success()
+        .stdout_has("PR POLICY")
+        .stdout_has("Usage: linear issue gh pull-request");
+    for path in [
+        &["skill", "show", "unknown"][..],
+        &["skill", "show", "issue", "bad"],
+    ] {
+        let run = cli.run(path);
+        run.usage_error()
+            .stderr_has("Unknown skill command path")
+            .stderr_has("--help");
+        assert!(run.stdout.is_empty());
+    }
+    // This command remains available for migration errors, but is hidden.
+    cli.run(&["skill", "show", "issue", "list"]).usage_error();
+}
+
+#[test]
+fn empty_hooks_disappear_and_custom_text_and_inheritance_are_preserved() {
+    let cli = Cli::new().file("cwd/.linear.toml", r#"
+[templates]
+skill_issue_comment = ''
+skill_milestone_update = '{% extends "builtin/skill_milestone_update" %}{% block content %}unused{% endblock %}'
+skill_how_to_work = '{% extends "builtin/skill_how_to_work" %}{% block content %}{{ super() }}ADDED RULE{% endblock %}'
+"#);
+    let run = cli.run(&["skill", "show"]);
+    // An empty built-in hook has no content block; inheritance is still valid.
+    run.success().stdout_has("ADDED RULE");
+    assert!(!run.stdout.contains("### Resolve or reopen comment threads"));
+    assert_eq!(run.stdout.matches("ADDED RULE").count(), 1);
+}
+
+#[test]
+fn overlays_apply_files_before_snippets_and_fail_without_partial_stdout() {
+    let cli = Cli::new()
+        .file("cwd/one.toml", "[templates]\nskill_intro='FILE ONE'\n")
+        .file("cwd/two.toml", "[templates]\nskill_intro='FILE TWO'\n");
+    let run = cli.run(&[
+        "--config",
+        "templates.skill_intro='FIRST SNIPPET'",
+        "skill",
+        "show",
+        "--config-file",
+        "one.toml",
+        "--config",
+        "templates.skill_intro='LAST SNIPPET'",
+        "--config-file",
+        "two.toml",
+    ]);
+    run.success().stdout_has("LAST SNIPPET");
+    assert!(!run.stdout.contains("FILE ONE"));
+    assert!(!run.stdout.contains("FILE TWO"));
+    let run = cli.run(&[
+        "skill",
+        "show",
+        "--config-file",
+        "one.toml",
+        "--config-file",
+        "two.toml",
+    ]);
+    run.success().stdout_has("FILE TWO");
+    for flags in [
+        vec!["--config-file", "missing.toml"],
+        vec!["--config", "team_id='ENG'"],
+        vec![
+            "--config",
+            "templates.skill_intro='{% include \"missing\" %}'",
+        ],
+        vec!["--config", "templates.skill_intro='{{ version.missing }}'"],
+    ] {
+        let mut args = vec!["skill", "show"];
+        args.extend(flags);
+        let run = cli.run(&args);
+        run.failure().stderr_has("--builtin");
+        assert!(run.stdout.is_empty(), "{run}");
+    }
+    let cli = cli.file("cwd/scalar.toml", "team_id='ENG'");
+    cli.run(&["skill", "show", "--config-file", "scalar.toml"])
+        .failure()
+        .stderr_has("only templates and template-aliases");
+}
+
+#[test]
+fn targeting_a_parent_includes_its_subtree_and_shared_partials_merge_by_name() {
+    let cli = Cli::new()
+        .file(
+            "home/.config/linear/linear.toml",
+            r#"
+[templates]
+skill_issue_comment = '{% include "policy" %}'
+skill_issue_comment_add = 'ADD POLICY'
+skill_issue_comment_update = 'UPDATE POLICY'
+skill_issue_comment_delete = 'DELETE POLICY'
+skill_completions = 'SHELL POLICY'
+[template-aliases]
+policy = '{% include "approval" %} {% include "attribution" %}'
+approval = 'GLOBAL APPROVAL'
+attribution = 'GLOBAL ATTRIBUTION'
+"#,
+        )
+        .file(
+            "cwd/.linear.toml",
+            "[template-aliases]\napproval = 'PROJECT APPROVAL'\n",
+        );
+    let run = cli.run(&["skill", "show", "issue", "comment"]);
+    run.success()
+        .stdout_has("PROJECT APPROVAL GLOBAL ATTRIBUTION")
+        .stdout_has("ADD POLICY")
+        .stdout_has("UPDATE POLICY")
+        .stdout_has("DELETE POLICY");
+    for text in [
+        "ADD POLICY",
+        "UPDATE POLICY",
+        "DELETE POLICY",
+        "PROJECT APPROVAL",
+    ] {
+        assert_eq!(run.stdout.matches(text).count(), 1, "{run}");
+    }
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("SHELL POLICY");
+}
+
+#[test]
+fn command_hooks_preserve_long_user_preferences_verbatim() {
+    let policy = format!("{}END OF POLICY", "full text\n".repeat(800));
+    let overlay = format!(
+        "templates.skill_milestone_update={}",
+        toml::Value::String(policy.clone())
+    );
+    let run = Cli::new().run(&["skill", "show", "milestone", "update", "--config", &overlay]);
+    run.success().stdout_has(&policy);
+}
+
+#[test]
+fn installation_commands_keep_bypassing_all_template_configuration() {
+    let cli = Cli::new().file("cwd/.linear.toml", "bad [");
+    for command in ["setup", "status", "remove"] {
+        cli.run(&[
+            "skill",
+            command,
+            "--config-file",
+            "missing.toml",
+            "--config",
+            "bad",
+        ])
+        .success();
+    }
 }

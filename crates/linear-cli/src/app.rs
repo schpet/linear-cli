@@ -8,7 +8,8 @@ use crate::cli::{self, Cli, RootCommand};
 use crate::commands;
 use crate::commands::completions;
 use crate::config::{
-    DisplaySettings, OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup, render_diagnostic,
+    ConfigInputs, DisplaySettings, OsFamily, ProcessEnvSnapshot, RealFileSource,
+    apply_template_overrides, load_startup, load_template_config, render_diagnostic,
 };
 use crate::ctx::{Ctx, CtxInit, Terminal};
 use crate::error::{Error, ErrorKind, Result};
@@ -33,14 +34,22 @@ pub fn main(cli: Cli) -> u8 {
 
 fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     let Cli { global, command } = cli;
-    let cli::GlobalArgs {
-        workspace,
-        no_input,
-    } = global;
     let command = match command {
         RootCommand::Completions(action) => return completions_command(&action),
         RootCommand::Markdown(_) => return markdown(),
-        RootCommand::Skill(args) => return commands::skill::run(&args.command),
+        RootCommand::Skill(args) => {
+            let templates = match &args.command {
+                cli::skill::SkillCommand::Show(show) => Some(offline_templates(show.builtin, &global)
+                    .map_err(|error| error.with_hint("Fix the template configuration, or run `linear skill show --builtin` for the shipped guide."))?),
+                cli::skill::SkillCommand::Setup(_) | cli::skill::SkillCommand::Status(_) | cli::skill::SkillCommand::Remove(_) => None,
+            };
+            return commands::skill::run(&args.command, templates.as_ref());
+        }
+        RootCommand::Config(args) if args.command.is_some() => {
+            let command = args.command.as_ref().expect("inspection command selected");
+            let templates = offline_templates(command.defaults(), &global)?;
+            return commands::config_inspect::run(command, &templates);
+        }
         command => command,
     };
     let cwd = std::env::current_dir().map_err(|error| {
@@ -59,12 +68,29 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     for diagnostic in &report.diagnostics {
         output::eprint(render_diagnostic(diagnostic, terminal.stderr_color()).as_bytes())?;
     }
-    let config = report.result?;
+    let mut config = report.result?;
+    let extra_files = global
+        .config_file
+        .iter()
+        .map(|path| {
+            if path.is_absolute() {
+                path.clone()
+            } else {
+                cwd.join(path)
+            }
+        })
+        .collect::<Vec<_>>();
+    apply_template_overrides(
+        &mut config.templates,
+        &RealFileSource,
+        &extra_files,
+        &global.config,
+    )?;
     let env = |name| process.inputs.env(name);
     let ctx = Ctx::new(CtxInit {
         config,
-        workspace,
-        no_input,
+        workspace: global.workspace,
+        no_input: global.no_input,
         cwd,
         terminal,
         credentials_path: credentials_path(os, env("XDG_CONFIG_HOME"), env("HOME"), env("APPDATA")),
@@ -73,6 +99,49 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     // Output written before a failure still reaches the reader.
     let flushed = ctx.flush();
     result.and(flushed)
+}
+
+/// Capture only config discovery paths: unrelated environment, dotenv and auth
+/// must not affect offline guide rendering or preference inspection.
+fn offline_templates(
+    defaults: bool,
+    global: &cli::GlobalArgs,
+) -> Result<crate::templates::TemplateConfig> {
+    if defaults {
+        return Ok(crate::templates::TemplateConfig::builtin());
+    }
+    let cwd = std::env::current_dir().map_err(|error| {
+        Error::new(format!("Failed to read the working directory: {error}")).with_source(error)
+    })?;
+    let os = if cfg!(windows) {
+        OsFamily::Windows
+    } else {
+        OsFamily::Unix
+    };
+    let mut process_env = std::collections::BTreeMap::new();
+    let names: &[&str] = match os {
+        OsFamily::Unix => &["HOME", "XDG_CONFIG_HOME"],
+        OsFamily::Windows => &["APPDATA"],
+    };
+    for &name in names {
+        match std::env::var(name) {
+            Ok(value) => {
+                process_env.insert(name.to_owned(), value);
+            }
+            Err(std::env::VarError::NotPresent) => {}
+            Err(error) => return Err(Error::new(format!("Invalid config path {name}: {error}"))),
+        }
+    }
+    load_template_config(
+        &ConfigInputs {
+            cwd,
+            os,
+            process_env,
+        },
+        &RealFileSource,
+        &global.config_file,
+        &global.config,
+    )
 }
 
 /// Prints `error` to stderr: `✗ message`, an optional hint, and under
