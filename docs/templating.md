@@ -40,19 +40,19 @@ pr_body = '''
 '''
 
 [templates]
-skill_issue_gh_pull_request = '''
-{% include "builtin/skill_issue_gh_pull_request" %}
+skill_issue_gh_pull-request = '''
+{% include "builtin/skill_issue_gh_pull-request" %}
 {% include "team/review_note" %}'''
 ```
 
-Partials cannot reuse a known template name, use the reserved `skill_` prefix, or replace the immutable `builtin/` namespace. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
+Partials cannot reuse a known template name, use the reserved `skill_` or `guide_` prefixes, or replace the immutable `builtin/` namespace. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
 
 ## Templates and data
 
 | Template | Rendered for | Data |
 |---|---|---|
-| `skill` | `linear skill show` | `version`, `commands`, `command_guidance`, `command_help`, `markdown_rules`, `exit_status` |
-| `skill_command` | A targeted guide such as `linear skill show issue comment add` | The same guide fields; `command_help` contains the selected command's help |
+| `guide` | `linear skill show` | `version`, `commands`, `command_guidance`, `command_help`, `markdown_rules`, `exit_status` |
+| `guide_targeted` | A targeted guide such as `linear skill show issue comment add` | The same guide fields; `command_help` contains the selected command's help |
 | `skill_<command_path>` | Guidance for a visible command or command group | The same guide fields |
 | `commit_description` | `issue describe` and `issue jj start` | `issue`, `references`, `linkage` |
 | `pr_title` | The generated pull request title | `issues`, `description`, `references`, `linkage`, `issue_clause` |
@@ -61,9 +61,17 @@ Partials cannot reuse a known template name, use the reserved `skill_` prefix, o
 
 Every issue object has string fields `identifier`, `title`, `url`, and `description`. `issues` is an ordered list with repeated issues removed. `references` is a Boolean; `linkage` is `Fixes` or `References`. `issue_clause` is the complete generated clause, such as `Fixes ENG-123 and ENG-124`. Guide fields are strings. The issue object's `description` is the issue description; the pull request context's top-level `description` is the user-supplied body text.
 
-`skill_markdown` is the command hook for `linear markdown`; the full Markdown-reference section uses `skill_markdown_rules`. General guide pieces are `skill_intro`, `skill_how_to_work`, `skill_common_tasks`, `skill_markdown_rules`, `skill_exit_status`, `skill_help_notes`, `skill_commands`, and `skill_graphql`. Command hooks use canonical command names joined with underscores, with hyphens changed to underscores: `issue gh pr` selects `skill_issue_gh_pull_request` because `pr` is an alias for `pull-request`.
+`skill_markdown` is the command hook for `linear markdown`; the full Markdown-reference section uses `guide_markdown_rules`. General guide pieces are `guide_intro`, `guide_how_to_work`, `guide_common_tasks`, `guide_markdown_rules`, `guide_exit_status`, `guide_help_notes`, `guide_commands`, and `guide_graphql`. Command hooks use canonical command names joined with underscores, preserving hyphens: `issue gh pr` selects `skill_issue_gh_pull-request` because `pr` is an alias for `pull-request`.
 
 Ordinary `skill show` includes every nonempty effective command hook, including hooks that have no shipped prose. A targeted view includes global guidance, ancestor hooks, the selected command and its descendants, and selected-command help. For example, the parent `skill_issue_comment` applies to `skill show issue comment add`. Empty hooks add no headings.
+
+## Naming conventions
+
+- `guide` renders the full agent guide; `guide_targeted` renders a selected command's guide. `guide_*` section templates assemble those layouts.
+- `skill_<command_path>` adds guidance for a command. Use its canonical command names, join path segments with `_`, and preserve `-` within a command name. For example, `skill_project_update` describes `project update`, while `skill_project-update` describes the separate `project-update` command group. Aliases resolve to their canonical command path first.
+- `commit_description` names the generated commit text. The `pr_*` family contains pull request text: `pr_title`, `pr_body`, and the reusable `pr_issue_links` helper.
+- `[templates]` contains known overridable names. `[template-aliases]` contains reusable partials you name yourself; `guide_` and `skill_` are reserved prefixes.
+- `builtin/<name>` selects the immutable shipped definition of that name, using MiniJinja's include and inheritance syntax.
 
 ## Extend shipped defaults
 

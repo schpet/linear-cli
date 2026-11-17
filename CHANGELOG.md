@@ -96,6 +96,7 @@
 
 ### Fixed
 
+- Template names now separate guide layouts and sections (`guide`, `guide_targeted`, `guide_*`) from command guidance (`skill_*`). Command hook names preserve hyphens, so `project update` and `project-update` (and their initiative equivalents) can have independent guidance without duplicate instructions in the full guide.
 - Built-in templates use consistent LF line endings in Windows builds, fixing CRLF in generated commit descriptions and pull request bodies. Custom template text and data retain their original whitespace.
 - `auth login` on a machine without a system keyring now says how to install `secret-tool` on Linux, and when an API key is already configured (`LINEAR_API_KEY`, a `.env` file, or `api_key` in a config file) it says that other commands already use it instead of suggesting to set `LINEAR_API_KEY`. It still fails there, since it has nowhere to store a key; `--plaintext` stores one in the credentials file ([#231](https://github.com/schpet/linear-cli/issues/231), [#301](https://github.com/schpet/linear-cli/pull/301); thanks @bitnahian)
 
