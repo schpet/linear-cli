@@ -37,7 +37,7 @@ build = ["cargo", "xtask", "licenses"]
 
 # dist 0.31.0 builds aarch64-apple-darwin on macos-14, which GitHub retired
 # ("The configuration 'macos-14-arm64-us-default' is not supported"), failing
-# the v4.0.0-alpha.1 release. macos-latest is always an Apple silicon image
-# that exists, so this target cannot be stranded on a retired one again.
+# the v4.0.0-alpha.1 release. Use the supported macOS 15 Apple silicon image;
+# macos-latest (26) has repeatedly timed out waiting for runner capacity.
 [dist.github-custom-runners]
-aarch64-apple-darwin = "macos-latest"
+aarch64-apple-darwin = "macos-15"

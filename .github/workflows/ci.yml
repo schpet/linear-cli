@@ -23,7 +23,9 @@ jobs:
         include:
           - os: ubuntu-latest
             optional: false
-          - os: macos-latest
+          # Keep native Apple silicon coverage on a supported explicit image.
+          # macos-latest (26) has repeatedly timed out waiting for capacity.
+          - os: macos-15
             optional: false
           - os: windows-latest
             optional: true
