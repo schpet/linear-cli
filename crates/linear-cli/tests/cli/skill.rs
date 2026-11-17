@@ -400,14 +400,21 @@ fn empty_hooks_disappear_and_custom_text_and_inheritance_are_preserved() {
     let cli = Cli::new().file("cwd/.linear.toml", r#"
 [templates]
 skill_issue_comment = ''
-skill_milestone_update = '{% extends "builtin/skill_milestone_update" %}{% block content %}unused{% endblock %}'
+skill_milestone_update = '{% extends "builtin/skill_milestone_update" %}{% block content %}{{ super() }}MILESTONE POLICY{% endblock %}'
 skill_how_to_work = '{% extends "builtin/skill_how_to_work" %}{% block content %}{{ super() }}ADDED RULE{% endblock %}'
 "#);
-    let run = cli.run(&["skill", "show"]);
-    // An empty built-in hook has no content block; inheritance is still valid.
-    run.success().stdout_has("ADDED RULE");
-    assert!(!run.stdout.contains("### Resolve or reopen comment threads"));
-    assert_eq!(run.stdout.matches("ADDED RULE").count(), 1);
+    for args in [
+        &["skill", "show"][..],
+        &["skill", "show", "milestone", "update"],
+    ] {
+        let run = cli.run(args);
+        run.success()
+            .stdout_has("ADDED RULE")
+            .stdout_has("MILESTONE POLICY");
+        assert!(!run.stdout.contains("### Resolve or reopen comment threads"));
+        assert_eq!(run.stdout.matches("ADDED RULE").count(), 1);
+        assert_eq!(run.stdout.matches("MILESTONE POLICY").count(), 1);
+    }
 }
 
 #[test]

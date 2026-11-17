@@ -126,7 +126,7 @@ the CLI works with both git and jj version control systems:
 - **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
 - **jj**: `linear issue jj start ABC-123` starts a change (or reuses an empty, undescribed one) described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). to open a pull request, push a bookmark with jj first and name it with `--head` (see below)
 
-each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` builds the title and body and runs `gh pr create`; linear itself never creates, moves or pushes a branch or bookmark. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it. `pr_template` (`LINEAR_PR_TEMPLATE`) was removed too: pass the file with `linear issue gh pr <ISSUE> --body-file <FILE>`, and an old setting is reported the same way
+each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` builds the title and body and runs `gh pr create`; linear itself never creates, moves or pushes a branch or bookmark. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it. `pr_template` (`LINEAR_PR_TEMPLATE`), the old starting-body file setting, was removed too: pass description text with `linear issue gh pr <ISSUE> --body-file <FILE>`; an old setting is reported the same way. use new [MiniJinja preferences](docs/templating.md) to configure generated guide, commit and PR layouts
 
 ## commands
 
@@ -183,7 +183,7 @@ linear issue comment update <id>   # update a comment
 
 #### pull requests
 
-`issue gh pr` fetches the issues, builds the title and body, and runs `gh pr create`. before `--` is what linear builds; everything after `--` goes to gh unchanged, after linear's `--title` and `--body`, so a flag there wins (a `--title` or `--body` after `--` replaces linear's, issue links included; gh's own `--template` cannot be used, since linear always passes a body). the title is `--title` as given, or `ABC-123 <issue title>` for one issue; the body is `--body` or `--body-file`, then `Fixes ABC-123` (or `References …` with `--references`), then each issue URL. linear itself never pushes: without `-- --head`, gh opens the pull request from the current git branch and, in a terminal, may offer to push it (or fork the repository) first; `-- --head <branch>` names a branch that is already pushed and turns that off. from jj, push the bookmark first, then pass it with `-- --head`. `@-` assumes `@` is an empty scratch change on top of the finished one; right after `issue jj start`, `@` is the described change, so run `jj new` first (or push `@`):
+`issue gh pr` fetches the issues, builds the title and body, and runs `gh pr create`. before `--` is what linear builds; everything after `--` goes to gh unchanged, after linear's `--title` and `--body`, so a flag there wins (a `--title` or `--body` after `--` replaces linear's, issue links included; gh's own `--template` cannot be used, since linear always passes a body). the shipped title is `ABC-123 <issue title>` for one issue, and several issues require `--title`. [template preferences](docs/templating.md) can generate a multiissue title and customize the complete body; an explicit `--title` always wins. `--body` or `--body-file` supplies description data to the body template, whose shipped layout appends `Fixes ABC-123` (or `References …` with `--references`) and each issue URL. linear itself never pushes: without `-- --head`, gh opens the pull request from the current git branch and, in a terminal, may offer to push it (or fork the repository) first; `-- --head <branch>` names a branch that is already pushed and turns that off. from jj, push the bookmark first, then pass it with `-- --head`. `@-` assumes `@` is an empty scratch change on top of the finished one; right after `issue jj start`, `@` is the described change, so run `jj new` first (or push `@`):
 
 ```bash
 branch=$(linear issue view ABC-123 --json | jq -r .branchName)
@@ -370,7 +370,7 @@ linear completions     # generate shell completions
 
 ## configuration options
 
-the CLI supports configuration via environment variables or a `.linear.toml` config file. environment variables take precedence over config file values.
+scalar options support environment variables or a `.linear.toml` config file. environment variables take precedence over config file values. [template preferences](docs/templating.md) use `[templates]` and `[template-aliases]`, with separate per-name layering and no `LINEAR_*` equivalent.
 
 | option          | env var                           | toml key                   | example                              | description                                                                                      |
 | --------------- | --------------------------------- | -------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
@@ -384,7 +384,7 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 
 in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images they download right under their links, using the kitty graphics protocol's Unicode placeholders so they still show inside the pager. other image formats, other terminals, terminals inside tmux or screen, piped output and `NO_COLOR` keep the plain link. images show through `less` (the default pager); another `PAGER` may not show them. set `inline_images = false` or `LINEAR_INLINE_IMAGES=false` to turn them off, or pass `--no-download` for one view.
 
-settings are read from two config files, a project file and a global file. each option takes the first value it finds in this order:
+scalar settings are read from a project file and a global file. each option takes the first value it finds in this order:
 
 1. a command-line flag, where the command has one
 2. an environment variable, from the shell or a `.env` file (the shell wins)
@@ -411,7 +411,7 @@ a bulk command (`--bulk`) that fails for several reasons exits with the first of
 
 ## skills
 
-linear-cli teaches AI agents to use it. the guide is built into the `linear` binary, so it always matches the version you have installed. it covers the common workflows and the graphql api for anything the cli doesn't do.
+linear-cli teaches AI agents to use it. the guide ships with the `linear` binary and applies your global and project [template preferences](docs/templating.md). it covers common workflows and the graphql api for anything the cli doesn't do. `linear skill show issue comment add` prints inherited guidance and help for one command. guide generation needs no login or network; `linear skill show --builtin` ignores configuration for recovery.
 
 ```bash
 linear skill setup            # install the skill for claude code, codex, opencode and pi
@@ -459,10 +459,10 @@ just check            # cargo fmt --check, clippy, and tests, as CI runs them
 
 ### updating the agent guide
 
-`linear skill show` prints `crates/linear-cli/src/commands/skill/guide.md`. its command list, exit statuses and markdown rules are filled in from the cli itself, and a test parses every example in it. `skills/linear-cli/SKILL.md` is the small skill that `linear skill setup` installs. to preview the guide:
+`crates/linear-cli/src/templates/defaults.toml` owns the guide prose and recipes. the command list, exit statuses and markdown rules come from the cli, and tests parse the rendered builtin guide's examples. `skills/linear-cli/SKILL.md` is the small skill that `linear skill setup` installs. to preview the shipped guide without local overrides:
 
 ```bash
-just dev skill show
+just dev skill show --builtin
 ```
 
 ### updating the graphql schema

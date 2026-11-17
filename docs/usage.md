@@ -18,7 +18,11 @@ then configure the repository:
 linear config
 ```
 
-this writes the config at the repository root: `.config/linear.toml` when a `.config` directory exists there, otherwise `.linear.toml` (outside a repository, `.linear.toml` in the current directory). it asks for the default team and issue sort unless you pass `--team` and `--sort`, and when you have logged in to more than one workspace it also asks which one to use unless you pass `--workspace`.
+this updates the workspace, team and sort settings, preserving other preferences and removing retired 3.x `vcs`/`pr_template` settings. comments may be reformatted. it writes at the repository root: `.config/linear.toml` when a `.config` directory exists there, otherwise `.linear.toml` (outside a repository, `.linear.toml` in the current directory). it asks for the default team and issue sort unless you pass `--team` and `--sort`, and when you have logged in to more than one workspace it also asks which one to use unless you pass `--workspace`.
+
+### template preferences
+
+[MiniJinja templates](templating.md) customize agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.pr_body` prints one template, and `linear config list --defaults` ignores local configuration. inspection and guide generation work offline without authentication. `linear skill show issue comment add` prints inherited command guidance; `linear skill show --builtin` bypasses configuration for recovery.
 
 ### issues
 
@@ -271,7 +275,7 @@ the issue is always named: `linear issue gh pr` on its own is an error that sugg
 
 before `--` is what linear builds from the issues: the title and the body. everything after `--` is passed to `gh pr create` unchanged, after linear's `--title` and `--body`, so a flag given there wins: a `--title` or `--body` after `--` replaces linear's, issue links included. gh's own `--template` cannot be used, since linear always passes a body. `gh pr create --help` lists the rest (`--draft`, `--base`, `--reviewer`, `--web`, `--editor`, …).
 
-the title is `--title` exactly as given, or `TEAM-123 <issue title>` for one issue. a pull request can cover several issues: pass several IDs, or a reference such as `@jj` that names several; repeated issues count once, in the order first named, and `--title` is required. the body is `--body`, or the text of `--body-file` (`-b`, `-F`; `-F -` reads stdin), then a clause Linear reads to close the issues when the pull request merges (`Fixes TEAM-1`, `Fixes TEAM-1 and TEAM-2`, or `Fixes TEAM-1, TEAM-2, and TEAM-3`), then each issue's URL on its own line. `--references` (`-r`, `--ref`) writes `References …` instead, which links the issues without closing them. every issue is fetched before gh runs, so an issue that cannot be fetched opens nothing.
+an explicit `--title` is used exactly as given. the shipped title template otherwise uses `TEAM-123 <issue title>` for one issue. a pull request can cover several issues: pass several IDs, or a reference such as `@jj` that names several; repeated issues count once, in the order first named. the shipped title requires `--title` for several issues; a [custom title template](templating.md) can generate one instead. `--body` (`-b`), or the text of `--body-file` (`-F`; `-F -` reads stdin), becomes the body template's `description` data. the shipped body prints it, then a clause Linear reads to close the issues when the pull request merges (`Fixes TEAM-1`, `Fixes TEAM-1 and TEAM-2`, or `Fixes TEAM-1, TEAM-2, and TEAM-3`), then each issue's URL on its own line. `--references` (`-r`, `--ref`) writes `References …` instead, which links the issues without closing them. every issue is fetched before gh runs, so an issue that cannot be fetched opens nothing.
 
 linear itself never creates, moves or pushes a branch or bookmark. without `-- --head`, gh opens the pull request from the current git branch, and in a terminal it may offer to push that branch (or fork the repository) first; when it cannot tell what to open the pull request from, its own error is shown. `-- --head <branch>` names a branch that is already pushed and turns gh's pushing and forking off: a plain name is a branch of the base repository, and `-- --repo upstream/project --head alice:topic` opens one from a fork.
 
@@ -524,6 +528,8 @@ every command accepts:
 
 - `--workspace <slug>` - use the stored credentials of another workspace for this command
 - `--no-input` - never prompt; fail instead when a required value is missing
+- `--config-file <FILE>` - apply a template-only TOML overlay (repeatable)
+- `--config <KEY=TOML-VALUE>` - apply a template preference after all overlay files (repeatable)
 - `--help` - show help for the command
 
 `issue mine`, `issue query`, `issue view`, and `project view` page long output; pass `--no-pager` to disable it. color is used only on a terminal; set `NO_COLOR=1` to turn it off.

@@ -11,6 +11,8 @@ use crate::error::{Error, Result};
 
 const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";
+// Empty hooks still expose the inheritance block used by shipped templates.
+const EMPTY_SKILL_HOOK: &str = "{% block content %}{% endblock %}";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Slot {
@@ -218,7 +220,7 @@ impl TemplateConfig {
                 .entries
                 .entry(name.clone())
                 .or_insert_with(|| TemplateEntry {
-                    body: String::new(),
+                    body: EMPTY_SKILL_HOOK.to_owned(),
                     origin: TemplateOrigin {
                         source: BUILTIN_SOURCE.to_owned(),
                         key: format!("templates.{name}"),

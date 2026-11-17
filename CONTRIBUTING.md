@@ -20,7 +20,7 @@ cargo test --workspace    # run the test suite
 just check                # format check, clippy, and tests, as CI runs them
 ```
 
-After changing commands or flags, check that the agent guide in `crates/linear-cli/src/commands/skill/guide.md` still describes them. `just dev skill show` prints it, and the test suite parses every example in it.
+After changing commands or flags, check that the guide prose and recipes in `crates/linear-cli/src/templates/defaults.toml` still describe them. `just dev skill show --builtin` prints the shipped guide without local preferences, and the test suite parses its rendered examples.
 
 ## Pull requests
 

@@ -7,7 +7,10 @@ use serde::Serialize;
 use crate::auth::ApiKeyInput;
 use crate::cli::config::Config;
 use crate::config::IssueSort;
-use crate::config::{RealFileSource, repo_root};
+use crate::config::{
+    FileKind, FileSource, MAX_CONFIG_BYTES, RawConfigFile, RealFileSource, parse_config_tier,
+    repo_root,
+};
 use crate::ctx::{self, Ctx};
 use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::user::GetViewer;
@@ -36,6 +39,8 @@ pub fn run(ctx: &Ctx, args: &Config) -> Result<()> {
 }
 
 fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
+    let path = destination(ctx.cwd());
+    let mut existing = existing_config(&path)?;
     let workspaces = stored_workspaces(ctx)?;
     let asks = args.team.is_none() || args.sort.is_none() || workspaces.len() > 1;
     if asks && !ctx.interactive() {
@@ -100,15 +105,49 @@ fn generate(ctx: &Ctx, args: &Config) -> Result<()> {
             IssueSort::Priority => "priority",
         },
     };
-    let path = destination(ctx.cwd());
+    existing
+        .extend(toml::Table::try_from(config).expect("project config serializes as a TOML table"));
+    // These recognized obsolete settings were deliberately removed by the
+    // generator before template preferences existed. Keep that migration.
+    existing.remove("vcs");
+    existing.remove("pr_template");
     let contents = format!(
         "{HEADER}{}",
-        toml::to_string(&config).expect("project config always serializes as TOML")
+        toml::to_string(&existing).expect("parsed config values serialize as TOML")
     );
     std::fs::write(&path, contents).map_err(|error| {
         Error::new(format!("Could not write {}: {error}", path.display())).with_source(error)
     })?;
     ctx.print(format!("Configuration written to {}\n", path.display()))
+}
+
+/// Read the actual destination even when config discovery selected a different
+/// file. Never overwrite unreadable, oversized, nonregular or invalid TOML.
+fn existing_config(path: &Path) -> Result<toml::Table> {
+    let kind = RealFileSource.kind(path).map_err(|error| {
+        Error::new(format!("Could not inspect {}: {error}", path.display())).with_source(error)
+    })?;
+    match kind {
+        None => Ok(toml::Table::new()),
+        Some(FileKind::Directory | FileKind::Other) => Err(Error::new(format!(
+            "Could not update {}: not a regular file",
+            path.display()
+        ))),
+        Some(FileKind::Regular) => {
+            let bytes = RealFileSource
+                .read_bounded(path, MAX_CONFIG_BYTES)
+                .map_err(|error| {
+                    Error::new(format!("Could not read {}: {error}", path.display()))
+                        .with_source(error)
+                })?;
+            parse_config_tier(RawConfigFile {
+                path: path.to_owned(),
+                bytes,
+            })
+            .map(|tier| tier.table)
+            .map_err(|error| Error::new(format!("Could not update {error}")))
+        }
+    }
 }
 
 /// The stored workspaces to choose from: none when `--workspace` or an API

@@ -184,6 +184,78 @@ fn config_uses_the_api_key_without_a_workspace() {
 }
 
 #[test]
+fn config_preserves_templates_and_unknown_values_while_updating_managed_settings() {
+    let api = MockLinear::start();
+    api.on("GetViewer", viewer())
+        .on("ResolveTeam", resolved("team-eng-id", "ENG", "Engineering"));
+    let original = r#"workspace = "previous"
+team_id = "OPS"
+issue_sort = "manual"
+vcs = "jj"
+pr_template = "./old-pr.md"
+custom_values = ["keep", "these"]
+
+[custom_table]
+enabled = true
+
+[template-aliases]
+review_policy = "Preserved comment review policy"
+
+[templates]
+skill_issue_comment = '{% include "builtin/skill_issue_comment" %}{% include "review_policy" %}'
+"#;
+    let cli = Cli::for_api(&api).file("cwd/.linear.toml", original);
+    cli.run(&["config", "--team", "ENG", "--sort", "priority"])
+        .success();
+    let mut expected: toml::Table = original.parse().expect("original TOML");
+    expected.remove("vcs");
+    expected.remove("pr_template");
+    for (key, value) in [
+        ("workspace", "acme"),
+        ("team_id", "ENG"),
+        ("issue_sort", "priority"),
+    ] {
+        expected.insert(key.to_owned(), toml::Value::String(value.to_owned()));
+    }
+    let written: toml::Table = cli.read("cwd/.linear.toml").parse().expect("written TOML");
+    assert_eq!(written, expected);
+    cli.run(&["skill", "show", "issue", "comment", "add"])
+        .success()
+        .stdout_has("Preserved comment review policy");
+}
+
+#[test]
+fn config_does_not_overwrite_an_invalid_unselected_destination() {
+    let api = MockLinear::start();
+    let original = "this is not TOML [";
+    let cli = Cli::for_api(&api)
+        .file("cwd/.jj/repo/.keep", "")
+        .file("cwd/linear.toml", "team_id = \"ENG\"\n")
+        .file("cwd/.config/linear.toml", original);
+    cli.run(&["config", "--team", "ENG", "--sort", "manual"])
+        .failure()
+        .stderr_has(".config/linear.toml")
+        .stderr_has("invalid TOML");
+    assert_eq!(cli.read("cwd/.config/linear.toml"), original);
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn config_rejects_a_nonregular_destination_before_sending_requests() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api)
+        .file("cwd/.jj/repo/.keep", "")
+        .file("cwd/linear.toml", "team_id = \"ENG\"\n");
+    let destination = cli.path("cwd/.config/linear.toml");
+    std::fs::create_dir_all(&destination).expect("destination directory");
+    cli.run(&["config", "--team", "ENG", "--sort", "manual"])
+        .failure()
+        .stderr_has(".config/linear.toml");
+    assert!(destination.is_dir());
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn config_without_a_terminal_names_the_missing_flags() {
     let api = MockLinear::start();
     let cli = Cli::new().endpoint(&api).credentials(INLINE);
@@ -325,10 +397,17 @@ fn defaults_inspection_bypasses_bad_config_and_overlays() {
     let run = cli.run(&["config", "list", "--defaults", "--config-file", "missing"]);
     run.success();
     let parsed: toml::Table = run.stdout.parse().expect("TOML defaults");
-    assert_eq!(
-        parsed["templates"]["skill_milestone_update"].as_str(),
-        Some("")
-    );
+    let hook = parsed["templates"]["skill_milestone_update"]
+        .as_str()
+        .expect("generated command hook");
+    let get = cli.run(&[
+        "config",
+        "get",
+        "templates.skill_milestone_update",
+        "--defaults",
+    ]);
+    get.success();
+    assert_eq!(get.stdout, hook);
     cli.run(&["config", "get", "templates.skill", "--defaults"])
         .success()
         .stdout_has("command_guidance");
