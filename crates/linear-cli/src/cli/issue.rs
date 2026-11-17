@@ -77,7 +77,10 @@ pub enum IssueCommand {
     Title(IssueTitle),
     /// Print an issue's URL
     Url(IssueUrl),
-    /// Print an issue's title and a Linear-issue trailer, for commit messages
+    /// Render an issue's commit message with templates.commit_description
+    ///
+    /// The default prints the title and Linear-issue trailers. The same
+    /// template describes changes made by `issue jj start`.
     Describe(IssueDescribe),
     /// Open GitHub pull requests for issues
     Gh(IssueGh),
@@ -362,6 +365,10 @@ pub enum IssueJjCommand {
     ///    Keep the Linear-issue trailer when rewording if you want @jj to
     ///    find the issue. `@` stays on this change: run `jj new` before
     ///    editing to keep new edits out of it.
+    ///    templates.commit_description customizes this text, shared with
+    ///    `issue describe`. It must render nonblank text before any jj change
+    ///    is prepared. A custom template must keep Linear-issue trailers to
+    ///    retain @jj issue discovery. Only trailers actually written are reported.
     ///
     /// 3. Moves the issue to its team's first started status, as `issue start`
     ///    does. An issue that is already started or closed keeps its status.
@@ -460,14 +467,19 @@ pub enum IssueGhCommand {
     /// body. Everything after `--` is passed to `gh pr create` as it is,
     /// after linear's --title and --body, so a flag given there wins.
     ///
-    /// The title is --title exactly as given, or "<ID> <issue title>" for one
-    /// issue; several distinct issues need --title. The body is --body or
-    /// --body-file, then a "Fixes ENG-1, ENG-2, and ENG-3" clause that Linear
+    /// The title is --title exactly as given, or templates.pr_title. Its
+    /// default is "<ID> <issue title>" for one issue and needs --title for
+    /// several; a custom template can summarize several issues. The body is
+    /// templates.pr_body, whose default is --body or --body-file, then a
+    /// "Fixes ENG-1, ENG-2, and ENG-3" clause that Linear
     /// reads to close the issues on merge, then each issue URL on its own
     /// line. --references writes a non-closing "References <IDs>" clause
     /// instead. Repeated issues are included once, in the order first named,
     /// and every issue is fetched before gh runs. The issues are always
     /// named: IDs, or `@git` or `@jj` to read them from the repository.
+    /// Both templates must render nonblank text before gh runs. --body and
+    /// --body-file provide description data to the body template; a custom
+    /// body template controls whether issue links are included.
     ///
     /// A --title or --body after `--` replaces linear's, issue links
     /// included. gh's own --template cannot be used, since linear always
@@ -517,15 +529,14 @@ pub struct IssuePullRequest {
     // Optional to clap only so that leaving it out can say how to name it.
     #[arg(value_name = "ISSUE")]
     pub issue_ids: Vec<IssueRef>,
-    /// Title, used exactly as given [default: "<ID> <issue title>" for one
-    /// issue]; required for several issues
+    /// Title, used exactly as given; overrides templates.pr_title [default:
+    /// "<ID> <issue title>" for one issue, --title required for several]
     #[arg(long, short, value_parser = NonBlank)]
     pub title: Option<String>,
-    /// Description, in Markdown; the issue links follow it
+    /// Markdown description for templates.pr_body; its default appends issue links
     #[arg(long, short, value_name = "TEXT", value_parser = NonBlank, conflicts_with = "body_file")]
     pub body: Option<String>,
-    /// Read the description from a Markdown file (- for stdin); the issue
-    /// links follow it
+    /// Read description data for templates.pr_body from a Markdown file (- for stdin)
     #[arg(long, short = 'F', value_name = "FILE", value_hint = ValueHint::FilePath)]
     pub body_file: Option<TextSource>,
     /// Write a non-closing "References" clause instead of "Fixes"

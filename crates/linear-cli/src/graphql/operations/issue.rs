@@ -137,6 +137,7 @@ pub struct GetIssueDetails {
 pub struct IssueDetails {
     pub title: String,
     pub url: String,
+    pub description: Option<String>,
 }
 
 /// What moving an issue to another status needs: where it is now, and what
@@ -154,6 +155,7 @@ pub struct IssueTransitionDetails {
     pub identifier: String,
     pub title: String,
     pub url: String,
+    pub description: Option<String>,
     pub branch_name: String,
     pub team: TeamKey,
     pub state: CurrentState,

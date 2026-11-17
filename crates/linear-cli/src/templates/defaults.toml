@@ -181,8 +181,9 @@ skill_issue_jj_start = '''
 Only when a branch or jj change is wanted too: `linear issue git start ENG-123`
 creates or switches to the issue's git branch, and `linear issue jj start
 ENG-123` creates a new jj change (or reuses an empty, undescribed one) and
-writes its description: the issue title and `Linear-issue` trailers. Both
-then start the issue, and print one line per thing they did:
+writes `templates.commit_description`, shared with `issue describe`: the
+issue title and `Linear-issue` trailers by default. Both then start the issue
+and print one line per thing they did (shown here with the default template):
 
 ```text
 ✓ Reused empty, undescribed jj change <CHANGE-ID>
@@ -243,12 +244,14 @@ always passes a body. See `gh pr create --help` for the rest; `-- --editor`
 edits the title and body before creating, `-- --web` finishes in the browser.
 The issue is always named; `linear issue gh pr` on its own is an error.
 
-The title is `--title` exactly as given, or `ENG-123 <issue title>` for one
-issue; with more than one distinct issue `--title` is required. The body is
-`--body` or `--body-file` (`-` for stdin), then
+The title is `--title` exactly as given, or `templates.pr_title`. Its default
+is `ENG-123 <issue title>` for one issue and requires `--title` for several;
+a custom template can summarize several issues. `templates.pr_body` receives
+`--body` or `--body-file` (`-` for stdin) as description data. By default it adds
 `Fixes ENG-123` (or `Fixes ENG-123 and ENG-124`, which Linear reads to close
 them on merge), then every issue URL. `--references` writes `References …`
-instead, to link without closing. Every issue is fetched before gh runs.
+instead, to link without closing. Custom body templates control their own
+links. Every issue is fetched and both templates finish before gh runs.
 
 linear itself never creates, moves or pushes a branch or bookmark. Without
 `-- --head`, gh uses the current git branch and in a terminal may offer to
