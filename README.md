@@ -1,5 +1,8 @@
 # linear cli
 
+> [!NOTE]
+> This README is for the upcoming 4.0 release. For stable instructions, see the [latest stable release (v3.1.0)](https://github.com/schpet/linear-cli/blob/v3.1.0/README.md).
+
 a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 **works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code. install it with `linear skill setup`.
