@@ -22,11 +22,11 @@ licenses:
 
 # checks release preparation guards using isolated fixtures
 release-check:
-    python3 scripts/test_prepare_release.py
+    cargo test --locked -p xtask release::
 
 # prepares a stable or alpha version without committing, tagging or pushing
 prepare-release version="latest":
-    ./scripts/prepare-release {{quote(version)}}
+    cargo xtask prepare-release {{quote(version)}}
 
 # prepares, checks, commits and publishes exactly one release tag
 tag version="latest": (prepare-release version) check
