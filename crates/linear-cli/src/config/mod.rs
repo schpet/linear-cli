@@ -21,7 +21,8 @@ pub use source::{
     repo_root,
 };
 pub use startup::{
-    ChildEnvOverlay, DisplaySettings, StartupConfig, load_startup, render_diagnostic,
+    ChildEnvOverlay, DisplaySettings, RetiredSetting, StartupConfig, load_startup,
+    render_diagnostic, render_retired_setting,
 };
 pub use templates::{apply_template_overrides, load_template_config};
 

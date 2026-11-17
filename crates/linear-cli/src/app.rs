@@ -4,6 +4,7 @@
 use std::error::Error as StdError;
 
 use crate::auth::credentials_path;
+use crate::cli::config::ConfigCommand;
 use crate::cli::{self, Cli, RootCommand};
 use crate::commands;
 use crate::commands::completions;
@@ -45,7 +46,9 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
             };
             return commands::skill::run(&args.command, templates.as_ref());
         }
-        RootCommand::Config(args) if args.command.is_some() => {
+        RootCommand::Config(args)
+            if args.command.is_some() && !matches!(args.command, Some(ConfigCommand::Check)) =>
+        {
             let command = args.command.as_ref().expect("inspection command selected");
             let templates = offline_templates(command.defaults(), &global)?;
             return commands::config_inspect::run(command, &templates);
@@ -86,6 +89,10 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
         &extra_files,
         &global.config,
     )?;
+    if matches!(&command, RootCommand::Config(args) if matches!(args.command, Some(ConfigCommand::Check)))
+    {
+        return commands::config_check::run(&config, terminal.stderr_color());
+    }
     let env = |name| process.inputs.env(name);
     let ctx = Ctx::new(CtxInit {
         config,

@@ -84,6 +84,8 @@ impl fmt::Debug for ChildEnvOverlay {
 
 pub struct StartupConfig {
     pub options: ConfigOptions,
+    /// Ignored settings and their sources, never their values.
+    pub retired_settings: Vec<RetiredSetting>,
     pub templates: crate::templates::TemplateConfig,
     pub child_env: ChildEnvOverlay,
     pub network_env: NetworkEnv,
@@ -109,11 +111,13 @@ impl fmt::Debug for StartupConfig {
 pub enum StartupDiagnostic {
     /// A `.env` file, or lines of it, that were not loaded.
     Dotenv(ConfigDiagnostic),
-    /// A source that sets `vcs` (`LINEAR_VCS`), which 4.0 removed.
-    RetiredVcs(OptionSource),
-    /// A source that sets `pr_template` (`LINEAR_PR_TEMPLATE`), which 4.0
-    /// removed.
-    RetiredPrTemplate(OptionSource),
+}
+
+/// Optional migration information, separate from startup warnings.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RetiredSetting {
+    Vcs(OptionSource),
+    PrTemplate(OptionSource),
 }
 
 pub struct StartupReport {
@@ -252,7 +256,7 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         }
     };
     let display = settings(process, Some(&dotenv));
-    let mut diagnostics: Vec<StartupDiagnostic> = dotenv
+    let diagnostics: Vec<StartupDiagnostic> = dotenv
         .diagnostics
         .iter()
         .cloned()
@@ -278,19 +282,23 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         project: project.as_ref(),
         global: global.as_ref(),
     };
-    // Collected first so that the warning survives another option's error.
-    // An invalid value is not lost here: `from_inputs` checks the same
-    // values and fails with it.
-    if let Ok(sources) = retired_vcs(&inputs) {
-        diagnostics.extend(sources.into_iter().map(StartupDiagnostic::RetiredVcs));
-    }
-    if let Ok(sources) = retired_pr_template(&inputs) {
-        diagnostics.extend(
-            sources
+    let retired_vcs = match retired_vcs(&inputs) {
+        Ok(sources) => sources,
+        Err(error) => return fail(display, diagnostics, option_error(error)),
+    };
+    let retired_pr_template = match retired_pr_template(&inputs) {
+        Ok(sources) => sources,
+        Err(error) => return fail(display, diagnostics, option_error(error)),
+    };
+    let retired_settings = retired_vcs
+        .into_iter()
+        .map(RetiredSetting::Vcs)
+        .chain(
+            retired_pr_template
                 .into_iter()
-                .map(StartupDiagnostic::RetiredPrTemplate),
-        );
-    }
+                .map(RetiredSetting::PrTemplate),
+        )
+        .collect();
     let options = match ConfigOptions::from_inputs(inputs) {
         Ok(options) => options,
         Err(error) => return fail(display, diagnostics, option_error(error)),
@@ -317,6 +325,7 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         diagnostics,
         result: Ok(StartupConfig {
             options,
+            retired_settings,
             templates,
             child_env,
             pager,
@@ -336,36 +345,34 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
 pub fn render_diagnostic(diagnostic: &StartupDiagnostic, color: bool) -> String {
     let (message, suggestion) = match diagnostic {
         StartupDiagnostic::Dotenv(diagnostic) => render_dotenv(diagnostic),
-        StartupDiagnostic::RetiredVcs(source) => {
-            let name = OptionKey::RetiredVcs.spelling(source);
-            (
-                format!(
-                    "Warning: {name} from {} was removed in 4.0 and does nothing.",
-                    source.label()
-                ),
-                format!(
-                    "  Remove {name}. Commands name their tool instead: `linear issue jj start` for jj, `linear issue git start` for git, and `linear issue gh pr` for pull requests."
-                ),
-            )
-        }
-        StartupDiagnostic::RetiredPrTemplate(source) => {
-            let name = OptionKey::RetiredPrTemplate.spelling(source);
-            (
-                format!(
-                    "Warning: {name} from {} was removed in 4.0 and does nothing.",
-                    source.label()
-                ),
-                format!(
-                    "  Remove {name}. To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it."
-                ),
-            )
-        }
     };
     format!(
         "{}\n{}\n",
         style::warning(&message, color),
         style::gray(&suggestion, color)
     )
+}
+
+/// Informational: ignored settings are safe to keep and never need cleanup.
+pub fn render_retired_setting(setting: &RetiredSetting, color: bool) -> String {
+    let (key, source, guidance) = match setting {
+        RetiredSetting::Vcs(source) => (
+            OptionKey::RetiredVcs,
+            source,
+            "Commands name their tool instead: `linear issue jj start` for jj, `linear issue git start` for git, and `linear issue gh pr` for pull requests.",
+        ),
+        RetiredSetting::PrTemplate(source) => (
+            OptionKey::RetiredPrTemplate,
+            source,
+            "To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it.",
+        ),
+    };
+    let message = format!(
+        "Note: {} from {} is ignored; it has no effect in 4.0. It is safe to leave this setting in place.",
+        key.spelling(source),
+        source.label(),
+    );
+    style::gray(&format!("{message}\n  {guidance}\n"), color)
 }
 
 fn render_dotenv(diagnostic: &ConfigDiagnostic) -> (String, String) {

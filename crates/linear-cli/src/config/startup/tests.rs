@@ -256,7 +256,7 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
             .result
             .unwrap_err()
             .to_string()
-            .contains("LINEAR_VCS")
+            .contains("LINEAR_GRAPHQL_ENDPOINT")
     );
 }
 
@@ -298,238 +298,68 @@ fn outside_a_repository_cwd_dot_config_is_not_a_candidate() {
     assert!(ready.options.sourced_issue_sort().is_none());
 }
 
-fn retired(diagnostics: &[StartupDiagnostic]) -> Vec<OptionSource> {
-    diagnostics
-        .iter()
-        .filter_map(|diagnostic| match diagnostic {
-            StartupDiagnostic::RetiredVcs(source) => Some(source.clone()),
-            StartupDiagnostic::Dotenv(_) | StartupDiagnostic::RetiredPrTemplate(_) => None,
-        })
-        .collect()
-}
-
-fn retired_templates(diagnostics: &[StartupDiagnostic]) -> Vec<OptionSource> {
-    diagnostics
-        .iter()
-        .filter_map(|diagnostic| match diagnostic {
-            StartupDiagnostic::RetiredPrTemplate(source) => Some(source.clone()),
-            StartupDiagnostic::Dotenv(_) | StartupDiagnostic::RetiredVcs(_) => None,
-        })
-        .collect()
-}
-
 #[test]
-fn the_retired_pr_template_setting_loads_and_warns_once_per_source_that_sets_it() {
+fn retired_settings_record_sources_without_validating_values_or_emitting_warnings() {
     let global = fixture_path("/global");
     let files = MemFiles::default()
-        .file("/work/.env", b"LINEAR_PR_TEMPLATE=dotenv.md\n")
-        .file("/work/linear.toml", b"pr_template = 'pr.md'\nvcs = 'jj'\n")
-        .file("/global/linear/linear.toml", b"pr_template = 'g.md'\n");
+        .file("/work/.env", b"LINEAR_VCS=hg\nLINEAR_PR_TEMPLATE=\n")
+        .file("/work/linear.toml", b"vcs = 1\npr_template = false\n")
+        .file(
+            "/global/linear/linear.toml",
+            b"vcs = {}\npr_template = []\n",
+        );
     let path = |path: &str| PathBuf::from(fixture_path(path));
     let report = load_startup(
         &process(&[
             ("XDG_CONFIG_HOME", global.as_str()),
-            ("LINEAR_PR_TEMPLATE", "env.md"),
+            ("LINEAR_VCS", "unknown"),
+            ("LINEAR_PR_TEMPLATE", ""),
         ]),
         &files,
     );
-    assert!(report.result.is_ok());
+    assert!(report.diagnostics.is_empty());
+    let config = report.result.expect("retired values are ignored");
     assert_eq!(
-        retired_templates(&report.diagnostics),
+        config.retired_settings,
         [
-            OptionSource::Env,
-            OptionSource::ProjectConfig {
+            RetiredSetting::Vcs(OptionSource::Env),
+            RetiredSetting::Vcs(OptionSource::ProjectConfig {
                 path: path("/work/linear.toml")
-            },
-            OptionSource::GlobalConfig {
+            }),
+            RetiredSetting::Vcs(OptionSource::GlobalConfig {
                 path: path("/global/linear/linear.toml")
-            },
-        ]
-    );
-    // Each retired option warns for itself.
-    assert_eq!(retired(&report.diagnostics).len(), 1);
-    let report = load_startup(&process(&[]), &files);
-    assert_eq!(
-        retired_templates(&report.diagnostics),
-        [
-            OptionSource::ProjectEnv {
-                path: path("/work/.env")
-            },
-            OptionSource::ProjectConfig {
+            }),
+            RetiredSetting::PrTemplate(OptionSource::Env),
+            RetiredSetting::PrTemplate(OptionSource::ProjectConfig {
                 path: path("/work/linear.toml")
-            },
-        ]
-    );
-}
-
-#[test]
-fn the_retired_pr_template_setting_still_rejects_what_was_never_valid() {
-    for (env, file, said) in [
-        (
-            Some(" "),
-            "",
-            "invalid config option LINEAR_PR_TEMPLATE from process environment",
-        ),
-        (
-            None,
-            "pr_template = 1\n",
-            "invalid config option pr_template from project config",
-        ),
-        (
-            None,
-            "pr_template = ''\n",
-            "invalid config option pr_template from project config",
-        ),
-    ] {
-        let files = MemFiles::default().file("/work/linear.toml", file.as_bytes());
-        let vars: Vec<(&str, &str)> = env
-            .map(|value| ("LINEAR_PR_TEMPLATE", value))
-            .into_iter()
-            .collect();
-        let report = load_startup(&process(&vars), &files);
-        let error = report.result.unwrap_err();
-        assert!(error.to_string().contains(said), "{error}");
-        assert!(
-            retired_templates(&report.diagnostics).is_empty(),
-            "{:?}",
-            report.diagnostics
-        );
-    }
-}
-
-#[test]
-fn the_retired_pr_template_warning_names_the_spelling_and_source_and_the_replacement() {
-    let hint = "To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it.";
-    for (source, said) in [
-        (
-            OptionSource::Env,
-            "Warning: LINEAR_PR_TEMPLATE from process environment was removed in 4.0 and does nothing.\n  Remove LINEAR_PR_TEMPLATE. ",
-        ),
-        (
-            OptionSource::ProjectConfig {
-                path: PathBuf::from("/work/.linear.toml"),
-            },
-            "Warning: pr_template from project config /work/.linear.toml was removed in 4.0 and does nothing.\n  Remove pr_template. ",
-        ),
-    ] {
-        let rendered = render_diagnostic(&StartupDiagnostic::RetiredPrTemplate(source), false);
-        assert_eq!(rendered, format!("{said}{hint}\n"));
-    }
-}
-
-#[test]
-fn the_retired_vcs_setting_loads_and_warns_once_per_source_that_sets_it() {
-    let global = fixture_path("/global");
-    let files = MemFiles::default()
-        .file("/work/.env", b"LINEAR_VCS=git\n")
-        .file("/work/linear.toml", b"vcs = 'jj'\n")
-        .file("/global/linear/linear.toml", b"vcs = 'git'\n");
-    let path = |path: &str| PathBuf::from(fixture_path(path));
-    // The process environment hides the .env value, which is then not loaded.
-    let report = load_startup(
-        &process(&[("XDG_CONFIG_HOME", global.as_str()), ("LINEAR_VCS", "jj")]),
-        &files,
-    );
-    assert!(report.result.is_ok());
-    assert_eq!(
-        retired(&report.diagnostics),
-        [
-            OptionSource::Env,
-            OptionSource::ProjectConfig {
-                path: path("/work/linear.toml")
-            },
-            OptionSource::GlobalConfig {
+            }),
+            RetiredSetting::PrTemplate(OptionSource::GlobalConfig {
                 path: path("/global/linear/linear.toml")
-            },
+            }),
         ]
     );
     let report = load_startup(&process(&[]), &files);
-    assert!(report.result.is_ok());
+    assert!(report.diagnostics.is_empty());
     assert_eq!(
-        retired(&report.diagnostics),
-        [
-            OptionSource::ProjectEnv {
-                path: path("/work/.env")
-            },
-            OptionSource::ProjectConfig {
-                path: path("/work/linear.toml")
-            },
-        ]
-    );
-    let report = load_startup(&process(&[]), &MemFiles::default());
-    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
-    let ignored = load_startup(&process(&[("LINEAR_IGNORE_ENV_FILE", "1")]), &files);
-    assert_eq!(
-        retired(&ignored.diagnostics).len(),
-        1,
-        "an ignored .env is not read"
-    );
-}
-
-#[test]
-fn the_retired_vcs_setting_still_rejects_what_was_never_valid() {
-    for (env, file, said) in [
-        (
-            "GIT",
-            "",
-            "invalid config option LINEAR_VCS from process environment",
-        ),
-        (
-            "",
-            "",
-            "invalid config option LINEAR_VCS from process environment",
-        ),
-        (
-            "hg",
-            "",
-            "invalid config option LINEAR_VCS from process environment",
-        ),
-        (
-            "jj",
-            "vcs = 1\n",
-            "invalid config option vcs from project config",
-        ),
-        (
-            "jj",
-            "vcs = 'Jj'\n",
-            "invalid config option vcs from project config",
-        ),
-    ] {
-        let files = MemFiles::default().file("/work/linear.toml", file.as_bytes());
-        let report = load_startup(&process(&[("LINEAR_VCS", env)]), &files);
-        let error = report.result.unwrap_err();
-        assert!(error.to_string().contains(said), "{error}");
-        assert!(error.to_string().contains("git"), "{error}");
-        assert!(
-            error.hint().is_some_and(|hint| hint.starts_with("Fix ")),
-            "{error:?}"
-        );
-        assert!(
-            retired(&report.diagnostics).is_empty(),
-            "{:?}",
-            report.diagnostics
-        );
-    }
-}
-
-#[test]
-fn the_retired_vcs_warning_survives_another_options_error() {
-    let files = MemFiles::default().file("/work/linear.toml", b"vcs = 'jj'\nissue_sort = 'x'\n");
-    let report = load_startup(&process(&[]), &files);
-    assert!(
         report
             .result
-            .unwrap_err()
-            .to_string()
-            .contains("issue_sort")
+            .expect("dotenv legacy values ignored")
+            .retired_settings,
+        [
+            RetiredSetting::Vcs(OptionSource::ProjectEnv {
+                path: path("/work/.env")
+            }),
+            RetiredSetting::Vcs(OptionSource::ProjectConfig {
+                path: path("/work/linear.toml")
+            }),
+            RetiredSetting::PrTemplate(OptionSource::ProjectEnv {
+                path: path("/work/.env")
+            }),
+            RetiredSetting::PrTemplate(OptionSource::ProjectConfig {
+                path: path("/work/linear.toml")
+            }),
+        ]
     );
-    assert_eq!(retired(&report.diagnostics).len(), 1);
-    let report = load_startup(
-        &process(&[("LINEAR_VCS", "jj"), ("LINEAR_GRAPHQL_ENDPOINT", "bad")]),
-        &MemFiles::default(),
-    );
-    assert!(report.result.is_err());
-    assert_eq!(retired(&report.diagnostics), [OptionSource::Env]);
 }
 
 #[test]
@@ -583,36 +413,4 @@ fn warning_templates_are_colored_only_on_request() {
         render_diagnostic(&diagnostic, false),
         format!("{body}\n{suggestion}\n")
     );
-}
-
-#[test]
-fn the_retired_vcs_warning_names_the_spelling_and_source_and_the_replacements() {
-    let hint = "Commands name their tool instead: `linear issue jj start` for jj, `linear issue git start` for git, and `linear issue gh pr` for pull requests.";
-    for (source, said) in [
-        (
-            OptionSource::Env,
-            "Warning: LINEAR_VCS from process environment was removed in 4.0 and does nothing.\n  Remove LINEAR_VCS. ",
-        ),
-        (
-            OptionSource::ProjectEnv {
-                path: PathBuf::from("/work/.env"),
-            },
-            "Warning: LINEAR_VCS from .env file /work/.env was removed in 4.0 and does nothing.\n  Remove LINEAR_VCS. ",
-        ),
-        (
-            OptionSource::ProjectConfig {
-                path: PathBuf::from("/work/.linear.toml"),
-            },
-            "Warning: vcs from project config /work/.linear.toml was removed in 4.0 and does nothing.\n  Remove vcs. ",
-        ),
-        (
-            OptionSource::GlobalConfig {
-                path: PathBuf::from("/home/linear.toml"),
-            },
-            "Warning: vcs from global config /home/linear.toml was removed in 4.0 and does nothing.\n  Remove vcs. ",
-        ),
-    ] {
-        let rendered = render_diagnostic(&StartupDiagnostic::RetiredVcs(source), false);
-        assert_eq!(rendered, format!("{said}{hint}\n"));
-    }
 }

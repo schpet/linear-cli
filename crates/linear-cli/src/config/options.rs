@@ -28,17 +28,14 @@ pub enum OptionKey {
     IssueSort,
     IssueCreateAskProject,
     IssueCreateAssignSelf,
-    /// `vcs`, removed in 4.0. Still read so that an old setting is checked
-    /// and reported rather than silently ignored; see [`retired_vcs`].
+    /// `vcs`, removed in 4.0. Only its presence is recorded for config check.
     RetiredVcs,
     DownloadImages,
     InlineImages,
     HyperlinkFormat,
     AttachmentDir,
     AutoDownloadAttachments,
-    /// `pr_template`, removed in 4.0. Still read so that an old setting is
-    /// checked and reported rather than silently ignored; see
-    /// [`retired_pr_template`].
+    /// `pr_template`, removed in 4.0. Only its presence is recorded for guidance.
     RetiredPrTemplate,
 }
 
@@ -183,15 +180,6 @@ pub enum AssignSelf {
     Never,
 }
 
-/// The values `vcs` took before 4.0 removed it. Parsed only to reject what
-/// was never valid; the value itself is discarded.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
-#[serde(rename_all = "lowercase", expecting = "git or jj")]
-enum RetiredVcsValue {
-    Git,
-    Jj,
-}
-
 /// A boolean option: a TOML boolean, or one of the usual words in a string
 /// (`true`/`false`, `yes`/`no`, `on`/`off`, `1`/`0`, ...), ignoring case.
 #[derive(Clone, Copy)]
@@ -230,7 +218,6 @@ impl<'de> Deserialize<'de> for Flag {
 pub enum OptionErrorReason {
     /// The value has the wrong type or is not one of the allowed values.
     Invalid(String),
-    EmptyTemplate,
     InvalidEndpoint,
     MissingDotenvPath,
     InvalidCwd,
@@ -262,11 +249,6 @@ impl fmt::Display for ConfigOptionError {
                 "invalid config option {} from {source}: {detail}",
                 self.option_name(key)
             ),
-            (OptionErrorReason::EmptyTemplate, Some(key)) => write!(
-                f,
-                "invalid config option {} from {source}: expected a nonempty template path",
-                self.option_name(key)
-            ),
         }
     }
 }
@@ -286,9 +268,11 @@ impl ConfigOptionError {
             (OptionErrorReason::InvalidEndpoint, _) | (_, None) => {
                 Some("Set a valid LINEAR_GRAPHQL_ENDPOINT or remove it.".to_owned())
             }
-            (OptionErrorReason::Invalid(_) | OptionErrorReason::EmptyTemplate, Some(key)) => Some(
-                format!("Fix {} in {}.", self.option_name(key), self.source.label()),
-            ),
+            (OptionErrorReason::Invalid(_), Some(key)) => Some(format!(
+                "Fix {} in {}.",
+                self.option_name(key),
+                self.source.label()
+            )),
         }
     }
 }
@@ -469,38 +453,22 @@ fn select<T>(
     Ok(selected)
 }
 
-/// Every source that sets the removed `vcs` option (`LINEAR_VCS` in the
-/// environment), highest precedence first. Each value must still be one
-/// that 3.x accepted, `git` or `jj`, so a typo fails as it always did; the
-/// value has no effect. Kept through 4.x so that an old setting is reported
-/// instead of ignored.
+/// Every source setting the ignored `vcs` option, without parsing its value.
 pub fn retired_vcs(inputs: &OptionInputs<'_>) -> Result<Vec<OptionSource>, ConfigOptionError> {
-    let key = OptionKey::RetiredVcs;
-    tiers(inputs, key)?
+    Ok(tiers(inputs, OptionKey::RetiredVcs)?
         .into_iter()
-        .map(|(raw, source)| match raw.parse::<RetiredVcsValue>() {
-            Ok(RetiredVcsValue::Git | RetiredVcsValue::Jj) => Ok(source),
-            Err(reason) => Err(error(Some(key), source, reason)),
-        })
-        .collect()
+        .map(|(_, source)| source)
+        .collect())
 }
 
-/// Every source that sets the removed `pr_template` option
-/// (`LINEAR_PR_TEMPLATE` in the environment), highest precedence first. Each
-/// value must still be one that 3.x accepted, a nonblank path, so a mistake
-/// fails as it always did; the value has no effect and no file is read.
-/// Kept through 4.x so that an old setting is reported instead of ignored.
+/// Every source setting the ignored `pr_template` option. No path is read.
 pub fn retired_pr_template(
     inputs: &OptionInputs<'_>,
 ) -> Result<Vec<OptionSource>, ConfigOptionError> {
-    let key = OptionKey::RetiredPrTemplate;
-    tiers(inputs, key)?
+    Ok(tiers(inputs, OptionKey::RetiredPrTemplate)?
         .into_iter()
-        .map(|(raw, source)| match template(&raw) {
-            Ok(_) => Ok(source),
-            Err(reason) => Err(error(Some(key), source, reason)),
-        })
-        .collect()
+        .map(|(_, source)| source)
+        .collect())
 }
 
 fn parsed<T: DeserializeOwned>(raw: &Raw<'_>) -> Result<T, OptionErrorReason> {
@@ -516,17 +484,6 @@ fn team_key(raw: &Raw<'_>) -> Result<Option<String>, OptionErrorReason> {
 
 fn flag(raw: &Raw<'_>) -> Result<bool, OptionErrorReason> {
     raw.parse::<Flag>().map(|Flag(value)| value)
-}
-
-/// A 3.x `pr_template` path: a nonblank string.
-fn template(raw: &Raw<'_>) -> Result<String, OptionErrorReason> {
-    let value = raw.parse::<String>()?;
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        Err(OptionErrorReason::EmptyTemplate)
-    } else {
-        Ok(trimmed.to_owned())
-    }
 }
 
 #[derive(Clone)]
@@ -569,16 +526,11 @@ impl ConfigOptions {
         let issue_sort = select(&inputs, OptionKey::IssueSort, parsed)?;
         let issue_create_ask_project = select(&inputs, OptionKey::IssueCreateAskProject, flag)?;
         let issue_create_assign_self = select(&inputs, OptionKey::IssueCreateAssignSelf, parsed)?;
-        // Checked where it always was, so errors keep their order; the
-        // startup report warns about each source that sets it.
-        retired_vcs(&inputs)?;
         let download_images = select(&inputs, OptionKey::DownloadImages, flag)?;
         let inline_images = select(&inputs, OptionKey::InlineImages, flag)?;
         let hyperlink_format = select(&inputs, OptionKey::HyperlinkFormat, parsed)?;
         let attachment_dir = select(&inputs, OptionKey::AttachmentDir, parsed)?;
         let auto_download_attachments = select(&inputs, OptionKey::AutoDownloadAttachments, flag)?;
-        // Checked where it always was, like `vcs`.
-        retired_pr_template(&inputs)?;
         Ok(Self {
             team_key,
             api_key,

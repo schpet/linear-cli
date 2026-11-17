@@ -275,53 +275,140 @@ fn config_without_credentials_points_to_login() {
 }
 
 #[test]
-fn the_retired_vcs_setting_still_loads_and_warns_on_stderr_only() {
-    let cli = Cli::new()
-        .env("LINEAR_VCS", "git")
-        .file("cwd/.linear.toml", "vcs = \"jj\"\n");
-    let run = cli.run(&["issue", "id", "ENG-7"]);
-    run.success()
-        .stderr_has(
-            "Warning: LINEAR_VCS from process environment was removed in 4.0 and does nothing.",
-        )
-        .stderr_has("Warning: vcs from project config ")
-        .stderr_has("`linear issue jj start` for jj");
-    assert_eq!(run.stdout, "ENG-7\n");
-    assert_eq!(run.stderr.matches("Warning:").count(), 2, "{run}");
-    let token = Cli::new()
-        .env("LINEAR_API_KEY", "key-env")
-        .env("LINEAR_VCS", "jj");
-    assert_eq!(stdout(&token, &["auth", "token"]), "key-env");
+fn retired_settings_do_not_interrupt_ordinary_commands() {
+    for value in ["git", "jj", "hg", "", "GIT"] {
+        let cli = Cli::new()
+            .env("LINEAR_VCS", value)
+            .env("LINEAR_PR_TEMPLATE", "")
+            .file("cwd/.linear.toml", "vcs = 1\npr_template = false\n")
+            .file(GLOBAL, "vcs = ['anything']\npr_template = {}\n");
+        let run = cli.run(&["issue", "id", "ENG-7"]);
+        run.success();
+        assert_eq!(run.stdout, "ENG-7\n");
+        assert_eq!(run.stderr, "", "{run}");
+    }
 }
 
 #[test]
-fn an_invalid_retired_vcs_setting_fails_before_any_request() {
+fn config_check_is_offline_without_credentials_or_keyring_and_does_not_write() {
     let api = MockLinear::start();
-    for (name, value, said) in [
-        (
-            "LINEAR_VCS",
-            "hg",
-            "invalid config option LINEAR_VCS from process environment",
-        ),
-        (
-            "LINEAR_VCS",
-            "",
-            "invalid config option LINEAR_VCS from process environment",
-        ),
-    ] {
-        Cli::for_api(&api)
-            .env(name, value)
-            .run(&["issue", "title", "ENG-7"])
-            .failure()
-            .stderr_has(said)
-            .stderr_has("Fix LINEAR_VCS in process environment.");
-    }
-    Cli::for_api(&api)
-        .file("cwd/.linear.toml", "vcs = 1\n")
-        .run(&["issue", "title", "ENG-7"])
-        .failure()
-        .stderr_has("invalid config option vcs from project config");
+    let original = "team_id = 'ENG'\nissue_sort = 'manual'\n";
+    let cli = Cli::new()
+        .endpoint(&api)
+        .file("cwd/.linear.toml", original)
+        .credentials("not valid TOML [")
+        .stub_bin("secret-tool", "exit 1");
+    let run = cli.run(&["config", "check"]);
+    run.success();
+    assert_eq!(run.stdout, "✓ Configuration is valid.\n");
+    assert_eq!(run.stderr, "", "{run}");
     assert!(api.requests().is_empty());
+    assert!(cli.calls("secret-tool").is_empty());
+    assert_eq!(cli.read("cwd/.linear.toml"), original);
+}
+
+#[test]
+fn config_check_reports_ignored_settings_without_exposing_values() {
+    let cli = Cli::new()
+        .env("LINEAR_VCS", "private-legacy-value")
+        .env("LINEAR_PR_TEMPLATE", "private-template-path")
+        .env("LINEAR_API_KEY", "private-api-key")
+        .file("cwd/.linear.toml", "vcs = 1\npr_template = false\n")
+        .file(GLOBAL, "vcs = {}\npr_template = []\n");
+    let run = cli.run(&["config", "check"]);
+    run.success()
+        .stderr_has("Note: LINEAR_VCS from process environment is ignored")
+        .stderr_has("Note: vcs from project config ")
+        .stderr_has("Note: vcs from global config ")
+        .stderr_has("Note: LINEAR_PR_TEMPLATE from process environment is ignored")
+        .stderr_has("Note: pr_template from project config ")
+        .stderr_has("Note: pr_template from global config ")
+        .stderr_has("safe to leave this setting in place");
+    assert_eq!(run.stdout, "✓ Configuration is valid.\n");
+    assert_eq!(run.stderr.matches("Note:").count(), 6, "{run}");
+    assert!(!run.stderr.contains("Warning:"), "{run}");
+    assert!(!run.stderr.contains("Remove "), "{run}");
+    for secret in [
+        "private-legacy-value",
+        "private-template-path",
+        "private-api-key",
+    ] {
+        assert!(
+            !run.stdout.contains(secret) && !run.stderr.contains(secret),
+            "{run}"
+        );
+    }
+}
+
+#[test]
+fn config_check_uses_selected_dotenv_and_respects_ignore_and_precedence() {
+    let cli = Cli::new()
+        .env_remove("LINEAR_IGNORE_ENV_FILE")
+        .file("cwd/.env", "LINEAR_VCS=hg\nLINEAR_PR_TEMPLATE=\n");
+    let run = cli.run(&["config", "check"]);
+    run.success()
+        .stderr_has("Note: LINEAR_VCS from .env file ")
+        .stderr_has("Note: LINEAR_PR_TEMPLATE from .env file ");
+    assert_eq!(run.stderr.matches("Note:").count(), 2, "{run}");
+    let run = cli.run(&["issue", "id", "ENG-7"]);
+    run.success();
+    assert_eq!(run.stderr, "", "{run}");
+    let cli = cli.env("LINEAR_VCS", "jj");
+    let run = cli.run(&["config", "check"]);
+    run.success()
+        .stderr_has("LINEAR_VCS from process environment");
+    assert!(!run.stderr.contains("LINEAR_VCS from .env file"), "{run}");
+    let cli = cli.env("LINEAR_IGNORE_ENV_FILE", "1");
+    let run = cli.run(&["config", "check"]);
+    run.success();
+    assert!(!run.stderr.contains("from .env file"), "{run}");
+}
+
+#[test]
+fn config_check_rejects_broken_active_settings_files_and_overlays() {
+    for config in [
+        "issue_sort = 'unexpected'",
+        "issue_sort = 1",
+        "vcs = [",
+        "[templates]\npr_title = '{{'",
+    ] {
+        let cli = Cli::new().file("cwd/.linear.toml", config);
+        let run = cli.run(&["config", "check"]);
+        run.failure().stderr_has(".linear.toml");
+        assert_eq!(run.stdout, "", "{run}");
+    }
+    let cli = Cli::new()
+        .file(GLOBAL, "issue_sort = 'unexpected'")
+        .env("LINEAR_ISSUE_SORT", "manual");
+    cli.run(&["config", "check"])
+        .failure()
+        .stderr_has("issue_sort");
+    let cli = Cli::new().env("LINEAR_ISSUE_SORT", "unexpected");
+    cli.run(&["config", "check"])
+        .failure()
+        .stderr_has("LINEAR_ISSUE_SORT");
+    let cli = Cli::new().env("LINEAR_GRAPHQL_ENDPOINT", "bad");
+    cli.run(&["config", "check"])
+        .failure()
+        .stderr_has("LINEAR_GRAPHQL_ENDPOINT");
+    let cli = Cli::new().file("cwd/overlay.toml", "[templates]\npr_title = 1");
+    cli.run(&["config", "check", "--config-file", "overlay.toml"])
+        .failure()
+        .stderr_has("overlay.toml");
+    let run = cli.run(&["config", "check", "--config-file", "missing.toml"]);
+    run.failure().stderr_has("missing.toml");
+    assert_eq!(run.code, 1);
+    assert_eq!(run.stdout, "");
+    cli.run(&["config", "check", "--config", "templates.pr_title=1"])
+        .failure()
+        .stderr_has("pr_title");
+    cli.run(&[
+        "config",
+        "check",
+        "--config",
+        "templates.pr_title='Custom title'",
+    ])
+    .success();
 }
 
 #[test]
@@ -331,8 +418,7 @@ fn config_replaces_a_file_with_the_retired_vcs_setting_without_it() {
         .on("ResolveTeam", resolved("team-ops-id", "OPS", "Operations"));
     let cli = Cli::for_api(&api).file("cwd/.linear.toml", "vcs = \"jj\"\n");
     cli.run(&["config", "--team", "OPS", "--sort", "manual"])
-        .success()
-        .stderr_has("vcs from project config");
+        .success();
     let written = cli.read("cwd/.linear.toml");
     assert!(!written.contains("vcs"), "{written}");
     let run = cli.run(&["team", "id"]);
@@ -432,4 +518,16 @@ fn ordinary_startup_applies_template_overlays_before_authentication() {
     cli.run(&["team", "list", "--config-file", "missing.toml"])
         .failure()
         .stderr_has("missing.toml");
+}
+
+#[test]
+fn config_check_preserves_dotenv_warnings_alongside_ignored_setting_notes() {
+    let run = Cli::new()
+        .env_remove("LINEAR_IGNORE_ENV_FILE")
+        .file("cwd/.env", "LINEAR_VCS=git\nLINEAR_TEAM_ID=${TEAM}\n")
+        .run(&["config", "check"]);
+    run.success()
+        .stderr_has("Warning: Ignoring LINEAR_TEAM_ID")
+        .stderr_has("Note: LINEAR_VCS from .env file ");
+    assert_eq!(run.stdout, "✓ Configuration is valid.\n");
 }

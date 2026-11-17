@@ -6,6 +6,7 @@ use crate::templates::TemplateConfig;
 
 pub fn run(command: &ConfigCommand, templates: &TemplateConfig) -> Result<()> {
     let rendered = match command {
+        ConfigCommand::Check => unreachable!("config check uses full startup configuration"),
         ConfigCommand::Get { key, .. } => {
             let (namespace, name) = key.split_once('.').ok_or_else(|| unsupported(key))?;
             if !matches!(namespace, "templates" | "template-aliases") {

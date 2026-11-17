@@ -15,9 +15,16 @@ pub struct Config {
     pub sort: Option<crate::config::IssueSort>,
 }
 
-/// Offline inspection exposes only template preferences, never scalar settings or credentials.
+/// Offline configuration checks and template preference inspection.
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommand {
+    /// Check loaded configuration locally and report ignored settings
+    ///
+    /// Validates environment, .env, selected global/project config and template
+    /// overlays without login, API requests or file changes. Ignored settings
+    /// are informational and safe to leave in place. Invalid active settings
+    /// or malformed config fail with exit 1; harmless leftovers exit 0.
+    Check,
     /// Print effective template preferences as TOML (including empty command hooks)
     List {
         /// Ignore all configuration and overlays; print compiled defaults and empty hooks
@@ -41,6 +48,7 @@ pub enum ConfigCommand {
 impl ConfigCommand {
     pub fn defaults(&self) -> bool {
         match self {
+            Self::Check => false,
             Self::List { defaults, .. } | Self::Get { defaults, .. } => *defaults,
         }
     }

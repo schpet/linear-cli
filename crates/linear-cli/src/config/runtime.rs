@@ -66,10 +66,16 @@ impl ProcessEnvSnapshot {
             if !relevant(&key, os) {
                 continue;
             }
-            let Some(value) = raw_value.to_str() else {
-                return Err(ProcessEnvError::InvalidValue {
-                    name: name.to_owned(),
-                });
+            // Retired settings need only a presence marker. Their values are
+            // unused, including when they are not UTF-8; active inputs stay strict.
+            let value = if matches!(key.as_str(), "LINEAR_VCS" | "LINEAR_PR_TEMPLATE") {
+                ""
+            } else {
+                raw_value
+                    .to_str()
+                    .ok_or_else(|| ProcessEnvError::InvalidValue {
+                        name: name.to_owned(),
+                    })?
             };
             if process_env.insert(key, value.to_owned()).is_some() {
                 return Err(ProcessEnvError::DuplicateName {

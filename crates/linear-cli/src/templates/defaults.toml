@@ -56,6 +56,9 @@ guide_how_to_work = '''
   asks for one, pass `--team`; `linear team list` shows the teams.
 - Do not create, change or comment on anything the user's request does not
   call for.
+- Run `linear config check` to validate loaded settings and template overlays
+  locally without login or network. Ignored legacy settings are safe to leave
+  in place; the check reports their sources without printing their values.
 
 A set flag such as `--team` or `--label` replaces the whole set and cannot be
 combined with that set's `--add-*` and `--remove-*` flags.
