@@ -10,6 +10,7 @@ use crate::{
     },
     client::LinearClient,
     commands::text_input,
+    config::{RetiredSetting, render_retired_setting},
     ctx::Ctx,
     error::{Error, Result, ResultExt},
     graphql::operations::issue::IssueDetails,
@@ -47,6 +48,15 @@ fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
     // templates to summarize any number of issues after their data is fetched.
     if ctx.templates().is_builtin(Slot::PrTitle) {
         check_title(&identifiers, args.title.as_deref())?;
+    }
+    for setting in &ctx.config().retired_settings {
+        match setting {
+            RetiredSetting::PrTemplate(_) => ctx.eprint(render_retired_setting(
+                setting,
+                ctx.terminal().stderr_color(),
+            ))?,
+            RetiredSetting::Vcs(_) => {}
+        }
     }
     let client = ctx.client()?;
     // Every issue is fetched before gh runs, so a missing one opens nothing.

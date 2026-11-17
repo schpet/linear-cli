@@ -789,14 +789,15 @@ fn a_pr_template_setting_is_reported_and_no_longer_read() {
         .file("cwd/.linear.toml", "pr_template = \"pr.md\"\n");
     let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
     run.success()
-        .stderr_has("Warning: pr_template from project config ")
-        .stderr_has("was removed in 4.0 and does nothing.")
-        .stderr_has("  Remove pr_template. To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it.");
+        .stderr_has("Note: pr_template from project config ")
+        .stderr_has("is ignored; it has no effect in 4.0.")
+        .stderr_has("safe to leave this setting in place")
+        .stderr_has("  To start the body from a file, pass it to `linear issue gh pr <ISSUE> --body-file <FILE>`; the issue links follow it.");
     let cli = cli.env("LINEAR_PR_TEMPLATE", "missing.md");
     let run = cli.run(&["issue", "gh", "pr", "ENG-7"]);
     run.success()
-        .stderr_has("Warning: LINEAR_PR_TEMPLATE from process environment was removed in 4.0");
-    assert_eq!(run.stderr.matches("Warning:").count(), 2, "{run}");
+        .stderr_has("Note: LINEAR_PR_TEMPLATE from process environment is ignored");
+    assert_eq!(run.stderr.matches("Note:").count(), 2, "{run}");
     for call in cli.calls("gh") {
         assert_eq!(call[5], format!("Fixes ENG-7\n\n{URL}"));
     }
@@ -1640,8 +1641,8 @@ fn gh_pull_request_reads_at_jj_without_a_snapshot_and_whatever_head_names() {
     .env("LINEAR_VCS", "jj");
     let run = cli.run(&["issue", "gh", "pr", "@jj", "--", "--head", "elsewhere"]);
     run.success()
-        .stderr_has("LINEAR_VCS from process environment was removed in 4.0")
         .stderr_has("Using issue ENG-7 from Linear-issue trailers in trunk()..@\n");
+    assert!(!run.stderr.contains("LINEAR_VCS"), "{run}");
     assert_eq!(run.stdout, "https://github.com/acme/widgets/pull/1\n");
     assert_eq!(jj_reads(&cli), ["trunk()", "trunk()..@"]);
     assert_eq!(

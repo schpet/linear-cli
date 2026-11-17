@@ -90,3 +90,24 @@ fn relevant_non_utf8_env_value_fails_and_unrelated_one_is_ignored() {
     );
     assert!(matches!(result, Err(ProcessEnvError::InvalidName)));
 }
+
+#[cfg(unix)]
+#[test]
+fn retired_process_values_need_only_presence_even_when_not_utf8() {
+    use std::os::unix::ffi::OsStringExt;
+    for os in [OsFamily::Unix, OsFamily::Windows] {
+        for name in ["LINEAR_VCS", "LINEAR_PR_TEMPLATE"] {
+            let spelling = match os {
+                OsFamily::Unix => name.to_owned(),
+                OsFamily::Windows => name.to_ascii_lowercase(),
+            };
+            let snapshot = ProcessEnvSnapshot::from_vars_os(
+                PathBuf::from("/tmp/project"),
+                os,
+                [(OsString::from(spelling), OsString::from_vec(vec![0xff]))],
+            )
+            .expect("unused retired values are not decoded");
+            assert_eq!(snapshot.inputs.env(name), Some(""));
+        }
+    }
+}

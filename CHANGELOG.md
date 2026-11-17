@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Retired `vcs` / `LINEAR_VCS` settings are ignored quietly, including values older versions rejected. Retired `pr_template` / `LINEAR_PR_TEMPLATE` values are also ignored without validation, with migration guidance only during pull request creation. Both settings are safe to leave in place.
 - The README now notes that it covers the upcoming 4.0 release and links to stable instructions for v3.1.0.
 
 ### Breaking
@@ -35,7 +36,7 @@
   | --- | --- |
   | `linear issue pr ENG-123 --title "Fix login"` (title `ENG-123 Fix login`) | `linear issue gh pr ENG-123 --title "ENG-123 Fix login"` |
   | `linear issue pr ENG-123 --title ""` | `linear issue gh pr ENG-123` |
-- `issue gh pull-request` no longer reads the 3.x starting-body template file. New [MiniJinja preferences](docs/templating.md) configure generated layouts separately. `--template` (`-T`) and `--no-template` are removed, and so is the `pr_template` option (`LINEAR_PR_TEMPLATE`), which 3.x read as every pull request's starting body (a path relative to the config file that set it), with the issue URL appended. Pass the file with `--body-file` (`-F`) instead: the shipped body layout is its text, then the `Fixes` clause and the issue URLs; add `-- --editor` to fill it in in gh before the pull request is created. `--template` and `--no-template` fail with exit 2 and say so. Through 4.x an existing `pr_template` still loads and does nothing, with a warning on stderr for each place that sets it naming `--body-file`; a value 3.x rejected, such as a blank one, is still an error
+- `issue gh pull-request` no longer reads the 3.x starting-body template file. New [MiniJinja preferences](docs/templating.md) configure generated layouts separately. `--template` (`-T`) and `--no-template` are removed, and so is the `pr_template` option (`LINEAR_PR_TEMPLATE`), which 3.x read as every pull request's starting body (a path relative to the config file that set it), with the issue URL appended. Pass the file with `--body-file` (`-F`) instead: the shipped body layout is its text, then the `Fixes` clause and the issue URLs; add `-- --editor` to fill it in in gh before the pull request is created. `--template` and `--no-template` fail with exit 2 and say so. Existing `pr_template` values are ignored without validation. Only pull request creation and `linear config check` report them, with `--body-file` guidance; the setting is safe to keep
 
   | 3.x | 4.0 |
   | --- | --- |
@@ -43,7 +44,7 @@
   | `linear issue pr ENG-123` (with `pr_template = ".github/pr.md"`) | `linear issue gh pr ENG-123 -F .github/pr.md` (relative to the current directory) |
   | `linear issue pr ENG-123 --no-template` | `linear issue gh pr ENG-123` |
 
-- the `vcs` setting (`vcs` in a config file, `LINEAR_VCS` in the environment or `.env`) is removed. Every command that touches the repository names its tool instead (`issue git start`, `issue jj start`, `issue gh pull-request`), and the issue is read from the repository only with `@git` or `@jj`. Through 4.x an existing `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr for each place that sets it, saying it does nothing and which commands replace it; a value 3.x rejected is still an error. `linear config` does not write it
+- the `vcs` setting (`vcs` in a config file, `LINEAR_VCS` in the environment or `.env`) is removed. Every command that touches the repository names its tool instead (`issue git start`, `issue jj start`, `issue gh pull-request`), and the issue is read from the repository only with `@git` or `@jj`. Existing `vcs` values are ignored quietly without validation and are safe to leave in place; `linear config check` reports their sources and replacement commands. `linear config` does not write it
 
   | 3.x (with `vcs = "jj"`) | 4.0 |
   | --- | --- |
@@ -68,6 +69,7 @@
 ### Added
 
 - `linear skill setup` also installs `SessionStart` reminders for Claude Code and Codex to load the `linear-cli` skill or run `linear skill show` before using Linear, independently of the skill catalog. Setup, status, removal, agent selection and dry runs manage the hooks while preserving unrelated settings and hooks. Claude Code also supports project setup; Codex hooks are account-only, honor `CODEX_HOME`, and require review in Codex's `/hooks` menu.
+- `linear config check` validates loaded settings and template overlays offline, without credentials, API requests or file changes. It reports ignored legacy settings as informational notes with their sources, never their values. Harmless leftovers exit successfully; invalid active settings and malformed config still fail.
 - Layered MiniJinja templates for agent guidance, shared `issue describe` / `issue jj start` descriptions, and pull request titles and bodies. Configure `[templates]` and reusable `[template-aliases]` globally, per project, or with repeatable `--config-file` / `--config` overlays. Shipped defaults remain available through `builtin/<name>`. Explicit `--title` and gh arguments after `--` retain precedence; a custom template can generate a title for several issues.
 - Targeted `linear skill show issue comment add` guidance inherits parent hooks; ordinary `skill show` includes custom hooks even for commands with no shipped prose. `config list`, `config get`, and `config list --show-origin` inspect templates offline. `skill show --builtin` and `config list --defaults` bypass local configuration for recovery. Ordinary `skill show` now validates selected template configuration.
 - `linear config` preserves existing template preferences and unknown TOML values when updating workspace, team and sort settings, while removing the retired `vcs` and `pr_template` settings. Comments may be reformatted.

@@ -168,11 +168,13 @@ pub enum RootCommand {
     User(user::User),
     /// Log in to workspaces and manage their credentials
     Auth(auth::Auth),
-    /// Generate project config or inspect template preferences offline
+    /// Generate project config, check it or inspect template preferences
     ///
     /// Without a subcommand, writes .linear.toml for the current repository,
     /// asking for settings the flags leave out. `config list` and `config get`
-    /// inspect templates only; they do not need login or network access.
+    /// inspect templates only. `config check` validates loaded settings and
+    /// reports ignored options. All three subcommands work without login or
+    /// network access.
     #[command(alias = "configure")]
     Config(config::Config),
     /// Send a raw GraphQL request to the Linear API

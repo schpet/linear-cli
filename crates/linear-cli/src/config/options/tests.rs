@@ -164,49 +164,6 @@ fn every_known_key_is_eagerly_checked_and_unknown_keys_are_inert() {
 }
 
 #[test]
-fn the_retired_vcs_key_is_checked_in_every_tier_and_has_no_effect() {
-    let project = tier("/repo/linear.toml", "vcs = 'jj'");
-    let global = tier("/global/linear.toml", "vcs = 'git'");
-    let inputs = env(&[("LINEAR_VCS", "git")]);
-    let selected = dotenv(&[("LINEAR_VCS", "jj")]);
-    let options = OptionInputs {
-        env: &inputs,
-        dotenv: &selected,
-        project: Some(&project),
-        global: Some(&global),
-    };
-    assert_eq!(
-        retired_vcs(&options).expect("valid"),
-        [
-            OptionSource::Env,
-            OptionSource::ProjectEnv {
-                path: PathBuf::from("/repo/.env")
-            },
-            OptionSource::ProjectConfig {
-                path: PathBuf::from("/repo/linear.toml")
-            },
-            OptionSource::GlobalConfig {
-                path: PathBuf::from("/global/linear.toml")
-            },
-        ]
-    );
-    snapshot(&inputs, &selected, Some(&project), Some(&global)).expect("loads");
-    // A shadowed value is checked too.
-    let poison = tier("/global/linear.toml", "vcs = 42");
-    let err = snapshot(&inputs, &selected, Some(&project), Some(&poison)).expect_err("poison");
-    assert_eq!(err.key, Some(OptionKey::RetiredVcs));
-    assert!(err.to_string().contains("integer `42`"), "{err}");
-    assert_eq!(
-        err.to_string(),
-        "invalid config option vcs from global config /global/linear.toml: invalid type: integer `42`, expected git or jj"
-    );
-    assert_eq!(
-        err.suggestion().as_deref(),
-        Some("Fix vcs in global config /global/linear.toml.")
-    );
-}
-
-#[test]
 fn booleans_and_enums_reject_invalid_strings_without_trimming() {
     for word in ["true", "YES", "y", "ON", "1", "T"] {
         let inputs = env(&[("LINEAR_DOWNLOAD_IMAGES", word)]);
@@ -233,7 +190,6 @@ fn booleans_and_enums_reject_invalid_strings_without_trimming() {
     for (name, value) in [
         ("LINEAR_ISSUE_SORT", "Manual"),
         ("LINEAR_ISSUE_CREATE_ASSIGN_SELF", "Auto"),
-        ("LINEAR_VCS", "GIT"),
     ] {
         let inputs = env(&[(name, value)]);
         let err = snapshot(&inputs, &dotenv(&[]), None, None).expect_err("case sensitive");
@@ -257,72 +213,6 @@ fn empty_strings_are_present_and_cli_overrides_are_closed() {
     assert_eq!(
         options.issue_sort(Some(IssueSort::Manual)),
         (IssueSort::Manual, Some(OptionSource::Cli))
-    );
-}
-
-#[test]
-fn the_retired_pr_template_key_is_checked_in_every_tier_and_has_no_effect() {
-    let project = tier("/repo/linear.toml", "pr_template = '.github/pr.md'");
-    let global = tier("/global/linear.toml", "pr_template = '../../x'");
-    let inputs = env(&[("LINEAR_PR_TEMPLATE", " x\t")]);
-    let selected = dotenv(&[("LINEAR_PR_TEMPLATE", "dotenv.md")]);
-    let options = OptionInputs {
-        env: &inputs,
-        dotenv: &selected,
-        project: Some(&project),
-        global: Some(&global),
-    };
-    assert_eq!(
-        retired_pr_template(&options).expect("valid"),
-        [
-            OptionSource::Env,
-            OptionSource::ProjectEnv {
-                path: PathBuf::from("/repo/.env")
-            },
-            OptionSource::ProjectConfig {
-                path: PathBuf::from("/repo/linear.toml")
-            },
-            OptionSource::GlobalConfig {
-                path: PathBuf::from("/global/linear.toml")
-            },
-        ]
-    );
-    snapshot(&inputs, &selected, Some(&project), Some(&global)).expect("loads");
-    // A shadowed value is checked too.
-    let poison = tier("/global/linear.toml", "pr_template = 42");
-    let err = snapshot(&inputs, &selected, Some(&project), Some(&poison)).expect_err("poison");
-    assert_eq!(err.key, Some(OptionKey::RetiredPrTemplate));
-    assert!(err.to_string().contains("integer `42`"), "{err}");
-}
-
-#[test]
-fn empty_template_is_rejected_in_every_tier_including_shadowed() {
-    let global = tier("/global/linear.toml", "pr_template = '   '");
-    let project = tier("/repo/linear.toml", "pr_template = 'valid.md'");
-    let inputs = env(&[("LINEAR_PR_TEMPLATE", "also-valid.md")]);
-    let error =
-        snapshot(&inputs, &dotenv(&[]), Some(&project), Some(&global)).expect_err("shadowed empty");
-    assert_eq!(
-        error.source,
-        OptionSource::GlobalConfig {
-            path: PathBuf::from("/global/linear.toml")
-        }
-    );
-    assert_eq!(error.key, Some(OptionKey::RetiredPrTemplate));
-    assert_eq!(error.reason, OptionErrorReason::EmptyTemplate);
-    let inputs = env(&[("LINEAR_PR_TEMPLATE", "")]);
-    assert_eq!(
-        snapshot(&inputs, &dotenv(&[]), None, None)
-            .expect_err("env empty")
-            .reason,
-        OptionErrorReason::EmptyTemplate
-    );
-    let selected = dotenv(&[("LINEAR_PR_TEMPLATE", "")]);
-    assert_eq!(
-        snapshot(&env(&[]), &selected, None, None)
-            .expect_err("dotenv empty")
-            .reason,
-        OptionErrorReason::EmptyTemplate
     );
 }
 

@@ -126,7 +126,7 @@ the CLI works with both git and jj version control systems:
 - **git**: `linear issue git start ABC-123` creates the branch Linear suggests for the issue and starts the issue. branch names that include the issue ID let [Linear's GitHub integration](https://linear.app/docs/github#branch-format) link your pull requests, and `@git` reads the issue back from the current branch's name (`linear issue view @git`).
 - **jj**: `linear issue jj start ABC-123` starts a change (or reuses an empty, undescribed one) described with the issue title and `Linear-issue` trailers, or add them yourself with `jj describe -m "$(linear issue describe ABC-123)"`. `@jj` reads back every issue the trailers in `trunk()..@` name (`linear issue view @jj`). to open a pull request, push a bookmark with jj first and name it with `--head` (see below)
 
-each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` builds the title and body and runs `gh pr create`; linear itself never creates, moves or pushes a branch or bookmark. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; an old `vcs = "git"` or `vcs = "jj"` still loads, with a warning on stderr to remove it. `pr_template` (`LINEAR_PR_TEMPLATE`), the old starting-body file setting, was removed too: pass description text with `linear issue gh pr <ISSUE> --body-file <FILE>`; an old setting is reported the same way. use new [MiniJinja preferences](docs/templating.md) to configure generated guide, commit and PR layouts
+each command names its tool (`issue git …`, `issue jj …`, `issue gh …`), and nothing is chosen by a setting: `linear issue gh pr` builds the title and body and runs `gh pr create`; linear itself never creates, moves or pushes a branch or bookmark. the `vcs` setting (`LINEAR_VCS`) was removed in 4.0; old values are ignored quietly and are safe to leave in place. `pr_template` (`LINEAR_PR_TEMPLATE`), the old starting-body file setting, was removed too: pass description text with `linear issue gh pr <ISSUE> --body-file <FILE>`. An old setting is reported only when creating a pull request or running `linear config check`; it is safe to keep. use new [MiniJinja preferences](docs/templating.md) to configure generated guide, commit and PR layouts
 
 ## commands
 
@@ -391,7 +391,9 @@ scalar settings are read from a project file and a global file. each option take
 3. the project config file: the first that exists of `./linear.toml`, `./.linear.toml`, then `linear.toml`, `.linear.toml`, or `.config/linear.toml` at the repository root
 4. the global config file: `$XDG_CONFIG_HOME/linear/linear.toml` (or `~/.config/linear/linear.toml`) on macOS and Linux, `%APPDATA%\linear\linear.toml` on Windows
 
-so the global file can hold defaults such as `issue_sort`, and a repository's `.linear.toml` overrides them for that project. every value is validated, even one a higher tier overrides, and an invalid value is an error naming its file and key.
+so the global file can hold defaults such as `issue_sort`, and a repository's `.linear.toml` overrides them for that project. every active value is validated, even one a higher tier overrides, and an invalid value is an error naming its file and key. retired `vcs` and `pr_template` values are ignored without validation; malformed TOML still fails.
+
+run `linear config check` to check the loaded environment, `.env`, global/project config and template overlays locally. it needs no login or network and changes no files. ignored settings are informational, with their sources and no values; they exit successfully and need no cleanup. invalid active settings or malformed config exit with status 1. existing warnings about unusable `.env` entries remain warnings.
 
 ## exit status
 
