@@ -195,7 +195,14 @@ fn engine_error(
 
 impl TemplateConfig {
     pub fn builtin() -> Self {
-        let table = DEFAULTS
+        Self::builtin_from_source(DEFAULTS)
+    }
+
+    fn builtin_from_source(source: &str) -> Self {
+        // Checkouts may use CRLF. Keep shipped literals portable without
+        // changing explicit user templates or interpolated data.
+        let table = source
+            .replace("\r\n", "\n")
             .parse::<toml::Table>()
             .expect("shipped templates are valid TOML");
         let template_names = table
