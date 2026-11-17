@@ -24,7 +24,10 @@ fn commit() -> CommitContext {
 
 #[test]
 fn defaults_preserve_commit_and_pull_request_text() {
-    let config = TemplateConfig::builtin();
+    assert_default_commit_and_pull_request_text(&TemplateConfig::builtin());
+}
+
+fn assert_default_commit_and_pull_request_text(config: &TemplateConfig) {
     let context = commit();
     assert_eq!(
         config
@@ -62,6 +65,57 @@ fn defaults_preserve_commit_and_pull_request_text() {
         .render(Slot::PrTitle, &pr)
         .expect_err("default needs a title");
     assert!(error.to_string().contains("--title"), "{error}");
+}
+
+#[test]
+fn builtin_defaults_ignore_checkout_line_endings() {
+    let lf = DEFAULTS.replace("\r\n", "\n");
+    let crlf = lf.replace('\n', "\r\n");
+    let mixed = crlf.replacen("\r\n", "\n", 1);
+    for source in [lf, crlf, mixed] {
+        let config = TemplateConfig::builtin_from_source(&source);
+        assert_default_commit_and_pull_request_text(&config);
+        for (name, entry) in config.entries() {
+            assert!(
+                !entry.body.contains('\r'),
+                "builtin template {name} retains checkout carriage returns"
+            );
+        }
+    }
+}
+
+#[test]
+fn custom_template_and_data_line_endings_are_preserved() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+commit_description = "  {{ issue.title }}\r\n{% include 'row' %}\r\n"
+[template-aliases]
+row = "{{ issue.description }}\r\n"
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("load custom line endings");
+    let mut context = commit();
+    context.issue.title = "First\r\n{{ 7 * 7 }}\rlast".to_owned();
+    context.issue.description = "Details\r\nmore".to_owned();
+    assert_eq!(
+        config
+            .render(Slot::CommitDescription, &context)
+            .expect("custom render"),
+        format!(
+            "  {}\r\n{}\r\n\r\n",
+            context.issue.title, context.issue.description
+        )
+    );
+    assert_eq!(
+        TemplateConfig::builtin()
+            .render(Slot::CommitDescription, &context)
+            .expect("builtin render with custom data"),
+        format!(
+            "ENG-123 {}\n\nLinear-issue: Fixes ENG-123\nLinear-issue-url: https://linear.app/acme/issue/ENG-123/fix-login\n",
+            context.issue.title
+        )
+    );
 }
 
 #[test]
