@@ -158,12 +158,14 @@ fn canonical_empty_hooks_exist_and_keep_overrides() {
             .expect("hook"),
         "local policy"
     );
-    assert_eq!(
-        config
-            .render_named("skill_milestone_update", &SkillContext::default())
-            .expect("empty"),
-        ""
-    );
+    for name in ["skill_milestone_update", "builtin/skill_milestone_update"] {
+        assert_eq!(
+            config
+                .render_named(name, &SkillContext::default())
+                .expect("empty hook"),
+            ""
+        );
+    }
     assert!(
         TemplateConfig::from_tiers([&tier(
             "bad.toml",
