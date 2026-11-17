@@ -345,12 +345,12 @@ fn relation_list_shows_outgoing_and_incoming_relations() {
         "ListIssueRelations",
         json!({
             "issue": {
-                "id": ISSUE_1, "identifier": "ENG-1", "title": "Main issue",
+                "id": ISSUE_1, "trashed": null, "archivedAt": null, "identifier": "ENG-1", "title": "Main issue",
                 "relations": { "nodes": [
-                    { "id": "r1", "type": "blocks", "relatedIssue": { "identifier": "ENG-2", "title": "Blocked one" } }
+                    { "id": "r1", "type": "blocks", "relatedIssue": { "trashed": null, "archivedAt": null, "identifier": "ENG-2", "title": "Blocked one" } }
                 ], "pageInfo": last_page() },
                 "inverseRelations": { "nodes": [
-                    { "id": "r2", "type": "related", "issue": { "identifier": "ENG-3", "title": "Related one" } }
+                    { "id": "r2", "type": "related", "issue": { "trashed": null, "archivedAt": null, "identifier": "ENG-3", "title": "Related one" } }
                 ], "pageInfo": last_page() }
             }
         }),
@@ -375,12 +375,12 @@ fn last_page() -> Value {
 #[test]
 fn relation_list_reads_every_page_of_both_directions() {
     let api = MockLinear::start();
-    let outgoing = |n: usize| json!({ "id": format!("out-{n}"), "type": "related", "relatedIssue": { "identifier": format!("ENG-{}", n + 100), "title": format!("Out {n}") } });
-    let incoming = |n: usize| json!({ "id": format!("in-{n}"), "type": "blocks", "issue": { "identifier": format!("OPS-{n}"), "title": format!("In {n}") } });
+    let outgoing = |n: usize| json!({ "id": format!("out-{n}"), "type": "related", "relatedIssue": { "trashed": null, "archivedAt": null, "identifier": format!("ENG-{}", n + 100), "title": format!("Out {n}") } });
+    let incoming = |n: usize| json!({ "id": format!("in-{n}"), "type": "blocks", "issue": { "trashed": null, "archivedAt": null, "identifier": format!("OPS-{n}"), "title": format!("In {n}") } });
     api.on(
         "ListIssueRelations",
         json!({ "issue": {
-            "id": ISSUE_1, "identifier": "ENG-1", "title": "Main issue",
+            "id": ISSUE_1, "trashed": null, "archivedAt": null, "identifier": "ENG-1", "title": "Main issue",
             "relations": {
                 "nodes": (0..100).map(outgoing).collect::<Vec<_>>(),
                 "pageInfo": { "hasNextPage": true, "endCursor": "out-cursor" }
@@ -682,4 +682,72 @@ fn agent_session_view_tty_links_to_its_issue_only_when_it_has_one() {
         .ends_with_footer("View this issue on Linear: https://linear.app/acme/issue/ENG-1");
     let run = cli.run_tty(&args, &[]);
     assert!(!run.success().stdout.contains("on Linear:"), "{run}");
+}
+
+#[test]
+fn rejected_relations_identify_either_deleted_endpoint() {
+    for verb in ["add", "delete"] {
+        for deleted in ["ENG-1", "ENG-2"] {
+            let api = MockLinear::start();
+            api.on("GetIssueId", issue_id(ISSUE_1))
+                .on("GetIssueId", issue_id(ISSUE_2));
+            let mutation = if verb == "add" {
+                "CreateIssueRelation"
+            } else {
+                "DeleteIssueRelation"
+            };
+            if verb == "delete" {
+                api.on("FindIssueRelation", relations_of("blocks", ISSUE_1));
+            }
+            api.on_error(mutation, "Entity not found: Issue");
+            for identifier in ["ENG-1", "ENG-2"] {
+                api.on_variables(
+                    "GetIssueLifecycle",
+                    json!({ "id": identifier }),
+                    json!({ "issue": {
+                    "identifier": identifier, "trashed": identifier == deleted, "archivedAt": null
+                } }),
+                );
+                if identifier == deleted {
+                    break;
+                }
+            }
+            let mut args = vec!["issue", "relation", verb, "ENG-1", "blocked-by", "ENG-2"];
+            if verb == "delete" {
+                args.push("--yes");
+            }
+            let run = Cli::for_api(&api).run(&args);
+            run.not_found()
+                .stderr_has(&format!("{deleted} was deleted (in trash)"))
+                .stderr_has("Restore it in Linear first");
+            assert!(run.stdout.is_empty(), "{run}");
+            assert_eq!(
+                api.operations()
+                    .iter()
+                    .filter(|op| op.as_str() == mutation)
+                    .count(),
+                1
+            );
+        }
+    }
+}
+
+#[test]
+fn relation_list_marks_subject_and_both_reference_directions() {
+    let api = MockLinear::start();
+    api.on("ListIssueRelations", json!({ "issue": {
+        "id": ISSUE_1, "identifier": "ENG-1", "title": "Subject", "trashed": true, "archivedAt": null,
+        "relations": { "nodes": [{ "id": "out", "type": "related", "relatedIssue": {
+            "identifier": "ENG-2", "title": "Deleted", "trashed": true, "archivedAt": null
+        } }], "pageInfo": last_page() },
+        "inverseRelations": { "nodes": [{ "id": "in", "type": "blocks", "issue": {
+            "identifier": "ENG-3", "title": "Archived", "trashed": null, "archivedAt": "2026-11-09T20:50:36.574Z"
+        } }], "pageInfo": last_page() }
+    } }));
+    Cli::for_api(&api)
+        .run(&["issue", "relation", "list", "ENG-1"])
+        .success()
+        .stdout_has("Relations for ENG-1 [deleted]: Subject")
+        .stdout_has("ENG-1 [deleted] related ENG-2 [deleted]: Deleted")
+        .stdout_has("ENG-1 [deleted] blocked-by ENG-3 [archived]: Archived");
 }

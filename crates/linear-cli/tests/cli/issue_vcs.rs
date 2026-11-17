@@ -8,6 +8,7 @@ const URL: &str = "https://linear.app/acme/issue/ENG-7/repair-the-widget";
 fn details() -> Value {
     let last = json!({ "hasNextPage": false, "endCursor": null });
     json!({ "issue": {
+        "trashed": null, "archivedAt": null,
         "identifier": "ENG-7", "title": "Repair the widget", "description": null,
         "url": URL, "branchName": "eng-7-repair-the-widget",
         "state": { "name": "Todo", "type": "unstarted", "color": "#123456" }, "assignee": null, "delegate": null, "priority": 2,
@@ -2551,4 +2552,110 @@ commit_description = "{{ issue.title }}\n{{ issue.description }}\n{{ issue.url }
     run.success().stdout_has(&format!(
         "first second\none\n\u{fffd}[2Jtwo\n{URL}\u{fffd}[2J\n"
     ));
+}
+
+#[test]
+fn deleted_issues_never_prepare_git_jj_or_pull_requests_even_when_already_started() {
+    for state in ["unstarted", "started", "completed"] {
+        for tool in ["git", "jj", "gh"] {
+            let api = MockLinear::start();
+            let mut value = details();
+            value["issue"]["trashed"] = json!(true);
+            value["issue"]["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+            value["issue"]["state"]["type"] = json!(state);
+            let operation = if tool == "gh" {
+                "GetIssueDetails"
+            } else {
+                "GetIssueTransitionDetails"
+            };
+            api.on(operation, value);
+            let cli = gh(git(jj(Cli::for_api(&api))));
+            let command = if tool == "gh" { "pr" } else { "start" };
+            let run = cli.run(&["issue", tool, command, "ENG-7"]);
+            run.failure()
+                .stderr_has("ENG-7 was deleted on 2026-11-09")
+                .stderr_has("Restore it in Linear first");
+            assert!(run.stdout.is_empty(), "{run}");
+            assert!(cli.calls(tool).is_empty(), "{tool} ran for a deleted issue");
+            assert_eq!(api.operations(), [operation]);
+        }
+    }
+}
+
+#[test]
+fn pull_request_checks_every_issue_before_gh_runs() {
+    let api = MockLinear::start();
+    api.on_variables("GetIssueDetails", json!({ "id": "ENG-7" }), details());
+    let mut deleted = details();
+    deleted["issue"]["trashed"] = json!(true);
+    api.on_variables("GetIssueDetails", json!({ "id": "ENG-8" }), deleted);
+    let cli = gh(Cli::for_api(&api));
+    cli.run(&["issue", "gh", "pr", "ENG-7", "ENG-8", "--title", "Together"])
+        .failure()
+        .stderr_has("ENG-8 was deleted")
+        .stderr_has("No pull request was opened");
+    assert!(cli.calls("gh").is_empty());
+}
+
+#[test]
+fn describe_warns_on_stderr_and_preserves_the_commit_description() {
+    let api = MockLinear::start();
+    let mut deleted = details();
+    deleted["issue"]["trashed"] = json!(true);
+    api.on("GetIssueDetails", details())
+        .on("GetIssueDetails", deleted);
+    let cli = Cli::for_api(&api);
+    let active = cli.run(&["issue", "describe", "ENG-7"]);
+    let deleted = cli.run(&["issue", "describe", "ENG-7"]);
+    active.success();
+    deleted.success().stderr_has("Warning: ENG-7 was deleted");
+    assert_eq!(active.stdout, deleted.stdout);
+}
+
+#[test]
+fn archived_issues_warn_but_can_still_prepare_a_pull_request() {
+    let api = MockLinear::start();
+    let mut archived = details();
+    archived["issue"]["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+    api.on("GetIssueDetails", archived);
+    let cli = gh(Cli::for_api(&api));
+    cli.run(&["issue", "gh", "pr", "ENG-7"])
+        .success()
+        .stderr_has("ENG-7 was archived on 2026-11-09");
+    assert_eq!(cli.calls("gh").len(), 1);
+}
+
+#[test]
+fn archived_issues_can_start_work_and_deletion_races_keep_repository_recovery() {
+    for tool in ["git", "jj"] {
+        for deleted_after_preparation in [false, true] {
+            let api = MockLinear::start();
+            let mut archived = details();
+            archived["issue"]["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+            api.on("GetIssueTransitionDetails", archived)
+                .on("GetWorkflowStates", states());
+            if deleted_after_preparation {
+                api.on_error("UpdateIssueState", "Entity not found: Issue")
+                    .on("GetIssueLifecycle", json!({ "issue": { "identifier": "ENG-7", "trashed": true, "archivedAt": null } }));
+            } else {
+                api.on(
+                    "UpdateIssueState",
+                    json!({ "issueUpdate": { "success": true } }),
+                );
+            }
+            let cli = git(jj(Cli::for_api(&api)));
+            let run = cli.run(&["issue", tool, "start", "ENG-7"]);
+            run.stderr_has("Warning: ENG-7 was archived on 2026-11-09");
+            if deleted_after_preparation {
+                run.not_found().stderr_has("ENG-7 was deleted");
+                assert!(
+                    run.stderr.contains("ready") || run.stderr.contains("prepared"),
+                    "{run}"
+                );
+            } else {
+                run.success();
+            }
+            assert!(!cli.calls(tool).is_empty());
+        }
+    }
 }

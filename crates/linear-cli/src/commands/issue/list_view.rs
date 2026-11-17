@@ -116,7 +116,11 @@ pub fn table(rows: &[ListedIssue], team: bool, assignee: bool, now: SystemTime) 
     for r in rows {
         let mut cells = vec![
             Cell::from(priority(r.priority)),
-            Cell::from(r.identifier.as_str()),
+            Cell::from(format!(
+                "{}{}",
+                r.identifier,
+                super::lifecycle::Lifecycle::of(r.trashed, r.archived_at).marker()
+            )),
         ];
         if team {
             cells.push(Cell::from(r.team.key.as_str()));
@@ -218,5 +222,37 @@ pub(super) fn print_table(ctx: &crate::ctx::Ctx, table: &Table, paging: bool) ->
         ctx.page(&rendered, paging)
     } else {
         ctx.print(rendered)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn lifecycle_markers_survive_narrow_tables_with_long_titles() {
+        for (trashed, archived, marker) in [
+            (Some(true), None, "[deleted]"),
+            (Some(false), Some("2026-11-09T20:50:36.574Z"), "[archived]"),
+        ] {
+            let row: ListedIssue = serde_json::from_value(json!({
+                "id": "issue-1", "identifier": "ENG-1",
+                "title": "Investigate the widget regression with a very long title that must be truncated",
+                "url": "https://linear.app/acme/issue/ENG-1", "priority": 2, "priorityLabel": "High", "estimate": null,
+                "trashed": trashed, "archivedAt": archived,
+                "createdAt": "2024-01-01T00:00:00.000Z", "updatedAt": "2024-01-01T00:00:00.000Z",
+                "state": { "id": "state-1", "name": "Todo", "color": "#123456", "type": "unstarted", "position": 1 },
+                "assignee": null, "project": null, "projectMilestone": null, "cycle": null,
+                "team": { "id": "team-1", "key": "ENG", "name": "Engineering", "cyclesEnabled": false, "activeCycle": null },
+                "labels": { "nodes": [] }, "inverseRelations": { "nodes": [] }
+            })).expect("issue row");
+            let output = table(&[row], true, true, SystemTime::now()).render(Some(80), false);
+            assert!(output.contains(marker), "{output}");
+            assert!(
+                output.contains('…'),
+                "the title should be truncated: {output}"
+            );
+        }
     }
 }

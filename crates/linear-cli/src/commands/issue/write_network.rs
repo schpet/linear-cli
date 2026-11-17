@@ -320,14 +320,28 @@ impl Backend for NetworkBackend {
         input: crate::graphql::operations::issue::IssueUpdateInput,
     ) -> Result<Updated, Error> {
         use crate::graphql::operations::issue::{UpdateIssue, UpdateIssueVariables};
-        let data: UpdateIssue = self
+        let parent = match &input.parent_id {
+            crate::graphql::edit::Edit::Set(parent) => Some(parent.clone()),
+            crate::graphql::edit::Edit::Unchanged | crate::graphql::edit::Edit::Clear => None,
+        };
+        let data: Result<UpdateIssue, _> = self
             .client
             .mutate(UpdateIssueVariables {
                 id: id.clone(),
                 input,
             })
-            .await
-            .map_err(|failure| failure.or_not_found("Issue", &id))?;
+            .await;
+        let data = match data {
+            Ok(data) => data,
+            Err(failure) => {
+                let identifiers: Vec<&str> = std::iter::once(id.as_str())
+                    .chain(parent.as_deref())
+                    .collect();
+                return Err(
+                    super::lifecycle::write_error(&self.client, &identifiers, failure).await,
+                );
+            }
+        };
         if !data.issue_update.success {
             return Err(Error::new("Linear did not update the issue"));
         }

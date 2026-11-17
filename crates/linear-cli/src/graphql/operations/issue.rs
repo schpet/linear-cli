@@ -135,6 +135,8 @@ pub struct GetIssueDetails {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct IssueDetails {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub title: String,
     pub url: String,
     pub description: Option<String>,
@@ -152,6 +154,8 @@ pub struct GetIssueTransitionDetails {
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct IssueTransitionDetails {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub identifier: String,
     pub title: String,
     pub url: String,
@@ -236,6 +240,8 @@ pub struct ListIssueRelations {
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct ListedIssue {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
@@ -280,6 +286,8 @@ pub struct IncomingRelation {
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
 pub struct DisplayIssue {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     pub identifier: String,
     pub title: String,
 }
@@ -830,4 +838,20 @@ pub struct GetTeamIdOptionsByKey {
 #[cynic(schema = "linear", graphql_type = "TeamConnection")]
 pub struct TeamNames {
     pub nodes: Vec<TeamRef>,
+}
+
+/// Lifecycle lookup used only to explain a rejected issue write.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
+pub struct GetIssueLifecycle {
+    #[arguments(id: $id)]
+    pub issue: Option<IssueLifecycle>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Issue")]
+pub struct IssueLifecycle {
+    pub identifier: String,
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
 }

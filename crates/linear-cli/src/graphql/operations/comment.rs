@@ -327,6 +327,8 @@ pub struct GetIssueComments {
     variables = "GetIssueCommentsVariables"
 )]
 pub struct CommentIssue {
+    pub trashed: Option<bool>,
+    pub archived_at: Option<DateTime>,
     #[arguments(first: $first, after: $after, orderBy: createdAt)]
     pub comments: CommentConnection,
 }
@@ -446,4 +448,22 @@ pub struct ResolvedComment {
     pub id: cynic::Id,
     pub resolved_at: Option<DateTime>,
     pub resolving_comment_id: Option<String>,
+}
+
+/// A rejected comment edit has only a comment ID; recover its owning issue.
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetCommentVariables"
+)]
+pub struct GetCommentIssueLifecycle {
+    #[arguments(id: $id)]
+    pub comment: Option<CommentIssueLifecycle>,
+}
+
+#[derive(cynic::QueryFragment, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Comment")]
+pub struct CommentIssueLifecycle {
+    pub issue: Option<super::issue::IssueLifecycle>,
 }

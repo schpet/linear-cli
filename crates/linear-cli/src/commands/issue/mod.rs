@@ -11,6 +11,7 @@ mod describe;
 mod details;
 mod filter;
 pub(crate) mod id;
+pub(crate) mod lifecycle;
 mod link;
 mod list_view;
 mod mine;

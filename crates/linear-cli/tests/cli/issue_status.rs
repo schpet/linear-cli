@@ -6,6 +6,7 @@ use crate::support::{Cli, MockLinear};
 
 fn issue(state: &str, state_type: &str) -> Value {
     json!({ "issue": {
+        "trashed": null, "archivedAt": null,
         "identifier": "ENG-7", "title": "Repair the widget", "description": null,
         "url": "https://linear.app/acme/issue/ENG-7/repair-the-widget",
         "branchName": "eng-7-repair-the-widget",
@@ -293,4 +294,24 @@ fn a_status_verb_takes_the_issue_from_at_git_only_when_asked() {
         [["symbolic-ref", "--quiet", "--short", "HEAD"]]
     );
     assert!(calls(&cli, "jj").is_empty());
+}
+
+#[test]
+fn deleted_issues_are_refused_before_status_shortcuts_or_mutations() {
+    for (command, state_type) in [
+        ("start", "started"),
+        ("complete", "completed"),
+        ("cancel", "canceled"),
+    ] {
+        let api = MockLinear::start();
+        let mut value = issue("Already there", state_type);
+        value["issue"]["trashed"] = json!(true);
+        api.on("GetIssueTransitionDetails", value);
+        let run = Cli::for_api(&api).run(&["issue", command, "ENG-7"]);
+        run.failure()
+            .stderr_has("ENG-7 was deleted")
+            .stderr_has("Restore it in Linear first");
+        assert!(run.stdout.is_empty(), "{run}");
+        assert_eq!(api.operations(), ["GetIssueTransitionDetails"]);
+    }
 }

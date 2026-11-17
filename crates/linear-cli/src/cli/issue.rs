@@ -216,7 +216,7 @@ pub struct IssueQuery {
     pub sort: Option<crate::config::IssueSort>,
     #[command(flatten)]
     pub filters: IssueFilters,
-    /// Include archived issues
+    /// Include archived issues (excluded by default)
     #[arg(long)]
     pub include_archived: bool,
     /// Print JSON

@@ -29,6 +29,8 @@ fn covered(identifier: &str) -> Covered {
     Covered {
         identifier: identifier.to_owned(),
         details: IssueDetails {
+            trashed: None,
+            archived_at: None,
             title: format!("{identifier} title"),
             description: None,
             url: format!("https://linear.app/acme/issue/{identifier}/slug"),

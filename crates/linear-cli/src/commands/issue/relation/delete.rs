@@ -23,7 +23,14 @@ fn delete(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
     if !confirm::proceed(ctx, args.confirm.yes, &question)? {
         return Ok(());
     }
-    let deleted: DeleteIssueRelation = ctx.spin(true, client.mutate(DeleteVariables { id }))?;
+    let deleted: DeleteIssueRelation = ctx.spin(true, async {
+        match client.mutate(DeleteVariables { id }).await {
+            Ok(deleted) => Ok(deleted),
+            Err(failure) => {
+                Err(super::super::lifecycle::write_error(client, &[&a, &b], failure).await)
+            }
+        }
+    })?;
     if !deleted.issue_relation_delete.success {
         return Err(Error::new("Linear did not delete the relation"));
     }
