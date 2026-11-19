@@ -1629,6 +1629,49 @@ fn query_format_includes_the_id_template_and_preserves_configured_tabs() {
 }
 
 #[test]
+fn query_format_links_macro_fragments_with_an_outer_destination_and_fallback() {
+    let api = MockLinear::start();
+    let response = issues(vec![list_issue(42, "DEMO", "started")], None);
+    api.on("GetIssuesForQuery", response.clone())
+        .on("GetIssuesForQuery", response);
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[template-aliases]
+parts = '''
+{% macro label(issue) -%}
+See {{ hyperlink("https://example.test/inner", issue.identifier, "local/" ~ issue.identifier) }}
+{%- endmacro %}
+{% macro fallback(issue) -%}
+Copy {{ label(issue) }}
+{%- endmacro %}'''
+row = '''{% from "parts" import label, fallback %}{{ hyperlink("https://example.test/outer", label(issue), fallback(issue)) }}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "query",
+        "--all-teams",
+        "--format",
+        "row",
+        "--no-pager",
+    ];
+    let styled = cli.run_tty(&args, &[]);
+    assert_eq!(styled.success().stdout, "See DEMO-42\n");
+    assert!(
+        styled
+            .terminal
+            .contains("\x1b]8;;https://example.test/outer\x1b\\See DEMO-42\x1b]8;;\x1b\\"),
+        "{styled:?}"
+    );
+    assert!(
+        !styled.terminal.contains("https://example.test/inner"),
+        "{styled:?}"
+    );
+    let plain = cli.run(&args);
+    assert_eq!(plain.success().stdout, "Copy See local/DEMO-42\n");
+}
+
+#[test]
 fn query_search_format_keeps_search_metadata() {
     let api = MockLinear::start();
     let mut row = list_issue(42, "DEMO", "started");

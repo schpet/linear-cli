@@ -301,8 +301,10 @@ Use `function(...)` for a function, `value | filter(...)` for a filter, and `val
 
 | Function | Result |
 |---|---|
-| `hyperlink(url: String, text: String[, fallback: String])` | Displays `text` as a link to an absolute URI in a styled terminal. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and document templates use `fallback`, which defaults to `text`. The terminal decides which schemes it can open. Apply filters to the label before passing it in. |
+| `hyperlink(url: String, text: Content[, fallback: Content]) → Content` | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and document templates use this fallback. The terminal decides which schemes it can open. |
 | `fail(message: String)` | Stops rendering with the given message. |
+
+`Content` accepts a string or rendered template content, such as the result of a macro. Printing or concatenating that content preserves its links. Wrapping it in another `hyperlink` gives the whole visible label the outer destination. To measure or transform an identifier, operate on the string first, as in `hyperlink(issue.url, issue.identifier | lower)`.
 
 | Filter | Result | Keyword arguments |
 |---|---|---|

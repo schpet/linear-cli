@@ -38,16 +38,31 @@ impl DisplayText {
 
     pub fn terminal(&self) -> String {
         let mut output = String::new();
+        self.write_terminal(&mut output, None);
+        output
+    }
+
+    /// Writes the full display text or a prefix ending at the given UTF-8 byte boundary.
+    pub fn write_terminal(&self, output: &mut String, prefix: Option<usize>) {
+        let mut remaining = prefix.unwrap_or(usize::MAX);
         for span in &self.spans {
-            let text = inline(&span.text, true, false);
+            if remaining == 0 {
+                break;
+            }
+            let length = remaining.min(span.text.len());
+            let part = span
+                .text
+                .get(..length)
+                .expect("the kept prefix ends on a character boundary");
+            let text = inline(part, true, false);
             match &span.url {
                 Some(url) if !text.is_empty() => {
                     output.push_str(&markdown_terminal::hyperlink(&text, url));
                 }
                 _ => output.push_str(&text),
             }
+            remaining -= length;
         }
-        output
     }
 }
 

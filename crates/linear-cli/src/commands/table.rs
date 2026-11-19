@@ -9,7 +9,7 @@
 use std::borrow::Cow;
 
 use crate::ctx::Ctx;
-use crate::platform::{markdown_terminal, style, terminal_text};
+use crate::platform::{style, terminal_text};
 use crate::templates::DisplayText;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -102,24 +102,7 @@ impl Cell {
         match &self.paint {
             Some(Paint::Style(paint)) => output.push_str(&paint(&text, color)),
             Some(Paint::Display(display)) if color => {
-                let mut remaining = kept;
-                for span in &display.spans {
-                    if remaining == 0 {
-                        break;
-                    }
-                    let length = remaining.min(span.text.len());
-                    let part = span
-                        .text
-                        .get(..length)
-                        .expect("the kept prefix ends on a character boundary");
-                    match &span.url {
-                        Some(url) if !part.is_empty() => {
-                            output.push_str(&markdown_terminal::hyperlink(part, url));
-                        }
-                        _ => output.push_str(part),
-                    }
-                    remaining -= length;
-                }
+                display.write_terminal(output, Some(kept));
                 output.push_str(
                     text.get(kept..)
                         .expect("padding and ellipsis follow the kept prefix"),
