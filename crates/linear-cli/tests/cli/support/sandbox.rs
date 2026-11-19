@@ -221,16 +221,36 @@ impl Cli {
     /// stderr together, with escape sequences and carriage returns removed;
     /// its `stderr` is empty.
     pub fn run_tty(&self, args: &[&str], steps: &[(&str, &str)]) -> Run {
+        self.run_tty_with_width(args, steps, None)
+    }
+
+    /// Runs on a pseudo-terminal with explicit dimensions for layout tests.
+    pub fn run_tty_with_width(
+        &self,
+        args: &[&str],
+        steps: &[(&str, &str)],
+        columns: Option<u16>,
+    ) -> Run {
         let binary = env!("CARGO_BIN_EXE_linear");
+        let columns = columns.map(|columns| columns.to_string());
+        let mut argv = Vec::new();
+        if let Some(columns) = &columns {
+            argv.extend([
+                "/bin/sh",
+                "-c",
+                r#"/bin/stty rows 24 cols "$1" && shift && exec "$@""#,
+                "sh",
+                columns.as_str(),
+            ]);
+        }
+        argv.push(binary);
+        argv.extend_from_slice(args);
         let mut command = Command::new("/usr/bin/script");
         if cfg!(target_os = "macos") {
-            command.args(["-q", "/dev/null", binary]).args(args);
+            command.args(["-q", "/dev/null"]).args(argv);
         } else {
             let quote = |word: &str| format!("'{}'", word.replace('\'', r"'\''"));
-            let line: Vec<String> = std::iter::once(binary)
-                .chain(args.iter().copied())
-                .map(quote)
-                .collect();
+            let line: Vec<String> = argv.into_iter().map(quote).collect();
             command.args(["-q", "-e", "-c", &line.join(" "), "/dev/null"]);
         }
         let mut child = command

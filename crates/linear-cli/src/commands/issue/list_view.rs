@@ -9,7 +9,7 @@ use crate::graphql::operations::issue_read::*;
 use crate::graphql::scalars::WholeNumber;
 use crate::platform::style;
 use crate::refs::{IssueReference, workflow_states};
-use crate::templates::{DisplaySpan, TemplateConfig};
+use crate::templates::TemplateConfig;
 
 mod output;
 pub(super) use output::Output;
@@ -144,7 +144,7 @@ fn table_column(column: IssueColumn, explicit: bool) -> Column {
 
     let (column, drop_rank) = match column {
         Priority => (Column::fixed("◌"), None),
-        Id => (Column::fixed("ID"), None),
+        Id => (Column::flexible("ID"), None),
         Team => (Column::fixed("TEAM"), Some(6)),
         Title => (Column::flexible("TITLE"), None),
         Labels => (Column::flexible("LABELS"), Some(2)),
@@ -174,15 +174,9 @@ fn issue_cell(
         Priority => Cell::from(priority(row.priority)),
         Id => {
             let reference = IssueReference::new(&row.identifier, Some(&row.url));
-            let mut display = templates.format_issue_id(&reference, styled)?;
+            let display = templates.format_issue_id(&reference, styled)?;
             let marker = super::lifecycle::Lifecycle::of(row.trashed, row.archived_at).marker();
-            if !marker.is_empty() {
-                display.spans.push(DisplaySpan {
-                    text: marker.to_owned(),
-                    url: None,
-                });
-            }
-            Cell::display(display)
+            Cell::display(display, marker)
         }
         Team => Cell::from(row.team.key.as_str()),
         Title => Cell::from(row.title.as_str()),

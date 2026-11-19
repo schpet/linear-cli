@@ -4,20 +4,21 @@
 //! When stdout is a terminal narrower than the table, the flexible columns
 //! give up width (widest first, never below [`FLEX_MIN`]) and their cells are
 //! cut at a character boundary with `…`. If that is not enough, droppable
-//! columns are hidden, lowest rank first, and as a last resort flexible
-//! columns shrink to [`FLEX_LAST_RESORT`]. Piped output is never truncated.
+//! columns are hidden, lowest rank first. Flexible labels shrink further
+//! when necessary, while suffixes remain visible. Piped output is never truncated.
 use std::borrow::Cow;
 
 use crate::ctx::Ctx;
 use crate::platform::{markdown_terminal, style, terminal_text};
 use crate::templates::DisplayText;
-use unicode_width::UnicodeWidthChar;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 /// Flexible columns keep at least this many terminal columns (or their full
 /// width when narrower) so their values stay recognizable.
 pub const FLEX_MIN: usize = 12;
 
-/// How far flexible columns shrink when hiding columns was not enough.
+/// The preferred fallback width when hiding columns was not enough.
 pub const FLEX_LAST_RESORT: usize = 6;
 
 const GUTTER: &str = "  ";
@@ -62,6 +63,7 @@ impl Column {
 pub struct Cell {
     text: String,
     paint: Option<Paint>,
+    suffix: &'static str,
 }
 
 enum Paint {
@@ -74,21 +76,29 @@ impl Cell {
         Self {
             text: cell_text(text.into()),
             paint: Some(Paint::Style(Box::new(paint))),
+            suffix: "",
         }
     }
 
-    pub fn display(mut display: DisplayText) -> Self {
+    /// A rich cell with a suffix that stays visible when its label is clipped.
+    pub fn display(mut display: DisplayText, suffix: &'static str) -> Self {
         for span in &mut display.spans {
             span.text = cell_text(std::mem::take(&mut span.text));
         }
         Self {
             text: display.plain(),
             paint: Some(Paint::Display(display)),
+            suffix,
         }
     }
 
     fn render(&self, output: &mut String, width: usize, last: bool, color: bool) {
-        let (text, kept) = fit(&self.text, width, last);
+        let suffix_width = display_width(self.suffix);
+        let (text, kept) = fit(
+            &self.text,
+            width.saturating_sub(suffix_width),
+            last || !self.suffix.is_empty(),
+        );
         match &self.paint {
             Some(Paint::Style(paint)) => output.push_str(&paint(&text, color)),
             Some(Paint::Display(display)) if color => {
@@ -117,6 +127,13 @@ impl Cell {
             }
             Some(Paint::Display(_)) | None => output.push_str(&text),
         }
+        if !self.suffix.is_empty() {
+            output.push_str(self.suffix);
+            if !last {
+                let padding = width.saturating_sub(display_width(&text) + suffix_width);
+                output.extend(std::iter::repeat_n(' ', padding));
+            }
+        }
     }
 }
 
@@ -125,6 +142,7 @@ impl<T: Into<String>> From<T> for Cell {
         Self {
             text: cell_text(text.into()),
             paint: None,
+            suffix: "",
         }
     }
 }
@@ -141,6 +159,11 @@ fn cell_text(text: String) -> String {
 pub struct Table {
     columns: Vec<Column>,
     rows: Vec<Vec<Cell>>,
+}
+
+struct ColumnWidth {
+    natural: usize,
+    suffix: usize,
 }
 
 impl Table {
@@ -189,7 +212,7 @@ impl Table {
             // Cells after the last non-empty one would only add trailing space.
             let shown = row
                 .iter()
-                .rposition(|(cell, _)| !cell.text.is_empty())
+                .rposition(|(cell, _)| !cell.text.is_empty() || !cell.suffix.is_empty())
                 .map_or(0, |last| last + 1);
             for (index, &(cell, width)) in row.iter().take(shown).enumerate() {
                 if index > 0 {
@@ -204,22 +227,30 @@ impl Table {
 
     /// Each column's width, or `None` for a column hidden to fit `available`.
     fn widths(&self, available: Option<usize>) -> Vec<Option<usize>> {
-        let mut natural: Vec<usize> = self
+        let mut measured: Vec<_> = self
             .columns
             .iter()
-            .map(|column| display_width(column.header))
+            .map(|column| ColumnWidth {
+                natural: display_width(column.header),
+                suffix: 0,
+            })
             .collect();
         for row in &self.rows {
-            for (width, cell) in natural.iter_mut().zip(row) {
-                *width = (*width).max(display_width(&cell.text));
+            for (width, cell) in measured.iter_mut().zip(row) {
+                let suffix = display_width(cell.suffix);
+                width.natural = width.natural.max(display_width(&cell.text) + suffix);
+                width.suffix = width.suffix.max(suffix);
             }
         }
         let Some(available) = available else {
-            return natural.into_iter().map(Some).collect();
+            return measured
+                .into_iter()
+                .map(|width| Some(width.natural))
+                .collect();
         };
         let mut shown = vec![true; self.columns.len()];
         loop {
-            let (widths, fits) = self.shrink(&natural, &shown, available, FLEX_MIN);
+            let (widths, fits) = self.shrink(&measured, &shown, available, FLEX_MIN);
             if fits {
                 return widths;
             }
@@ -235,35 +266,40 @@ impl Table {
                 None => break,
             }
         }
-        self.shrink(&natural, &shown, available, FLEX_LAST_RESORT).0
+        let (widths, fits) = self.shrink(&measured, &shown, available, FLEX_LAST_RESORT);
+        if fits {
+            return widths;
+        }
+        // Leave room for the ellipsis even when no label text fits.
+        self.shrink(&measured, &shown, available, 1).0
     }
 
     /// The shown columns' widths after flexible columns give up width (widest
     /// first, down to `floor`) to fit `available`, and whether they fit.
     fn shrink(
         &self,
-        natural: &[usize],
+        measured: &[ColumnWidth],
         shown: &[bool],
         available: usize,
         floor: usize,
     ) -> (Vec<Option<usize>>, bool) {
-        let mut widths: Vec<Option<usize>> = natural
+        let mut widths: Vec<Option<usize>> = measured
             .iter()
             .zip(shown)
-            .map(|(&width, &shown)| shown.then_some(width))
+            .map(|(width, &shown)| shown.then_some(width.natural))
             .collect();
         let count = widths.iter().flatten().count();
         let gutters = GUTTER.len() * count.saturating_sub(1);
         let mut excess =
             (widths.iter().flatten().sum::<usize>() + gutters).saturating_sub(available);
-        let floors: Vec<usize> = natural
+        let floors: Vec<usize> = measured
             .iter()
             .zip(&self.columns)
-            .map(|(&width, column)| {
+            .map(|(width, column)| {
                 if column.flexible {
-                    width.min(floor)
+                    width.natural.min(floor + width.suffix)
                 } else {
-                    width
+                    width.natural
                 }
             })
             .collect();
@@ -271,9 +307,15 @@ impl Table {
             let widest = widths
                 .iter_mut()
                 .zip(&floors)
-                .filter_map(|(width, floor)| width.as_mut().filter(|width| **width > *floor))
-                .max_by_key(|width| **width);
-            let Some(width) = widest else { break };
+                .zip(measured)
+                .filter_map(|((width, floor), measured)| {
+                    width
+                        .as_mut()
+                        .filter(|width| **width > *floor)
+                        .map(|width| (width, measured.suffix))
+                })
+                .max_by_key(|(width, suffix)| width.saturating_sub(*suffix));
+            let Some((width, _)) = widest else { break };
             *width -= 1;
             excess -= 1;
         }
@@ -301,11 +343,11 @@ pub fn stdout_width(ctx: &Ctx) -> Option<usize> {
 
 /// How many terminal columns `text` occupies.
 pub fn display_width(text: &str) -> usize {
-    text.chars().map(|ch| ch.width().unwrap_or(0)).sum()
+    text.width()
 }
 
 /// `text` shortened to at most `width` columns, ending in `…` when cut.
-/// Characters are never split.
+/// The cut falls between extended grapheme clusters.
 pub fn truncate(text: &str, width: usize) -> String {
     truncated(text, width).0
 }
@@ -319,12 +361,18 @@ fn truncated(text: &str, width: usize) -> (String, usize) {
     };
     let mut result = String::new();
     let mut used = 0;
-    for ch in text.chars() {
-        let next = used + ch.width().unwrap_or(0);
+    for cluster in text.graphemes(true) {
+        let mut next = used + cluster.width();
+        if next > room {
+            // Width can depend on adjoining clusters, for example Arabic
+            // lam-alef. Measure the prefix at a possible cut.
+            let end = result.len() + cluster.len();
+            next = text.get(..end).expect("end is a grapheme boundary").width();
+        }
         if next > room {
             break;
         }
-        result.push(ch);
+        result.push_str(cluster);
         used = next;
     }
     let kept = result.len();
@@ -376,6 +424,8 @@ mod tests {
         assert_eq!(display_width("ab"), 2);
         assert_eq!(display_width("界"), 2);
         assert_eq!(display_width("e\u{301}"), 1);
+        assert_eq!(display_width("👩‍💻"), 2);
+        assert_eq!(display_width("✈️"), 2);
     }
 
     #[test]
@@ -384,6 +434,10 @@ mod tests {
         assert_eq!(truncate("abcdefgh", 6), "abcde…");
         assert_eq!(truncate("界界界界", 6), "界界…");
         assert_eq!(truncate("界界", 2), "…");
+        assert_eq!(truncate("👩‍💻🧑‍💻abcdef", 5), "👩‍💻🧑‍💻…");
+        assert_eq!(truncate("ab✈️xyz", 4), "ab…");
+        assert_eq!(truncate("e\u{301}界界abc", 4), "e\u{301}界…");
+        assert_eq!(truncate("لاabxyz", 4), "لاab…");
         assert_eq!(truncate("abc", 0), "");
     }
 
@@ -397,13 +451,16 @@ mod tests {
         };
         let mut table = Table::new([Column::flexible("ITEM"), Column::fixed("END")]);
         table.row([
-            Cell::display(DisplayText {
-                spans: vec![
-                    span("界界", Some(first)),
-                    span(" | ", None),
-                    span("界界界界界", Some(second)),
-                ],
-            }),
+            Cell::display(
+                DisplayText {
+                    spans: vec![
+                        span("界界", Some(first)),
+                        span(" | ", None),
+                        span("界界界界界", Some(second)),
+                    ],
+                },
+                "",
+            ),
             Cell::from("x"),
         ]);
         let plain = table.render(Some(18), false);

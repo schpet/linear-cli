@@ -12,7 +12,9 @@ use crate::platform::terminal_text;
 use crate::refs::IssueReference;
 
 mod display;
-pub use display::{DisplaySpan, DisplayText};
+#[cfg(test)]
+pub use display::DisplaySpan;
+pub use display::DisplayText;
 
 const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";

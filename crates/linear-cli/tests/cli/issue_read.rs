@@ -1491,6 +1491,114 @@ format_issue_id = '{{ hyperlink(issue.url, "界", issue.workspace_url_key ~ "/" 
 }
 
 #[test]
+fn narrow_issue_table_clips_long_ids_before_their_lifecycle_marker() {
+    use unicode_width::UnicodeWidthStr;
+
+    const URL: &str = "https://linear.app/workspace-one/issue/DEMO-42";
+    const WIDTH: u16 = 32;
+    let api = MockLinear::start();
+    let mut archived = list_issue(42, "DEMO", "unstarted");
+    archived["url"] = json!(URL);
+    archived["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+    archived["state"]["name"] = json!("Todo");
+    let mut live = list_issue(7, "DEMO", "unstarted");
+    live["url"] = json!("https://linear.app/workspace-one/issue/DEMO-7");
+    live["state"]["name"] = json!("Todo");
+    let response = issues(vec![archived, live], None);
+    for _ in 0..5 {
+        api.on("GetIssuesForQuery", response.clone());
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[templates]
+format_issue_id = '''{% if issue.identifier == "DEMO-42" %}{{ hyperlink(issue.url, "Workspace one demonstration issue display", "workspace-one/reference/DEMO-42 full fallback") }}{% else %}{{ hyperlink(issue.url, issue.identifier) }}{% endif %}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "query",
+        "--all-teams",
+        "--include-archived",
+        "--columns",
+        "id,title",
+        "--no-pager",
+    ];
+    let assert_fits = |output: &str| {
+        assert_eq!(output.lines().count(), 3, "{output}");
+        assert!(
+            output
+                .lines()
+                .all(|line| line.width() <= usize::from(WIDTH)),
+            "{output}"
+        );
+        assert!(output.contains("DEMO-7"), "{output}");
+    };
+    let styled = cli.run_tty_with_width(&args, &[], Some(WIDTH));
+    assert_fits(&styled.success().stdout);
+    let archived = styled
+        .terminal
+        .lines()
+        .find(|line| line.contains("[archived]"))
+        .expect("archived row");
+    let (label, after) = archived
+        .strip_prefix(&format!("\x1b]8;;{URL}\x1b\\"))
+        .and_then(|row| row.split_once("\x1b]8;;\x1b\\"))
+        .expect("archived row starts with a complete hyperlink");
+    assert!(
+        label.starts_with("Work") && !label.contains('…'),
+        "{archived:?}"
+    );
+    assert!(after.starts_with("… [archived]  "), "{archived:?}");
+
+    let cli = cli.env("NO_COLOR", "1");
+    let plain = cli.run_tty_with_width(&args, &[], Some(WIDTH));
+    assert_fits(&plain.success().stdout);
+    let fallback = plain
+        .stdout
+        .lines()
+        .find(|line| line.contains("[archived]"))
+        .expect("archived row");
+    assert!(
+        fallback.starts_with("works") && fallback.contains("… [archived]  "),
+        "{fallback}"
+    );
+    assert!(!plain.terminal.contains('\x1b'), "{plain:?}");
+
+    let squeezed = cli.run_tty_with_width(&args, &[], Some(22));
+    let squeezed = &squeezed.success().stdout;
+    assert!(
+        squeezed.lines().all(|line| line.width() <= 22),
+        "{squeezed}"
+    );
+    assert!(squeezed.contains("… [archived]  "), "{squeezed}");
+
+    cli.run(&args)
+        .success()
+        .stdout_has("workspace-one/reference/DEMO-42 full fallback [archived]  ");
+
+    let default_columns = cli.env_remove("NO_COLOR").run_tty_with_width(
+        &[
+            "issue",
+            "query",
+            "--all-teams",
+            "--include-archived",
+            "--no-pager",
+        ],
+        &[],
+        Some(34),
+    );
+    let output = &default_columns.success().stdout;
+    assert!(output.lines().all(|line| line.width() <= 34), "{output}");
+    assert!(output.contains("… [archived]  "), "{output}");
+    assert!(
+        default_columns
+            .terminal
+            .contains(&format!("\x1b]8;;{URL}\x1b\\W")),
+        "{default_columns:?}"
+    );
+}
+
+#[test]
 fn query_format_includes_the_id_template_and_preserves_configured_tabs() {
     let api = MockLinear::start();
     let mut first = list_issue(42, "DEMO", "started");

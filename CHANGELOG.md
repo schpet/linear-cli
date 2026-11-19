@@ -104,6 +104,7 @@
 
 ### Fixed
 
+- List tables measure emoji and combining sequences by their terminal width and keep them intact when shortening a cell. Long templated issue IDs can shrink in narrow terminals while their archived or deleted markers stay visible.
 - Release preparation verifies exact svbump versions and cargo-dist announcement metadata before publishing stable or alpha tags; the release process documents dated alpha notes and pushes only the selected tag.
 - Template names now separate guide layouts and sections (`guide`, `guide_targeted`, `guide_*`) from command guidance (`skill_*`). Command hook names preserve hyphens, so `project update` and `project-update` (and their initiative equivalents) can have independent guidance without duplicate instructions in the full guide.
 - Built-in templates use consistent LF line endings in Windows builds, fixing CRLF in generated commit descriptions and pull request bodies. Custom template text and data retain their original whitespace.
