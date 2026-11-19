@@ -14,7 +14,7 @@ mod uuid;
 pub mod workflow_states;
 mod workspace;
 
-pub use issue::prepare_issue_reference;
+pub use issue::{IssueReference, prepare_issue_reference};
 pub use url::{LinearUrlKind, LinearUrlRef};
 pub use uuid::is_linear_uuid;
 pub use workspace::{

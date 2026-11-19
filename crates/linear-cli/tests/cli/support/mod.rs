@@ -4,7 +4,7 @@ mod sandbox;
 
 pub use json::{assert_json, nodes};
 pub use mock::{MockLinear, Request};
-pub use sandbox::{API_KEY, Cli, Run};
+pub use sandbox::{API_KEY, Cli, Run, plain_text};
 
 /// A structurally valid PNG `width` by `height` pixels (its pixel data is
 /// not decodable; only the terminal decodes it).

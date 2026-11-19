@@ -127,6 +127,12 @@ fn env_beats_files_and_debug_output_hides_the_key() {
 }
 
 #[test]
+fn dumb_terminals_use_plain_output() {
+    assert!(settings(&process(&[("TERM", "dumb")]), None).no_color);
+    assert!(!settings(&process(&[("TERM", "xterm-256color")]), None).no_color);
+}
+
+#[test]
 fn pager_is_captured_only_from_process_environment() {
     let files = MemFiles::default().file(
         "/work/.env",

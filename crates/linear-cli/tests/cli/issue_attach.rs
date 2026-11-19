@@ -346,11 +346,12 @@ fn relation_list_shows_outgoing_and_incoming_relations() {
         json!({
             "issue": {
                 "id": ISSUE_1, "trashed": null, "archivedAt": null, "identifier": "ENG-1", "title": "Main issue",
+                "url": "https://linear.app/workspace-one/issue/ENG-1",
                 "relations": { "nodes": [
-                    { "id": "r1", "type": "blocks", "relatedIssue": { "trashed": null, "archivedAt": null, "identifier": "ENG-2", "title": "Blocked one" } }
+                    { "id": "r1", "type": "blocks", "relatedIssue": { "trashed": null, "archivedAt": null, "identifier": "ENG-2", "title": "Blocked one", "url": "https://linear.app/workspace-one/issue/ENG-2" } }
                 ], "pageInfo": last_page() },
                 "inverseRelations": { "nodes": [
-                    { "id": "r2", "type": "related", "issue": { "trashed": null, "archivedAt": null, "identifier": "ENG-3", "title": "Related one" } }
+                    { "id": "r2", "type": "related", "issue": { "trashed": null, "archivedAt": null, "identifier": "ENG-3", "title": "Related one", "url": "https://linear.app/workspace-one/issue/ENG-3" } }
                 ], "pageInfo": last_page() }
             }
         }),
@@ -375,12 +376,13 @@ fn last_page() -> Value {
 #[test]
 fn relation_list_reads_every_page_of_both_directions() {
     let api = MockLinear::start();
-    let outgoing = |n: usize| json!({ "id": format!("out-{n}"), "type": "related", "relatedIssue": { "trashed": null, "archivedAt": null, "identifier": format!("ENG-{}", n + 100), "title": format!("Out {n}") } });
-    let incoming = |n: usize| json!({ "id": format!("in-{n}"), "type": "blocks", "issue": { "trashed": null, "archivedAt": null, "identifier": format!("OPS-{n}"), "title": format!("In {n}") } });
+    let outgoing = |n: usize| json!({ "id": format!("out-{n}"), "type": "related", "relatedIssue": { "trashed": null, "archivedAt": null, "identifier": format!("ENG-{}", n + 100), "title": format!("Out {n}"), "url": format!("https://linear.app/workspace-one/issue/ENG-{}", n + 100) } });
+    let incoming = |n: usize| json!({ "id": format!("in-{n}"), "type": "blocks", "issue": { "trashed": null, "archivedAt": null, "identifier": format!("OPS-{n}"), "title": format!("In {n}"), "url": format!("https://linear.app/workspace-one/issue/OPS-{n}") } });
     api.on(
         "ListIssueRelations",
         json!({ "issue": {
             "id": ISSUE_1, "trashed": null, "archivedAt": null, "identifier": "ENG-1", "title": "Main issue",
+            "url": "https://linear.app/workspace-one/issue/ENG-1",
             "relations": {
                 "nodes": (0..100).map(outgoing).collect::<Vec<_>>(),
                 "pageInfo": { "hasNextPage": true, "endCursor": "out-cursor" }
@@ -737,11 +739,14 @@ fn relation_list_marks_subject_and_both_reference_directions() {
     let api = MockLinear::start();
     api.on("ListIssueRelations", json!({ "issue": {
         "id": ISSUE_1, "identifier": "ENG-1", "title": "Subject", "trashed": true, "archivedAt": null,
+        "url": "https://linear.app/workspace-one/issue/ENG-1",
         "relations": { "nodes": [{ "id": "out", "type": "related", "relatedIssue": {
-            "identifier": "ENG-2", "title": "Deleted", "trashed": true, "archivedAt": null
+            "identifier": "ENG-2", "title": "Deleted", "trashed": true, "archivedAt": null,
+            "url": "https://linear.app/workspace-one/issue/ENG-2"
         } }], "pageInfo": last_page() },
         "inverseRelations": { "nodes": [{ "id": "in", "type": "blocks", "issue": {
-            "identifier": "ENG-3", "title": "Archived", "trashed": null, "archivedAt": "2026-11-09T20:50:36.574Z"
+            "identifier": "ENG-3", "title": "Archived", "trashed": null, "archivedAt": "2026-11-09T20:50:36.574Z",
+            "url": "https://linear.app/workspace-one/issue/ENG-3"
         } }], "pageInfo": last_page() }
     } }));
     Cli::for_api(&api)
@@ -750,4 +755,54 @@ fn relation_list_marks_subject_and_both_reference_directions() {
         .stdout_has("Relations for ENG-1 [deleted]: Subject")
         .stdout_has("ENG-1 [deleted] related ENG-2 [deleted]: Deleted")
         .stdout_has("ENG-1 [deleted] blocked-by ENG-3 [archived]: Archived");
+}
+
+#[test]
+fn relation_list_formats_each_endpoint_with_its_own_link() {
+    let subject_url = "https://linear.app/workspace-one/issue/DEMO-42/subject";
+    let outgoing_url = "https://linear.app/workspace-one/issue/DEMO-43/outgoing";
+    let incoming_url = "https://linear.app/workspace-one/issue/DEMO-41/incoming";
+    let reply = json!({ "issue": {
+        "id": ISSUE_1, "identifier": "DEMO-42", "title": "Subject", "trashed": true,
+        "archivedAt": null, "url": subject_url,
+        "relations": { "nodes": [{ "id": "out", "type": "related", "relatedIssue": {
+            "identifier": "DEMO-43", "title": "Outgoing issue", "trashed": null,
+            "archivedAt": null, "url": outgoing_url
+        } }], "pageInfo": last_page() },
+        "inverseRelations": { "nodes": [{ "id": "in", "type": "blocks", "issue": {
+            "identifier": "DEMO-41", "title": "Incoming issue", "trashed": null,
+            "archivedAt": "2026-11-09T20:50:36.574Z", "url": incoming_url
+        } }], "pageInfo": last_page() }
+    } });
+    let api = MockLinear::start();
+    api.on("ListIssueRelations", reply.clone())
+        .on("ListIssueRelations", reply);
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/linear.toml",
+        r#"[templates]
+format_issue_id = '''{{ hyperlink(issue.url, issue.identifier, issue.workspace_url_key ~ "/" ~ issue.identifier) }}'''
+"#,
+    );
+    let args = ["issue", "relation", "list", "DEMO-42"];
+    let link = |url: &str, label: &str| format!("\x1b]8;;{url}\x1b\\{label}\x1b]8;;\x1b\\");
+    let subject = link(subject_url, "DEMO-42");
+    let outgoing = link(outgoing_url, "DEMO-43");
+    let incoming = link(incoming_url, "DEMO-41");
+    let tty = cli.run_tty(&args, &[]);
+    tty.success();
+    for row in [
+        format!("Relations for {subject} [deleted]: Subject"),
+        format!("  {subject} [deleted] related {outgoing}: Outgoing issue"),
+        format!("  {subject} [deleted] blocked-by {incoming} [archived]: Incoming issue"),
+    ] {
+        assert!(tty.terminal.contains(&row), "{row:?} missing in {tty}");
+    }
+    let piped = cli.run(&args);
+    piped
+        .success()
+        .stdout_has("Relations for workspace-one/DEMO-42 [deleted]: Subject")
+        .stdout_has("workspace-one/DEMO-42 [deleted] related workspace-one/DEMO-43: Outgoing issue")
+        .stdout_has("workspace-one/DEMO-42 [deleted] blocked-by workspace-one/DEMO-41 [archived]");
+    assert!(!piped.stdout.contains("\x1b]8;;"), "{piped}");
+    assert_eq!(api.operations(), ["ListIssueRelations"; 2]);
 }

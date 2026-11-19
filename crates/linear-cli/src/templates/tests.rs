@@ -342,13 +342,252 @@ fn only_explicit_capabilities_are_available() {
             ),
         }
     }
-    assert!(
-        TemplateConfig::from_tiers([&tier(
-            "bad.toml",
-            "[template-aliases]\nmacro = '{% macro f() %}text{% endmacro %}'"
-        )])
-        .is_err()
+}
+
+#[test]
+fn shipped_issue_reference_links_to_the_supplied_url() {
+    let config = TemplateConfig::builtin();
+    let url = "https://linear.app/workspace-one/issue/DEMO-42/task";
+    let issue = IssueReference::new("DEMO-42", Some(url));
+    let expected = DisplayText {
+        spans: vec![DisplaySpan {
+            text: "DEMO-42".to_owned(),
+            url: Some(url.to_owned()),
+        }],
+    };
+    assert_eq!(
+        config.format_issue_id(&issue, true).expect("styled"),
+        expected
     );
+    assert_eq!(expected.plain(), "DEMO-42");
+    assert_eq!(
+        expected.terminal(),
+        format!("\x1b]8;;{url}\x1b\\DEMO-42\x1b]8;;\x1b\\")
+    );
+    for (issue, styled) in [(issue, false), (IssueReference::new("DEMO-42", None), true)] {
+        let shown = config.format_issue_id(&issue, styled).expect("plain");
+        assert_eq!(shown.plain(), "DEMO-42");
+        assert_eq!(shown.terminal(), "DEMO-42");
+    }
+}
+
+#[test]
+fn display_templates_support_macros_includes_multiple_links_and_plain_fallbacks() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+format_issue_id = '''{% from "formats" import ident %}{{ issue.identifier }} {{ ident(issue) }} {{ ident(issue) | upper }}	{{ issue.workspace_url_key }}'''
+[template-aliases]
+formats = '''{% macro ident(issue) %}[{{ hyperlink(issue.url, issue.identifier | lower, "été") }}]{% endmacro %}'''
+row = '''{% import "formats" as fmt %}{{ fmt.ident(issue) }}{% include "other" %}'''
+other = '''	{{ hyperlink("example://workspace-one/issue/DEMO-42", issue.identifier) }}	{{ issue.title }}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("compile templates");
+    let url = "https://linear.app/workspace-one/issue/DEMO-42/task";
+    let issue = IssueReference::new("DEMO-42", Some(url));
+    let styled = config.format_issue_id(&issue, true).expect("styled");
+    assert_eq!(styled.plain(), "DEMO-42 [demo-42] [demo-42] workspace-one");
+    assert_eq!(styled.terminal().matches("\x1b]8;;https://").count(), 2);
+    let plain = config.format_issue_id(&issue, false).expect("fallback");
+    assert_eq!(plain.terminal(), "DEMO-42 [été] [ÉTÉ] workspace-one");
+
+    let context = serde_json::json!({
+        "issue": { "url": url, "identifier": "DEMO-42", "title": "Å\t界" }
+    });
+    let row = config.render_display("row", &context, true).expect("row");
+    assert_eq!(row.plain(), "[demo-42]\tDEMO-42\tÅ 界");
+    let urls = row
+        .spans
+        .iter()
+        .filter_map(|span| span.url.as_deref())
+        .collect::<Vec<_>>();
+    assert_eq!(urls, [url, "example://workspace-one/issue/DEMO-42"]);
+    config.validate_alias("row").expect("registered alias");
+    for name in ["format_issue_id", "builtin/format_issue_id", "missing"] {
+        assert!(matches!(
+            config
+                .validate_alias(name)
+                .expect_err("not an alias")
+                .kind(),
+            crate::error::ErrorKind::Invalid
+        ));
+    }
+}
+
+#[test]
+fn only_hyperlink_spans_can_emit_terminal_control_sequences() {
+    let layer = tier(
+        "project.toml",
+        r#"[template-aliases]
+row = '''{% macro cell(value) %}	{{ value | lower }}{% endmacro %}{{ cell(title) ~ suffix }}	{{ hyperlink(url, label) }}	{{ label }}{{ "\u001b]8;;https://example.test/author\u0007" }}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("compile templates");
+    let context = serde_json::json!({
+        "title": "Å\x1b[2J\t界\r\n\u{009b}x\u{001f}0123456789012345678901234567890123456789\u{001e}",
+        "suffix": "\r\n\t\u{0007}",
+        "label": "同じ\n\u{0008}",
+        "url": "https://example.test/linked",
+    });
+    let row = config.render_display("row", &context, true).expect("row");
+    assert_eq!(
+        row.plain(),
+        "\tå�[2j 界 �x�0123456789012345678901234567890123456789�  �\t同じ �\t同じ ��]8;;https://example.test/author�"
+    );
+    assert_eq!(
+        row.spans.iter().filter(|span| span.url.is_some()).count(),
+        1
+    );
+    assert_eq!(row.terminal().matches('\x1b').count(), 4);
+}
+
+#[test]
+fn document_hyperlinks_render_plain_safe_fallbacks() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+pr_body = '''First line
+{% from "formats" import link %}{{ link(issues[0]) }}
+{{ hyperlink(issues[0].url, issues[0].title) }}'''
+[template-aliases]
+formats = '''{% macro link(issue) %}{{ hyperlink(issue.url, issue.identifier, issue.title | upper) }}{% endmacro %}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("compiled");
+    let pr = PullRequestContext {
+        issues: vec![IssueData {
+            identifier: "DEMO-42".into(),
+            url: "https://linear.app/workspace-one/issue/DEMO-42/task".into(),
+            title: "<Été\x1b[2J>".into(),
+            ..IssueData::default()
+        }],
+        ..PullRequestContext::default()
+    };
+    assert_eq!(
+        config.render(Slot::PrBody, &pr).expect("plain"),
+        "First line\n<ÉTÉ�[2J>\n<Été�[2J>"
+    );
+}
+
+#[test]
+fn document_templates_retain_explicit_html_autoescape() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+pr_body = '''{{ description }}|{% autoescape true %}{{ description }} {{ hyperlink("https://example.test/", "label", description) }}{% endautoescape %}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("compiled");
+    let context = PullRequestContext {
+        description: "<review>&".into(),
+        ..PullRequestContext::default()
+    };
+    assert_eq!(
+        config.render(Slot::PrBody, &context).expect("document"),
+        "<review>&|&lt;review&gt;&amp; &lt;review&gt;&amp;"
+    );
+}
+
+#[test]
+fn hyperlink_errors_use_template_origins_and_do_not_echo_urls() {
+    let layer = tier(
+        "project.toml",
+        r#"
+[template-aliases]
+row = '{% include "cannot_link" %}'
+cannot_link = '{{ hyperlink(url, "text", "fallback") }}'
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("compile");
+    for url in [
+        "/workspace-one/issue/DEMO-42",
+        "https:///example.test",
+        "https://[invalid]",
+        "https://example.test/token%broken",
+        "https://example.test/a path",
+        "https://example.test/\nprivate-url",
+        "https://example.test/\x1b]8;;private-url",
+        "https://example.test/\u{009c}",
+        "https://example.test\\private-url",
+        "1http://example.test/",
+    ] {
+        for styled in [false, true] {
+            let error = config
+                .render_display("row", &serde_json::json!({ "url": url }), styled)
+                .expect_err("invalid url");
+            assert!(
+                error
+                    .message()
+                    .contains("project.toml, template-aliases.cannot_link"),
+                "{error}"
+            );
+            assert!(
+                error.message().contains("must be a valid absolute URL"),
+                "{error}"
+            );
+            assert!(!error.message().contains(url), "{error}");
+        }
+    }
+    for (call, reason) in [
+        ("hyperlink()", "expected hyperlink"),
+        ("hyperlink(42, 'text')", "url must be a string"),
+        ("hyperlink(url, 42)", "text must be a string"),
+        ("hyperlink(url, 'text', none)", "fallback must be a string"),
+        (
+            "hyperlink(url, 'text', 'fallback', 'surplus')",
+            "expected hyperlink",
+        ),
+    ] {
+        let body = format!("{{{{ {call} }}}}");
+        let config = TemplateConfig::from_tiers([&tier(
+            "project.toml",
+            &format!("[template-aliases]\nrow = {body:?}"),
+        )])
+        .expect("compile");
+        let error = config
+            .render_display(
+                "row",
+                &serde_json::json!({ "url": "https://example.test/" }),
+                true,
+            )
+            .expect_err("invalid args");
+        assert!(error.message().contains(reason), "{error}");
+    }
+}
+
+#[test]
+fn template_diagnostics_and_macro_repetition_are_bounded() {
+    let layer = tier(
+        "project.toml",
+        r#"
+[template-aliases]
+fail = '{{ fail(label) }}'
+large = '''{% set item = hyperlink(url, label) %}{{ item * 1000 }}'''
+indent = '''{{ "text" | indent(width=999999999) }}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers([&layer]).expect("compile");
+    let error = config
+        .render_display(
+            "fail",
+            &serde_json::json!({ "label": "message\x1b[2J\n" }),
+            true,
+        )
+        .expect_err("fail reports bad input");
+    assert!(!error.message().chars().any(char::is_control), "{error}");
+    let error = config
+        .render_display(
+            "large",
+            &serde_json::json!({ "url": "https://example.test/", "label": "x".repeat(5_000) }),
+            true,
+        )
+        .expect_err("expanded output limit");
+    assert!(error.message().contains("output size limit"), "{error}");
+    let error = config
+        .render_named("indent", &())
+        .expect_err("indent fuel limit");
+    assert!(error.message().contains("fuel"), "{error}");
 }
 
 #[test]

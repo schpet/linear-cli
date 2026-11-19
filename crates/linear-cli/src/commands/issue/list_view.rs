@@ -1,13 +1,18 @@
 //! Issue lists as tables: ordering, priority glyphs, cycles and labels.
 use std::time::SystemTime;
 
+use crate::cli::issue::IssueColumn;
 use crate::commands::relative_time;
 use crate::commands::table::{Cell, Column, Table};
-use crate::error::Error;
+use crate::error::Result;
 use crate::graphql::operations::issue_read::*;
 use crate::graphql::scalars::WholeNumber;
 use crate::platform::style;
-use crate::refs::workflow_states;
+use crate::refs::{IssueReference, workflow_states};
+use crate::templates::{DisplaySpan, TemplateConfig};
+
+mod output;
+pub(super) use output::Output;
 
 /// Orders issues by workflow state type, then (within one team) by the
 /// state's position, highest first.
@@ -86,86 +91,138 @@ fn blocked(issue: &ListedIssue) -> bool {
             )
     })
 }
-/// Issues as a table. `team` adds the team column and `assignee` the
-/// assignee initials.
-pub fn table(rows: &[ListedIssue], team: bool, assignee: bool, now: SystemTime) -> Table {
-    let show_cycle = rows
+struct TableLayout<'a> {
+    team: bool,
+    assignee: bool,
+    columns: &'a [IssueColumn],
+}
+
+fn default_columns(rows: &[ListedIssue], team: bool, assignee: bool) -> Vec<IssueColumn> {
+    use IssueColumn::*;
+
+    let cycle = rows
         .iter()
         .any(|r| r.cycle.is_some() || r.team.cycles_enabled);
-    let mut columns = vec![Column::fixed("◌"), Column::fixed("ID")];
-    if team {
-        columns.push(Column::fixed("TEAM").droppable(6));
+    let mut columns = vec![Priority, Id];
+    columns.extend(team.then_some(Team));
+    columns.extend([Title, Labels, Blocked, Estimate]);
+    columns.extend(cycle.then_some(Cycle));
+    columns.extend(assignee.then_some(Assignee));
+    columns.extend([State, Updated]);
+    columns
+}
+
+fn table(
+    templates: &TemplateConfig,
+    rows: &[ListedIssue],
+    layout: TableLayout<'_>,
+    now: SystemTime,
+    styled: bool,
+) -> Result<Table> {
+    let explicit = !layout.columns.is_empty();
+    let defaults;
+    let columns = if explicit {
+        layout.columns
+    } else {
+        defaults = default_columns(rows, layout.team, layout.assignee);
+        &defaults
+    };
+    let mut table = Table::new(columns.iter().map(|&column| table_column(column, explicit)));
+    for row in rows {
+        table.row(
+            columns
+                .iter()
+                .map(|&column| issue_cell(templates, row, column, now, styled))
+                .collect::<Result<Vec<_>>>()?,
+        );
     }
-    columns.extend([
-        Column::flexible("TITLE"),
-        Column::flexible("LABELS").droppable(2),
-        Column::fixed("B").droppable(5),
-        Column::fixed("E").droppable(4),
-    ]);
-    if show_cycle {
-        columns.push(Column::fixed("CYC").droppable(3));
+    Ok(table)
+}
+
+fn table_column(column: IssueColumn, explicit: bool) -> Column {
+    use IssueColumn::*;
+
+    let (column, drop_rank) = match column {
+        Priority => (Column::fixed("◌"), None),
+        Id => (Column::fixed("ID"), None),
+        Team => (Column::fixed("TEAM"), Some(6)),
+        Title => (Column::flexible("TITLE"), None),
+        Labels => (Column::flexible("LABELS"), Some(2)),
+        Blocked => (Column::fixed("B"), Some(5)),
+        Estimate => (Column::fixed("E"), Some(4)),
+        Cycle => (Column::fixed("CYC"), Some(3)),
+        Assignee => (Column::fixed("A"), None),
+        State => (Column::fixed("STATE"), None),
+        Updated => (Column::fixed("UPDATED"), Some(1)),
+    };
+    match drop_rank {
+        Some(rank) if !explicit => column.droppable(rank),
+        _ => column,
     }
-    if assignee {
-        columns.push(Column::fixed("A"));
-    }
-    columns.extend([
-        Column::fixed("STATE"),
-        Column::fixed("UPDATED").droppable(1),
-    ]);
-    let mut table = Table::new(columns);
-    for r in rows {
-        let mut cells = vec![
-            Cell::from(priority(r.priority)),
-            Cell::from(format!(
-                "{}{}",
-                r.identifier,
-                super::lifecycle::Lifecycle::of(r.trashed, r.archived_at).marker()
-            )),
-        ];
-        if team {
-            cells.push(Cell::from(r.team.key.as_str()));
+}
+
+fn issue_cell(
+    templates: &TemplateConfig,
+    row: &ListedIssue,
+    column: IssueColumn,
+    now: SystemTime,
+    styled: bool,
+) -> Result<Cell> {
+    use IssueColumn::*;
+
+    Ok(match column {
+        Priority => Cell::from(priority(row.priority)),
+        Id => {
+            let reference = IssueReference::new(&row.identifier, Some(&row.url));
+            let mut display = templates.format_issue_id(&reference, styled)?;
+            let marker = super::lifecycle::Lifecycle::of(row.trashed, row.archived_at).marker();
+            if !marker.is_empty() {
+                display.spans.push(DisplaySpan {
+                    text: marker.to_owned(),
+                    url: None,
+                });
+            }
+            Cell::display(display)
         }
-        cells.push(Cell::from(r.title.as_str()));
-        cells.push(labels_cell(&r.labels.nodes));
-        cells.push(if blocked(r) {
-            Cell::styled("⊘", style::yellow)
-        } else {
-            Cell::from("")
-        });
-        cells.push(Cell::from(
-            r.estimate
+        Team => Cell::from(row.team.key.as_str()),
+        Title => Cell::from(row.title.as_str()),
+        Labels => labels_cell(&row.labels.nodes),
+        Blocked if blocked(row) => Cell::styled("⊘", style::yellow),
+        Blocked => Cell::from(""),
+        Estimate => Cell::from(
+            row.estimate
                 .as_ref()
                 .map_or_else(|| "-".to_owned(), ToString::to_string),
-        ));
-        if show_cycle {
-            let anchor = r.team.active_cycle.as_ref().map(|cycle| cycle.number);
-            let (text, kind) = cycle_short(r.cycle.as_ref(), anchor);
-            cells.push(match kind {
+        ),
+        Cycle => {
+            let anchor = row.team.active_cycle.as_ref().map(|cycle| cycle.number);
+            let (text, kind) = cycle_short(row.cycle.as_ref(), anchor);
+            match kind {
                 CycleKind::Active => Cell::styled(text, style::green),
                 CycleKind::Past | CycleKind::None => Cell::styled(text, style::gray),
                 CycleKind::Future => Cell::from(text),
-            });
+            }
         }
-        if assignee {
-            let initials = r
+        Assignee => {
+            let initials = row
                 .assignee
                 .as_ref()
                 .map(|assignee| assignee.initials.as_str())
                 .filter(|s| !s.is_empty())
                 .unwrap_or("-");
-            cells.push(Cell::from(initials.chars().take(2).collect::<String>()));
+            Cell::from(initials.chars().take(2).collect::<String>())
         }
-        let state_color = r.state.color.clone();
-        cells.push(Cell::styled(r.state.name.as_str(), move |text, on| {
-            style::rgb(text, &state_color, on)
-        }));
-        cells.push(Cell::styled(
-            relative_time::ago(r.updated_at.0, now.into(), &chrono::Local),
+        State => {
+            let color = row.state.color.clone();
+            Cell::styled(row.state.name.as_str(), move |text, on| {
+                style::rgb(text, &color, on)
+            })
+        }
+        Updated => Cell::styled(
+            relative_time::ago(row.updated_at.0, now.into(), &chrono::Local),
             style::gray,
-        ));
-        table.row(cells);
-    }
-    table
+        ),
+    })
 }
 
 /// The labels, comma separated, each in its own color.
@@ -213,7 +270,7 @@ fn labels_cell(labels: &[GetIssuesForStateIssuesNodesLabelsNodes]) -> Cell {
 }
 
 /// Prints issues as a table, through the pager on a terminal.
-pub(super) fn print_table(ctx: &crate::ctx::Ctx, table: &Table, paging: bool) -> Result<(), Error> {
+fn print_table(ctx: &crate::ctx::Ctx, table: &Table, paging: bool) -> Result<()> {
     if table.is_empty() {
         return ctx.print("No issues found.\n");
     }
@@ -237,18 +294,35 @@ mod tests {
             (Some(false), Some("2026-11-09T20:50:36.574Z"), "[archived]"),
         ] {
             let row: ListedIssue = serde_json::from_value(json!({
-                "id": "issue-1", "identifier": "ENG-1",
+                "id": "issue-1", "identifier": "DEMO-42",
                 "title": "Investigate the widget regression with a very long title that must be truncated",
-                "url": "https://linear.app/acme/issue/ENG-1", "priority": 2, "priorityLabel": "High", "estimate": null,
+                "url": "https://linear.app/workspace-one/issue/DEMO-42", "priority": 2, "priorityLabel": "High", "estimate": null,
                 "trashed": trashed, "archivedAt": archived,
                 "createdAt": "2024-01-01T00:00:00.000Z", "updatedAt": "2024-01-01T00:00:00.000Z",
                 "state": { "id": "state-1", "name": "Todo", "color": "#123456", "type": "unstarted", "position": 1 },
                 "assignee": null, "project": null, "projectMilestone": null, "cycle": null,
-                "team": { "id": "team-1", "key": "ENG", "name": "Engineering", "cyclesEnabled": false, "activeCycle": null },
+                "team": { "id": "team-1", "key": "DEMO", "name": "Demo", "cyclesEnabled": false, "activeCycle": null },
                 "labels": { "nodes": [] }, "inverseRelations": { "nodes": [] }
             })).expect("issue row");
-            let output = table(&[row], true, true, SystemTime::now()).render(Some(80), false);
-            assert!(output.contains(marker), "{output}");
+            let linked_id =
+                crate::platform::markdown_terminal::hyperlink(&row.identifier, &row.url);
+            let output = table(
+                &TemplateConfig::builtin(),
+                &[row],
+                TableLayout {
+                    team: true,
+                    assignee: true,
+                    columns: &[],
+                },
+                SystemTime::now(),
+                true,
+            )
+            .expect("renderable issue table")
+            .render(Some(80), true);
+            assert!(
+                output.contains(&format!("{linked_id} {marker}")),
+                "{output}"
+            );
             assert!(
                 output.contains('…'),
                 "the title should be truncated: {output}"

@@ -312,7 +312,7 @@ impl Cli {
 }
 
 /// Terminal output without escape sequences or carriage returns.
-fn plain_text(bytes: &[u8]) -> String {
+pub fn plain_text(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes);
     let mut plain = String::new();
     let mut chars = text.chars().peekable();

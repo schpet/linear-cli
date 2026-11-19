@@ -71,6 +71,8 @@
 
 ### Added
 
+- Issue lists, views, and relations use the configurable `format_issue_id` template. IDs link to their own workspace on styled terminals. Templates can choose a custom URI and plain-text fallback with `hyperlink(url, text, fallback)`.
+- `issue mine` and `issue query` support named row templates with `--format` and ordered table columns with `--columns`. Template aliases can export MiniJinja macros with arguments.
 - `linear skill setup` also installs `SessionStart` reminders for Claude Code and Codex to load the `linear-cli` skill or run `linear skill show` before using Linear, independently of the skill catalog. Setup, status, removal, agent selection and dry runs manage the hooks while preserving unrelated settings and hooks. Claude Code also supports project setup; Codex hooks are account-only, honor `CODEX_HOME`, and require review in Codex's `/hooks` menu.
 - `linear config check` validates loaded settings and template overlays offline, without credentials, API requests or file changes. It reports ignored legacy settings as informational notes with their sources, never their values. Harmless leftovers exit successfully; invalid active settings and malformed config still fail.
 - Layered MiniJinja templates for agent guidance, shared `issue describe` / `issue jj start` descriptions, and pull request titles and bodies. Configure `[templates]` and reusable `[template-aliases]` globally, per project, or with repeatable `--config-file` / `--config` overlays. Shipped defaults remain available through `builtin/<name>`. Explicit `--title` and gh arguments after `--` retain precedence; a custom template can generate a title for several issues.

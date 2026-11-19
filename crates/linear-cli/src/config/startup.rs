@@ -20,7 +20,7 @@ use super::source::{FileSource, OsFamily, ReadCandidate, read_config_candidate, 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DisplaySettings {
     pub debug: bool,
-    /// `NO_COLOR` is set to a nonempty value.
+    /// Terminal styling is disabled by `NO_COLOR` or `TERM=dumb`.
     pub no_color: bool,
 }
 
@@ -160,7 +160,8 @@ fn settings(process: &ProcessEnvSnapshot, dotenv: Option<&SelectedEnv>) -> Displ
     let no_color = process
         .inputs
         .env("NO_COLOR")
-        .is_some_and(|value| !value.is_empty());
+        .is_some_and(|value| !value.is_empty())
+        || process.inputs.env("TERM") == Some("dumb");
     let debug = match dotenv {
         Some(dotenv) => matches!(
             effective(process, dotenv, "LINEAR_DEBUG"),

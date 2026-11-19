@@ -1,9 +1,6 @@
 //! `issue mine`: one team's issues, assigned to you by
 //! default.
-use std::time::SystemTime;
-
 use crate::cli::issue::IssueMine;
-use crate::commands::json;
 use crate::commands::team_key::{configured_team_key, no_team};
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
@@ -21,6 +18,7 @@ pub fn run(ctx: &Ctx, args: &IssueMine) -> Result<()> {
 }
 
 fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
+    let output = list_view::Output::resolve(ctx, &args.output)?;
     let filters = &args.filters;
     let mine = filters.assignee.is_none() && !filters.unassigned && !filters.all_assignees;
     if args.team.is_none() && configured_team_key(ctx.options()).is_none() {
@@ -102,9 +100,5 @@ fn list(ctx: &Ctx, args: &IssueMine) -> Result<()> {
         read::mine(client, filter, sort, filters.limit.max()).await
     })?;
     drop(spinner);
-    if args.json {
-        return ctx.print(json::render(&rows));
-    }
-    let table = list_view::table(&rows, false, filters.all_assignees, SystemTime::now());
-    list_view::print_table(ctx, &table, !args.no_pager)
+    output.print(ctx, rows, false, filters.all_assignees)
 }

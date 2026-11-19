@@ -1,6 +1,6 @@
 # Templates
 
-Templates customize the agent guide, commit descriptions, and pull requests. Put them in your global Linear config for personal defaults, or the selected project config to share repository conventions. Templates are plain text rendered by MiniJinja; they are separate from Linear's issue and project templates.
+Templates customize issue displays, list rows, the agent guide, commit descriptions, and pull requests. Put them in your global Linear config for personal defaults, or the selected project config to share repository conventions. The CLI renders them with MiniJinja.
 
 ## Configuration
 
@@ -54,12 +54,13 @@ Partials cannot reuse a known template name, use the reserved `skill_` or `guide
 | `guide` | `linear skill show` | `version`, `commands`, `command_guidance`, `command_help`, `markdown_rules`, `exit_status` |
 | `guide_targeted` | A targeted guide such as `linear skill show issue comment add` | The same guide fields; `command_help` contains the selected command's help |
 | `skill_<command_path>` | Guidance for a visible command or command group | The same guide fields |
+| `format_issue_id` | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | `issue.identifier`, `issue.url`, `issue.workspace_url_key` |
 | `commit_description` | `issue describe` and `issue jj start` | `issue`, `references`, `linkage` |
 | `pr_title` | The generated pull request title | `issues`, `description`, `references`, `linkage`, `issue_clause` |
 | `pr_body` | The complete generated pull request body | The same pull request fields |
 | `pr_issue_links` | The shipped reusable issue-link block | The same pull request fields |
 
-Every issue object has string fields `identifier`, `title`, `url`, and `description`. `issues` is an ordered list with repeated issues removed. `references` is a Boolean; `linkage` is `Fixes` or `References`. `issue_clause` is the complete generated clause, such as `Fixes ENG-123 and ENG-124`. Guide fields are strings. The issue object's `description` is the issue description; the pull request context's top-level `description` is the user-supplied body text.
+Commit and pull request issue objects have string fields `identifier`, `title`, `url`, and `description`. `issues` is an ordered list with repeated issues removed. `references` is a Boolean; `linkage` is `Fixes` or `References`. `issue_clause` is the complete generated clause, such as `Fixes ENG-123 and ENG-124`. Guide fields are strings. The issue object's `description` is the issue description; the pull request context's top-level `description` is the user-supplied body text.
 
 `skill_markdown` is the command hook for `linear markdown`; the full Markdown-reference section uses `guide_markdown_rules`. General guide pieces are `guide_intro`, `guide_how_to_work`, `guide_common_tasks`, `guide_markdown_rules`, `guide_exit_status`, `guide_help_notes`, `guide_commands`, and `guide_graphql`. Command hooks use canonical command names joined with underscores, preserving hyphens: `issue gh pr` selects `skill_issue_gh_pull-request` because `pr` is an alias for `pull-request`.
 
@@ -119,6 +120,53 @@ Before posting or editing a comment:
 
 A parent comment hook keeps that preference visible for both add and update guidance. Add a policy partial if several project hooks need to reuse it. Preview the effective result with `linear skill show issue comment add`.
 
+## Issue identifiers and links
+
+The shipped `format_issue_id` shows the identifier and links it to the issue’s canonical URL on a styled terminal. Override it once to customize the ID in issue tables, views, and relations. Each issue’s URL supplies its workspace key, so one global template can distinguish two workspaces that both have a `DEMO-42`. A missing URL or unknown workspace key is available as `none`.
+
+This example opens one workspace’s issues in a custom application and uses the web URL elsewhere. The third argument qualifies that workspace’s IDs in plain-text handoffs.
+
+```toml
+[templates]
+format_issue_id = '''
+{%- if issue.workspace_url_key == "workspace-one" -%}
+  {{ hyperlink("example://" ~ issue.workspace_url_key ~ "/issue/" ~ issue.identifier,
+               issue.identifier, issue.workspace_url_key ~ "/" ~ issue.identifier) }}
+{%- elif issue.url -%}
+  {{ hyperlink(issue.url, issue.identifier) }}
+{%- else -%}
+  {{ issue.identifier }}
+{%- endif -%}'''
+```
+
+`hyperlink(url, text, fallback)` takes an absolute URI. The terminal decides which schemes it can open. The fallback defaults to `text` and is used for pipes, `TERM=dumb`, and a nonempty `NO_COLOR`. The table measures the visible text, including a custom fallback. Apply text filters to the label before passing it to `hyperlink`. To show a plain identifier everywhere this hook is used, set `format_issue_id = '{{ issue.identifier }}'`. The raw identifier is also available through `linear issue id` and in JSON.
+
+## Named rows and table columns
+
+On `issue mine` and `issue query`, `--columns id,priority,title` selects and orders built-in table columns. See command help for all column names. Use `--format NAME` for a custom row. Define the name in `[template-aliases]`. Each row has one `issue` with the list’s JSON fields, including nullable fields such as `assignee`, plus `workspace_url_key`. The command supplies the newline between records.
+
+```toml
+[template-aliases]
+"example/people" = '''
+{% macro owner(person, fallback) -%}
+{{ person.displayName if person else fallback }}
+{%- endmacro %}'''
+
+"example/standup" = '''
+{%- from "example/people" import owner -%}
+- {% include "format_issue_id" %} {{ issue.title }} ({{ owner(issue.assignee, "unassigned") }})'''
+
+"example/pick" = "{{ issue.url }}\t{{ issue.identifier }} {{ issue.title }}"
+```
+
+```bash
+linear issue mine --format example/standup
+linear issue query --all-teams --columns id,priority,title
+linear issue mine --format example/pick | fzf | cut -f1
+```
+
+The standup row inherits the effective ID template. The picker puts the canonical URL first, so the selected line yields a workspace-specific URL even when identifiers overlap. Use `{{ issue.identifier }}` when the row needs a bare command argument.
+
 ## Commit conventions
 
 `issue describe` and `issue jj start` use the same template. Keep the `Linear-issue` trailer when using `@jj`: it is how the CLI finds the issue again. The URL trailer records the issue's canonical URL.
@@ -176,9 +224,9 @@ Errors identify the source, template key, and line where available. Correct that
 
 Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and native `{% extends ... %}`/`{% block ... %}`/`{{ super() }}`. Unknown fields are errors. Field checking is strict during rendering; it does not guarantee every nested field in an unselected branch can be checked ahead of time.
 
-Available filters are `trim`, `upper`, `lower`, `join`, `length`, `indent`, and `default`. The `defined` test is available, and `fail("message")` stops rendering with a required-input error. Macros are disabled, as are filesystem loading, custom syntax, and extra filter libraries. Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits.
+Available filters are `trim`, `upper`, `lower`, `join`, `length`, `indent`, and `default`. The `defined` test is available, and `fail("message")` stops rendering with a required-input error. Define functions with arguments using `{% macro ... %}` and import them with `{% from "name" import ... %}`. Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits.
 
-Templates produce plain text: Markdown and message bodies are not HTML-escaped. Issue content and `description` are inert data; a body containing `{{ example }}` is printed as text, not evaluated again. The context contains only the fields above, without access to environment variables, authentication, the full configuration, files, or process helpers.
+Guide, commit, and pull request templates produce plain text and preserve Markdown. Issue content and `description` are inert data. A body containing `{{ example }}` prints those characters literally. The context contains only the documented fields, without access to environment variables, authentication, the full configuration, files, or process helpers.
 
 Newlines are preserved, including the final newline. TOML literal strings keep backslashes as written. MiniJinja `-%}` and `-}}` remove surrounding template whitespace; use them deliberately when joining blocks. The template controls output whitespace, while commands retain their documented input normalization. Preview the result before adopting a layout whose blank lines matter.
 

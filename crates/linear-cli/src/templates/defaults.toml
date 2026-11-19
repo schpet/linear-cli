@@ -1,10 +1,12 @@
-# Shipped guide prose and message templates, evaluated as plain text.
+# Shipped guide prose, message templates and display templates.
 # Shipped names are registered as immutable builtin/<name> aliases by Rust.
 # Facts: version, markdown_rules, exit_status, commands, command_guidance, command_help.
 # Rust assembles command_guidance by discovering all effective command hooks.
 # Markdown rules and exit status remain canonical Rust-generated facts.
 
 [templates]
+format_issue_id = '''{% block content %}{% if issue.url %}{{ hyperlink(issue.url, issue.identifier) }}{% else %}{{ issue.identifier }}{% endif %}{% endblock %}'''
+
 guide = '''
 {% block content -%}
 {% include "guide_intro" -%}
@@ -119,6 +121,9 @@ linear issue query --project "Mobile App" --state backlog --state triage --unass
 linear issue query --assignee sam --label bug --updated-after 2026-01-01
 ```
 
+For human-readable output, `--columns` selects table columns and `--format`
+selects a named row template from `[template-aliases]`.
+
 {% endblock %}'''
 
 skill_issue_mine = '''
@@ -133,6 +138,7 @@ linear issue mine --state started --sort priority
 - `issue mine` sorts by priority unless `--sort` (`manual` or `priority`), the
   `issue_sort` setting or `LINEAR_ISSUE_SORT` says otherwise, and it needs
   `--team` when no team is configured.
+- Use `--columns` or a named `--format` to customize human-readable output.
 {% endblock %}'''
 
 skill_issue_view = '''

@@ -22,7 +22,9 @@ this updates the workspace, team and sort settings, preserving other preferences
 
 ### template preferences
 
-[MiniJinja templates](templating.md) customize agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.pr_body` prints one template, and `linear config list --defaults` ignores local configuration. inspection and guide generation work offline without authentication. `linear skill show issue comment add` prints inherited command guidance; `linear skill show --builtin` bypasses configuration for recovery.
+MiniJinja templates customize issue IDs and list rows as well as agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.format_issue_id` prints the current ID template, and `linear config list --defaults` shows shipped definitions. See the [template examples](templating.md).
+
+Inspection and guide generation work offline without authentication. `linear skill show issue comment add` prints inherited command guidance. `linear skill show --builtin` bypasses configuration for recovery.
 
 ### issues
 
@@ -33,6 +35,8 @@ list your issues (shows unstarted issues by default):
 ```bash
 linear issue mine
 ```
+
+Choose table columns with `linear issue mine --columns id,title`, or select a configured row template with `linear issue mine --format example/standup`. Both options also work with `issue query`.
 
 list issues with different states:
 

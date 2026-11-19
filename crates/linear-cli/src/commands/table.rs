@@ -9,7 +9,8 @@
 use std::borrow::Cow;
 
 use crate::ctx::Ctx;
-use crate::platform::{style, terminal_text};
+use crate::platform::{markdown_terminal, style, terminal_text};
+use crate::templates::DisplayText;
 use unicode_width::UnicodeWidthChar;
 
 /// Flexible columns keep at least this many terminal columns (or their full
@@ -60,14 +61,61 @@ impl Column {
 
 pub struct Cell {
     text: String,
-    paint: Option<Painter>,
+    paint: Option<Paint>,
+}
+
+enum Paint {
+    Style(Painter),
+    Display(DisplayText),
 }
 
 impl Cell {
     pub fn styled(text: impl Into<String>, paint: impl Fn(&str, bool) -> String + 'static) -> Self {
         Self {
             text: cell_text(text.into()),
-            paint: Some(Box::new(paint)),
+            paint: Some(Paint::Style(Box::new(paint))),
+        }
+    }
+
+    pub fn display(mut display: DisplayText) -> Self {
+        for span in &mut display.spans {
+            span.text = cell_text(std::mem::take(&mut span.text));
+        }
+        Self {
+            text: display.plain(),
+            paint: Some(Paint::Display(display)),
+        }
+    }
+
+    fn render(&self, output: &mut String, width: usize, last: bool, color: bool) {
+        let (text, kept) = fit(&self.text, width, last);
+        match &self.paint {
+            Some(Paint::Style(paint)) => output.push_str(&paint(&text, color)),
+            Some(Paint::Display(display)) if color => {
+                let mut remaining = kept;
+                for span in &display.spans {
+                    if remaining == 0 {
+                        break;
+                    }
+                    let length = remaining.min(span.text.len());
+                    let part = span
+                        .text
+                        .get(..length)
+                        .expect("the kept prefix ends on a character boundary");
+                    match &span.url {
+                        Some(url) if !part.is_empty() => {
+                            output.push_str(&markdown_terminal::hyperlink(part, url));
+                        }
+                        _ => output.push_str(part),
+                    }
+                    remaining -= length;
+                }
+                output.push_str(
+                    text.get(kept..)
+                        .expect("padding and ellipsis follow the kept prefix"),
+                );
+            }
+            Some(Paint::Display(_)) | None => output.push_str(&text),
         }
     }
 }
@@ -147,11 +195,7 @@ impl Table {
                 if index > 0 {
                     output.push_str(GUTTER);
                 }
-                let text = fit(&cell.text, width, index + 1 == shown);
-                match &cell.paint {
-                    Some(paint) => output.push_str(&paint(&text, color)),
-                    None => output.push_str(&text),
-                }
+                cell.render(&mut output, width, index + 1 == shown, color);
             }
             output.push('\n');
         }
@@ -237,14 +281,14 @@ impl Table {
     }
 }
 
-/// `text` cut to `width` columns, padded to it unless it ends the line.
-fn fit(text: &str, width: usize, last: bool) -> String {
-    let mut text = truncate(text, width);
+/// `text` cut to `width` columns, padded unless last, and the number of original bytes kept.
+fn fit(text: &str, width: usize, last: bool) -> (String, usize) {
+    let (mut text, kept) = truncated(text, width);
     if !last {
         let padding = width.saturating_sub(display_width(&text));
         text.extend(std::iter::repeat_n(' ', padding));
     }
-    text
+    (text, kept)
 }
 
 /// The terminal width when stdout is a terminal of known size.
@@ -263,11 +307,15 @@ pub fn display_width(text: &str) -> usize {
 /// `text` shortened to at most `width` columns, ending in `…` when cut.
 /// Characters are never split.
 pub fn truncate(text: &str, width: usize) -> String {
+    truncated(text, width).0
+}
+
+fn truncated(text: &str, width: usize) -> (String, usize) {
     if display_width(text) <= width {
-        return text.to_owned();
+        return (text.to_owned(), text.len());
     }
     let Some(room) = width.checked_sub(1) else {
-        return String::new();
+        return (String::new(), 0);
     };
     let mut result = String::new();
     let mut used = 0;
@@ -279,14 +327,16 @@ pub fn truncate(text: &str, width: usize) -> String {
         result.push(ch);
         used = next;
     }
+    let kept = result.len();
     result.push('…');
-    result
+    (result, kept)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Cell, Column, Table, display_width, truncate};
-    use crate::platform::style;
+    use crate::platform::{markdown_terminal::hyperlink, style};
+    use crate::templates::{DisplaySpan, DisplayText};
 
     fn sample() -> Table {
         let mut table = Table::new([
@@ -335,6 +385,37 @@ mod tests {
         assert_eq!(truncate("界界界界", 6), "界界…");
         assert_eq!(truncate("界界", 2), "…");
         assert_eq!(truncate("abc", 0), "");
+    }
+
+    #[test]
+    fn truncating_linked_cells_keeps_link_boundaries_around_visible_text() {
+        let first = "https://linear.app/workspace-one/issue/DEMO-42";
+        let second = "https://linear.app/workspace-two/issue/DEMO-42";
+        let span = |text: &str, url: Option<&str>| DisplaySpan {
+            text: text.to_owned(),
+            url: url.map(str::to_owned),
+        };
+        let mut table = Table::new([Column::flexible("ITEM"), Column::fixed("END")]);
+        table.row([
+            Cell::display(DisplayText {
+                spans: vec![
+                    span("界界", Some(first)),
+                    span(" | ", None),
+                    span("界界界界界", Some(second)),
+                ],
+            }),
+            Cell::from("x"),
+        ]);
+        let plain = table.render(Some(18), false);
+        assert_eq!(plain.lines().nth(1), Some("界界 | 界界…   x"));
+
+        let colored = table.render(Some(18), true);
+        let row = format!(
+            "{} | {}…   x",
+            hyperlink("界界", first),
+            hyperlink("界界", second),
+        );
+        assert_eq!(colored.lines().nth(1), Some(row.as_str()));
     }
 
     #[test]

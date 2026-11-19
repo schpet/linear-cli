@@ -1,7 +1,7 @@
 //! Read-only `issue` commands: view, title, url, mine and query.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear, assert_json, nodes, png};
+use crate::support::{Cli, MockLinear, assert_json, nodes, plain_text, png};
 use crate::team::{resolve_vars, resolved};
 
 fn issue(comments: bool) -> Value {
@@ -25,12 +25,14 @@ fn issue(comments: bool) -> Value {
         "labels": { "nodes": [{ "id": "label-bug", "name": "Bug", "color": "#ff00ff" }] },
         "parent": {
             "trashed": null, "archivedAt": null,
-        "identifier": "ENG-99", "title": "Parent work",
+            "identifier": "ENG-99", "title": "Parent work",
+            "url": "https://linear.app/acme/issue/ENG-99/parent-work",
             "state": { "name": "Done", "color": "#123456" }
         },
         "children": { "nodes": [{
             "trashed": null, "archivedAt": null,
-        "identifier": "ENG-2", "title": "Child work",
+            "identifier": "ENG-2", "title": "Child work",
+            "url": "https://linear.app/acme/issue/ENG-2/child-work",
             "state": { "name": "Started", "color": "#112233" }
         }] },
         "attachments": { "nodes": [{
@@ -77,6 +79,14 @@ fn details(issue: Value) -> Value {
     json!({ "issue": issue })
 }
 
+fn view_json(mut issue: Value) -> Value {
+    issue["parent"].as_object_mut().unwrap().remove("url");
+    for child in issue["children"]["nodes"].as_array_mut().unwrap() {
+        child.as_object_mut().unwrap().remove("url");
+    }
+    issue
+}
+
 fn numbered_issue(number: u32, comments: bool) -> Value {
     let mut value = issue(comments);
     value["identifier"] = json!(format!("ENG-{number}"));
@@ -113,6 +123,7 @@ fn view_multiple_json_preserves_input_order_and_comment_selection() {
             args.push("--no-comments");
         }
         let run = Cli::for_api(&api).run(&args);
+        let expected: Vec<_> = expected.into_iter().map(view_json).collect();
         assert_json(&run.success().json(), &json!(expected));
         assert!(run.stderr.is_empty(), "{run}");
         assert_eq!(api.operations().len(), expected.len());
@@ -196,6 +207,7 @@ fn view_multiple_normalizes_mixed_references_and_retains_duplicates() {
         "--json",
         "--no-comments",
     ]);
+    let expected: Vec<_> = expected.into_iter().map(view_json).collect();
     assert_json(&run.success().json(), &json!(expected));
 }
 
@@ -417,7 +429,7 @@ fn view_json_prints_the_issue_with_comments() {
         .run(&["issue", "view", "eng-1", "--json"])
         .success()
         .json();
-    assert_json(&json, &issue(true));
+    assert_json(&json, &view_json(issue(true)));
     assert_eq!(
         api.variables("GetIssueDetailsWithComments"),
         json!({ "id": "ENG-1" })
@@ -433,7 +445,7 @@ fn view_bare_number_uses_the_configured_team() {
         .run(&["issue", "view", "1", "--json", "--no-comments"])
         .success()
         .json();
-    assert_json(&json, &issue(false));
+    assert_json(&json, &view_json(issue(false)));
     assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-1" }));
 }
 
@@ -568,7 +580,7 @@ fn view_shows_the_delegate_only_when_there_is_one() {
             .run(&[args.as_slice(), &["--json"]].concat())
             .success()
             .json();
-        assert_json(&json, &delegated);
+        assert_json(&json, &view_json(delegated));
         cli.run(&args)
             .success()
             .stdout_has("**Assignee:** @Alice Example\n**Delegate:** @linear\n**Project:**");
@@ -1427,6 +1439,183 @@ fn query_text_lists_issues() {
         .success()
         .stdout_has("ENG-4")
         .stdout_has("Issue 4 title");
+}
+
+#[test]
+fn mine_explicit_columns_keep_their_order_and_show_optional_columns() {
+    let api = MockLinear::start();
+    let mut row = list_issue(42, "DEMO", "unstarted");
+    row["url"] = json!("https://linear.app/workspace-one/issue/DEMO-42");
+    api.on("GetIssuesForState", issues(vec![row.clone()], None))
+        .on("GetIssuesForState", issues(vec![row], None));
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "DEMO")
+        .env_remove("NO_COLOR")
+        .file(
+            "cwd/.linear.toml",
+            r#"[templates]
+format_issue_id = '{{ hyperlink(issue.url, "界", issue.workspace_url_key ~ "/" ~ issue.identifier) }}'
+"#,
+        );
+    let args = [
+        "issue",
+        "mine",
+        "--columns",
+        "title,cycle,assignee,id,team",
+        "--no-pager",
+    ];
+    let run = cli.run(&args);
+    run.success();
+    let mut lines = run.stdout.lines();
+    assert_eq!(
+        lines.next(),
+        Some("TITLE           CYC  A  ID                     TEAM")
+    );
+    assert_eq!(
+        lines.next(),
+        Some("Issue 42 title  -    -  workspace-one/DEMO-42  DEMO")
+    );
+    assert_eq!(lines.next(), None);
+
+    let terminal = cli.run_tty(&args, &[]);
+    terminal
+        .success()
+        .stdout_has("Issue 42 title  -    -  界  DEMO");
+    assert!(
+        terminal.terminal.contains(
+            "\x1b]8;;https://linear.app/workspace-one/issue/DEMO-42\x1b\\界\x1b]8;;\x1b\\  DEMO"
+        ),
+        "{terminal:?}"
+    );
+    assert_eq!(api.operations(), ["GetIssuesForState", "GetIssuesForState"]);
+}
+
+#[test]
+fn query_format_includes_the_id_template_and_preserves_configured_tabs() {
+    let api = MockLinear::start();
+    let mut first = list_issue(42, "DEMO", "started");
+    first["url"] = json!("https://linear.app/workspace-one/issue/DEMO-42");
+    first["title"] = json!("One\tfake column\nfake row\u{1b}[2J");
+    let mut second = list_issue(42, "DEMO", "started");
+    second["url"] = json!("https://linear.app/workspace-two/issue/DEMO-42");
+    api.on("GetIssuesForQuery", issues(vec![first, second], None));
+    let run = Cli::for_api(&api)
+        .file(
+            "cwd/.linear.toml",
+            concat!(
+                "[templates]\n",
+                "format_issue_id = '{{ issue.workspace_url_key }}/{{ issue.identifier }}'\n",
+                "[template-aliases]\n",
+                "fields = '{% macro title(issue) %}{{ issue.title }}{% endmacro %}'\n",
+                "pick = '{% import \"fields\" as fields %}{% include \"format_issue_id\" %}\t{{ issue.priorityLabel }}\t{{ fields.title(issue) }}'\n",
+            ),
+        )
+        .run(&["issue", "query", "--all-teams", "--format", "pick"]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        "workspace-one/DEMO-42\tHigh\tOne fake column fake row�[2J\n\
+         workspace-two/DEMO-42\tHigh\tIssue 42 title\n"
+    );
+    assert_eq!(api.operations(), ["GetIssuesForQuery"]);
+}
+
+#[test]
+fn query_search_format_keeps_search_metadata() {
+    let api = MockLinear::start();
+    let mut row = list_issue(42, "DEMO", "started");
+    row["url"] = json!("");
+    row["metadata"] = json!({ "source": "title" });
+    api.on(
+        "SearchIssues",
+        json!({ "searchIssues": {
+        "nodes": [row],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+    } }),
+    );
+    let run = Cli::for_api(&api)
+        .file(
+            "cwd/.linear.toml",
+            r#"[template-aliases]
+match = '{% include "format_issue_id" %} {{ issue.metadata.source }} {{ issue.workspace_url_key or "unavailable" }}'
+"#,
+        )
+        .run(&["issue", "query", "--all-teams", "--search", "widget", "--format", "match"]);
+    run.success();
+    assert_eq!(run.stdout, "DEMO-42 title unavailable\n");
+    assert_eq!(api.operations(), ["SearchIssues"]);
+}
+
+#[test]
+fn mine_format_pages_only_on_a_terminal_when_enabled() {
+    let api = MockLinear::start();
+    let rows: Vec<_> = (1..=60)
+        .map(|number| list_issue(number, "DEMO", "unstarted"))
+        .collect();
+    for _ in 0..3 {
+        api.on("GetIssuesForState", issues(rows.clone(), None));
+    }
+    api.on("GetIssuesForState", issues(vec![], None));
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "DEMO")
+        .file(
+            "cwd/.linear.toml",
+            "[template-aliases]\nids = '{{ issue.identifier }}'\n",
+        )
+        .stub_bin("sh", "exec /bin/sh \"$@\"")
+        .stub_bin("test-pager", "cat");
+    let pager = cli.path("bin/test-pager").display().to_string();
+    let cli = cli.env("PAGER", &pager);
+    let args = ["issue", "mine", "--format", "ids", "--limit", "all"];
+    let piped = cli.run(&args);
+    assert_eq!(piped.success().stdout.lines().count(), 60);
+    assert!(cli.calls("test-pager").is_empty());
+
+    cli.run_tty(&args, &[]).success().stdout_has("DEMO-60");
+    assert_eq!(cli.calls("test-pager").len(), 1);
+
+    let mut unpaged = args.to_vec();
+    unpaged.push("--no-pager");
+    cli.run_tty(&unpaged, &[]).success().stdout_has("DEMO-60");
+    assert_eq!(cli.calls("test-pager").len(), 1);
+
+    let empty = cli.run(&args);
+    assert!(empty.success().stdout.is_empty(), "{empty}");
+}
+
+#[test]
+fn mine_and_query_validate_output_options_before_any_requests() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "DEMO");
+    for command in ["mine", "query"] {
+        cli.run(&["issue", command, "--columns", "title,id,title"])
+            .usage_error()
+            .stderr_has("--columns lists title more than once");
+        cli.run(&["issue", command, "--columns", "title,unknown"])
+            .usage_error()
+            .stderr_has("unknown");
+        for name in ["unconfigured", "format_issue_id", "builtin/format_issue_id"] {
+            cli.run(&["issue", command, "--format", name])
+                .usage_error()
+                .stderr_has(name);
+        }
+        for flags in [
+            ["--format", "pick", "--json"],
+            ["--columns", "id", "--json"],
+        ] {
+            cli.run(&["issue", command, flags[0], flags[1], flags[2]])
+                .usage_error();
+        }
+        cli.run(&["issue", command, "--format", "pick", "--columns", "id"])
+            .usage_error();
+    }
+    for open in ["--web", "--app"] {
+        cli.run(&["issue", "mine", "--format", "pick", open])
+            .usage_error();
+        cli.run(&["issue", "mine", "--columns", "id", open])
+            .usage_error();
+    }
+    assert!(api.requests().is_empty());
 }
 
 #[test]
@@ -2352,6 +2541,79 @@ fn view_marks_parent_and_paginated_child_lifecycle() {
         .success()
         .stdout_has("ENG-99 [deleted]")
         .stdout_has("ENG-2 [archived]");
+}
+
+#[test]
+fn view_formats_heading_and_hierarchy_issue_ids_for_each_output() {
+    let issue_url = "https://linear.app/workspace-one/issue/DEMO-42/example";
+    let parent_url = "https://linear.app/workspace-one/issue/DEMO-41/parent";
+    let child_url = "https://linear.app/workspace-one/issue/DEMO-43/child";
+    let mut value = issue(false);
+    value["identifier"] = json!("DEMO-42");
+    value["url"] = json!(issue_url);
+    value["parent"]["identifier"] = json!("DEMO-41");
+    value["parent"]["url"] = json!(parent_url);
+    value["parent"]["trashed"] = json!(true);
+    value["children"]["nodes"][0]["identifier"] = json!("DEMO-43");
+    value["children"]["nodes"][0]["url"] = json!(child_url);
+    let api = MockLinear::start();
+    for _ in 0..4 {
+        api.on("GetIssueDetails", details(value.clone()));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/linear.toml",
+        r#"[templates]
+format_issue_id = '''{{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">](" ~ issue.identifier ~ ")", issue.workspace_url_key ~ "/" ~ issue.identifier) }}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "view",
+        "DEMO-42",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let tty = cli.run_tty(&args, &[]);
+    tty.success()
+        .stdout_has("[<workspace-one>](DEMO-42): Fix the widget")
+        .stdout_has("[<workspace-one>](DEMO-41) [deleted]: Parent work")
+        .stdout_has("[<workspace-one>](DEMO-43): Child work");
+    for (url, identifier) in [
+        (issue_url, "DEMO-42"),
+        (parent_url, "DEMO-41"),
+        (child_url, "DEMO-43"),
+    ] {
+        let (_, link) = tty
+            .terminal
+            .split_once(&format!("\x1b]8;;{url}\x1b\\"))
+            .expect("the issue URL opens a link");
+        let (label, _) = link
+            .split_once("\x1b]8;;\x1b\\")
+            .expect("the issue link ends");
+        assert_eq!(
+            plain_text(label.as_bytes()),
+            format!("[<workspace-one>]({identifier})")
+        );
+    }
+    let piped = cli.run(&args);
+    piped
+        .success()
+        .stdout_has("# workspace-one/DEMO-42: Fix the widget")
+        .stdout_has("- **workspace-one/DEMO-41 [deleted]**: Parent work")
+        .stdout_has("- **workspace-one/DEMO-43**: Child work");
+    assert!(!piped.stdout.contains("\x1b]8;;"), "{piped}");
+    let args_json = [&args[..], &["--json"]].concat();
+    let json = cli.run(&args_json).success().json();
+    assert_json(&json, &view_json(value));
+    let plain = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
+    plain
+        .success()
+        .stdout_has("# workspace-one/DEMO-42: Fix the widget")
+        .stdout_has("workspace-one/DEMO-41 [deleted]: Parent work")
+        .stdout_has("workspace-one/DEMO-43: Child work");
+    assert!(!plain.terminal.contains("\x1b]8;;"), "{plain}");
+    assert_eq!(api.operations(), ["GetIssueDetails"; 4]);
 }
 
 #[test]
