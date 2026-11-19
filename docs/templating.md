@@ -49,18 +49,85 @@ Partials cannot reuse a known template name, use the reserved `skill_` or `guide
 
 ## Templates and data
 
-| Template | Rendered for | Data |
+| Template | Rendered for | Top-level values |
 |---|---|---|
-| `guide` | `linear skill show` | `version`, `commands`, `command_guidance`, `command_help`, `markdown_rules`, `exit_status` |
-| `guide_targeted` | A targeted guide such as `linear skill show issue comment add` | The same guide fields; `command_help` contains the selected command's help |
-| `skill_<command_path>` | Guidance for a visible command or command group | The same guide fields |
-| `format_issue_id` | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | `issue.identifier`, `issue.url`, `issue.workspace_url_key` |
-| `commit_description` | `issue describe` and `issue jj start` | `issue`, `references`, `linkage` |
-| `pr_title` | The generated pull request title | `issues`, `description`, `references`, `linkage`, `issue_clause` |
-| `pr_body` | The complete generated pull request body | The same pull request fields |
-| `pr_issue_links` | The shipped reusable issue-link block | The same pull request fields |
+| `guide` | `linear skill show` | [Guide fields](#guide-fields) |
+| `guide_targeted` | `linear skill show` with a command path | [Guide fields](#guide-fields) |
+| `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
+| `format_issue_id` | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
+| `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
+| `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
+| A `[template-aliases]` entry selected with `--format NAME` | Each result from `issue mine` or `issue query`, including `--search` | [`issue: Issue row`](#issue-row-fields) |
 
-Commit and pull request issue objects have string fields `identifier`, `title`, `url`, and `description`. `issues` is an ordered list with repeated issues removed. `references` is a Boolean; `linkage` is `Fixes` or `References`. `issue_clause` is the complete generated clause, such as `Fixes ENG-123 and ENG-124`. Guide fields are strings. The issue object's `description` is the issue description; the pull request context's top-level `description` is the user-supplied body text.
+Use `issue.title` to read a field and `issues[0].title` to read it from the first item in a list. `T?` means a field is present but can be `none` (JSON `null`). Test `issue.assignee == none` for null specifically. An **undefined** field is absent, such as `issue.metadata` on a row from a query without `--search`. Check `issue.metadata is defined` before accessing its keys. An empty string `""` is a defined string, often used for missing description text. `value | default("fallback")` replaces an undefined value. Pass `true` as the second argument to also replace falsey values, including `none`, `""`, `false`, `0`, and empty lists.
+
+An included template uses the caller's values. An imported macro can take explicit parameters, as in the [named row example](#named-rows-and-table-columns).
+
+### Issue ID fields
+
+| Field | Type | Meaning |
+|---|---|---|
+| `issue.identifier` | `String` | Bare issue identifier, such as `DEMO-42` |
+| `issue.url` | `String?` | The issue's URL from Linear. An absent or empty URL is `none` in this context. |
+| `issue.workspace_url_key` | `String?` | Workspace key parsed from the issue's Linear URL, or `none` if the key is unavailable. |
+
+### Commit and pull request fields
+
+The `Issue` object contains `identifier`, `title`, `url`, and `description`, all strings. `description` is the issue's Markdown body and is `""` when Linear has no description. Use `issue.description` in a commit template and `issues[0].description` for the first issue in a pull request template.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `issue` | `Issue` | The issue being described or started in jj. |
+| `issues` | `List<Issue>` | The PR's issues, in first-mentioned order with duplicate identifiers removed. |
+| `description` | `String` | PR body input from `--body` or `--body-file`, with trailing whitespace removed. Defaults to `""`. |
+| `references` | `Boolean` | Whether `--references` was selected. `issue jj start` supplies `false`. |
+| `linkage` | `String` | `References` when `references` is true, otherwise `Fixes`. |
+| `issue_clause` | `String` | The complete PR clause, such as `Fixes DEMO-42 and DEMO-43`. |
+
+### Issue row fields
+
+`issue mine --format` and `issue query --format` expose the same fields and casing as each result from the corresponding `--json` command, with `workspace_url_key` added. Lists such as `labels` and `inverseRelations` are direct lists. Read a label as `issue.labels[0].name` when the list has an item.
+
+| Fields on `issue` | Type | Meaning |
+|---|---|---|
+| `id`, `identifier`, `title`, `url` | `String` | Internal ID, bare issue identifier, title, and URL from Linear. |
+| `workspace_url_key` | `String?` | Workspace key parsed from `url`. |
+| `priority`, `priorityLabel` | `Integer`, `String` | Linear's priority number and its label. |
+| `estimate` | `Number?` | Estimated points, which can have a fractional part. |
+| `trashed` | `Boolean?` | Whether Linear reports the issue as deleted (in trash). |
+| `createdAt`, `updatedAt`, `archivedAt` | `String`, `String`, `String?` | UTC RFC 3339 timestamps with milliseconds. |
+| `state`, `team` | Object | Workflow state and team. |
+| `assignee`, `project`, `projectMilestone`, `cycle` | Nullable object | Related records when assigned. |
+| `labels`, `inverseRelations` | List of objects | Issue labels and incoming relations. |
+| `metadata` | Object, search only | Search metadata returned by Linear. Its keys depend on the result. This field is undefined for `issue mine` and `issue query` without `--search`. |
+
+The nested objects have these fields. `[]` denotes an item in a list.
+
+| Path under `issue` | Fields and types |
+|---|---|
+| `state` | `id: String`, `name: String`, `color: String`, `type: String`, `position: Number` |
+| `team` | `id: String`, `key: String`, `name: String`, `cyclesEnabled: Boolean`, `activeCycle: Object?` |
+| `team.activeCycle` | `number: Integer` |
+| `assignee` | `id: String`, `name: String`, `displayName: String`, `initials: String` |
+| `project`, `projectMilestone` | `id: String`, `name: String` |
+| `cycle` | `id: String`, `number: Integer`, `name: String?`, `isActive: Boolean`, `isNext: Boolean`, `isPrevious: Boolean`, `isFuture: Boolean`, `isPast: Boolean` |
+| `labels[]` | `id: String`, `name: String`, `color: String` |
+| `inverseRelations[]` | `id: String`, `type: String`, `issue: Object` |
+| `inverseRelations[].issue` | `id: String`, `identifier: String`, `state: Object` |
+| `inverseRelations[].issue.state` | `type: String` |
+
+### Guide fields
+
+All guide values are strings. `guide` and `guide_targeted` render the full or targeted guide. Every `guide_*` section and `skill_<command_path>` hook receives the same fields, with `command_guidance` populated after the command hooks render.
+
+| Field | Meaning |
+|---|---|
+| `version` | Version of the installed `linear` binary. |
+| `commands` | Index of visible commands, with their paths and one-line descriptions. |
+| `command_guidance` | Joined text of the selected nonempty command hooks. It is `""` while rendering those hooks. |
+| `command_help` | Selected command's long help in a Markdown section. It is `""` for the full guide. |
+| `markdown_rules` | The Markdown body rules printed by `linear markdown`. |
+| `exit_status` | The CLI's exit status codes and their meanings, as text. |
 
 `skill_markdown` is the command hook for `linear markdown`; the full Markdown-reference section uses `guide_markdown_rules`. General guide pieces are `guide_intro`, `guide_how_to_work`, `guide_common_tasks`, `guide_markdown_rules`, `guide_exit_status`, `guide_help_notes`, `guide_commands`, and `guide_graphql`. Command hooks use canonical command names joined with underscores, preserving hyphens: `issue gh pr` selects `skill_issue_gh_pull-request` because `pr` is an alias for `pull-request`.
 
@@ -139,11 +206,11 @@ format_issue_id = '''
 {%- endif -%}'''
 ```
 
-`hyperlink(url, text, fallback)` takes an absolute URI. The terminal decides which schemes it can open. The fallback defaults to `text` and is used for pipes, `TERM=dumb`, and a nonempty `NO_COLOR`. The table measures the visible text, including a custom fallback. Apply text filters to the label before passing it to `hyperlink`. To show a plain identifier everywhere this hook is used, set `format_issue_id = '{{ issue.identifier }}'`. The raw identifier is also available through `linear issue id` and in JSON.
+The table measures the visible text, including a custom fallback. To show a plain identifier everywhere this hook is used, set `format_issue_id = '{{ issue.identifier }}'`. The raw identifier is also available through `linear issue id` and in JSON. See [`hyperlink` and the other functions](#functions-and-filters) for call syntax.
 
 ## Named rows and table columns
 
-On `issue mine` and `issue query`, `--columns id,priority,title` selects and orders built-in table columns. See command help for all column names. Use `--format NAME` for a custom row. Define the name in `[template-aliases]`. Each row has one `issue` with the list’s JSON fields, including nullable fields such as `assignee`, plus `workspace_url_key`. The command supplies the newline between records.
+On `issue mine` and `issue query`, `--columns id,priority,title` selects and orders built-in table columns. See command help for all column names. Use `--format NAME` for a custom row, and define the name in `[template-aliases]`. Each render receives one [`issue` row](#issue-row-fields). The command supplies the newline between records.
 
 ```toml
 [template-aliases]
@@ -154,7 +221,7 @@ On `issue mine` and `issue query`, `--columns id,priority,title` selects and ord
 
 "example/standup" = '''
 {%- from "example/people" import owner -%}
-- {% include "format_issue_id" %} {{ issue.title }} ({{ owner(issue.assignee, "unassigned") }})'''
+- {% include "format_issue_id" %} {{ issue.title }} ({{ owner(person=issue.assignee, fallback="unassigned") }})'''
 
 "example/pick" = "{{ issue.url }}\t{{ issue.identifier }} {{ issue.title }}"
 ```
@@ -165,7 +232,7 @@ linear issue query --all-teams --columns id,priority,title
 linear issue mine --format example/pick | fzf | cut -f1
 ```
 
-The standup row inherits the effective ID template. The picker puts the canonical URL first, so the selected line yields a workspace-specific URL even when identifiers overlap. Use `{{ issue.identifier }}` when the row needs a bare command argument.
+The standup row inherits the effective ID template and names both arguments to `owner`. The picker puts the canonical URL first, so the selected line yields a workspace-specific URL even when identifiers overlap. Use `{{ issue.identifier }}` when the row needs a bare command argument.
 
 ## Commit conventions
 
@@ -222,11 +289,29 @@ Errors identify the source, template key, and line where available. Correct that
 
 ## Text and supported syntax
 
-Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and native `{% extends ... %}`/`{% block ... %}`/`{{ super() }}`. Unknown fields are errors. Field checking is strict during rendering; it does not guarantee every nested field in an unselected branch can be checked ahead of time.
+Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and native `{% extends ... %}`/`{% block ... %}`/`{{ super() }}`. Inside `for`, `loop.index` counts from one, `loop.index0` counts from zero, and `loop.first` and `loop.last` are booleans. Unknown fields generally error when evaluated. Configuration checks direct references in known templates, while nested lookups and fields used by partials are checked as they render.
 
-Available filters are `trim`, `upper`, `lower`, `join`, `length`, `indent`, and `default`. The `defined` test is available, and `fail("message")` stops rendering with a required-input error. Define functions with arguments using `{% macro ... %}` and import them with `{% from "name" import ... %}`. Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits.
+Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits. Issue content and `description` are inert data. A body containing `{{ example }}` prints those characters literally. Templates have no access to environment variables, authentication, files, or processes.
 
-Guide, commit, and pull request templates produce plain text and preserve Markdown. Issue content and `description` are inert data. A body containing `{{ example }}` prints those characters literally. The context contains only the documented fields, without access to environment variables, authentication, the full configuration, files, or process helpers.
+Guide, commit, and pull request templates preserve Markdown and newlines, including the final newline before any command-specific normalization. Display templates render identifiers and individual rows without embedded newlines. Row templates preserve literal tabs from the template and replace tabs and line breaks from issue fields with spaces. TOML literal strings keep backslashes as written. Use MiniJinja `-%}` and `-}}` to trim surrounding template whitespace.
 
-Newlines are preserved, including the final newline. TOML literal strings keep backslashes as written. MiniJinja `-%}` and `-}}` remove surrounding template whitespace; use them deliberately when joining blocks. The template controls output whitespace, while commands retain their documented input normalization. Preview the result before adopting a layout whose blank lines matter.
+### Functions and filters
+
+Use `function(...)` for a function, `value | filter(...)` for a filter, and `value is defined` for the availability test. Brackets in signatures mark optional arguments. Pass arguments by position unless a keyword is listed below. Macros accept positional or named arguments and may define defaults, for example `{% macro owner(person, fallback="unassigned") %}`. Import a macro with `{% from "name" import owner %}` and call it as `owner(person=issue.assignee)`.
+
+| Function | Result |
+|---|---|
+| `hyperlink(url: String, text: String[, fallback: String])` | Displays `text` as a link to an absolute URI in a styled terminal. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and document templates use `fallback`, which defaults to `text`. The terminal decides which schemes it can open. Apply filters to the label before passing it in. |
+| `fail(message: String)` | Stops rendering with the given message. |
+
+| Filter | Result | Keyword arguments |
+|---|---|---|
+| `value \| trim([chars])` | String with leading and trailing whitespace removed, or the characters in `chars` removed from the ends. | — |
+| `value \| upper`, `value \| lower` | Uppercase or lowercase string. | — |
+| `items \| join([separator[, attribute]])` | String made by joining items or a field from each item. The separator defaults to `""`. `attribute` can be a dotted path. | `d` for the separator, `attribute` for the field or path. For example, `issues \| join(d=", ", attribute="identifier")`. |
+| `value \| length` | Integer count of characters in a string or items in a list or object. | — |
+| `value \| indent([width[, first[, blank]]])` | String indented by `width` spaces (default `4`). `first` and `blank` also indent the first line and blank lines, respectively, and default to `false`. | `width`, `first`, and `blank`. For example, `description \| indent(width=2, first=true)`. |
+| `value \| default([fallback[, use_falsey]])` | Returns `fallback` (default `""`) for an undefined value. With a truthy second argument, it also replaces falsey values. | — |
+
+`value is defined` returns a Boolean. It is true for a present field whose value is `none` or `""`.
 

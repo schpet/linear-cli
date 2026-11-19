@@ -22,7 +22,7 @@ this updates the workspace, team and sort settings, preserving other preferences
 
 ### template preferences
 
-MiniJinja templates customize issue IDs and list rows as well as agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.format_issue_id` prints the current ID template, and `linear config list --defaults` shows shipped definitions. See the [template examples](templating.md).
+MiniJinja templates customize issue IDs and list rows as well as agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.format_issue_id` prints the current ID template, and `linear config list --defaults` shows shipped definitions. See the [template contexts and field types](templating.md#templates-and-data) and [function and filter signatures](templating.md#functions-and-filters).
 
 Inspection and guide generation work offline without authentication. `linear skill show issue comment add` prints inherited command guidance. `linear skill show --builtin` bypasses configuration for recovery.
 
@@ -36,7 +36,7 @@ list your issues (shows unstarted issues by default):
 linear issue mine
 ```
 
-Choose table columns with `linear issue mine --columns id,title`, or select a configured row template with `linear issue mine --format example/standup`. Both options also work with `issue query`.
+Choose table columns with `linear issue mine --columns id,title`, or select a configured row template with `linear issue mine --format example/standup`. Both options also work with `issue query`. See the [issue row fields](templating.md#issue-row-fields) and [named row examples](templating.md#named-rows-and-table-columns).
 
 list issues with different states:
 

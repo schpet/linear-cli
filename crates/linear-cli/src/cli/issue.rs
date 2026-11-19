@@ -234,10 +234,13 @@ pub struct IssueListOutput {
     )]
     pub columns: Vec<IssueColumn>,
     /// Render each issue on its own line with a name from [template-aliases]
-    ///
-    /// `issue` has the fields shown by --json plus `issue.workspace_url_key`
-    /// (from the issue URL, or none). Include `format_issue_id` for the
-    /// configured ID display. Use literal tabs for tab-delimited fields.
+    #[arg(long_help = concat!(
+        "Render each issue on its own line with a name from [template-aliases].\n\n",
+        "The issue object has the fields shown by --json plus issue.workspace_url_key ",
+        "(from the issue URL, or none). Include format_issue_id for the configured ID display. ",
+        "Use literal tabs for tab-delimited fields.\n\nField names and types: ",
+        env!("CARGO_PKG_REPOSITORY"), "/blob/main/docs/templating.md#issue-row-fields",
+    ))]
     #[arg(long, value_name = "NAME", value_parser = NonBlank, conflicts_with_all = ["json", "columns"])]
     pub format: Option<String>,
     /// Do not page long output
