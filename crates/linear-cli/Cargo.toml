@@ -13,6 +13,7 @@ description = "Work with Linear issues, projects and teams from the command line
 linear-schema = { path = "../linear-schema" }
 clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "string", "error-context", "derive", "suggestions", "wrap_help"] }
 clap_complete = { version = "4.6.11", default-features = false, features = ["unstable-dynamic"] }
+unicode-segmentation = "1.13.3"
 unicode-width = "0.2.2"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
 icu_collator = { version = "2.3.1", default-features = false, features = ["compiled_data"] }
@@ -23,7 +24,7 @@ gethostname = "1.1.0"
 cynic = { version = "3.14.0", default-features = false, features = ["rkyv"] }
 cynic-introspection = "3.14"
 serde = { version = "1", features = ["derive"] }
-minijinja = { version = "3.1", default-features = false, features = ["builtins", "multi_template", "serde", "fuel"] }
+minijinja = { version = "3.1", default-features = false, features = ["builtins", "macros", "multi_template", "serde", "fuel"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 toml = { version = "1.0.3", default-features = false, features = ["parse", "display", "std", "serde", "preserve_order"] }
 reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "gzip", "brotli", "deflate"] }

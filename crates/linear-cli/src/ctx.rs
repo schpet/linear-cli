@@ -35,7 +35,7 @@ pub struct Terminal {
     pub stdin_tty: bool,
     pub stdout_tty: bool,
     pub stderr_tty: bool,
-    /// `NO_COLOR` is set to a nonempty value.
+    /// Terminal styling is disabled by `NO_COLOR` or `TERM=dumb`.
     pub no_color: bool,
 }
 

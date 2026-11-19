@@ -133,17 +133,13 @@ pub struct IssueMine {
     #[command(flatten)]
     pub filters: IssueFilters,
     /// Open the list in the browser
-    #[arg(long, short)]
+    #[arg(long, short, conflicts_with_all = ["columns", "format", "json"])]
     pub web: bool,
     /// Open the list in the Linear app
-    #[arg(long, short)]
+    #[arg(long, short, conflicts_with_all = ["columns", "format", "json"])]
     pub app: bool,
-    /// Do not page long output
-    #[arg(long)]
-    pub no_pager: bool,
-    /// Print JSON
-    #[arg(long, short, conflicts_with_all = ["web", "app"])]
-    pub json: bool,
+    #[command(flatten)]
+    pub output: IssueListOutput,
 }
 
 /// Filters `issue mine` and `issue query` share.
@@ -219,12 +215,63 @@ pub struct IssueQuery {
     /// Include archived issues (excluded by default)
     #[arg(long)]
     pub include_archived: bool,
+    #[command(flatten)]
+    pub output: IssueListOutput,
+}
+
+#[derive(Debug, Args)]
+pub struct IssueListOutput {
     /// Print JSON
     #[arg(long, short)]
     pub json: bool,
+    /// Show only these table columns, in the given comma-separated order
+    #[arg(
+        long,
+        value_enum,
+        value_delimiter = ',',
+        value_name = "COLUMN,...",
+        conflicts_with = "json"
+    )]
+    pub columns: Vec<IssueColumn>,
+    /// Render each issue on its own line with a name from [template-aliases]
+    #[arg(long_help = concat!(
+        "Render each issue on its own line with a name from [template-aliases].\n\n",
+        "The issue object has the fields shown by --json plus issue.workspace_url_key ",
+        "(from the issue URL, or none). Include format_issue_id for the configured ID display. ",
+        "Use literal tabs for tab-delimited fields.\n\nField names and types: ",
+        env!("CARGO_PKG_REPOSITORY"), "/blob/main/docs/templating.md#issue-row-fields",
+    ))]
+    #[arg(long, value_name = "NAME", value_parser = NonBlank, conflicts_with_all = ["json", "columns"])]
+    pub format: Option<String>,
     /// Do not page long output
     #[arg(long)]
     pub no_pager: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum)]
+pub enum IssueColumn {
+    /// Priority glyph
+    Priority,
+    /// Formatted issue identifier and lifecycle marker
+    Id,
+    /// Team key
+    Team,
+    /// Issue title
+    Title,
+    /// Comma-separated label names
+    Labels,
+    /// Marker for an issue blocked by unfinished work
+    Blocked,
+    /// Estimated points
+    Estimate,
+    /// Cycle relative to the team's active cycle, or cycle number
+    Cycle,
+    /// Assignee initials
+    Assignee,
+    /// Workflow state name
+    State,
+    /// Time since the last update
+    Updated,
 }
 
 const BULK_ISSUES_HELP: &str =

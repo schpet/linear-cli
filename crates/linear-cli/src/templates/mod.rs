@@ -8,9 +8,17 @@ use serde::Serialize;
 
 use crate::config::ConfigTier;
 use crate::error::{Error, Result};
+use crate::platform::terminal_text;
+use crate::refs::IssueReference;
+
+mod display;
+#[cfg(test)]
+pub use display::DisplaySpan;
+pub use display::DisplayText;
 
 const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";
+const FORMAT_ISSUE_ID: &str = "format_issue_id";
 // Empty hooks still expose the inheritance block used by shipped templates.
 const EMPTY_SKILL_HOOK: &str = "{% block content %}{% endblock %}";
 
@@ -87,6 +95,7 @@ pub struct TemplateConfig {
     builtins: BTreeMap<String, TemplateEntry>,
     template_names: BTreeSet<String>,
     environment: Environment<'static>,
+    display_environment: Environment<'static>,
 }
 
 impl std::fmt::Debug for TemplateConfig {
@@ -122,7 +131,6 @@ fn command_hooks() -> BTreeSet<String> {
 fn environment() -> Environment<'static> {
     let mut env = Environment::empty();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
-    env.set_auto_escape_callback(|_| AutoEscape::None);
     env.set_recursion_limit(50);
     env.set_fuel(Some(1_000_000));
     env.set_syntax(
@@ -136,9 +144,10 @@ fn environment() -> Environment<'static> {
     env.add_filter("lower", minijinja::filters::lower);
     env.add_filter("join", minijinja::filters::join);
     env.add_filter("length", minijinja::filters::length);
-    env.add_filter("indent", minijinja::filters::indent);
+    env.add_filter("indent", display::indent);
     env.add_filter("default", minijinja::filters::default);
     env.add_test("defined", minijinja::tests::is_defined);
+    env.add_function("hyperlink", display::hyperlink);
     env.add_function(
         "fail",
         |message: String| -> std::result::Result<String, minijinja::Error> {
@@ -152,7 +161,8 @@ fn environment() -> Environment<'static> {
 }
 
 fn config_error(source: &str, key: &str, reason: impl std::fmt::Display) -> Error {
-    Error::new(format!("invalid template configuration in {source}, {key}: {reason}"))
+    let message = format!("invalid template configuration in {source}, {key}: {reason}");
+    Error::new(terminal_text::single_line(&message).into_owned())
         .with_hint("Fix the template configuration, or run `linear skill show --builtin` for the shipped guide.")
 }
 
@@ -218,6 +228,7 @@ impl TemplateConfig {
             builtins: BTreeMap::new(),
             template_names,
             environment: environment(),
+            display_environment: Environment::empty(),
         };
         config
             .apply_table(BUILTIN_SOURCE, &table)
@@ -251,6 +262,18 @@ impl TemplateConfig {
 
     pub fn entries(&self) -> &BTreeMap<String, TemplateEntry> {
         &self.entries
+    }
+
+    pub fn validate_alias(&self, name: &str) -> Result<()> {
+        if self.entries.contains_key(name) && !self.template_names.contains(name) {
+            Ok(())
+        } else {
+            Err(Error::invalid(format!(
+                "No template alias named {:?}",
+                terminal_text::single_line(name)
+            ))
+            .with_hint("Define the name in [template-aliases], or choose a name shown by `linear config list`."))
+        }
     }
 
     /// Whether an output still uses the shipped definition. A layer that
@@ -328,13 +351,24 @@ impl TemplateConfig {
 
     fn rebuild(&mut self) -> Result<()> {
         let mut env = environment();
-        for (name, entry) in &self.builtins {
-            env.add_template_owned(format!("builtin/{name}"), entry.body.clone())
-                .map_err(|error| engine_error(error, name, &self.builtins))?;
+        let mut display_env = env.clone();
+        // The display formatter distinguishes macro captures from raw values.
+        // Document templates retain MiniJinja's normal explicit autoescape.
+        display_env.set_auto_escape_callback(|_| AutoEscape::Custom("linear".into()));
+        display_env.set_formatter(display::format_value);
+        for registry in [&mut env, &mut display_env] {
+            for (name, entry) in &self.builtins {
+                registry
+                    .add_template_owned(format!("builtin/{name}"), entry.body.clone())
+                    .map_err(|error| engine_error(error, name, &self.builtins))?;
+            }
         }
         for (name, entry) in &self.entries {
-            env.add_template_owned(name.clone(), entry.body.clone())
-                .map_err(|error| engine_error(error, name, &self.entries))?;
+            for registry in [&mut env, &mut display_env] {
+                registry
+                    .add_template_owned(name.clone(), entry.body.clone())
+                    .map_err(|error| engine_error(error, name, &self.entries))?;
+            }
             // This stable metadata check catches direct misspellings even in
             // unselected branches. Includes and indexed/loop-local attributes
             // remain the strict evaluator's responsibility.
@@ -344,21 +378,14 @@ impl TemplateConfig {
                     .map_err(|error| engine_error(error, name, &self.entries))?;
                 for variable in template.undeclared_variables(true) {
                     let root = variable.split('.').next().expect("a variable has a root");
-                    if root != "fail" && !fields.contains(&root) {
+                    if !matches!(root, "fail" | "hyperlink") && !fields.contains(&root) {
                         return Err(config_error(
                             &entry.origin.source,
                             &entry.origin.key,
                             format!("unknown context field {variable}"),
                         ));
                     }
-                    if name == "commit_description"
-                        && root == "issue"
-                        && variable.contains('.')
-                        && !matches!(
-                            variable.as_str(),
-                            "issue.identifier" | "issue.title" | "issue.url" | "issue.description"
-                        )
-                    {
+                    if !known_issue_field(name, root, &variable) {
                         return Err(config_error(
                             &entry.origin.source,
                             &entry.origin.key,
@@ -369,6 +396,7 @@ impl TemplateConfig {
             }
         }
         self.environment = env;
+        self.display_environment = display_env;
         Ok(())
     }
 
@@ -382,6 +410,33 @@ impl TemplateConfig {
             .and_then(|template| template.render(minijinja::value::Serde(context)))
             .map_err(|error| engine_error(error, name, &self.entries))
     }
+
+    pub fn render_display(
+        &self,
+        name: &str,
+        context: &impl Serialize,
+        styled: bool,
+    ) -> Result<DisplayText> {
+        self.display_environment
+            .get_template(name)
+            .and_then(|template| display::render(&template, context, styled))
+            .map_err(|error| engine_error(error, name, &self.entries))
+    }
+
+    pub fn format_issue_id(&self, issue: &IssueReference<'_>, styled: bool) -> Result<DisplayText> {
+        #[derive(Serialize)]
+        struct Context<'a, 'reference> {
+            issue: &'a IssueReference<'reference>,
+        }
+
+        let mut output = self.render_display(FORMAT_ISSUE_ID, &Context { issue }, styled)?;
+        for span in &mut output.spans {
+            if let std::borrow::Cow::Owned(text) = terminal_text::single_line(&span.text) {
+                span.text = text;
+            }
+        }
+        Ok(output)
+    }
 }
 
 fn valid_name(name: &str) -> bool {
@@ -393,6 +448,7 @@ fn valid_name(name: &str) -> bool {
 
 fn context_fields(name: &str) -> Option<&'static [&'static str]> {
     match name {
+        FORMAT_ISSUE_ID => Some(&["issue"]),
         "commit_description" => Some(&["issue", "linkage", "references"]),
         "pr_title" | "pr_body" | "pr_issue_links" => Some(&[
             "issues",
@@ -412,6 +468,23 @@ fn context_fields(name: &str) -> Option<&'static [&'static str]> {
             ])
         }
         _ => None,
+    }
+}
+
+fn known_issue_field(template: &str, root: &str, variable: &str) -> bool {
+    if root != "issue" || !variable.contains('.') {
+        return true;
+    }
+    match template {
+        FORMAT_ISSUE_ID => matches!(
+            variable,
+            "issue.identifier" | "issue.url" | "issue.workspace_url_key"
+        ),
+        "commit_description" => matches!(
+            variable,
+            "issue.identifier" | "issue.title" | "issue.url" | "issue.description"
+        ),
+        _ => true,
     }
 }
 
