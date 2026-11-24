@@ -1,24 +1,16 @@
 //! `issue query`: issues matching structured filters or a full-text search.
-use std::time::SystemTime;
-
 use crate::cli::issue::IssueQuery;
-use crate::commands::json;
 use crate::commands::team_key::configured_team_key;
 use crate::config::OptionSource;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result, ResultExt};
-use crate::graphql::operations::issue_read::{IssueFilter, ListedIssue};
+use crate::graphql::operations::issue_read::IssueFilter;
 use crate::refs::{is_linear_uuid, team::ResolvedTeam};
 
 use super::{filter, list_view, read};
 
 pub fn run(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     query(ctx, args).context("Failed to query issues")
-}
-
-enum Output {
-    Json(Vec<u8>),
-    Table(crate::commands::table::Table),
 }
 
 /// Which teams the query covers.
@@ -36,6 +28,7 @@ impl Scope {
 }
 
 fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
+    let output = list_view::Output::resolve(ctx, &args.output)?;
     let filters = &args.filters;
     if filters
         .milestone
@@ -102,7 +95,7 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
     let sort = ctx.options().issue_sort(args.sort).0;
     let show_team = scope.several();
     let show_assignee = filters.assignee.is_none() && !filters.unassigned;
-    let output = ctx.block_on(async {
+    let filter = ctx.block_on(async {
         filter::check_labels(client, &filters.label, scope.keys.as_deref()).await?;
         let mut filter = IssueFilter {
             team: scope.keys.as_deref().map(filter::query_team_filter),
@@ -130,49 +123,29 @@ fn query(ctx: &Ctx, args: &IssueQuery) -> Result<()> {
             .expect("filters always serialize")
             .as_object()
             .is_some_and(serde_json::Map::is_empty);
-        let filter = (!empty).then_some(filter);
-        let rows = match search {
-            Some(term) => {
-                let data = read::search(
-                    client,
-                    filter,
-                    term.to_owned(),
-                    filters.limit.max(),
-                    args.include_archived,
-                    args.search_comments,
-                )
-                .await?;
-                if args.json {
-                    return Ok(Output::Json(json::render(&data)));
-                }
-                data.into_iter().map(ListedIssue::from).collect::<Vec<_>>()
-            }
-            None => {
-                let data = read::query(
-                    client,
-                    filter,
-                    sort,
-                    filters.limit.max(),
-                    args.include_archived,
-                )
-                .await?;
-                if args.json {
-                    return Ok(Output::Json(json::render(&data)));
-                }
-                data
-            }
-        };
-        Ok::<_, Error>(Output::Table(list_view::table(
-            &rows,
-            show_team,
-            show_assignee,
-            SystemTime::now(),
-        )))
+        Ok::<_, Error>((!empty).then_some(filter))
     })?;
-    drop(spinner);
-    match output {
-        Output::Json(json) => ctx.print(json),
-        Output::Table(table) => list_view::print_table(ctx, &table, !args.no_pager),
+    if let Some(term) = search {
+        let rows = ctx.block_on(read::search(
+            client,
+            filter,
+            term.to_owned(),
+            filters.limit.max(),
+            args.include_archived,
+            args.search_comments,
+        ))?;
+        drop(spinner);
+        output.print(ctx, rows, show_team, show_assignee)
+    } else {
+        let rows = ctx.block_on(read::query(
+            client,
+            filter,
+            sort,
+            filters.limit.max(),
+            args.include_archived,
+        ))?;
+        drop(spinner);
+        output.print(ctx, rows, show_team, show_assignee)
     }
 }
 

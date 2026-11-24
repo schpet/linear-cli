@@ -1442,6 +1442,389 @@ fn query_text_lists_issues() {
 }
 
 #[test]
+fn mine_explicit_columns_keep_their_order_and_show_optional_columns() {
+    let api = MockLinear::start();
+    let mut row = list_issue(42, "DEMO", "unstarted");
+    row["url"] = json!("https://linear.app/workspace-one/issue/DEMO-42");
+    let response = issues(vec![row], None);
+    for _ in 0..3 {
+        api.on("GetIssuesForState", response.clone());
+    }
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "DEMO")
+        .env_remove("NO_COLOR");
+    let args = [
+        "issue",
+        "mine",
+        "--columns",
+        "title,cycle,assignee,id,team",
+        "--no-pager",
+    ];
+    let default = cli.run_tty(&args, &[]);
+    default.success().stdout_has(
+        "TITLE           CYC  A  ID       TEAM\nIssue 42 title  -    -  DEMO-42  DEMO\n",
+    );
+    assert!(
+        default.terminal.contains(
+            "\x1b]8;;https://linear.app/workspace-one/issue/DEMO-42\x1b\\DEMO-42\x1b]8;;\x1b\\"
+        ),
+        "{default:?}"
+    );
+
+    let cli = cli.file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+format_issue_id = '{{ hyperlink(issue.url, "界", issue.workspace_url_key ~ "/" ~ issue.identifier) }}'
+"#,
+    );
+    let run = cli.run(&args);
+    run.success();
+    let mut lines = run.stdout.lines();
+    assert_eq!(
+        lines.next(),
+        Some("TITLE           CYC  A  ID                     TEAM")
+    );
+    assert_eq!(
+        lines.next(),
+        Some("Issue 42 title  -    -  workspace-one/DEMO-42  DEMO")
+    );
+    assert_eq!(lines.next(), None);
+
+    let terminal = cli.run_tty(&args, &[]);
+    terminal
+        .success()
+        .stdout_has("Issue 42 title  -    -  界  DEMO");
+    assert!(
+        terminal.terminal.contains(
+            "\x1b]8;;https://linear.app/workspace-one/issue/DEMO-42\x1b\\界\x1b]8;;\x1b\\  DEMO"
+        ),
+        "{terminal:?}"
+    );
+    assert_eq!(api.operations(), ["GetIssuesForState"; 3]);
+}
+
+#[test]
+fn narrow_issue_table_clips_long_ids_before_their_lifecycle_marker() {
+    use unicode_width::UnicodeWidthStr;
+
+    const URL: &str = "https://linear.app/workspace-one/issue/DEMO-42";
+    const WIDTH: u16 = 32;
+    let api = MockLinear::start();
+    let mut archived = list_issue(42, "DEMO", "unstarted");
+    archived["url"] = json!(URL);
+    archived["archivedAt"] = json!("2026-11-09T20:50:36.574Z");
+    archived["state"]["name"] = json!("Todo");
+    let mut live = list_issue(7, "DEMO", "unstarted");
+    live["url"] = json!("https://linear.app/workspace-one/issue/DEMO-7");
+    live["state"]["name"] = json!("Todo");
+    let response = issues(vec![archived, live], None);
+    for _ in 0..5 {
+        api.on("GetIssuesForQuery", response.clone());
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+format_issue_id = '''{% if issue.identifier == "DEMO-42" %}{{ hyperlink(issue.url, "Workspace one demonstration issue display", "workspace-one/reference/DEMO-42 full fallback") }}{% else %}{{ hyperlink(issue.url, issue.identifier) }}{% endif %}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "query",
+        "--all-teams",
+        "--include-archived",
+        "--columns",
+        "id,title",
+        "--no-pager",
+    ];
+    let assert_fits = |output: &str| {
+        assert_eq!(output.lines().count(), 3, "{output}");
+        assert!(
+            output
+                .lines()
+                .all(|line| line.width() <= usize::from(WIDTH)),
+            "{output}"
+        );
+        assert!(output.contains("DEMO-7"), "{output}");
+    };
+    let styled = cli.run_tty_with_width(&args, &[], Some(WIDTH));
+    assert_fits(&styled.success().stdout);
+    let archived = styled
+        .terminal
+        .lines()
+        .find(|line| line.contains("[archived]"))
+        .expect("archived row");
+    let (label, after) = archived
+        .strip_prefix(&format!("\x1b]8;;{URL}\x1b\\"))
+        .and_then(|row| row.split_once("\x1b]8;;\x1b\\"))
+        .expect("archived row starts with a complete hyperlink");
+    assert!(
+        label.starts_with("Work") && !label.contains('…'),
+        "{archived:?}"
+    );
+    assert!(after.starts_with("… [archived]  "), "{archived:?}");
+
+    let cli = cli.env("NO_COLOR", "1");
+    let plain = cli.run_tty_with_width(&args, &[], Some(WIDTH));
+    assert_fits(&plain.success().stdout);
+    let fallback = plain
+        .stdout
+        .lines()
+        .find(|line| line.contains("[archived]"))
+        .expect("archived row");
+    assert!(
+        fallback.starts_with("works") && fallback.contains("… [archived]  "),
+        "{fallback}"
+    );
+    assert!(!plain.terminal.contains('\x1b'), "{plain:?}");
+
+    let squeezed = cli.run_tty_with_width(&args, &[], Some(22));
+    let squeezed = &squeezed.success().stdout;
+    assert!(
+        squeezed.lines().all(|line| line.width() <= 22),
+        "{squeezed}"
+    );
+    assert!(squeezed.contains("… [archived]  "), "{squeezed}");
+
+    cli.run(&args)
+        .success()
+        .stdout_has("workspace-one/reference/DEMO-42 full fallback [archived]  ");
+
+    let default_columns = cli.env_remove("NO_COLOR").run_tty_with_width(
+        &[
+            "issue",
+            "query",
+            "--all-teams",
+            "--include-archived",
+            "--no-pager",
+        ],
+        &[],
+        Some(34),
+    );
+    let output = &default_columns.success().stdout;
+    assert!(output.lines().all(|line| line.width() <= 34), "{output}");
+    assert!(output.contains("… [archived]  "), "{output}");
+    assert!(
+        default_columns
+            .terminal
+            .contains(&format!("\x1b]8;;{URL}\x1b\\W")),
+        "{default_columns:?}"
+    );
+}
+
+#[test]
+fn query_format_includes_the_id_template_and_preserves_configured_tabs() {
+    let api = MockLinear::start();
+    let mut first = list_issue(42, "DEMO", "started");
+    first["url"] = json!("https://linear.app/workspace-one/issue/DEMO-42");
+    first["title"] = json!("One\tfake column\nfake row\u{1b}[2J");
+    let mut second = list_issue(42, "DEMO", "started");
+    second["url"] = json!("https://linear.app/workspace-two/issue/DEMO-42");
+    api.on("GetIssuesForQuery", issues(vec![first, second], None));
+    let run = Cli::for_api(&api)
+        .file(
+            "cwd/.linear.toml",
+            concat!(
+                "[templates]\n",
+                "format_issue_id = '{{ issue.workspace_url_key }}/{{ issue.identifier }}'\n",
+                "[template-aliases]\n",
+                "fields = '{% macro title(issue) %}{{ issue.title }}{% endmacro %}'\n",
+                "pick = '{% import \"fields\" as fields %}{% include \"format_issue_id\" %}\t{{ issue.priorityLabel }}\t{{ fields.title(issue) }}'\n",
+            ),
+        )
+        .run(&[
+            "--experimental-templates",
+            "issue",
+            "query",
+            "--all-teams",
+            "--format",
+            "pick",
+        ]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        "workspace-one/DEMO-42\tHigh\tOne fake column fake row�[2J\n\
+         workspace-two/DEMO-42\tHigh\tIssue 42 title\n"
+    );
+    assert_eq!(api.operations(), ["GetIssuesForQuery"]);
+}
+
+#[test]
+fn query_format_links_macro_fragments_with_an_outer_destination_and_fallback() {
+    let api = MockLinear::start();
+    let response = issues(vec![list_issue(42, "DEMO", "started")], None);
+    api.on("GetIssuesForQuery", response.clone())
+        .on("GetIssuesForQuery", response);
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[template-aliases]
+parts = '''
+{% macro label(issue) -%}
+See {{ hyperlink("https://example.test/inner", issue.identifier, "local/" ~ issue.identifier) }}
+{%- endmacro %}
+{% macro fallback(issue) -%}
+Copy {{ label(issue) }}
+{%- endmacro %}'''
+row = '''{% from "parts" import label, fallback %}{{ hyperlink("https://example.test/outer", label(issue), fallback(issue)) }}'''
+"#,
+    );
+    let args = [
+        "--experimental-templates",
+        "issue",
+        "query",
+        "--all-teams",
+        "--format",
+        "row",
+        "--no-pager",
+    ];
+    let styled = cli.run_tty(&args, &[]);
+    assert_eq!(styled.success().stdout, "See DEMO-42\n");
+    assert!(
+        styled
+            .terminal
+            .contains("\x1b]8;;https://example.test/outer\x1b\\See DEMO-42\x1b]8;;\x1b\\"),
+        "{styled:?}"
+    );
+    assert!(
+        !styled.terminal.contains("https://example.test/inner"),
+        "{styled:?}"
+    );
+    let plain = cli.run(&args);
+    assert_eq!(plain.success().stdout, "Copy See local/DEMO-42\n");
+}
+
+#[test]
+fn query_search_format_keeps_search_metadata() {
+    let api = MockLinear::start();
+    let mut row = list_issue(42, "DEMO", "started");
+    row["url"] = json!("");
+    row["metadata"] = json!({ "source": "title" });
+    api.on(
+        "SearchIssues",
+        json!({ "searchIssues": {
+        "nodes": [row],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+    } }),
+    );
+    let run = Cli::for_api(&api)
+        .file(
+            "cwd/.linear.toml",
+            r#"[template-aliases]
+match = '{% include "format_issue_id" %} {{ issue.metadata.source }} {{ issue.workspace_url_key or "unavailable" }}'
+"#,
+        )
+        .run(&[
+            "--experimental-templates",
+            "issue",
+            "query",
+            "--all-teams",
+            "--search",
+            "widget",
+            "--format",
+            "match",
+        ]);
+    run.success();
+    assert_eq!(run.stdout, "DEMO-42 title unavailable\n");
+    assert_eq!(api.operations(), ["SearchIssues"]);
+}
+
+#[test]
+fn mine_format_pages_only_on_a_terminal_when_enabled() {
+    let api = MockLinear::start();
+    let rows: Vec<_> = (1..=60)
+        .map(|number| list_issue(number, "DEMO", "unstarted"))
+        .collect();
+    for _ in 0..3 {
+        api.on("GetIssuesForState", issues(rows.clone(), None));
+    }
+    api.on("GetIssuesForState", issues(vec![], None));
+    let cli = Cli::for_api(&api)
+        .env("LINEAR_TEAM_ID", "DEMO")
+        .file(
+            "cwd/.linear.toml",
+            "[template-aliases]\nids = '{{ issue.identifier }}'\n",
+        )
+        .stub_bin("sh", "exec /bin/sh \"$@\"")
+        .stub_bin("test-pager", "cat");
+    let pager = cli.path("bin/test-pager").display().to_string();
+    let cli = cli.env("PAGER", &pager);
+    let args = [
+        "--experimental-templates",
+        "issue",
+        "mine",
+        "--format",
+        "ids",
+        "--limit",
+        "all",
+    ];
+    let piped = cli.run(&args);
+    assert_eq!(piped.success().stdout.lines().count(), 60);
+    assert!(cli.calls("test-pager").is_empty());
+
+    cli.run_tty(&args, &[]).success().stdout_has("DEMO-60");
+    assert_eq!(cli.calls("test-pager").len(), 1);
+
+    let mut unpaged = args.to_vec();
+    unpaged.push("--no-pager");
+    cli.run_tty(&unpaged, &[]).success().stdout_has("DEMO-60");
+    assert_eq!(cli.calls("test-pager").len(), 1);
+
+    let empty = cli.run(&args);
+    assert!(empty.success().stdout.is_empty(), "{empty}");
+}
+
+#[test]
+fn mine_and_query_validate_output_options_before_any_requests() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api).env("LINEAR_TEAM_ID", "DEMO").file(
+        "cwd/.linear.toml",
+        "[template-aliases]\npick = '{{ issue.identifier }}'\n",
+    );
+    for command in ["mine", "query"] {
+        cli.run(&["issue", command, "--columns", "title,id,title"])
+            .usage_error()
+            .stderr_has("--columns lists title more than once");
+        cli.run(&["issue", command, "--columns", "title,unknown"])
+            .usage_error()
+            .stderr_has("unknown");
+        cli.run(&["issue", command, "--format", "pick"])
+            .usage_error()
+            .stderr_has("--format requires experimental templates")
+            .stderr_has("--experimental-templates");
+        for name in ["unconfigured", "format_issue_id", "builtin/format_issue_id"] {
+            cli.run(&[
+                "--experimental-templates",
+                "issue",
+                command,
+                "--format",
+                name,
+            ])
+            .usage_error()
+            .stderr_has(name);
+        }
+        for flags in [
+            ["--format", "pick", "--json"],
+            ["--columns", "id", "--json"],
+        ] {
+            cli.run(&["issue", command, flags[0], flags[1], flags[2]])
+                .usage_error();
+        }
+        cli.run(&["issue", command, "--format", "pick", "--columns", "id"])
+            .usage_error();
+    }
+    for open in ["--web", "--app"] {
+        cli.run(&["issue", "mine", "--format", "pick", open])
+            .usage_error();
+        cli.run(&["issue", "mine", "--columns", "id", open])
+            .usage_error();
+    }
+    assert!(api.requests().is_empty());
+}
+
+#[test]
 fn query_unknown_state_fails() {
     let api = MockLinear::start();
     api.on(

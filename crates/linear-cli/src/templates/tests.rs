@@ -476,6 +476,9 @@ format_issue_id = '''{{ note }}'''
             .expect("render"),
         "Legacy title"
     );
+    config
+        .validate_alias(FORMAT_ISSUE_ID)
+        .expect("legacy alias remains an alias");
 
     let url = "https://linear.app/workspace-one/issue/DEMO-42";
     let issue = IssueReference::new("DEMO-42", Some(url));
@@ -552,6 +555,16 @@ other = '''	{{ hyperlink("example://workspace-one/issue/DEMO-42", issue.identifi
         .filter_map(|span| span.url.as_deref())
         .collect::<Vec<_>>();
     assert_eq!(urls, [url, "example://workspace-one/issue/DEMO-42"]);
+    config.validate_alias("row").expect("registered alias");
+    for name in ["format_issue_id", "builtin/format_issue_id", "missing"] {
+        assert!(matches!(
+            config
+                .validate_alias(name)
+                .expect_err("not an alias")
+                .kind(),
+            crate::error::ErrorKind::Invalid
+        ));
+    }
 }
 
 #[test]

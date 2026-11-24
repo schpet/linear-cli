@@ -3,7 +3,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use serde_json::{Value, json};
 
-use crate::support::{API_KEY, Cli, MockLinear, Request, Run, assert_json, nodes};
+use crate::support::{API_KEY, Cli, MockLinear, Request, Run, assert_json, nodes, plain_text};
 
 pub fn viewer() -> Value {
     json!({
@@ -13,6 +13,15 @@ pub fn viewer() -> Value {
             "organization": { "name": "Acme", "urlKey": "acme", "logoUrl": null }
         }
     })
+}
+
+#[test]
+fn terminal_capture_keeps_completed_lines_when_progress_is_erased() {
+    let output = "header\r\n\r⠋ \r⠙ \r\x1b[2Kfirst row\r\nsecond row\r\n";
+    assert_eq!(
+        plain_text(output.as_bytes()),
+        "header\nfirst row\nsecond row\n"
+    );
 }
 
 #[test]

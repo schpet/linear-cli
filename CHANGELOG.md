@@ -71,8 +71,7 @@
 
 ### Added
 
-- Issue views and relations link IDs to their canonical Linear URLs on styled terminals. Enable experimental templates to customize `format_issue_id`.
-
+- Issue lists, views, and relations link IDs to their canonical Linear URLs on styled terminals. `issue mine` and `issue query` support ordered table columns with `--columns`.
 - `linear skill setup` also installs `SessionStart` reminders for Claude Code and Codex to load the `linear-cli` skill or run `linear skill show` before using Linear, independently of the skill catalog. Setup, status, removal, agent selection and dry runs manage the hooks while preserving unrelated settings and hooks. Claude Code also supports project setup; Codex hooks are account-only, honor `CODEX_HOME`, and require review in Codex's `/hooks` menu.
 - `linear config check` validates loaded settings and template overlays offline, without credentials, API requests or file changes. It reports ignored legacy settings as informational notes with their sources, never their values. Harmless leftovers exit successfully; invalid active settings and malformed config still fail.
 - Layered MiniJinja templates for agent guidance, shared `issue describe` / `issue jj start` descriptions, and pull request titles and bodies. Configure `[templates]` and reusable `[template-aliases]` globally, per project, or with repeatable `--config-file` / `--config` overlays. Shipped defaults remain available through `builtin/<name>`. Explicit `--title` and gh arguments after `--` retain precedence; a custom template can generate a title for several issues.
@@ -94,7 +93,7 @@
 ### Experimental
 
 - Set `templates = false` under `[experimental]` globally or per project to turn off experimental templates while keeping their definitions for later.
-- Enable `--experimental-templates` or set `templates = true` under `[experimental]` in Linear config to try custom hyperlink fallbacks and native MiniJinja macros and call blocks. These features may change or be removed in a minor release.
+- Enable `--experimental-templates` or set `templates = true` under `[experimental]` in Linear config to try named `--format` rows, `format_issue_id` overrides, custom hyperlinks with plain-text fallbacks, and native MiniJinja macros and call blocks. These features may change or be removed in a minor release.
 
 ### Changed
 
