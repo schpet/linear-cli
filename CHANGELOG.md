@@ -129,6 +129,18 @@
 - Built-in templates use consistent LF line endings in Windows builds, fixing CRLF in generated commit descriptions and pull request bodies. Custom template text and data retain their original whitespace.
 - `auth login` on a machine without a system keyring now says how to install `secret-tool` on Linux, and when an API key is already configured (`LINEAR_API_KEY`, a `.env` file, or `api_key` in a config file) it says that other commands already use it instead of suggesting to set `LINEAR_API_KEY`. It still fails there, since it has nowhere to store a key; `--plaintext` stores one in the credentials file ([#231](https://github.com/schpet/linear-cli/issues/231), [#301](https://github.com/schpet/linear-cli/pull/301); thanks @bitnahian)
 
+## [4.0.0-alpha.5] - 2026-11-24
+
+### Added
+
+- Issue IDs, top-level comment IDs, and project names link to Linear on styled terminals. Pipes and unstyled terminals use plain labels.
+- Select and order columns with `linear issue mine --columns id,priority,title` or the same option on `issue query`. Narrow tables preserve emoji, combining characters, and lifecycle markers when shortening labels.
+- Enable `--experimental-templates` or set `templates = true` under `[experimental]` to customize issue views and named list rows. Reuse `format_issue_id(issue)`, `format_comment_id(comment, issue)`, and `format_project_name(project)` to share labels and links. Built-in web and desktop presets use each resource’s own workspace.
+
+### Changed
+
+- Issue views, lists, and references identify archived and deleted issues. Issue JSON exposes `trashed` and `archivedAt`. Commands that start VCS work or create a pull request reject known deleted issues before making changes.
+
 ## [4.0.0-alpha.4] - 2026-11-17
 
 ### Added
