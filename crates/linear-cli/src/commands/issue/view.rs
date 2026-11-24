@@ -7,7 +7,7 @@ use crate::graphql::scalars::TimelessDate;
 use crate::platform::kitty::InlineImages;
 use crate::refs::IssueReference;
 use crate::templates::markdown::{push_markdown_label, push_markdown_link};
-use crate::templates::{TemplateConfig, ViewPart, ViewSection, ViewSectionKind};
+use crate::templates::{DisplayText, TemplateConfig, ViewPart, ViewSection, ViewSectionKind};
 use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
@@ -22,6 +22,7 @@ use chrono::{DateTime, Utc};
 use futures_util::{StreamExt, TryStreamExt, stream};
 use minijinja::Value;
 use serde::Serialize;
+use unicode_width::UnicodeWidthStr;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -154,7 +155,16 @@ fn render(
         templates: ctx.templates(),
         styled: ctx.color(),
     };
-    let threads = threads(&issue.comments.nodes, args.show_resolved_threads)?;
+    let issue_reference = IssueReference::new(&issue.identifier, Some(&issue.url));
+    let threads = threads(
+        &issue.comments.nodes,
+        args.show_resolved_threads,
+        |comment| {
+            issue_ids
+                .templates
+                .format_comment_id(&issue_reference, comment, issue_ids.styled)
+        },
+    )?;
     let context = View {
         terminal: ctx.stdout_tty(),
         body: body_context(&issue, now, &issue_ids)?,
@@ -649,13 +659,42 @@ fn cycle_label(issue: &Issue, cycle: &GetIssuesForStateIssuesNodesCycle) -> Stri
         format!("{label} ({short})")
     }
 }
-#[derive(Debug)]
-pub struct Threads<'a> {
-    pub roots: Vec<&'a Comment>,
-    pub replies: HashMap<String, Vec<&'a Comment>>,
-    pub hidden: usize,
+struct Threads<'a> {
+    visible: Vec<Thread<'a>>,
+    hidden: usize,
 }
-pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>, Error> {
+
+struct Thread<'a> {
+    root: DisplayComment<'a>,
+    replies: Vec<DisplayComment<'a>>,
+}
+
+struct DisplayComment<'a> {
+    comment: &'a Comment,
+    label: DisplayText,
+}
+
+impl DisplayComment<'_> {
+    fn suffix(&self, styled: bool) -> Vec<(String, usize)> {
+        let plain = self.label.plain();
+        let mut parts = Vec::new();
+        if !plain.trim().is_empty() {
+            let width = plain.width();
+            let text = if styled { self.label.terminal() } else { plain };
+            parts.push((text, width));
+        }
+        if self.comment.parent.is_none() && self.comment.resolved_at.is_some() {
+            parts.push((comments::RESOLVED.to_owned(), comments::RESOLVED.width()));
+        }
+        parts
+    }
+}
+
+fn threads(
+    comments: &[Comment],
+    show_resolved: bool,
+    mut format_label: impl FnMut(&Comment) -> Result<DisplayText>,
+) -> Result<Threads<'_>> {
     let mut roots = comments
         .iter()
         .filter(|c| c.parent.is_none())
@@ -665,7 +704,7 @@ pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>,
         .iter()
         .map(|c| (c.id.inner(), c))
         .collect::<HashMap<_, _>>();
-    let mut replies: HashMap<String, Vec<&Comment>> = HashMap::new();
+    let mut replies: HashMap<&str, Vec<&Comment>> = HashMap::new();
     for comment in comments.iter().filter(|c| c.parent.is_some()) {
         let mut id = comment.id.inner();
         let mut seen = HashSet::new();
@@ -678,7 +717,7 @@ pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>,
                 None => break,
             }
         }
-        replies.entry(id.to_owned()).or_default().push(comment);
+        replies.entry(id).or_default().push(comment);
     }
     for children in replies.values_mut() {
         children.sort_by_key(|comment| comment.created_at);
@@ -688,11 +727,25 @@ pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>,
         roots.retain(|c| c.resolved_at.is_none());
     }
     let hidden = before - roots.len();
-    Ok(Threads {
-        roots,
-        replies,
-        hidden,
-    })
+    let mut visible = Vec::with_capacity(roots.len());
+    for comment in roots {
+        let root = DisplayComment {
+            comment,
+            label: format_label(comment)?,
+        };
+        let mut children = Vec::new();
+        for &reply in replies.get(comment.id.inner()).into_iter().flatten() {
+            children.push(DisplayComment {
+                comment: reply,
+                label: format_label(reply)?,
+            });
+        }
+        visible.push(Thread {
+            root,
+            replies: children,
+        });
+    }
+    Ok(Threads { visible, hidden })
 }
 fn author(c: &Comment) -> &str {
     c.user
@@ -722,16 +775,6 @@ fn author(c: &Comment) -> &str {
 fn date(c: &Comment, now: DateTime<Utc>) -> String {
     crate::commands::relative_time::ago(c.created_at.0, now, &chrono::Local)
 }
-/// A thread's ID in brackets (linked to it when `links`), then
-/// `[resolved]` for a resolved thread, each with its display width.
-fn suffix(c: &Comment, links: bool) -> Vec<(String, usize)> {
-    let mut parts = vec![comments::id_part(c.id.inner(), &c.url, links)];
-    if c.resolved_at.is_some() {
-        parts.push((comments::RESOLVED.to_owned(), comments::RESOLVED.len()));
-    }
-    parts
-}
-
 fn summary(hidden: usize) -> String {
     format!(
         "Resolved {} hidden: {hidden}. Use --show-resolved-threads to show them.",
@@ -762,27 +805,12 @@ struct Sections {
 
 fn markdown_comments(threads: &Threads<'_>, now: DateTime<Utc>) -> String {
     let mut out = String::new();
-    if !threads.roots.is_empty() {
+    if !threads.visible.is_empty() {
         out.push_str("\n\n## Comments\n\n");
-        for root in &threads.roots {
-            let suffix: Vec<String> = suffix(root, false)
-                .into_iter()
-                .map(|(text, _)| text)
-                .collect();
-            out.push_str(&format!(
-                "- **@{}** commented *{}* {}\n\n  {}\n\n",
-                author(root),
-                date(root, now),
-                suffix.join(" "),
-                body_markdown(root).replace('\n', "\n  ")
-            ));
-            for reply in threads.replies.get(root.id.inner()).into_iter().flatten() {
-                out.push_str(&format!(
-                    "  - **@{}** replied *{}*\n\n    {}\n\n",
-                    author(reply),
-                    date(reply, now),
-                    body_markdown(reply).replace('\n', "\n    ")
-                ));
+        for thread in &threads.visible {
+            write_markdown_comment(&mut out, &thread.root, "commented", "", now);
+            for reply in &thread.replies {
+                write_markdown_comment(&mut out, reply, "replied", "  ", now);
             }
         }
     }
@@ -790,6 +818,29 @@ fn markdown_comments(threads: &Threads<'_>, now: DateTime<Utc>) -> String {
         out.push_str(&format!("\n\n{}", summary(threads.hidden)));
     }
     out
+}
+
+fn write_markdown_comment(
+    out: &mut String,
+    displayed: &DisplayComment<'_>,
+    verb: &str,
+    indent: &str,
+    now: DateTime<Utc>,
+) {
+    let comment = displayed.comment;
+    out.push_str(&format!(
+        "{indent}- **@{}** {verb} *{}*",
+        author(comment),
+        date(comment, now),
+    ));
+    for (text, _) in displayed.suffix(false) {
+        out.push(' ');
+        out.push_str(&text);
+    }
+    out.push_str(&format!(
+        "\n\n{indent}  {}\n\n",
+        body_markdown(comment).replace('\n', &format!("\n{indent}  ")),
+    ));
 }
 
 fn terminal(
@@ -813,7 +864,7 @@ fn terminal(
             ViewPart::Section(ViewSectionKind::Comments, _) => {
                 let rendered = rendered_comments
                     .get_or_insert_with(|| terminal_comments(threads, now, options));
-                if threads.roots.is_empty() && !out.is_empty() {
+                if threads.visible.is_empty() && !out.is_empty() {
                     out.push_str("\n\n");
                 } else {
                     separate_terminal_part(&mut out);
@@ -849,25 +900,38 @@ fn separate_terminal_part(out: &mut String) {
 
 fn terminal_comments(threads: &Threads<'_>, now: DateTime<Utc>, options: &RenderOptions) -> String {
     let mut out = String::new();
-    let header = |c: &Comment, verb: &str, suffix: Vec<(String, usize)>, indent: &str| {
-        let action = format!("{verb} {}", date(c, now));
-        comments::terminal_header(author(c), &action, suffix, indent, options)
+    let header = |displayed: &DisplayComment<'_>, verb: &str, indent: &str| {
+        let comment = displayed.comment;
+        let action = format!("{verb} {}", date(comment, now));
+        comments::terminal_header(
+            author(comment),
+            &action,
+            displayed.suffix(options.styled),
+            indent,
+            options,
+        )
     };
-    if !threads.roots.is_empty() {
+    if !threads.visible.is_empty() {
         out.push_str(&markdown_terminal::render("## Comments", options));
         out.push('\n');
-        for (index, root) in threads.roots.iter().enumerate() {
+        for (index, Thread { root, replies }) in threads.visible.iter().enumerate() {
             if index > 0 {
                 out.push('\n');
             }
-            out.push_str(&header(root, "commented", suffix(root, true), ""));
+            out.push_str(&header(root, "commented", ""));
             out.push('\n');
-            out.push_str(&markdown_terminal::render(&body_markdown(root), options));
-            for reply in threads.replies.get(root.id.inner()).into_iter().flatten() {
+            out.push_str(&markdown_terminal::render(
+                &body_markdown(root.comment),
+                options,
+            ));
+            for reply in replies {
                 out.push('\n');
-                out.push_str(&header(reply, "replied", Vec::new(), "  "));
+                out.push_str(&header(reply, "replied", "  "));
                 out.push('\n');
-                out.push_str(&comments::render_reply(&body_markdown(reply), options));
+                out.push_str(&comments::render_reply(
+                    &body_markdown(reply.comment),
+                    options,
+                ));
             }
         }
     }

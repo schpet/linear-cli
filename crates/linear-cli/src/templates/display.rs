@@ -11,6 +11,7 @@ use minijinja::{AutoEscape, Error, ErrorKind, Output, State, Template};
 use serde::Serialize;
 
 use crate::platform::markdown_terminal;
+use crate::refs::{LinearUrlParse, LinearUrlRef, parse_linear_url};
 
 const MAX_DISPLAY_BYTES: usize = 4 * 1024 * 1024;
 const STYLED_KEY: &str = "\0linear-display-styled";
@@ -125,8 +126,11 @@ pub(super) fn render(
         // setting is available to the helper, including from lexical macros.
         local.insert(STYLED_KEY, Value::from_object(Styled));
     }
-    if template.name() == super::BUILTIN_FORMAT_ISSUE_ID {
-        // The stable renderer can use the immutable default without exposing
+    if matches!(
+        template.name(),
+        super::BUILTIN_FORMAT_ISSUE_ID | super::BUILTIN_FORMAT_COMMENT_ID
+    ) {
+        // The stable renderer can use the immutable defaults without exposing
         // hyperlink as a global to any user template.
         local.insert("hyperlink", Value::from_function(hyperlink));
     }
@@ -259,6 +263,27 @@ fn string_arg<'a>(value: &'a Value, arg: &str) -> Result<&'a str, Error> {
             format!("hyperlink {arg} must be a string"),
         )
     })
+}
+
+pub(super) fn comment_app_url(state: &State, url: &str) -> Result<Option<String>, Error> {
+    state.consume_fuel(u64::try_from(url.len() / 16 + 1).expect("byte count fits in u64"))?;
+    let Some(path) = url.strip_prefix("https://linear.app/") else {
+        return Ok(None);
+    };
+    let Some((issue_url, fragment)) = url.split_once('#') else {
+        return Ok(None);
+    };
+    if fragment.strip_prefix("comment-").is_none_or(str::is_empty)
+        || !markdown_terminal::valid_absolute_url(url)
+        || !matches!(
+            parse_linear_url(issue_url),
+            LinearUrlParse::Known(LinearUrlRef::Issue { .. })
+        )
+    {
+        return Ok(None);
+    }
+    // Linear's desktop protocol keeps the web permalink's host, path and fragment.
+    Ok(Some(format!("linear://linear.app/{path}")))
 }
 
 fn expand(output: &str, links: Option<&Fragments>) -> Result<DisplayText, Error> {

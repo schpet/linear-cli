@@ -22,7 +22,7 @@ this updates the workspace, team and sort settings, preserving other preferences
 
 ### template preferences
 
-MiniJinja templates customize agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.format_issue_id` prints the current ID template, and `linear config list --defaults` shows shipped definitions. Custom [issue views](templating.md#issue-view), issue IDs and list rows require the [experimental template opt-in](templating.md#experimental-templates). See the [template contexts and field types](templating.md#templates-and-data) and [function and filter signatures](templating.md#functions-and-filters).
+MiniJinja templates customize agent guidance, commit descriptions and pull requests. `linear config list --show-origin` inspects effective templates and their sources, `linear config get templates.format_issue_id` prints the current ID template, and `linear config list --defaults` shows shipped definitions. Custom [issue views](templating.md#issue-view), issue IDs, [comment links](templating.md#comment-identifiers-and-links) and list rows require the [experimental template opt-in](templating.md#experimental-templates). See the [template contexts and field types](templating.md#templates-and-data) and [function and filter signatures](templating.md#functions-and-filters).
 
 Inspection and guide generation work offline without authentication. `linear skill show issue comment add` prints inherited command guidance. `linear skill show --builtin` bypasses configuration for recovery.
 

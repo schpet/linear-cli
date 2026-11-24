@@ -372,20 +372,53 @@ fn shipped_issue_reference_links_to_the_supplied_url() {
 }
 
 #[test]
+fn shipped_comment_id_links_roots_and_omits_replies() {
+    let url = "https://linear.app/workspace-one/issue/DEMO-42/task#comment-bb1bb1bb";
+    let issue = IssueReference::new("DEMO-42", None);
+    let root = serde_json::json!({ "id": "root", "url": url, "parent": null });
+    let reply = serde_json::json!({ "id": "reply", "url": url, "parent": { "id": "root" } });
+
+    for experimental in [false, true] {
+        let config = TemplateConfig::builtin_with_experimental(experimental);
+        assert_eq!(
+            config.format_comment_id(&issue, &root, true).expect("root"),
+            DisplayText {
+                spans: vec![DisplaySpan {
+                    text: "[root]".to_owned(),
+                    url: Some(url.to_owned()),
+                }],
+            },
+        );
+        assert_eq!(
+            config
+                .format_comment_id(&issue, &root, false)
+                .expect("plain root")
+                .terminal(),
+            "[root]"
+        );
+        assert_eq!(
+            config
+                .format_comment_id(&issue, &reply, true)
+                .expect("reply"),
+            DisplayText::default(),
+        );
+    }
+}
+
+#[test]
 fn stable_templates_reject_experimental_authoring() {
-    let override_layer = tier(
-        "project.toml",
-        "[templates]\nformat_issue_id = '{{ issue.identifier }}'",
-    );
-    let error =
-        TemplateConfig::from_tiers([&override_layer]).expect_err("override requires opt-in");
-    assert!(
-        error
-            .message()
-            .contains("project.toml, templates.format_issue_id"),
-        "{error}"
-    );
-    assert_eq!(error.hint(), Some(EXPERIMENTAL_TEMPLATES_HINT));
+    for name in [FORMAT_ISSUE_ID, FORMAT_COMMENT_ID] {
+        let override_layer = tier("project.toml", &format!("[templates]\n{name} = 'override'"));
+        let error =
+            TemplateConfig::from_tiers([&override_layer]).expect_err("override requires opt-in");
+        assert!(
+            error
+                .message()
+                .contains(&format!("project.toml, templates.{name}")),
+            "{error}"
+        );
+        assert_eq!(error.hint(), Some(EXPERIMENTAL_TEMPLATES_HINT));
+    }
 
     for (key, body, feature) in [
         (
@@ -460,13 +493,14 @@ values = '''{% set hyperlink = "reference" %}'''
 }
 
 #[test]
-fn stable_templates_preserve_legacy_format_issue_id_aliases() {
+fn stable_templates_preserve_legacy_id_slot_aliases() {
     let layer = tier(
         "project.toml",
         r#"[templates]
-pr_title = '''{% set note = "Legacy title" %}{% include "format_issue_id" %}'''
+pr_title = '''{% set note = "Legacy title" %}{% include "format_issue_id" %} {% include "format_comment_id" %}'''
 [template-aliases]
 format_issue_id = '''{{ note }}'''
+format_comment_id = '''{{ note | lower }}'''
 "#,
     );
     let config = TemplateConfig::from_tiers([&layer]).expect("legacy template alias");
@@ -474,10 +508,13 @@ format_issue_id = '''{{ note }}'''
         config
             .render(Slot::PrTitle, &PullRequestContext::default())
             .expect("render"),
-        "Legacy title"
+        "Legacy title legacy title"
     );
     config
         .validate_alias(FORMAT_ISSUE_ID)
+        .expect("legacy alias remains an alias");
+    config
+        .validate_alias(FORMAT_COMMENT_ID)
         .expect("legacy alias remains an alias");
 
     let url = "https://linear.app/workspace-one/issue/DEMO-42";
@@ -490,19 +527,37 @@ format_issue_id = '''{{ note }}'''
         display.spans.first().and_then(|span| span.url.as_deref()),
         Some(url)
     );
+    let comment_url = "https://linear.app/workspace-one/issue/DEMO-42#comment-01234567";
+    let comment = serde_json::json!({ "id": "abc", "url": comment_url, "parent": null });
+    let display = config
+        .format_comment_id(&issue, &comment, true)
+        .expect("shipped comment display");
+    assert_eq!(display.plain(), "[abc]");
+    assert_eq!(
+        display.spans.first().and_then(|span| span.url.as_deref()),
+        Some(comment_url)
+    );
 
-    let error = TemplateConfig::from_tiers_with_experimental([&layer], true)
-        .expect_err("experimental templates reserve the issue ID slot");
-    assert!(
-        error.message().contains("template-aliases.format_issue_id"),
-        "{error}"
-    );
-    assert!(
-        error
-            .hint()
-            .is_some_and(|hint| hint.contains("Rename the alias")),
-        "{error}"
-    );
+    for name in [FORMAT_ISSUE_ID, FORMAT_COMMENT_ID] {
+        let collision = tier(
+            "project.toml",
+            &format!("[template-aliases]\n{name} = 'legacy'"),
+        );
+        let error = TemplateConfig::from_tiers_with_experimental([&collision], true)
+            .expect_err("experimental templates reserve each ID slot");
+        assert!(
+            error
+                .message()
+                .contains(&format!("template-aliases.{name}")),
+            "{error}"
+        );
+        assert!(
+            error
+                .hint()
+                .is_some_and(|hint| hint.contains("Rename the alias")),
+            "{error}"
+        );
+    }
 }
 
 #[test]
@@ -565,6 +620,126 @@ other = '''	{{ hyperlink("example://workspace-one/issue/DEMO-42", issue.identifi
             crate::error::ErrorKind::Invalid
         ));
     }
+}
+
+#[test]
+fn issue_id_presets_select_the_target_from_each_issue() {
+    for preset in ["web", "app"] {
+        let layer = tier(
+            "project.toml",
+            &format!(
+                r#"[templates]
+format_issue_id = '{{% include "builtin/issue_id/{preset}" %}}'
+[template-aliases]
+"issue_id/{preset}" = 'shadowed'
+"#
+            ),
+        );
+        let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("preset");
+        for workspace in ["workspace-one", "workspace-two"] {
+            let web = format!("https://linear.app/{workspace}/issue/ENG-42/title");
+            let app = format!("linear://{workspace}/issue/ENG-42");
+            let issue = IssueReference::new("ENG-42", Some(&web));
+            let target = if preset == "web" { &web } else { &app };
+            assert_eq!(
+                config
+                    .format_issue_id(&issue, true)
+                    .expect("styled")
+                    .terminal(),
+                format!("\x1b]8;;{target}\x1b\\ENG-42\x1b]8;;\x1b\\")
+            );
+            assert_eq!(
+                config
+                    .format_issue_id(&issue, false)
+                    .expect("pipe")
+                    .terminal(),
+                "ENG-42"
+            );
+        }
+        assert_eq!(
+            config
+                .format_issue_id(&IssueReference::new("ENG-42", None), true)
+                .expect("missing URL")
+                .terminal(),
+            "ENG-42"
+        );
+    }
+}
+
+#[test]
+fn comment_id_presets_use_the_api_url_for_roots_and_replies() {
+    let url_suffix =
+        "workspace-one/issue/DEMO-42/task%20slug?from=comments&label=%2F#comment-01234567";
+    let web = format!("https://linear.app/{url_suffix}");
+    let app = format!("linear://linear.app/{url_suffix}");
+    let issue = IssueReference::new("DEMO-42", None);
+    for (preset, target) in [("web", &web), ("app", &app)] {
+        let layer = tier(
+            "project.toml",
+            &format!(
+                r#"[templates]
+format_comment_id = '{{% include "builtin/comment_id/{preset}" %}}'
+[template-aliases]
+"comment_id/{preset}" = 'shadowed'
+"#
+            ),
+        );
+        let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("preset");
+        for parent in [
+            serde_json::Value::Null,
+            serde_json::json!({ "id": "parent" }),
+        ] {
+            let comment = serde_json::json!({ "id": "api-id", "url": web, "parent": parent });
+            let styled = config
+                .format_comment_id(&issue, &comment, true)
+                .expect("styled");
+            assert_eq!(
+                styled.spans.first().and_then(|span| span.url.as_ref()),
+                Some(target)
+            );
+            let plain = config
+                .format_comment_id(&issue, &comment, false)
+                .expect("plain");
+            assert_eq!(plain.terminal(), "[api-id]");
+        }
+        let comment = serde_json::json!({ "id": "api-id" });
+        assert_eq!(
+            config
+                .format_comment_id(&issue, &comment, true)
+                .expect("missing URL")
+                .terminal(),
+            "[api-id]"
+        );
+    }
+}
+
+#[test]
+fn app_comment_preset_in_an_issue_view_accepts_raw_comments() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+issue_view = '''{% for comment in issue.comments %}{% include "builtin/comment_id/app" %}{% if not loop.last %}
+{% endif %}{% endfor %}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("preset");
+    let context = serde_json::json!({"issue": { "comments": [
+        { "id": "actual", "url": "https://linear.app/acme/issue/ENG-7/slug#comment-ba5ed001" },
+        { "id": "no-anchor", "url": "https://linear.app/acme/issue/ENG-7/slug" },
+        { "id": "no-comment-anchor", "url": "https://linear.app/acme/issue/ENG-7/slug#body" },
+        { "id": "empty-anchor", "url": "https://linear.app/acme/issue/ENG-7/slug#comment-" },
+        { "id": "wrong-host", "url": "https://example.test/acme/issue/ENG-7/slug#comment-ba5ed001" },
+        { "id": "wrong-path", "url": "https://linear.app/acme/project/other#comment-ba5ed001" },
+        { "id": "malformed", "url": "https://linear.app/acme/issue/ENG-7/\n#comment-ba5ed001" },
+    ]}});
+    let mut text = String::new();
+    for part in config.render_view(&context, true).expect("formatted view") {
+        part.write_plain(&mut text);
+    }
+    assert_eq!(
+        text,
+        "[\\[actual\\]](<linear://linear.app/acme/issue/ENG-7/slug#comment-ba5ed001>)\n[no-anchor]\n[no-comment-anchor]\n[empty-anchor]\n[wrong-host]\n[wrong-path]\n[malformed]"
+    );
 }
 
 #[test]

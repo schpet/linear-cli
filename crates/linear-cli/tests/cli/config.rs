@@ -519,6 +519,7 @@ fn exported_templates_reload_in_the_same_feature_mode() {
         let listing: toml::Table = export.stdout.parse().expect("template preferences");
         for name in [
             "format_issue_id",
+            "format_comment_id",
             "issue_view",
             "issue_view_heading",
             "issue_view_metadata",
@@ -526,6 +527,19 @@ fn exported_templates_reload_in_the_same_feature_mode() {
             "issue_view_footer",
         ] {
             assert_eq!(listing["templates"].get(name).is_some(), enabled, "{name}");
+        }
+
+        for name in [
+            "issue_id/web",
+            "issue_id/app",
+            "comment_id/web",
+            "comment_id/app",
+        ] {
+            assert_eq!(
+                listing["template-aliases"].get(name).is_some(),
+                enabled,
+                "{name}"
+            );
         }
 
         let cli = cli.file("cwd/export.toml", &export.stdout);
@@ -538,8 +552,38 @@ fn exported_templates_reload_in_the_same_feature_mode() {
 }
 
 #[test]
+fn disabled_shipped_presets_leave_user_aliases_available() {
+    let cli = Cli::new().file(
+        GLOBAL,
+        r#"
+[experimental]
+templates = false
+[templates]
+guide_intro = "{% include 'builtin/issue_id/app' %}"
+guide_help_notes = "{% include 'issue_id/app' %}"
+[template-aliases]
+"issue_id/app" = "Existing partial"
+"#,
+    );
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("# Linear CLI")
+        .stdout_has("Existing partial");
+    cli.run(&[
+        "--experimental-templates",
+        "config",
+        "get",
+        "template-aliases.issue_id/app",
+        "--defaults",
+    ])
+    .success()
+    .stdout_has("linear://");
+}
+
+#[test]
 fn issue_view_template_overrides_require_an_explicit_opt_in() {
     for name in [
+        "format_comment_id",
         "issue_view",
         "issue_view_heading",
         "issue_view_metadata",

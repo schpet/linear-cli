@@ -372,7 +372,7 @@ linear completions     # generate shell completions
 
 scalar options support environment variables or a `.linear.toml` config file. environment variables take precedence over config file values. [template preferences](docs/templating.md) use `[templates]` and `[template-aliases]`, with separate per-name layering and no `LINEAR_*` equivalent.
 
-custom issue views, issue IDs and list rows, native MiniJinja macros and call blocks, and `hyperlink` in user templates require `--experimental-templates` or the [experimental config setting](docs/templating.md#experimental-templates). these features may change or be removed in a minor release.
+custom issue views, issue and comment IDs, list rows, native MiniJinja macros and call blocks, and `hyperlink` in user templates require `--experimental-templates` or the [experimental config setting](docs/templating.md#experimental-templates). these features may change or be removed in a minor release.
 
 | option          | env var                           | toml key                   | example                              | description                                                                                      |
 | --------------- | --------------------------------- | -------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
