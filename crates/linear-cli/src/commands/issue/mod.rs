@@ -30,10 +30,15 @@ mod view;
 mod write;
 mod write_network;
 
+use minijinja::context;
+use minijinja::value::{Serde, Value, merge_maps};
+use serde::Serialize;
+
 use crate::cli::issue::{IssueCommand, IssueGhCommand, IssueGitCommand, IssueJjCommand};
 use crate::cli::values::IssueRef;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
+use crate::refs::IssueReference;
 
 pub fn run(ctx: &Ctx, command: &IssueCommand) -> Result<()> {
     match command {
@@ -104,4 +109,25 @@ pub(crate) fn require(ctx: &Ctx, input: &IssueRef) -> Result<String> {
 /// issue `@git` or `@jj` reads.
 pub(crate) fn as_typed(ctx: &Ctx, input: &IssueRef) -> Result<String> {
     reference::as_typed(ctx, input)
+}
+
+/// Enrich an issue for templates without changing its public JSON shape.
+fn template_data(issue: &impl Serialize, project_url: Option<&str>) -> Value {
+    let issue = Value::from(Serde(issue));
+    let identifier = issue
+        .get_attr("identifier")
+        .expect("issues have an identifier");
+    let url = issue.get_attr("url").expect("issues have a URL");
+    let reference = IssueReference::new(
+        identifier.as_str().expect("issue identifiers are strings"),
+        Some(url.as_str().expect("issue URLs are strings")),
+    );
+    let fields = context! { workspace_url_key => reference.workspace_url_key };
+    if let Some(url) = project_url {
+        let project = issue.get_attr("project").expect("the issue has a project");
+        let project = merge_maps([project, context! { url }]);
+        merge_maps([issue, fields, context! { project }])
+    } else {
+        merge_maps([issue, fields])
+    }
 }

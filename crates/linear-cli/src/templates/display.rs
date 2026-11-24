@@ -37,6 +37,17 @@ pub struct DisplaySpan {
 }
 
 impl DisplayText {
+    pub(crate) fn into_inline_spans(self) -> Vec<markdown_terminal::InlineSpan> {
+        self.spans
+            .into_iter()
+            .map(|span| markdown_terminal::InlineSpan {
+                text: span.text.into(),
+                url: span.url.map(Into::into),
+                labels: Vec::new(),
+            })
+            .collect()
+    }
+
     pub fn plain(&self) -> String {
         self.spans.iter().map(|span| span.text.as_str()).collect()
     }
@@ -118,6 +129,7 @@ pub(super) fn render(
     template: &Template<'_, '_>,
     context: &impl Serialize,
     styled: bool,
+    parent: Option<&State>,
 ) -> Result<DisplayText, Error> {
     let root = Value::from(Serde(context));
     let mut local = BTreeMap::new();
@@ -128,7 +140,9 @@ pub(super) fn render(
     }
     if matches!(
         template.name(),
-        super::BUILTIN_FORMAT_ISSUE_ID | super::BUILTIN_FORMAT_COMMENT_ID
+        super::BUILTIN_FORMAT_ISSUE_ID
+            | super::BUILTIN_FORMAT_COMMENT_ID
+            | super::BUILTIN_FORMAT_PROJECT_NAME
     ) {
         // The stable renderer can use the immutable defaults without exposing
         // hyperlink as a global to any user template.
@@ -140,6 +154,11 @@ pub(super) fn render(
         merge_maps([root, Value::from(local)])
     };
     let rendered = template.render_captured(root)?;
+    if let Some(parent) = parent
+        && let Some((consumed, _)) = rendered.state().fuel_levels()
+    {
+        parent.consume_fuel(consumed)?;
+    }
     expand(
         rendered.output(),
         rendered.state().get_extension::<Fragments>(),
@@ -199,6 +218,66 @@ fn inline(text: &str, tabs: bool, pending_tokens: bool) -> Cow<'_, str> {
     )
 }
 
+pub(super) fn project_name(
+    state: &mut State,
+    project: Value,
+    format: impl FnOnce(&State, &str, Option<&str>, bool) -> Result<DisplayText, Error>,
+) -> Result<Value, Error> {
+    if project.is_none() {
+        return Ok(Value::from(""));
+    }
+    let name = project.get_attr("name")?;
+    let name = name.as_str().ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidOperation,
+            "format_project_name expects a project with a string name",
+        )
+    })?;
+    let url = project.get_attr("url")?;
+    let url = if url.is_none() || url.is_undefined() {
+        None
+    } else {
+        Some(url.as_str().ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidOperation,
+                "format_project_name expects a project URL to be a string",
+            )
+        })?)
+    };
+    let display = format(state, name, url, styled(state))?;
+    register_display_text(state, display)
+}
+
+fn register_display_text(state: &mut State, display: DisplayText) -> Result<Value, Error> {
+    let work = display.spans.iter().fold(0_usize, |total, span| {
+        total
+            .saturating_add(span.text.len())
+            .saturating_add(span.url.as_ref().map_or(0, String::len))
+    });
+    state.consume_fuel(u64::try_from(work / 16 + 1).expect("byte count fits in u64"))?;
+    if view::is_view(state) {
+        return view::register_inline(state, display.into_inline_spans());
+    }
+    let mut output = String::new();
+    for span in display.spans {
+        if span.url.is_some() {
+            let token = state
+                .get_or_insert_extension_with(Fragments::default)
+                .register(Fragment::Link(span))?;
+            output.push_str(token.as_str().expect("link tokens are strings"));
+        } else {
+            output.push_str(&span.text);
+        }
+    }
+    Ok(Value::from_safe_string(output))
+}
+
+fn styled(state: &State) -> bool {
+    state
+        .lookup(STYLED_KEY)
+        .is_some_and(|value| value.downcast_object_ref::<Styled>().is_some())
+}
+
 pub(super) fn hyperlink(state: &mut State, args: &[Value]) -> Result<Value, Error> {
     let (url, text, fallback) = match args {
         [url, text] => (url, text, None),
@@ -216,9 +295,7 @@ pub(super) fn hyperlink(state: &mut State, args: &[Value]) -> Result<Value, Erro
         .map(|value| string_arg(value, "fallback"))
         .transpose()?;
 
-    let styled = state
-        .lookup(STYLED_KEY)
-        .is_some_and(|value| value.downcast_object_ref::<Styled>().is_some());
+    let styled = styled(state);
     let visible = if styled {
         text
     } else {
@@ -266,20 +343,59 @@ fn string_arg<'a>(value: &'a Value, arg: &str) -> Result<&'a str, Error> {
 }
 
 pub(super) fn comment_app_url(state: &State, url: &str) -> Result<Option<String>, Error> {
+    linear_app_url(state, url, |_| {
+        let Some((issue_url, fragment)) = url.split_once('#') else {
+            return false;
+        };
+        fragment
+            .strip_prefix("comment-")
+            .is_some_and(|id| !id.is_empty())
+            && matches!(
+                parse_linear_url(issue_url),
+                LinearUrlParse::Known(LinearUrlRef::Issue { .. })
+            )
+    })
+}
+
+pub(super) fn project_app_url(state: &State, url: &str) -> Result<Option<String>, Error> {
+    linear_app_url(state, url, |path| {
+        const RELATIVE_SEGMENTS: [&str; 6] = [".", "..", "%2e", ".%2e", "%2e.", "%2e%2e"];
+
+        let path = path
+            .split(['?', '#'])
+            .next()
+            .expect("the path can be empty");
+        let mut segments = path.split('/');
+        let (Some(workspace), Some("project"), Some(project)) =
+            (segments.next(), segments.next(), segments.next())
+        else {
+            return false;
+        };
+        // The desktop app resolves this route. Check its shape without imposing
+        // the slug and subpage rules for looking up a project through the API.
+        !workspace.is_empty()
+            && !project.is_empty()
+            && [workspace, project]
+                .into_iter()
+                .chain(segments)
+                .all(|segment| {
+                    !RELATIVE_SEGMENTS
+                        .iter()
+                        .any(|relative| segment.eq_ignore_ascii_case(relative))
+                })
+    })
+}
+
+fn linear_app_url(
+    state: &State,
+    url: &str,
+    valid_route: impl FnOnce(&str) -> bool,
+) -> Result<Option<String>, Error> {
     state.consume_fuel(u64::try_from(url.len() / 16 + 1).expect("byte count fits in u64"))?;
     let Some(path) = url.strip_prefix("https://linear.app/") else {
         return Ok(None);
     };
-    let Some((issue_url, fragment)) = url.split_once('#') else {
-        return Ok(None);
-    };
-    if fragment.strip_prefix("comment-").is_none_or(str::is_empty)
-        || !markdown_terminal::valid_absolute_url(url)
-        || !matches!(
-            parse_linear_url(issue_url),
-            LinearUrlParse::Known(LinearUrlRef::Issue { .. })
-        )
-    {
+    if !markdown_terminal::valid_absolute_url(url) || !valid_route(path) {
         return Ok(None);
     }
     // Linear's desktop protocol keeps the web permalink's host, path and fragment.

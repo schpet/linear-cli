@@ -2,7 +2,6 @@
 
 use serde::Serialize;
 
-use super::project::ProjectRef;
 use super::team::TeamKey;
 use crate::graphql::pagination::PageInfo;
 use crate::graphql::scalars::DateTime;
@@ -368,6 +367,16 @@ pub struct GetIssuesForQueryIssuesNodesProjectMilestone {
     pub id: cynic::Id,
     pub name: String,
 }
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
+#[cynic(schema = "linear", graphql_type = "Project")]
+pub struct ListedIssueProject {
+    pub id: cynic::Id,
+    pub name: String,
+    #[serde(skip_serializing)]
+    pub url: String,
+}
+
 /// One issue in `issue mine`, `issue query` and `issue start` lists.
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
 #[cynic(schema = "linear", graphql_type = "Issue")]
@@ -387,7 +396,7 @@ pub struct ListedIssue {
     pub state: GetIssuesForStateIssuesNodesState,
     pub assignee: Option<GetIssuesForQueryIssuesNodesAssignee>,
     pub team: GetIssuesForQueryIssuesNodesTeam,
-    pub project: Option<ProjectRef>,
+    pub project: Option<ListedIssueProject>,
     pub project_milestone: Option<GetIssuesForQueryIssuesNodesProjectMilestone>,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub labels: GetIssuesForStateIssuesNodesLabels,
@@ -448,7 +457,7 @@ pub struct SearchIssuesSearchIssuesNodes {
     pub state: GetIssuesForStateIssuesNodesState,
     pub assignee: Option<GetIssuesForQueryIssuesNodesAssignee>,
     pub team: GetIssuesForQueryIssuesNodesTeam,
-    pub project: Option<ProjectRef>,
+    pub project: Option<ListedIssueProject>,
     pub project_milestone: Option<GetIssuesForQueryIssuesNodesProjectMilestone>,
     pub cycle: Option<GetIssuesForStateIssuesNodesCycle>,
     pub labels: GetIssuesForStateIssuesNodesLabels,
@@ -542,6 +551,8 @@ pub struct GetIssueDetailsIssueAssignee {
 #[serde(rename_all = "camelCase")]
 pub struct GetIssueDetailsIssueProject {
     pub name: String,
+    #[serde(skip_serializing)]
+    pub url: String,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]

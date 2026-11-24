@@ -4,6 +4,8 @@ use serde_json::{Value, json};
 use crate::support::{Cli, MockLinear, assert_json, nodes, plain_text, png};
 use crate::team::{resolve_vars, resolved};
 
+const PROJECT_URL: &str = "https://linear.app/acme/project/launch-bea01";
+
 fn issue(comments: bool) -> Value {
     let mut issue = json!({
         "trashed": null, "archivedAt": null,
@@ -15,7 +17,7 @@ fn issue(comments: bool) -> Value {
         "assignee": { "name": "alice", "displayName": "Alice Example" },
         "delegate": null,
         "priority": 2,
-        "project": { "name": "Launch" },
+        "project": { "name": "Launch", "url": PROJECT_URL },
         "projectMilestone": { "name": "Beta" },
         "cycle": {
             "id": "cycle-7", "number": 7, "name": "Sprint 7", "isActive": true,
@@ -80,6 +82,9 @@ fn details(issue: Value) -> Value {
 }
 
 fn view_json(mut issue: Value) -> Value {
+    if let Some(project) = issue["project"].as_object_mut() {
+        project.remove("url");
+    }
     issue["parent"].as_object_mut().unwrap().remove("url");
     for child in issue["children"]["nodes"].as_array_mut().unwrap() {
         child.as_object_mut().unwrap().remove("url");
@@ -669,6 +674,83 @@ fn view_keeps_metadata_values_literal_in_pipes_and_on_terminals() {
             run.stdout_has(line);
         }
     }
+}
+
+#[test]
+fn view_formats_the_project_with_its_canonical_url_and_plain_fallback() {
+    let api = MockLinear::start();
+    for _ in 0..6 {
+        api.on("GetIssueDetails", details(issue(false)));
+    }
+    let cli = Cli::for_api(&api)
+        .env_remove("NO_COLOR")
+        .file(
+            "home/.config/linear/linear.toml",
+            r#"[experimental]
+templates = true
+[templates]
+format_project_name = '''**ship** {{ hyperlink(project.url, "[" ~ project.name ~ "]", project.name ~ " (project)") }}
+# release'''
+"#,
+        )
+        .file("cwd/.linear.toml", "[experimental]\ntemplates = false");
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let stable = cli.run_tty(&args, &[]);
+    stable.success().stdout_has("Project: Launch\n");
+    stable.assert_link_label(PROJECT_URL, "Launch");
+
+    let args = [&args[..], &["--experimental-templates"]].concat();
+    let styled = cli.run_tty(&args, &[]);
+    styled
+        .success()
+        .stdout_has("Project: **ship** [Launch] # release\n");
+    styled.assert_link_label(PROJECT_URL, "[Launch]");
+    cli.run(&args)
+        .success()
+        .stdout_has("Project: **ship** Launch (project) # release\n");
+    let custom = cli.run_tty(
+        &[
+            args.as_slice(),
+            &[
+                "--config",
+                r#"templates.issue_view = '{{ label("footer", hyperlink("https://example.test/project", format_project_name(issue.project))) }}'"#,
+            ],
+        ]
+        .concat(),
+        &[],
+    );
+    custom.success().stdout_has("**ship** [Launch] # release\n");
+    assert!(
+        custom
+            .terminal
+            .contains("\x1b]8;;https://example.test/project\x1b\\"),
+        "{custom}"
+    );
+    assert!(!custom.terminal.contains(PROJECT_URL), "{custom}");
+    let empty = cli.run(
+        &[
+            args.as_slice(),
+            &["--config", "templates.format_project_name = '   '"],
+        ]
+        .concat(),
+    );
+    empty
+        .success()
+        .stdout_has("Assignee: @Alice Example\nMilestone: Beta\n");
+    assert!(!empty.stdout.contains("Project:"), "{empty}");
+    let no_color = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
+    no_color
+        .success()
+        .stdout_has("Project: **ship** Launch (project) # release\n");
+    assert!(!no_color.terminal.contains("\x1b]8;;"), "{no_color}");
+    assert_eq!(api.operations(), ["GetIssueDetails"; 6]);
 }
 
 #[test]
@@ -1775,6 +1857,67 @@ match = '{% include "format_issue_id" %} {{ issue.metadata.source }} {{ issue.wo
     run.success();
     assert_eq!(run.stdout, "DEMO-42 title unavailable\n");
     assert_eq!(api.operations(), ["SearchIssues"]);
+}
+
+#[test]
+fn issue_list_formats_supply_the_project_name_and_url_without_changing_json() {
+    for (args, operation) in [
+        (&["issue", "query", "--all-teams"][..], "GetIssuesForQuery"),
+        (
+            &["issue", "query", "--all-teams", "--search", "widget"][..],
+            "SearchIssues",
+        ),
+        (&["issue", "mine"][..], "GetIssuesForState"),
+    ] {
+        let api = MockLinear::start();
+        let mut row = list_issue(42, "DEMO", "started");
+        row["project"] = json!({ "id": "project-1", "name": "Launch", "url": PROJECT_URL });
+        let mut other = list_issue(43, "DEMO", "started");
+        let response = if operation == "SearchIssues" {
+            row["metadata"] = json!({});
+            other["metadata"] = json!({});
+            json!({ "searchIssues": {
+                "nodes": [row, other],
+                "pageInfo": { "hasNextPage": false, "endCursor": null }
+            } })
+        } else {
+            issues(vec![row, other], None)
+        };
+        api.on(operation, response.clone()).on(operation, response);
+        let cli = Cli::for_api(&api)
+            .env("LINEAR_TEAM_ID", "DEMO")
+            .env_remove("NO_COLOR")
+            .file(
+                "cwd/.linear.toml",
+                r#"[template-aliases]
+row = '{{ issue.identifier }} {{ format_project_name(issue.project) or "Unassigned" }}'
+"#,
+            );
+        let format_args = [
+            args,
+            &["--experimental-templates", "--format", "row", "--no-pager"],
+        ]
+        .concat();
+        let styled = cli.run_tty(&format_args, &[]);
+        assert_eq!(
+            styled.success().stdout,
+            "DEMO-42 Launch\nDEMO-43 Unassigned\n"
+        );
+        assert!(
+            styled
+                .terminal
+                .contains(&format!("\x1b]8;;{PROJECT_URL}\x1b\\Launch\x1b]8;;\x1b\\")),
+            "{styled}"
+        );
+
+        let json = cli.run(&[args, &["--json"]].concat()).success().json();
+        assert_json(
+            &json[0]["project"],
+            &json!({ "id": "project-1", "name": "Launch" }),
+        );
+        assert_eq!(json[1]["project"], Value::Null);
+        assert_eq!(api.operations(), [operation; 2]);
+    }
 }
 
 #[test]

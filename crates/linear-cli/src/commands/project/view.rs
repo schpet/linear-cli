@@ -15,9 +15,10 @@ use crate::error::{Error, Result, ResultExt};
 use crate::graphql::operations::project::{
     DateResolutionType, GetProjectDetails, GetProjectIssuesPage, GetProjectsForPicker,
     PickerProject, PickerVariables, ProjectDetails, ProjectDetailsVariables,
-    ProjectIssuesVariables, ProjectMilestoneStatus, ViewInverseRelation, ViewRelation,
+    ProjectIssuesVariables, ProjectMilestoneStatus,
 };
 use crate::graphql::pagination::{self, Page, PageInfo, Pages};
+use crate::platform::markdown_terminal::{self, InlineContent};
 use crate::platform::prompt::Choice;
 use crate::platform::style;
 use crate::platform::view_footer::Linked;
@@ -60,8 +61,39 @@ fn view(ctx: &Ctx, args: &ProjectView) -> Result<()> {
         }
         return ctx.print(json::render(&project));
     }
-    ctx.show_markdown_view(
-        &markdown(&project, Utc::now(), &chrono::Local),
+    let terminal = ctx.stdout_tty();
+    let mut inlines = Vec::new();
+    let markdown = markdown(
+        &project,
+        Utc::now(),
+        &chrono::Local,
+        |source, prefix, name, url| {
+            let display = ctx
+                .templates()
+                .format_project_name(name, Some(url), ctx.color())?;
+            if display.spans.is_empty() {
+                return Ok(false);
+            }
+            source.push_str(prefix);
+            if terminal {
+                inlines.push(InlineContent {
+                    source_range: markdown_terminal::push_inline_marker(source),
+                    spans: display.into_inline_spans(),
+                });
+            } else {
+                source.push_str(&display.plain());
+            }
+            Ok(true)
+        },
+    )?;
+    if !terminal {
+        return ctx.print(format!("{markdown}\n"));
+    }
+    let rendered =
+        markdown_terminal::render_with_inlines(&markdown, &inlines, &ctx.render_options());
+    ctx.page_view(
+        &rendered,
+        None,
         !args.no_pager,
         Linked::Project,
         &project.url,
@@ -294,39 +326,23 @@ fn milestone_note(
         format!(" _({})_", parts.join(", "))
     }
 }
-fn outgoing(relation: &ViewRelation) -> String {
-    format!(
-        "- **{}** {}: {}{}\n",
-        relation_label(&relation.anchor_type, &relation.related_anchor_type),
-        relation.related_project.name,
-        relation.related_project.url,
-        milestone_note(
-            relation.project_milestone.as_ref(),
-            relation.related_project_milestone.as_ref()
-        )
-    )
-}
-fn incoming(relation: &ViewInverseRelation) -> String {
-    format!(
-        "- **{}** {}: {}{}\n",
-        relation_label(&relation.related_anchor_type, &relation.anchor_type),
-        relation.project.name,
-        relation.project.url,
-        milestone_note(
-            relation.related_project_milestone.as_ref(),
-            relation.project_milestone.as_ref()
-        )
-    )
-}
-
-fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &Tz) -> String {
-    let mut out = if let Some(identifier) = &project.identifier
+fn markdown<Tz: TimeZone>(
+    project: &ProjectDetails,
+    now: DateTime<Utc>,
+    zone: &Tz,
+    mut push_name: impl FnMut(&mut String, &str, &str, &str) -> Result<bool>,
+) -> Result<String> {
+    let mut out = String::new();
+    let has_name = push_name(&mut out, "# ", &project.name, &project.url)?;
+    if let Some(identifier) = &project.identifier
         && !identifier.is_empty()
     {
-        format!("# {} [{}]", project.name, identifier)
-    } else {
-        format!("# {}", project.name)
-    };
+        if has_name {
+            out.push_str(&format!(" [{identifier}]"));
+        } else {
+            out.push_str(&format!("# {identifier}"));
+        }
+    }
     let priority = super::list::priority_label(project.priority);
     let mut meta = vec![
         format!("**Status:** {}", project.status.name),
@@ -386,7 +402,10 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
         ));
     }
     meta.push(format!("**Progress:** {}", ratio(project.progress.get())));
-    out.push_str(&format!("\n\n{}", meta.join(" | ")));
+    if !out.is_empty() {
+        out.push_str("\n\n");
+    }
+    out.push_str(&meta.join(" | "));
     if !project.description.is_empty() {
         out.push_str(&format!("\n\n{}", project.description));
     }
@@ -460,11 +479,32 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
     }
     if !project.relations.nodes.is_empty() || !project.inverse_relations.nodes.is_empty() {
         out.push_str("\n\n## Related projects\n\n");
-        for relation in &project.relations.nodes {
-            out.push_str(&outgoing(relation));
-        }
-        for relation in &project.inverse_relations.nodes {
-            out.push_str(&incoming(relation));
+        let outgoing = project.relations.nodes.iter().map(|relation| {
+            (
+                relation_label(&relation.anchor_type, &relation.related_anchor_type),
+                &relation.related_project,
+                milestone_note(
+                    relation.project_milestone.as_ref(),
+                    relation.related_project_milestone.as_ref(),
+                ),
+            )
+        });
+        let incoming = project.inverse_relations.nodes.iter().map(|relation| {
+            (
+                relation_label(&relation.related_anchor_type, &relation.anchor_type),
+                &relation.project,
+                milestone_note(
+                    relation.related_project_milestone.as_ref(),
+                    relation.project_milestone.as_ref(),
+                ),
+            )
+        });
+        for (label, related, milestones) in outgoing.chain(incoming) {
+            out.push_str(&format!("- **{label}**"));
+            if push_name(&mut out, " ", &related.name, &related.url)? {
+                out.push(':');
+            }
+            out.push_str(&format!(" {}{milestones}\n", related.url));
         }
         out.push_str(&note(&project.relations.page_info));
         out.push_str(&note(&project.inverse_relations.page_info));
@@ -584,5 +624,5 @@ fn markdown<Tz: TimeZone>(project: &ProjectDetails, now: DateTime<Utc>, zone: &T
     push("Created", Some(relative(&project.created_at)));
     push("Updated", Some(relative(&project.updated_at)));
     out.push_str(&format!("\n\n## Details\n\n{}", rows.join("\n")));
-    out
+    Ok(out)
 }

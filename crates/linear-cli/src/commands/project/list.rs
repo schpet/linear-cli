@@ -66,7 +66,7 @@ fn list(ctx: &Ctx, args: &ProjectList) -> Result<()> {
     } else if projects.is_empty() {
         ctx.print("No projects found.\n")
     } else {
-        ctx.print(render_text(&projects, SystemTime::now()).render_for(ctx))
+        ctx.print(render_text(ctx, &projects, SystemTime::now())?.render_for(ctx))
     }
 }
 
@@ -240,7 +240,7 @@ fn display_date(project: &Project, now: SystemTime) -> String {
     }
 }
 
-fn render_text(projects: &[Project], now: SystemTime) -> Table {
+fn render_text(ctx: &Ctx, projects: &[Project], now: SystemTime) -> Result<Table> {
     let mut table = Table::new([
         Column::fixed("SLUG"),
         Column::flexible("NAME"),
@@ -253,9 +253,12 @@ fn render_text(projects: &[Project], now: SystemTime) -> Table {
     ]);
     for project in projects {
         let hex = project.status.color.clone();
+        let name =
+            ctx.templates()
+                .format_project_name(&project.name, Some(&project.url), ctx.color())?;
         table.row([
             Cell::from(project.slug_id.as_str()),
-            Cell::from(project.name.as_str()),
+            Cell::display(name, ""),
             Cell::styled(project.status.name.as_str(), move |text, on| {
                 style::rgb(text, &hex, on)
             }),
@@ -266,7 +269,7 @@ fn render_text(projects: &[Project], now: SystemTime) -> Table {
             Cell::styled(display_date(project, now), style::gray),
         ]);
     }
-    table
+    Ok(table)
 }
 
 fn lead(project: &Project) -> &str {

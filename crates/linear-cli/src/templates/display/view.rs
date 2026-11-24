@@ -427,7 +427,7 @@ fn register(state: &mut State, content: Content) -> Result<Value, Error> {
         .register(Fragment::View(content))
 }
 
-fn register_inline(state: &mut State, spans: Vec<InlineSpan>) -> Result<Value, Error> {
+pub(super) fn register_inline(state: &mut State, spans: Vec<InlineSpan>) -> Result<Value, Error> {
     if spans.is_empty() {
         Ok(Value::from(""))
     } else {

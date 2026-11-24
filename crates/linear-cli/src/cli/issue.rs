@@ -243,8 +243,9 @@ pub struct IssueListOutput {
         "Render each issue on its own line with a name from [template-aliases].\n\n",
         "Experimental. Enable with --experimental-templates or with templates = true under ",
         "[experimental] in Linear config. This option may change or be removed in a minor release.\n\n",
-        "The issue object has the fields shown by --json plus issue.workspace_url_key ",
+        "The issue object has the fields shown by --json plus issue.project.url and issue.workspace_url_key ",
         "(from the issue URL, or none). Include format_issue_id for the configured ID display. ",
+        "Use format_project_name(issue.project) for the configured project label. ",
         "Use literal tabs for tab-delimited fields.\n\nField names and types: ",
         env!("CARGO_PKG_REPOSITORY"), "/blob/main/docs/templating.md#issue-row-fields",
     ))]

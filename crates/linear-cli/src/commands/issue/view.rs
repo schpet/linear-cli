@@ -568,15 +568,8 @@ fn user_name(user: &GetIssueDetailsIssueAssignee) -> Option<&str> {
 
 #[derive(Serialize)]
 struct Body<'a> {
-    issue: IssueViewData<'a>,
+    issue: Value,
     display: BodyDisplay<'a>,
-}
-
-#[derive(Serialize)]
-struct IssueViewData<'a> {
-    #[serde(flatten)]
-    issue: &'a Issue,
-    workspace_url_key: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -628,11 +621,10 @@ fn body_context<'a>(
         crate::commands::relative_time::ago(at.0, now, &chrono::Local)
     };
     Ok(Body {
-        issue: IssueViewData {
+        issue: super::template_data(
             issue,
-            workspace_url_key: IssueReference::new(&issue.identifier, Some(&issue.url))
-                .workspace_url_key,
-        },
+            issue.project.as_ref().map(|project| project.url.as_str()),
+        ),
         display: BodyDisplay {
             identifier: issue_ids.markdown(&issue.identifier, &issue.url)?,
             lifecycle: lifecycle.into(),

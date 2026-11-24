@@ -181,6 +181,66 @@ fn list_all_teams_follows_pages() {
 }
 
 #[test]
+fn list_formats_the_name_cell_to_fit_the_output() {
+    use unicode_width::UnicodeWidthStr;
+
+    const WIDTH: u16 = 36;
+    let project = list_node("Roadmap");
+    let url = project["url"].as_str().expect("project URL");
+    let api = MockLinear::start();
+    for _ in 0..4 {
+        api.on("GetProjects", json!({ "projects": page(json!([project])) }));
+    }
+    let args = ["project", "list", "--all-teams"];
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR");
+    let builtin = cli.run_tty(&args, &[]);
+    builtin.success().stdout_has("Roadmap");
+    assert!(
+        builtin
+            .terminal
+            .contains(&format!("\x1b]8;;{url}\x1b\\Roadmap\x1b]8;;\x1b\\")),
+        "{builtin}"
+    );
+
+    let cli = cli.file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+format_project_name = '{{ hyperlink(project.url, "界界界界界界界界界界" ~ project.name, "[" ~ project.name ~ "](literal)") }}'
+"#,
+    );
+    let styled = cli.run_tty_with_width(&args, &[], Some(WIDTH));
+    assert!(
+        styled
+            .success()
+            .stdout
+            .lines()
+            .all(|line| line.width() <= usize::from(WIDTH)),
+        "{styled}"
+    );
+    let (_, link) = styled
+        .terminal
+        .split_once(&format!("\x1b]8;;{url}\x1b\\"))
+        .expect("project URL opens the name link");
+    let (label, after) = link.split_once("\x1b]8;;\x1b\\").expect("name link closes");
+    assert!(
+        !label.is_empty() && label.chars().all(|ch| ch == '界'),
+        "{styled}"
+    );
+    assert!(after.starts_with('…'), "{styled}");
+
+    let piped = cli.run(&args);
+    piped.success().stdout_has("[Roadmap](literal)");
+    assert!(!piped.stdout.contains("\x1b]8;;"), "{piped}");
+    let json_args = [&args[..], &["--json"]].concat();
+    assert_json(
+        &Value::Array(cli.run(&json_args).success().json_nodes()),
+        &json!([project]),
+    );
+}
+
+#[test]
 fn view_json_by_id_returns_the_project() {
     let api = MockLinear::start();
     api.on("GetProjectDetails", json!({ "project": details() }));
@@ -189,6 +249,124 @@ fn view_json_by_id_returns_the_project() {
     assert_eq!(
         api.variables("GetProjectDetails"),
         json!({ "id": ID, "first": 250 })
+    );
+}
+
+#[test]
+fn view_formats_the_heading_and_both_related_project_names() {
+    let mut project = details();
+    project["identifier"] = json!("PRJ");
+    let outgoing_url = "https://linear.app/acme/project/outgoing-abc123def456";
+    let incoming_url = "https://linear.app/acme/project/incoming-abcdef123456";
+    project["relations"] = page(json!([{
+        "id": "outgoing", "type": "dependency", "anchorType": "end", "relatedAnchorType": "start",
+        "projectMilestone": { "id": "milestone-1", "name": "Ship" },
+        "relatedProject": { "id": "project-out", "name": "Feature", "url": outgoing_url },
+        "relatedProjectMilestone": null
+    }]));
+    project["inverseRelations"] = page(json!([{
+        "id": "incoming", "type": "dependency", "anchorType": "end", "relatedAnchorType": "start",
+        "projectMilestone": null,
+        "project": { "id": "project-in", "name": "Foundation", "url": incoming_url },
+        "relatedProjectMilestone": null
+    }]));
+    let api = MockLinear::start();
+    for _ in 0..4 {
+        api.on("GetProjectDetails", json!({ "project": project }));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+format_project_name = '{{ hyperlink(project.url, "[<" ~ (project.name | upper) ~ ">](*)", "_[" ~ project.name ~ "]_") }}'
+"#,
+    );
+    let args = ["project", "view", ID, "--no-pager"];
+    let tty = cli.run_tty_with_width(&args, &[], Some(120));
+    tty.success()
+        .stdout_has("[<SIMPLE PROJECT>](*) [PRJ]")
+        .stdout_has("Blocks [<FEATURE>](*):")
+        .stdout_has("Blocked by [<FOUNDATION>](*):");
+    for (url, expected_label) in [
+        (
+            project["url"].as_str().expect("project URL"),
+            "[<SIMPLE PROJECT>](*)",
+        ),
+        (outgoing_url, "[<FEATURE>](*)"),
+        (incoming_url, "[<FOUNDATION>](*)"),
+    ] {
+        tty.assert_link_label(url, expected_label);
+    }
+
+    let piped = cli.run(&args);
+    piped
+        .success()
+        .stdout_has("# _[Simple Project]_ [PRJ]")
+        .stdout_has(&format!(
+            "- **Blocks** _[Feature]_: {outgoing_url} _(from milestone Ship)_"
+        ))
+        .stdout_has(&format!("- **Blocked by** _[Foundation]_: {incoming_url}"));
+    assert!(!piped.stdout.contains("\x1b]8;;"), "{piped}");
+
+    let json_args = [&args[..], &["--json"]].concat();
+    assert_json(&cli.run(&json_args).success().json(), &project);
+
+    let plain = cli
+        .env("NO_COLOR", "1")
+        .run_tty_with_width(&args, &[], Some(120));
+    plain
+        .success()
+        .stdout_has("_[Simple Project]_ [PRJ]")
+        .stdout_has("Blocks _[Feature]_:")
+        .stdout_has("Blocked by _[Foundation]_:");
+    assert!(!plain.terminal.contains("\x1b]8;;"), "{plain}");
+}
+
+#[test]
+fn an_empty_project_name_template_keeps_the_identifier_and_relation_url() {
+    let related_url = "https://linear.app/acme/project/feature-abc123def456";
+    let mut project = details();
+    project["relations"] = page(json!([{
+        "id": "outgoing", "type": "dependency", "anchorType": "end", "relatedAnchorType": "start",
+        "projectMilestone": null,
+        "relatedProject": { "id": "project-out", "name": "Feature", "url": related_url },
+        "relatedProjectMilestone": null
+    }]));
+    let api = MockLinear::start();
+    api.on(
+        "GetProjects",
+        json!({ "projects": page(json!([list_node("Roadmap")])) }),
+    )
+    .on("GetProjectDetails", json!({ "project": project }));
+    project["identifier"] = json!("PRJ");
+    api.on("GetProjectDetails", json!({ "project": project }));
+    let cli = Cli::for_api(&api).file(
+        "cwd/.linear.toml",
+        "[experimental]\ntemplates = true\n[templates]\nformat_project_name = ''\n",
+    );
+
+    let list = cli.run(&["project", "list", "--all-teams"]);
+    let row = list.success().stdout.lines().nth(1).expect("project row");
+    assert_eq!(
+        row.split_whitespace().take(2).collect::<Vec<_>>(),
+        ["roadmap-abc123", "Started"],
+        "{list}"
+    );
+
+    let args = ["project", "view", ID, "--no-pager"];
+    let without_id = cli.run(&args);
+    without_id
+        .success()
+        .stdout_has(&format!("- **Blocks** {related_url}"));
+    assert!(
+        without_id.stdout.starts_with("**Status:** Backlog"),
+        "{without_id}"
+    );
+    let with_id = cli.run(&args);
+    assert!(
+        with_id.success().stdout.starts_with("# PRJ\n\n"),
+        "{with_id}"
     );
 }
 

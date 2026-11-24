@@ -520,6 +520,7 @@ fn exported_templates_reload_in_the_same_feature_mode() {
         for name in [
             "format_issue_id",
             "format_comment_id",
+            "format_project_name",
             "issue_view",
             "issue_view_heading",
             "issue_view_metadata",
@@ -534,6 +535,8 @@ fn exported_templates_reload_in_the_same_feature_mode() {
             "issue_id/app",
             "comment_id/web",
             "comment_id/app",
+            "project_name/web",
+            "project_name/app",
         ] {
             assert_eq!(
                 listing["template-aliases"].get(name).is_some(),
@@ -581,9 +584,10 @@ guide_help_notes = "{% include 'issue_id/app' %}"
 }
 
 #[test]
-fn issue_view_template_overrides_require_an_explicit_opt_in() {
+fn display_template_overrides_require_an_explicit_opt_in() {
     for name in [
         "format_comment_id",
+        "format_project_name",
         "issue_view",
         "issue_view_heading",
         "issue_view_metadata",
