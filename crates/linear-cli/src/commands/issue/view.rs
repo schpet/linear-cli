@@ -6,7 +6,8 @@ use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::platform::kitty::InlineImages;
 use crate::platform::view_footer::{self, Linked};
 use crate::refs::IssueReference;
-use crate::templates::TemplateConfig;
+use crate::templates::markdown::{push_markdown_label, push_markdown_link};
+use crate::templates::{TemplateConfig, ViewPart, ViewSection, ViewSectionKind};
 use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
@@ -19,11 +20,11 @@ use crate::{
 };
 use chrono::{DateTime, Utc};
 use futures_util::{StreamExt, TryStreamExt, stream};
+use minijinja::Value;
 use serde::Serialize;
 
 use std::{
     collections::{HashMap, HashSet},
-    fmt::Write as _,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -111,7 +112,7 @@ fn render(
 ) -> Result<String> {
     let options = ctx.options();
     let download = !args.no_download && options.download_images();
-    let attachments = download && options.auto_download_attachments();
+    let auto_download_attachments = download && options.auto_download_attachments();
     let mut issue = fetched.into_issue();
     let downloaded = if download {
         let image_root = ctx.cache_dir("images");
@@ -129,7 +130,7 @@ fn render(
         .nodes
         .iter()
         .any(|attachment| hosted_by_linear(&attachment.url));
-    let paths = if attachments && downloadable {
+    let paths = if auto_download_attachments && downloadable {
         let attachment_root = match options.attachment_dir() {
             Some(dir) => PathBuf::from(dir),
             None => {
@@ -150,8 +151,37 @@ fn render(
         templates: ctx.templates(),
         styled: ctx.color(),
     };
+    let threads = threads(&issue.comments.nodes, args.show_resolved_threads)?;
+    let context = View {
+        body: body_context(&issue, now, &issue_ids)?,
+        sections: Sections {
+            hierarchy: ViewSection::value(
+                hierarchy(&issue, &issue_ids)?,
+                ViewSectionKind::Hierarchy,
+            ),
+            attachments: ViewSection::value(
+                attachments(&issue, &paths),
+                ViewSectionKind::Attachments,
+            ),
+            documents: ViewSection::value(documents(&issue), ViewSectionKind::Documents),
+            comments: ViewSection::value(
+                markdown_comments(&threads, now),
+                ViewSectionKind::Comments,
+            ),
+        },
+    };
+    let parts = issue_ids
+        .templates
+        .render_view(&context, issue_ids.styled)?;
     if !ctx.stdout_tty() {
-        return markdown(&issue, &paths, args.show_resolved_threads, now, &issue_ids);
+        let mut markdown = String::new();
+        for part in parts {
+            match part {
+                ViewPart::Markdown(text) => markdown.push_str(&text),
+                ViewPart::Section(_, text) => markdown.push_str(&text),
+            }
+        }
+        return Ok(markdown);
     }
     let mut render = ctx.render_options();
     let mut bodies: Vec<&str> = issue.description.iter().map(String::as_str).collect();
@@ -164,14 +194,7 @@ fn render(
     );
     ctx.load_inline_images(images.map(Arc::as_ref), &bodies, &downloaded)?;
     render.images = images.cloned();
-    let rendered = terminal(
-        &issue,
-        &paths,
-        args.show_resolved_threads,
-        now,
-        &render,
-        &issue_ids,
-    )?;
+    let rendered = terminal(parts, &threads, now, &render);
     let footer = view_footer::footer(Linked::Issue, &issue.url, ctx.color());
     Ok(view_footer::append(&rendered, &footer))
 }
@@ -470,42 +493,6 @@ impl IssueIds<'_> {
     }
 }
 
-/// Keep display text literal and keep its destination inside one Markdown link.
-fn push_markdown_link(markdown: &mut String, label: &str, url: &str) {
-    markdown.push('[');
-    push_markdown_label(markdown, label);
-    markdown.push_str("](<");
-    for ch in url.chars() {
-        if matches!(ch, '&' | '<' | '>' | '\\') || ch.is_whitespace() {
-            push_entity(markdown, ch);
-        } else {
-            markdown.push(ch);
-        }
-    }
-    markdown.push_str(">)");
-}
-
-fn push_markdown_label(markdown: &mut String, label: &str) {
-    let content = label.trim_matches(' ');
-    let start = label.len() - label.trim_start_matches(' ').len();
-    let end = start + content.len();
-    for (index, ch) in label.char_indices() {
-        match ch {
-            // Keep padding inside the label or emphasis delimiters.
-            ' ' if index < start || index >= end => push_entity(markdown, ch),
-            '!' | '&' | '\\' | '[' | ']' | '<' | '>' | '*' | '_' | '~' | '`' => {
-                markdown.push('\\');
-                markdown.push(ch);
-            }
-            _ => markdown.push(ch),
-        }
-    }
-}
-
-fn push_entity(markdown: &mut String, ch: char) {
-    write!(markdown, "&#{};", u32::from(ch)).expect("writing to a String cannot fail");
-}
-
 fn hierarchy(issue: &Issue, issue_ids: &IssueIds<'_>) -> Result<String> {
     let mut out = String::new();
     if let Some(parent) = &issue.parent {
@@ -570,79 +557,72 @@ fn user_name(user: &GetIssueDetailsIssueAssignee) -> Option<&str> {
         .find(|name| !name.is_empty())
 }
 
-/// The title, one metadata field per line, and the description.
-fn body(issue: &Issue, now: DateTime<Utc>, issue_ids: &IssueIds<'_>) -> Result<String> {
+#[derive(Serialize)]
+struct Body<'a> {
+    issue: IssueViewData<'a>,
+    display: BodyDisplay<'a>,
+}
+
+#[derive(Serialize)]
+struct IssueViewData<'a> {
+    #[serde(flatten)]
+    issue: &'a Issue,
+    workspace_url_key: Option<String>,
+}
+
+#[derive(Serialize)]
+struct BodyDisplay<'a> {
+    identifier: String,
+    lifecycle_banner: Option<String>,
+    lifecycle_state_suffix: &'static str,
+    priority: String,
+    cycle: Option<String>,
+    creator: Option<&'a str>,
+    created: String,
+    updated: String,
+}
+
+fn body_context<'a>(
+    issue: &'a Issue,
+    now: DateTime<Utc>,
+    issue_ids: &IssueIds<'_>,
+) -> Result<Body<'a>> {
     let lifecycle = super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at);
-    let mut parts = vec![
-        format!(
-            "**State:** {}{}",
-            issue.state.name,
-            lifecycle.state_suffix()
-        ),
-        format!(
-            "**Priority:** {}",
-            super::list_view::priority(issue.priority)
-        ),
-        format!(
-            "**Assignee:** {}",
-            issue
-                .assignee
-                .as_ref()
-                .map(|a| format!("@{}", a.display_name))
-                .unwrap_or_else(|| "Unassigned".to_owned())
-        ),
-    ];
-    if let Some(banner) = lifecycle.banner() {
-        parts.insert(0, banner);
-    }
-    if let Some(delegate) = &issue.delegate {
-        parts.push(format!("**Delegate:** @{}", delegate.display_name));
-    }
-    if let Some(project) = &issue.project {
-        parts.push(format!("**Project:** {}", project.name));
-    }
-    if let Some(m) = &issue.project_milestone {
-        parts.push(format!("**Milestone:** {}", m.name));
-    }
-    if let Some(c) = &issue.cycle {
-        let (short, _) = super::list_view::cycle_short(
-            Some(c),
-            issue.team.active_cycle.as_ref().map(|c| c.number),
-        );
-        let label = format!(
-            "#{}{}",
-            c.number,
-            c.name.as_ref().map(|n| format!(" {n}")).unwrap_or_default()
-        );
-        parts.push(format!(
-            "**Cycle:** {label}{}",
-            if short.starts_with('#') {
-                String::new()
-            } else {
-                format!(" ({short})")
-            }
-        ));
-    }
-    if let Some(creator) = issue.creator.as_ref().and_then(user_name) {
-        parts.push(format!("**Creator:** @{creator}"));
-    }
     let ago = |at: &crate::graphql::scalars::DateTime| {
         crate::commands::relative_time::ago(at.0, now, &chrono::Local)
     };
-    parts.push(format!("**Created:** {}", ago(&issue.created_at)));
-    parts.push(format!("**Updated:** {}", ago(&issue.updated_at)));
-    Ok(format!(
-        "# {}: {}\n\n{}{}",
-        issue_ids.markdown(&issue.identifier, &issue.url)?,
-        issue.title,
-        parts.join("\n"),
-        issue
-            .description
-            .as_ref()
-            .filter(|s| !s.is_empty())
-            .map(|s| format!("\n\n{s}"))
-            .unwrap_or_default()
-    ))
+    Ok(Body {
+        issue: IssueViewData {
+            issue,
+            workspace_url_key: IssueReference::new(&issue.identifier, Some(&issue.url))
+                .workspace_url_key,
+        },
+        display: BodyDisplay {
+            identifier: issue_ids.markdown(&issue.identifier, &issue.url)?,
+            lifecycle_banner: lifecycle.banner(),
+            lifecycle_state_suffix: lifecycle.state_suffix(),
+            priority: super::list_view::priority(issue.priority),
+            cycle: issue.cycle.as_ref().map(|cycle| cycle_label(issue, cycle)),
+            creator: issue.creator.as_ref().and_then(user_name),
+            created: ago(&issue.created_at),
+            updated: ago(&issue.updated_at),
+        },
+    })
+}
+
+fn cycle_label(issue: &Issue, cycle: &GetIssuesForStateIssuesNodesCycle) -> String {
+    let mut label = format!("#{}", cycle.number);
+    if let Some(name) = &cycle.name {
+        label.push(' ');
+        label.push_str(name);
+    }
+    let active = issue.team.active_cycle.as_ref().map(|cycle| cycle.number);
+    let (short, _) = super::list_view::cycle_short(Some(cycle), active);
+    if short.starts_with('#') {
+        label
+    } else {
+        format!("{label} ({short})")
+    }
 }
 #[derive(Debug)]
 pub struct Threads<'a> {
@@ -739,21 +719,26 @@ fn body_markdown(c: &Comment) -> String {
     comments::quoted_body(c.quoted_text.as_deref(), &c.body)
 }
 
-fn markdown(
-    issue: &Issue,
-    paths: &HashMap<String, String>,
-    show_resolved: bool,
-    now: DateTime<Utc>,
-    issue_ids: &IssueIds<'_>,
-) -> Result<String> {
-    let mut out = body(issue, now, issue_ids)?;
-    out.push_str(&hierarchy(issue, issue_ids)?);
-    out.push_str(&attachments(issue, paths));
-    out.push_str(&documents(issue));
-    let threads = threads(&issue.comments.nodes, show_resolved)?;
+#[derive(Serialize)]
+struct View<'a> {
+    #[serde(flatten)]
+    body: Body<'a>,
+    sections: Sections,
+}
+
+#[derive(Serialize)]
+struct Sections {
+    hierarchy: Value,
+    attachments: Value,
+    documents: Value,
+    comments: Value,
+}
+
+fn markdown_comments(threads: &Threads<'_>, now: DateTime<Utc>) -> String {
+    let mut out = String::new();
     if !threads.roots.is_empty() {
         out.push_str("\n\n## Comments\n\n");
-        for root in threads.roots {
+        for root in &threads.roots {
             let suffix: Vec<String> = suffix(root, false)
                 .into_iter()
                 .map(|(text, _)| text)
@@ -778,34 +763,63 @@ fn markdown(
     if threads.hidden > 0 {
         out.push_str(&format!("\n\n{}", summary(threads.hidden)));
     }
-    Ok(out)
+    out
 }
+
 fn terminal(
-    issue: &Issue,
-    paths: &HashMap<String, String>,
-    show_resolved: bool,
+    parts: Vec<ViewPart>,
+    threads: &Threads<'_>,
     now: DateTime<Utc>,
     options: &RenderOptions,
-    issue_ids: &IssueIds<'_>,
-) -> Result<String> {
-    let mut out = markdown_terminal::render(&body(issue, now, issue_ids)?, options);
-    for section in [
-        hierarchy(issue, issue_ids)?,
-        attachments(issue, paths),
-        documents(issue),
-    ] {
-        if !section.is_empty() {
-            out.push('\n');
-            out.push_str(&markdown_terminal::render(&section, options));
+) -> String {
+    let mut out = String::new();
+    let mut rendered_comments = None;
+    for part in parts {
+        match part {
+            ViewPart::Markdown(markdown) => append_terminal_markdown(&mut out, &markdown, options),
+            ViewPart::Section(ViewSectionKind::Comments, _) => {
+                let rendered = rendered_comments
+                    .get_or_insert_with(|| terminal_comments(threads, now, options));
+                if threads.roots.is_empty() && !out.is_empty() {
+                    out.push_str("\n\n");
+                } else {
+                    separate_terminal_part(&mut out);
+                }
+                out.push_str(rendered);
+            }
+            ViewPart::Section(_, markdown) => {
+                append_terminal_markdown(&mut out, &markdown, options)
+            }
         }
     }
-    let threads = threads(&issue.comments.nodes, show_resolved)?;
+    out
+}
+
+fn append_terminal_markdown(out: &mut String, markdown: &str, options: &RenderOptions) {
+    let rendered = markdown_terminal::render(markdown, options);
+    if rendered.is_empty() {
+        return;
+    }
+    separate_terminal_part(out);
+    out.push_str(&rendered);
+}
+
+fn separate_terminal_part(out: &mut String) {
+    if !out.is_empty() {
+        if !out.ends_with('\n') {
+            out.push('\n');
+        }
+        out.push('\n');
+    }
+}
+
+fn terminal_comments(threads: &Threads<'_>, now: DateTime<Utc>, options: &RenderOptions) -> String {
+    let mut out = String::new();
     let header = |c: &Comment, verb: &str, suffix: Vec<(String, usize)>, indent: &str| {
         let action = format!("{verb} {}", date(c, now));
         comments::terminal_header(author(c), &action, suffix, indent, options)
     };
     if !threads.roots.is_empty() {
-        out.push('\n');
         out.push_str(&markdown_terminal::render("## Comments", options));
         out.push('\n');
         for (index, root) in threads.roots.iter().enumerate() {
@@ -824,9 +838,12 @@ fn terminal(
         }
     }
     if threads.hidden > 0 {
-        out.push_str(&format!("\n\n{}", summary(threads.hidden)));
+        if !out.is_empty() {
+            out.push_str("\n\n");
+        }
+        out.push_str(&summary(threads.hidden));
     }
-    Ok(out)
+    out
 }
 
 #[cfg(test)]

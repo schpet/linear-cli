@@ -517,10 +517,15 @@ fn exported_templates_reload_in_the_same_feature_mode() {
         let export = cli.run(&args);
         export.success();
         let listing: toml::Table = export.stdout.parse().expect("template preferences");
-        assert_eq!(
-            listing["templates"].get("format_issue_id").is_some(),
-            enabled
-        );
+        for name in [
+            "format_issue_id",
+            "issue_view",
+            "issue_view_heading",
+            "issue_view_metadata",
+            "issue_view_description",
+        ] {
+            assert_eq!(listing["templates"].get(name).is_some(), enabled, "{name}");
+        }
 
         let cli = cli.file("cwd/export.toml", &export.stdout);
         let mut reload = vec!["--config-file", "export.toml", "config", "check"];
@@ -528,6 +533,27 @@ fn exported_templates_reload_in_the_same_feature_mode() {
             reload.push("--experimental-templates");
         }
         cli.run(&reload).success();
+    }
+}
+
+#[test]
+fn issue_view_template_overrides_require_an_explicit_opt_in() {
+    for name in [
+        "issue_view",
+        "issue_view_heading",
+        "issue_view_metadata",
+        "issue_view_description",
+    ] {
+        let cli = Cli::new().file(
+            "cwd/.linear.toml",
+            &format!("[templates]\n{name} = 'custom issue view'\n"),
+        );
+        cli.run(&["config", "check"])
+            .failure()
+            .stderr_has(&format!("templates.{name}"))
+            .stderr_has("--experimental-templates");
+        cli.run(&["config", "check", "--experimental-templates"])
+            .success();
     }
 }
 

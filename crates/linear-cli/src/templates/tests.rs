@@ -910,3 +910,31 @@ fn command_hook_names_are_unique_and_shipped_names_have_known_roles() {
         assert!(TemplateConfig::from_tiers([&tier("reserved.toml", &text)]).is_err());
     }
 }
+
+#[test]
+fn view_sections_survive_macro_capture_and_bound_repeated_output() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+issue_view = '''{% macro comments() %}{{ sections.comments }}{% endmacro %}{{ comments() * issue.priority }}'''
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("compile");
+    let section = ViewSection::value("x".repeat(5 * 1024 * 1024), ViewSectionKind::Comments);
+    let render = |copies| {
+        config.render_view(
+            &minijinja::context! {
+                sections => minijinja::context! { comments => section.clone() },
+                issue => minijinja::context! { priority => copies },
+            },
+            true,
+        )
+    };
+    let once = render(1).expect("a full fetched section fits");
+    assert!(matches!(
+        once.as_slice(),
+        [ViewPart::Section(ViewSectionKind::Comments, _)]
+    ));
+    let repeated = render(2).expect_err("repetitions are charged for the source bytes");
+    assert!(repeated.message().contains("size limit"), "{repeated}");
+}
