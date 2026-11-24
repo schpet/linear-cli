@@ -2,15 +2,14 @@ use std::collections::HashSet;
 use std::time::SystemTime;
 
 use clap::ValueEnum;
+use minijinja::Value;
 use serde::Serialize;
-use serde_json::Value;
 
 use crate::cli::issue::{IssueColumn, IssueListOutput};
 use crate::commands::json;
 use crate::ctx::Ctx;
 use crate::error::{Error, Result};
-use crate::graphql::operations::issue_read::ListedIssue;
-use crate::refs::IssueReference;
+use crate::graphql::operations::issue_read::{ListedIssue, SearchIssuesSearchIssuesNodes};
 
 pub(in crate::commands::issue) enum Output<'a> {
     Json,
@@ -58,7 +57,7 @@ impl<'a> Output<'a> {
         })
     }
 
-    pub(in crate::commands::issue) fn print<R: Serialize + Into<ListedIssue>>(
+    pub(in crate::commands::issue) fn print<R: IssueRow>(
         self,
         ctx: &Ctx,
         rows: Vec<R>,
@@ -88,7 +87,25 @@ impl<'a> Output<'a> {
     }
 }
 
-fn print_format(ctx: &Ctx, name: &str, rows: &[impl Serialize], paging: bool) -> Result<()> {
+pub(in crate::commands::issue) trait IssueRow:
+    Serialize + Into<ListedIssue>
+{
+    fn project_url(&self) -> Option<&str>;
+}
+
+impl IssueRow for ListedIssue {
+    fn project_url(&self) -> Option<&str> {
+        self.project.as_ref().map(|project| project.url.as_str())
+    }
+}
+
+impl IssueRow for SearchIssuesSearchIssuesNodes {
+    fn project_url(&self) -> Option<&str> {
+        self.project.as_ref().map(|project| project.url.as_str())
+    }
+}
+
+fn print_format(ctx: &Ctx, name: &str, rows: &[impl IssueRow], paging: bool) -> Result<()> {
     #[derive(Serialize)]
     struct RowContext {
         issue: Value,
@@ -100,25 +117,10 @@ fn print_format(ctx: &Ctx, name: &str, rows: &[impl Serialize], paging: bool) ->
     let styled = ctx.color();
     let mut rendered = String::new();
     for row in rows {
-        let mut issue = serde_json::to_value(row).expect("issue rows serialize");
-        let fields = issue.as_object_mut().expect("issue rows are objects");
-        let identifier = fields
-            .get("identifier")
-            .and_then(Value::as_str)
-            .expect("issue rows have an identifier");
-        let url = fields
-            .get("url")
-            .and_then(Value::as_str)
-            .expect("issue rows have a URL string");
-        let reference = IssueReference::new(identifier, Some(url));
-        fields.insert(
-            "workspace_url_key".to_owned(),
-            Value::from(reference.workspace_url_key),
-        );
-
+        let issue = super::super::template_data(row, row.project_url());
         let row = ctx
             .templates()
-            .render_display(name, &RowContext { issue }, styled)?;
+            .render_issue_row(name, &RowContext { issue }, styled)?;
         if styled {
             rendered.push_str(&row.terminal());
         } else {

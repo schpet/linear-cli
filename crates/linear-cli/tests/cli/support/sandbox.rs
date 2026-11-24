@@ -433,6 +433,17 @@ impl Run {
         self
     }
 
+    /// Checks the visible label inside an OSC 8 link, allowing ANSI styling.
+    #[track_caller]
+    pub fn assert_link_label(&self, url: &str, expected: &str) {
+        let (_, link) = self
+            .terminal
+            .split_once(&format!("\x1b]8;;{url}\x1b\\"))
+            .unwrap_or_else(|| panic!("missing link to {url} in {self}"));
+        let (label, _) = link.split_once("\x1b]8;;\x1b\\").expect("link closes");
+        assert_eq!(plain_text(label.as_bytes()), expected, "{self}");
+    }
+
     #[track_caller]
     pub fn stdout_has(&self, needle: &str) -> &Self {
         assert!(

@@ -1,10 +1,10 @@
 # Templates
 
-MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Experimental templates also customize issue views, identifiers and list rows. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
+MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Experimental templates also customize issue views, identifiers, project names and list rows. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
 
 ## Experimental templates
 
-Custom issue views (`issue_view` and its heading, metadata, description, and footer), issue and comment ID templates (`format_issue_id` and `format_comment_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
+Custom issue views (`issue_view` and its heading, metadata, description, and footer), issue and comment ID templates (`format_issue_id` and `format_comment_id`), project name templates (`format_project_name`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue, comment and project links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
 
 Enable experimental templates for a single invocation with the global flag.
 
@@ -66,7 +66,7 @@ skill_issue_gh_pull-request = '''
 {% include "team/review_note" %}'''
 ```
 
-Use distinct names for partials and template slots. The `skill_` and `guide_` prefixes and the immutable `builtin/` namespace are reserved. The issue ID and issue view slot names are reserved when experimental templates are enabled. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
+Use distinct names for partials and template slots. The `skill_` and `guide_` prefixes and the immutable `builtin/` namespace are reserved. The issue ID, comment ID, project name and issue view slot names are reserved when experimental templates are enabled. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
 
 ## Templates and data
 
@@ -77,6 +77,7 @@ Use distinct names for partials and template slots. The `skill_` and `guide_` pr
 | `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
 | `format_issue_id` (experimental override) | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
 | `format_comment_id` (experimental override) | Each visible comment or reply header in the built-in `issue view` thread layout | [`comment`, `issue: Issue ID`](#comment-identifiers-and-links) |
+| `format_project_name` (experimental override) | Project names in issue metadata, the project list, and project view headings and relations | [`project: Project name and URL`](#project-names-and-links) |
 | `issue_view`, `issue_view_heading`, `issue_view_metadata`, `issue_view_description`, `issue_view_footer` (experimental overrides) | Each issue in the Markdown or terminal view | [`issue`, `display`, `sections`, `terminal`](#issue-view) |
 | `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
 | `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
@@ -145,7 +146,7 @@ All five templates receive the same context.
 
 | Value | Contents |
 |---|---|
-| `issue` | The issue detail fields from `issue view --json` in their original casing, plus `workspace_url_key: String?`. For example, `issue.title`, `issue.state.name`, `issue.assignee.displayName` when assigned, and `issue.children[0].identifier` when children exist. Description and comment image URLs reflect local downloads. `issue.comments` is empty with `--no-comments`. |
+| `issue` | The issue detail fields from `issue view --json` in their original casing, plus `workspace_url_key: String?` and `issue.project.url` when a project is assigned. For example, `issue.title`, `issue.state.name`, `issue.assignee.displayName` when assigned, and `issue.children[0].identifier` when children exist. Description and comment image URLs reflect local downloads. `issue.comments` is empty with `--no-comments`. |
 | `terminal` | Boolean. True when stdout is a terminal, independently of color or pager settings. |
 | `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Use `markdown(display.identifier)` to present it, or `issue.identifier` for the raw ID. |
 | `display.priority`, `display.created`, `display.updated` | The priority indicator used by the CLI and human-readable creation and update times. |
@@ -172,7 +173,7 @@ The `Issue` object contains `identifier`, `title`, `url`, and `description`, all
 
 ### Issue row fields
 
-`issue mine --format` and `issue query --format` expose the same fields and casing as each result from the corresponding `--json` command, with `workspace_url_key` added. Lists such as `labels` and `inverseRelations` are direct lists. Read a label as `issue.labels[0].name` when the list has an item.
+`issue mine --format` and `issue query --format` expose the same fields and casing as each result from the corresponding `--json` command, with `workspace_url_key` and the assigned project’s `url` added. Lists such as `labels` and `inverseRelations` are direct lists. Read a label as `issue.labels[0].name` when the list has an item.
 
 | Fields on `issue` | Type | Meaning |
 |---|---|---|
@@ -195,7 +196,8 @@ The nested objects have these fields. `[]` denotes an item in a list.
 | `team` | `id: String`, `key: String`, `name: String`, `cyclesEnabled: Boolean`, `activeCycle: Object?` |
 | `team.activeCycle` | `number: Integer` |
 | `assignee` | `id: String`, `name: String`, `displayName: String`, `initials: String` |
-| `project`, `projectMilestone` | `id: String`, `name: String` |
+| `project` | `id: String`, `name: String`, `url: String` (template context) |
+| `projectMilestone` | `id: String`, `name: String` |
 | `cycle` | `id: String`, `number: Integer`, `name: String?`, `isActive: Boolean`, `isNext: Boolean`, `isPrevious: Boolean`, `isFuture: Boolean`, `isPast: Boolean` |
 | `labels[]` | `id: String`, `name: String`, `color: String` |
 | `inverseRelations[]` | `id: String`, `type: String`, `issue: Object` |
@@ -329,6 +331,30 @@ The hook controls the entire ID label, including brackets. Return an empty strin
 
 You can also include either preset inside `{% for comment in issue.comments %}` in a custom issue view.
 
+## Project names and links
+
+By default, project names open the project's Linear web page on a styled terminal. The same template formats the **Project** field in `issue view`, the **NAME** column in `project list`, and the heading and related project names in `project view`. When piped or when styling is disabled, the built-in presets print the name as plain text.
+
+To open projects in the desktop app, set the project name template in your Linear config.
+
+```toml
+[experimental]
+templates = true
+
+[templates]
+format_project_name = '{% include "builtin/project_name/app" %}'
+```
+
+Use `builtin/project_name/web` for the website or `{{ project.name }}` for a plain name everywhere. The slot receives `project.name` (string) and `project.url` (the project's canonical URL, or `none` when unavailable). The app preset uses the workspace and project path in that URL. If it cannot derive a desktop link, it shows the name. An empty or whitespace-only result hides the name. The built-in issue view then omits the Project line.
+
+In a custom issue view or named issue row, call `format_project_name(issue.project)` to reuse that preference. It renders an empty label for an issue without a project. A name containing `**` or brackets stays literal even inside Markdown. For example, a row can show the issue ID followed by its project.
+
+```jinja
+{% include "format_issue_id" %} {{ format_project_name(issue.project) }}
+```
+
+In an issue view, `{{ label("field_label", format_project_name(issue.project)) }}` emphasizes the same linked name.
+
 ## Named rows and table columns
 
 On `issue mine` and `issue query`, `--columns id,priority,title` selects and orders built-in table columns. See command help for all column names. With [experimental templates](#experimental-templates) enabled, use `--format NAME` for a custom row and define the name in `[template-aliases]`. Each render receives one [`issue` row](#issue-row-fields). The command supplies the newline between records.
@@ -415,7 +441,7 @@ Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and 
 
 Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits. Issue content and `description` are inert data. A body containing `{{ example }}` prints those characters literally. Templates have no access to environment variables, authentication, files, or processes.
 
-Guide, commit, and pull request templates preserve Markdown and newlines, including the final newline before any command-specific normalization. Display templates render identifiers and individual rows without embedded newlines. Row templates preserve literal tabs from the template and replace tabs and line breaks from issue fields with spaces. TOML literal strings keep backslashes as written. Use MiniJinja `-%}` and `-}}` to trim surrounding template whitespace.
+Guide, commit, and pull request templates preserve Markdown and newlines, including the final newline before any command-specific normalization. Single-line display templates render project names, identifiers and individual rows without embedded newlines. Row templates preserve literal tabs from the template and replace tabs and line breaks from issue fields with spaces. TOML literal strings keep backslashes as written. Use MiniJinja `-%}` and `-}}` to trim surrounding template whitespace.
 
 ### Functions and filters
 
@@ -428,12 +454,14 @@ With [experimental templates](#experimental-templates) enabled, macros accept po
 | `markdown(text: String) → Content` (issue views) | Interpret the supplied text as Markdown in a terminal. A pipe carries the source. When it occupies its own top-level paragraph, the fragment is a separate Markdown document, so an unclosed fence in an issue description ends at the section boundary. |
 | `label(name: String, content: Content) → Content` (issue views) | Apply a role to inline text, labeled content, or a hyperlink. See the [issue view labels](#issue-view) for their default styles. |
 | `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and guide, commit, and pull request templates use this fallback. The terminal decides which schemes it can open. |
+| `format_project_name(project: Project?) → Content` (experimental issue views and named rows) | Renders the [configured project name](#project-names-and-links) with its hyperlinks. Pass a project with `name` and optional `url`, or `none` for an empty label. |
 | `fail(message: String)` | Stops rendering with the given message. |
 
 `Content` accepts a string or rendered template content, such as the result of a macro. Printing or concatenating that content preserves its links. Wrapping it in another `hyperlink` gives the whole visible label the outer destination. To measure or transform an identifier, operate on the string first, as in `hyperlink(issue.url, issue.identifier | lower)`.
 
 | Filter | Result | Keyword arguments |
 |---|---|---|
+| `url \| project_app_url` (experimental display templates) | Converts a canonical Linear project URL to its desktop URL, preserving the workspace, project path, query and fragment. Returns `none` without a project target. | — |
 | `url \| comment_app_url` (experimental display templates) | Converts a canonical Linear issue-comment URL to its desktop URL, or returns `none` when there is no app target. Preserves the path, query, and comment anchor. | — |
 | `value \| trim([chars])` | String with leading and trailing whitespace removed, or the characters in `chars` removed from the ends. | — |
 | `value \| upper`, `value \| lower` | Uppercase or lowercase string. | — |

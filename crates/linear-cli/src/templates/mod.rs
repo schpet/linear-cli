@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use clap::CommandFactory;
 use minijinja::machinery::{Instruction, get_compiled_template};
-use minijinja::{AutoEscape, Environment, Template, UndefinedBehavior};
+use minijinja::{AutoEscape, Environment, State, Template, UndefinedBehavior, Value};
 use serde::Serialize;
 
 use crate::config::ConfigTier;
@@ -23,6 +23,7 @@ const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";
 pub(crate) const FORMAT_ISSUE_ID: &str = "format_issue_id";
 pub(crate) const FORMAT_COMMENT_ID: &str = "format_comment_id";
+const FORMAT_PROJECT_NAME: &str = "format_project_name";
 const ISSUE_VIEW: &str = "issue_view";
 fn is_view_slot(name: &str) -> bool {
     matches!(
@@ -36,11 +37,15 @@ fn is_view_slot(name: &str) -> bool {
 }
 
 pub(crate) fn experimental_slot(name: &str) -> bool {
-    matches!(name, FORMAT_ISSUE_ID | FORMAT_COMMENT_ID) || is_view_slot(name)
+    matches!(
+        name,
+        FORMAT_ISSUE_ID | FORMAT_COMMENT_ID | FORMAT_PROJECT_NAME
+    ) || is_view_slot(name)
 }
 
 const BUILTIN_FORMAT_ISSUE_ID: &str = "builtin/format_issue_id";
 const BUILTIN_FORMAT_COMMENT_ID: &str = "builtin/format_comment_id";
+const BUILTIN_FORMAT_PROJECT_NAME: &str = "builtin/format_project_name";
 pub(crate) const EXPERIMENTAL_TEMPLATES_HINT: &str = "Pass `--experimental-templates` or set `templates = true` under `[experimental]` in your global or project config.";
 // Empty hooks still expose the inheritance block used by shipped templates.
 const EMPTY_SKILL_HOOK: &str = "{% block content %}{% endblock %}";
@@ -119,6 +124,7 @@ pub struct TemplateConfig {
     template_names: BTreeSet<String>,
     environment: Environment<'static>,
     display_environment: Environment<'static>,
+    issue_display_environment: Environment<'static>,
     experimental: bool,
     dormant_aliases: BTreeSet<String>,
     slot_fallbacks: BTreeMap<String, Vec<String>>,
@@ -334,6 +340,7 @@ impl TemplateConfig {
             dormant_aliases,
             slot_fallbacks: BTreeMap::new(),
             display_environment: Environment::empty(),
+            issue_display_environment: Environment::empty(),
             experimental,
         };
         config
@@ -544,6 +551,7 @@ impl TemplateConfig {
         display_env.set_formatter(display::format_value);
         if self.experimental {
             display_env.add_filter("comment_app_url", display::comment_app_url);
+            display_env.add_filter("project_app_url", display::project_app_url);
         }
         for registry in [&mut env, &mut display_env] {
             for (name, entry) in &self.builtins {
@@ -611,7 +619,7 @@ impl TemplateConfig {
                             format!("unknown context field {variable}"),
                         ));
                     }
-                    if !known_issue_field(name, root, &variable) {
+                    if !known_context_field(name, root, &variable) {
                         return Err(config_error(
                             &entry.origin.source,
                             &entry.origin.key,
@@ -621,8 +629,25 @@ impl TemplateConfig {
                 }
             }
         }
+        let mut issue_display_env = display_env.clone();
+        let project_name_env = display_env.clone();
+        let project_name_slot = self.project_name_slot();
+        issue_display_env.add_function(
+            FORMAT_PROJECT_NAME,
+            move |state: &mut State, project: Value| {
+                display::project_name(state, project, |parent, name, url, styled| {
+                    // Bound the isolated label render by the calling template's budget.
+                    let mut env = project_name_env.clone();
+                    if let Some((_, remaining)) = parent.fuel_levels() {
+                        env.set_fuel(Some(remaining));
+                    }
+                    render_project_name(&env, project_name_slot, name, url, styled, Some(parent))
+                })
+            },
+        );
         self.environment = env;
         self.display_environment = display_env;
+        self.issue_display_environment = issue_display_env;
         Ok(())
     }
 
@@ -690,7 +715,7 @@ impl TemplateConfig {
         // Both display modes mark macro and block captures as safe. Reuse the
         // compiled templates, giving only this view the document formatter and
         // its presentation functions. Ordinary row and guide scopes stay distinct.
-        let mut view = self.display_environment.clone();
+        let mut view = self.issue_display_environment.clone();
         view.set_formatter(display::format_view_value);
         view.add_function("markdown", display::markdown);
         view.add_function("label", display::label);
@@ -700,15 +725,15 @@ impl TemplateConfig {
             .map_err(|error| engine_error(error, name, &self.entries))
     }
 
-    pub fn render_display(
+    pub(crate) fn render_issue_row(
         &self,
         name: &str,
         context: &impl Serialize,
         styled: bool,
     ) -> Result<DisplayText> {
-        self.display_environment
+        self.issue_display_environment
             .get_template(name)
-            .and_then(|template| display::render(&template, context, styled))
+            .and_then(|template| display::render(&template, context, styled, None))
             .map_err(|error| engine_error(error, name, &self.entries))
     }
 
@@ -718,7 +743,7 @@ impl TemplateConfig {
             issue: &'a IssueReference<'reference>,
         }
 
-        self.format_id(
+        self.format_single_line(
             FORMAT_ISSUE_ID,
             BUILTIN_FORMAT_ISSUE_ID,
             &Context { issue },
@@ -738,7 +763,7 @@ impl TemplateConfig {
             comment: &'a Comment,
         }
 
-        self.format_id(
+        self.format_single_line(
             FORMAT_COMMENT_ID,
             BUILTIN_FORMAT_COMMENT_ID,
             &Context { issue, comment },
@@ -746,7 +771,26 @@ impl TemplateConfig {
         )
     }
 
-    fn format_id(
+    pub(crate) fn format_project_name(
+        &self,
+        name: &str,
+        url: Option<&str>,
+        styled: bool,
+    ) -> Result<DisplayText> {
+        let slot = self.project_name_slot();
+        render_project_name(&self.display_environment, slot, name, url, styled, None)
+            .map_err(|error| engine_error(error, slot, &self.entries))
+    }
+
+    fn project_name_slot(&self) -> &'static str {
+        if self.experimental {
+            FORMAT_PROJECT_NAME
+        } else {
+            BUILTIN_FORMAT_PROJECT_NAME
+        }
+    }
+
+    fn format_single_line(
         &self,
         slot: &str,
         builtin: &str,
@@ -754,14 +798,59 @@ impl TemplateConfig {
         styled: bool,
     ) -> Result<DisplayText> {
         let name = if self.experimental { slot } else { builtin };
-        let mut output = self.render_display(name, context, styled)?;
-        for span in &mut output.spans {
-            if let std::borrow::Cow::Owned(text) = terminal_text::single_line(&span.text) {
-                span.text = text;
-            }
-        }
-        Ok(output)
+        render_single_line(&self.display_environment, name, context, styled, None)
+            .map_err(|error| engine_error(error, name, &self.entries))
     }
+}
+
+fn render_project_name(
+    env: &Environment<'static>,
+    slot: &str,
+    name: &str,
+    url: Option<&str>,
+    styled: bool,
+    parent: Option<&State>,
+) -> std::result::Result<DisplayText, minijinja::Error> {
+    #[derive(Serialize)]
+    struct Project<'a> {
+        name: &'a str,
+        url: Option<&'a str>,
+    }
+
+    #[derive(Serialize)]
+    struct Context<'a> {
+        project: Project<'a>,
+    }
+
+    let mut display = render_single_line(
+        env,
+        slot,
+        &Context {
+            project: Project { name, url },
+        },
+        styled,
+        parent,
+    )?;
+    if display.spans.iter().all(|span| span.text.trim().is_empty()) {
+        display.spans.clear();
+    }
+    Ok(display)
+}
+
+fn render_single_line(
+    env: &Environment<'static>,
+    name: &str,
+    context: &impl Serialize,
+    styled: bool,
+    parent: Option<&State>,
+) -> std::result::Result<DisplayText, minijinja::Error> {
+    let mut output = display::render(&env.get_template(name)?, context, styled, parent)?;
+    for span in &mut output.spans {
+        if let std::borrow::Cow::Owned(text) = terminal_text::single_line(&span.text) {
+            span.text = text;
+        }
+    }
+    Ok(output)
 }
 
 impl TemplateEntry {
@@ -781,8 +870,15 @@ fn context_fields(name: &str) -> Option<&'static [&'static str]> {
     match name {
         FORMAT_ISSUE_ID => Some(&["issue"]),
         FORMAT_COMMENT_ID => Some(&["issue", "comment"]),
+        FORMAT_PROJECT_NAME => Some(&["project"]),
         name if is_view_slot(name) => Some(&[
-            "issue", "display", "sections", "terminal", "markdown", "label",
+            "issue",
+            "display",
+            "sections",
+            "terminal",
+            "markdown",
+            "label",
+            FORMAT_PROJECT_NAME,
         ]),
         "commit_description" => Some(&["issue", "linkage", "references"]),
         "pr_title" | "pr_body" | "pr_issue_links" => Some(&[
@@ -806,16 +902,17 @@ fn context_fields(name: &str) -> Option<&'static [&'static str]> {
     }
 }
 
-fn known_issue_field(template: &str, root: &str, variable: &str) -> bool {
-    if root != "issue" || !variable.contains('.') {
+fn known_context_field(template: &str, root: &str, variable: &str) -> bool {
+    if !variable.contains('.') {
         return true;
     }
-    match template {
-        FORMAT_ISSUE_ID | FORMAT_COMMENT_ID => matches!(
+    match (template, root) {
+        (FORMAT_ISSUE_ID | FORMAT_COMMENT_ID, "issue") => matches!(
             variable,
             "issue.identifier" | "issue.url" | "issue.workspace_url_key"
         ),
-        "commit_description" => matches!(
+        (FORMAT_PROJECT_NAME, "project") => matches!(variable, "project.name" | "project.url"),
+        ("commit_description", "issue") => matches!(
             variable,
             "issue.identifier" | "issue.title" | "issue.url" | "issue.description"
         ),

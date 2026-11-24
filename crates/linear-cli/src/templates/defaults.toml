@@ -13,6 +13,10 @@ format_comment_id = '''
     {%- if comment.url is defined and comment.url -%}{{ hyperlink(comment.url, text) }}{%- else -%}{{ text }}{%- endif -%}
   {%- endif -%}
 {%- endblock -%}'''
+format_project_name = '''
+{%- block content -%}
+  {%- if project.url is defined and project.url -%}{{ hyperlink(project.url, project.name) }}{%- else -%}{{ project.name }}{%- endif -%}
+{%- endblock -%}'''
 
 issue_view = '''
 {% block content -%}
@@ -44,7 +48,7 @@ issue_view_metadata = '''
 {{ label("field_label", "Priority:") }} {{ display.priority }}
 {{ label("field_label", "Assignee:") }} {% if issue.assignee %}@{{ issue.assignee.displayName }}{% else %}Unassigned{% endif %}
 {% if issue.delegate %}{{ label("field_label", "Delegate:") }} @{{ issue.delegate.displayName }}
-{% endif %}{% if issue.project %}{{ label("field_label", "Project:") }} {{ issue.project.name }}
+{% endif %}{% set project_name = format_project_name(issue.project) %}{% if project_name %}{{ label("field_label", "Project:") }} {{ project_name }}
 {% endif %}{% if issue.projectMilestone %}{{ label("field_label", "Milestone:") }} {{ issue.projectMilestone.name }}
 {% endif %}{% if display.cycle %}{{ label("field_label", "Cycle:") }} {{ display.cycle }}
 {% endif %}{% if display.creator %}{{ label("field_label", "Creator:") }} @{{ display.creator }}
@@ -617,3 +621,7 @@ pr_issue_links = '''{% block content %}{{ issue_clause }}
 {%- set text = "[" ~ comment.id ~ "]" -%}
 {%- set url = (comment.url | comment_app_url) if comment.url is defined and comment.url else "" -%}
 {%- if url -%}{{ hyperlink(url, text) }}{%- else -%}{{ text }}{%- endif -%}'''
+"project_name/web" = '{% include "builtin/format_project_name" %}'
+"project_name/app" = '''
+{%- set url = (project.url | project_app_url) if project.url is defined and project.url else "" -%}
+{%- if url -%}{{ hyperlink(url, project.name) }}{%- else -%}{{ project.name }}{%- endif -%}'''

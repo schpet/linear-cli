@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Project names link to Linear in `issue view`, `project list`, and `project view` on styled terminals. Pipes and unstyled terminals show the name.
+
 - `issue view` now keeps comment IDs plain on unstyled terminals, including when `NO_COLOR` is set.
 
 - Issue metadata captions such as `State:` and `Archived:` are bold on styled terminals and plain text in pipes. Custom issue views can combine `field_label`, `issue_heading`, and `footer` on the same text or hyperlink.
@@ -95,6 +97,8 @@
 - `issue view` accepts multiple issue IDs or URLs, showing them in argument order with one pager session. `--json` returns an array for multiple issues and keeps the existing object for one issue. If an issue cannot be fetched, the command fails without printing partial results.
 
 ### Experimental
+
+- Set `format_project_name` to customize project labels across these commands. Include `builtin/project_name/app` to open the desktop app or `builtin/project_name/web` for the website. Custom issue views and named issue rows can reuse the same template.
 
 - `format_comment_id` customizes comment and reply IDs in the built-in `issue view` threads. Include `builtin/comment_id/web` or `builtin/comment_id/app` to link directly to each comment. Piped output and unstyled terminals show the plain label.
 

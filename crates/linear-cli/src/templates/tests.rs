@@ -406,8 +406,36 @@ fn shipped_comment_id_links_roots_and_omits_replies() {
 }
 
 #[test]
+fn shipped_project_name_uses_a_web_link_when_styled() {
+    let url = "https://linear.app/workspace-one/project/mobile-app-a0a0a0a0a0a0";
+    for experimental in [false, true] {
+        let config = TemplateConfig::builtin_with_experimental(experimental);
+        assert_eq!(
+            config
+                .format_project_name("Mobile App", Some(url), true)
+                .expect("styled"),
+            DisplayText {
+                spans: vec![DisplaySpan {
+                    text: "Mobile App".to_owned(),
+                    url: Some(url.to_owned()),
+                }],
+            }
+        );
+        for (url, styled) in [(Some(url), false), (None, true), (Some(""), true)] {
+            assert_eq!(
+                config
+                    .format_project_name("Mobile App", url, styled)
+                    .expect("plain")
+                    .terminal(),
+                "Mobile App"
+            );
+        }
+    }
+}
+
+#[test]
 fn stable_templates_reject_experimental_authoring() {
-    for name in [FORMAT_ISSUE_ID, FORMAT_COMMENT_ID] {
+    for name in [FORMAT_ISSUE_ID, FORMAT_COMMENT_ID, FORMAT_PROJECT_NAME] {
         let override_layer = tier("project.toml", &format!("[templates]\n{name} = 'override'"));
         let error =
             TemplateConfig::from_tiers([&override_layer]).expect_err("override requires opt-in");
@@ -493,14 +521,15 @@ values = '''{% set hyperlink = "reference" %}'''
 }
 
 #[test]
-fn stable_templates_preserve_legacy_id_slot_aliases() {
+fn stable_templates_preserve_legacy_format_slot_aliases() {
     let layer = tier(
         "project.toml",
         r#"[templates]
-pr_title = '''{% set note = "Legacy title" %}{% include "format_issue_id" %} {% include "format_comment_id" %}'''
+pr_title = '''{% set note = "Legacy title" %}{% include "format_issue_id" %} {% include "format_comment_id" %} {% include "format_project_name" %}'''
 [template-aliases]
 format_issue_id = '''{{ note }}'''
 format_comment_id = '''{{ note | lower }}'''
+format_project_name = '''{{ note | upper }}'''
 "#,
     );
     let config = TemplateConfig::from_tiers([&layer]).expect("legacy template alias");
@@ -508,13 +537,16 @@ format_comment_id = '''{{ note | lower }}'''
         config
             .render(Slot::PrTitle, &PullRequestContext::default())
             .expect("render"),
-        "Legacy title legacy title"
+        "Legacy title legacy title LEGACY TITLE"
     );
     config
         .validate_alias(FORMAT_ISSUE_ID)
         .expect("legacy alias remains an alias");
     config
         .validate_alias(FORMAT_COMMENT_ID)
+        .expect("legacy alias remains an alias");
+    config
+        .validate_alias(FORMAT_PROJECT_NAME)
         .expect("legacy alias remains an alias");
 
     let url = "https://linear.app/workspace-one/issue/DEMO-42";
@@ -538,13 +570,23 @@ format_comment_id = '''{{ note | lower }}'''
         Some(comment_url)
     );
 
-    for name in [FORMAT_ISSUE_ID, FORMAT_COMMENT_ID] {
+    let project_url = "https://linear.app/workspace-one/project/mobile-app-a0a0a0a0a0a0";
+    let display = config
+        .format_project_name("Mobile App", Some(project_url), true)
+        .expect("shipped project display");
+    assert_eq!(display.plain(), "Mobile App");
+    assert_eq!(
+        display.spans.first().and_then(|span| span.url.as_deref()),
+        Some(project_url)
+    );
+
+    for name in [FORMAT_ISSUE_ID, FORMAT_COMMENT_ID, FORMAT_PROJECT_NAME] {
         let collision = tier(
             "project.toml",
             &format!("[template-aliases]\n{name} = 'legacy'"),
         );
         let error = TemplateConfig::from_tiers_with_experimental([&collision], true)
-            .expect_err("experimental templates reserve each ID slot");
+            .expect_err("experimental templates reserve each format slot");
         assert!(
             error
                 .message()
@@ -602,7 +644,7 @@ other = '''	{{ hyperlink("example://workspace-one/issue/DEMO-42", issue.identifi
     let context = serde_json::json!({
         "issue": { "url": url, "identifier": "DEMO-42", "title": "Å\t界" }
     });
-    let row = config.render_display("row", &context, true).expect("row");
+    let row = config.render_issue_row("row", &context, true).expect("row");
     assert_eq!(row.plain(), "[demo-42]\tDEMO-42\tÅ 界");
     let urls = row
         .spans
@@ -743,6 +785,195 @@ issue_view = '''{% for comment in issue.comments %}{% include "builtin/comment_i
 }
 
 #[test]
+fn project_name_presets_are_reusable_in_views_and_rows() {
+    let suffix = "workspace-one/project/mobile%20app/overview?from=%2F#summary";
+    let web = format!("https://linear.app/{suffix}");
+    let app = format!("linear://linear.app/{suffix}");
+    let name = "[Mobile App]";
+    let context = serde_json::json!({"issue": {"project": {"name": name, "url": web}}});
+    for (preset, target) in [("web", &web), ("app", &app)] {
+        let layer = tier(
+            "project.toml",
+            &format!(
+                r#"[templates]
+format_project_name = '{{% include "builtin/project_name/{preset}" %}}'
+issue_view = '{{{{ format_project_name(issue.project) }}}}'
+[template-aliases]
+"project_name/{preset}" = 'shadowed'
+row = '{{{{ format_project_name(issue.project) }}}}'
+"#
+            ),
+        );
+        let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("preset");
+        let styled = config
+            .format_project_name(name, Some(&web), true)
+            .expect("styled");
+        assert_eq!(
+            styled.terminal(),
+            format!("\x1b]8;;{target}\x1b\\{name}\x1b]8;;\x1b\\")
+        );
+        assert_eq!(
+            config
+                .format_project_name(name, Some(&web), false)
+                .expect("unstyled")
+                .terminal(),
+            name
+        );
+        assert_eq!(
+            config.render_issue_row("row", &context, true).expect("row"),
+            styled
+        );
+        let view = config.render_view(&context, true).expect("view");
+        let mut text = String::new();
+        for part in view {
+            part.write_plain(&mut text);
+        }
+        assert_eq!(text, format!("[\\[Mobile App\\]](<{target}>)"));
+
+        let context = serde_json::json!({"issue": {"project": {"name": name}}});
+        assert_eq!(
+            config
+                .render_issue_row("row", &context, true)
+                .expect("row without project URL")
+                .terminal(),
+            name
+        );
+    }
+}
+
+#[test]
+fn app_project_name_preset_only_converts_canonical_project_urls() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+format_project_name = '{% include "builtin/project_name/app" %}'
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("preset");
+    for url in [
+        "https://example.test/acme/project/mobile",
+        "http://linear.app/acme/project/mobile",
+        "https://linear.app/acme/issue/ENG-7/mobile",
+        "https://linear.app/acme/project/?name=mobile",
+        "https://linear.app/acme/project/mobile/../other",
+        "https://linear.app/acme/project/%2e%2E/issue/ENG-7",
+        "https://linear.app/acme/project/mobile\\issues",
+        "https://linear.app/acme/project/mobile%GG",
+    ] {
+        assert_eq!(
+            config
+                .format_project_name("Mobile App", Some(url), true)
+                .expect("plain fallback")
+                .terminal(),
+            "Mobile App",
+            "{url}"
+        );
+    }
+}
+
+#[test]
+fn project_name_templates_check_direct_context_fields() {
+    for field in ["project.title", "issue.project.name"] {
+        let layer = tier(
+            "project.toml",
+            &format!(
+                "[templates]\nformat_project_name = '{{% if false %}}{{{{ {field} }}}}{{% endif %}}'"
+            ),
+        );
+        let error = TemplateConfig::from_tiers_with_experimental([&layer], true)
+            .expect_err("unknown context field");
+        assert!(error.message().contains(field), "{error}");
+    }
+}
+
+#[test]
+fn project_name_callable_composes_with_view_labels_and_row_links() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+format_project_name = '📁 {{ hyperlink(project.url, project.name) }}'
+issue_view = '{{ label("field_label", "Project: " ~ format_project_name(issue.project)) }}'
+[template-aliases]
+row = '{{ hyperlink(issue.url, format_project_name(issue.project)) }}'
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("format");
+    let url = "https://linear.app/acme/project/mobile";
+    let issue_url = "https://linear.app/acme/issue/ENG-1/mobile";
+    let context = serde_json::json!({
+        "issue": {"url": issue_url, "project": {"name": "[Mobile]", "url": url}}
+    });
+    let mut text = String::new();
+    for part in config.render_view(&context, true).expect("labeled project") {
+        part.write_plain(&mut text);
+    }
+    assert_eq!(text, format!("Project: 📁 [\\[Mobile\\]](<{url}>)"));
+    assert_eq!(
+        config
+            .render_issue_row("row", &context, true)
+            .expect("linked row")
+            .terminal(),
+        format!("\x1b]8;;{issue_url}\x1b\\📁 [Mobile]\x1b]8;;\x1b\\")
+    );
+}
+
+#[test]
+fn project_name_callable_uses_the_calling_templates_fuel_budget() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+format_project_name = '{% for letter in project.name %}{% set upper = letter | upper %}{% endfor %}Mobile'
+[template-aliases]
+row = '{% for index in repetitions %}{% set result = format_project_name(issue.project) %}{% endfor %}'
+"#,
+    );
+    let name = "a".repeat(1_000);
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("format");
+    assert_eq!(
+        config
+            .format_project_name(&name, None, false)
+            .expect("single render fits")
+            .plain(),
+        "Mobile"
+    );
+    let context = serde_json::json!({
+        "issue": {"project": {"name": name}},
+        "repetitions": vec![0; 1_000],
+    });
+    let error = config
+        .render_issue_row("row", &context, false)
+        .expect_err("nested renders share the caller's fuel");
+    assert!(error.message().contains("fuel"), "{error}");
+}
+
+#[test]
+fn project_name_callable_distinguishes_null_from_unexpected_projects() {
+    let layer = tier(
+        "project.toml",
+        r#"[template-aliases]
+row = '{{ format_project_name(issue.project) }}'
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("format");
+    let issue = serde_json::json!({"issue": {"project": null}});
+    assert_eq!(
+        config
+            .render_issue_row("row", &issue, true)
+            .expect("no project"),
+        DisplayText::default()
+    );
+    for issue in [
+        serde_json::json!({}),
+        serde_json::json!({"project": "Mobile"}),
+        serde_json::json!({"project": {"name": "Mobile", "url": 42}}),
+    ] {
+        config
+            .render_issue_row("row", &serde_json::json!({"issue": issue}), true)
+            .expect_err("invalid project argument");
+    }
+}
+
+#[test]
 fn only_hyperlink_spans_can_emit_terminal_control_sequences() {
     let layer = tier(
         "project.toml",
@@ -758,7 +989,7 @@ row = '''{% macro cell(value) %}	{{ value | lower }}{% endmacro %}{{ cell(title)
         "label": "同じ\n\u{0008}",
         "url": "https://example.test/linked",
     });
-    let row = config.render_display("row", &context, true).expect("row");
+    let row = config.render_issue_row("row", &context, true).expect("row");
     assert_eq!(
         row.plain(),
         "\tå�[2j 界 �x�0123456789012345678901234567890123456789�  �\t同じ �\t同じ ��]8;;https://example.test/author�"
@@ -842,7 +1073,7 @@ cannot_link = '{{ hyperlink(url, "text", "fallback") }}'
     ] {
         for styled in [false, true] {
             let error = config
-                .render_display("row", &serde_json::json!({ "url": url }), styled)
+                .render_issue_row("row", &serde_json::json!({ "url": url }), styled)
                 .expect_err("invalid url");
             assert!(
                 error
@@ -877,7 +1108,7 @@ cannot_link = '{{ hyperlink(url, "text", "fallback") }}'
         )
         .expect("compile");
         let error = config
-            .render_display(
+            .render_issue_row(
                 "row",
                 &serde_json::json!({ "url": "https://example.test/" }),
                 true,
@@ -900,7 +1131,7 @@ indent = '''{{ "text" | indent(width=999999999) }}'''
     );
     let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("compile");
     let error = config
-        .render_display(
+        .render_issue_row(
             "fail",
             &serde_json::json!({ "label": "message\x1b[2J\n" }),
             true,
@@ -908,7 +1139,7 @@ indent = '''{{ "text" | indent(width=999999999) }}'''
         .expect_err("fail reports bad input");
     assert!(!error.message().chars().any(char::is_control), "{error}");
     let error = config
-        .render_display(
+        .render_issue_row(
             "large",
             &serde_json::json!({ "url": "https://example.test/", "label": "x".repeat(5_000) }),
             true,
