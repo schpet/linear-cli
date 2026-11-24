@@ -4,6 +4,8 @@
 
 ### Changed
 
+- `issue view` now keeps comment IDs plain on unstyled terminals, including when `NO_COLOR` is set.
+
 - Issue metadata captions such as `State:` and `Archived:` are bold on styled terminals and plain text in pipes. Custom issue views can combine `field_label`, `issue_heading`, and `footer` on the same text or hyperlink.
 
 - Deleted (trashed) and archived issues are marked in issue views, lists and references; issue JSON includes `trashed` and `archivedAt`. Comment lists and commit descriptions warn about inactive issues, rejected writes explain confirmed deletion, and VCS starts and pull request creation refuse known deleted issues before making changes.
@@ -94,9 +96,12 @@
 
 ### Experimental
 
+- `format_comment_id` customizes comment and reply IDs in the built-in `issue view` threads. Include `builtin/comment_id/web` or `builtin/comment_id/app` to link directly to each comment. Piped output and unstyled terminals show the plain label.
+
 - `issue view` uses a built-in Markdown template for each issue. Override `issue_view_heading`, `issue_view_metadata`, `issue_view_description`, or `issue_view_footer` individually, or replace `issue_view` to reorder or omit sections. Issue-view interpolations display literal text. Use `markdown(text)` to render Markdown and `label(name, content)` for semantic styling. Enable these overrides with `--experimental-templates` or the persistent setting below.
 
 - Enable `--experimental-templates` or set `templates = true` under `[experimental]` in Linear config to try named `--format` rows, `format_issue_id` overrides, custom hyperlinks with plain-text fallbacks, and native MiniJinja macros and call blocks. These features may change or be removed in a minor release.
+- With experimental templates enabled, include `builtin/issue_id/app` or `builtin/issue_id/web` in `format_issue_id` to link IDs to the Linear desktop app or website.
 - Set `templates = false` under `[experimental]` globally or per project to turn off experimental templates while keeping their definitions for later.
 
 ### Changed

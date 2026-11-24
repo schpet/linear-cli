@@ -6,6 +6,13 @@
 
 [templates]
 format_issue_id = '''{% block content %}{% if issue.url %}{{ hyperlink(issue.url, issue.identifier) }}{% else %}{{ issue.identifier }}{% endif %}{% endblock %}'''
+format_comment_id = '''
+{%- block content -%}
+  {%- if comment.parent is not defined or not comment.parent -%}
+    {%- set text = "[" ~ comment.id ~ "]" -%}
+    {%- if comment.url is defined and comment.url -%}{{ hyperlink(comment.url, text) }}{%- else -%}{{ text }}{%- endif -%}
+  {%- endif -%}
+{%- endblock -%}'''
 
 issue_view = '''
 {% block content -%}
@@ -595,4 +602,18 @@ pr_issue_links = '''{% block content %}{{ issue_clause }}
 {% endif %}{% endfor %}{% endblock %}'''
 
 [template-aliases]
-# Reserved for user-named partials; shipped defaults do not need aliases.
+# Shipped aliases are experimental presets. Their builtin/ names stay immutable.
+"issue_id/web" = '{% include "builtin/format_issue_id" %}'
+"issue_id/app" = '''
+{%- if issue.workspace_url_key is defined and issue.workspace_url_key -%}
+  {{ hyperlink("linear://" ~ issue.workspace_url_key ~ "/issue/" ~ issue.identifier, issue.identifier) }}
+{%- else -%}
+  {{ issue.identifier }}
+{%- endif -%}'''
+"comment_id/web" = '''
+{%- set text = "[" ~ comment.id ~ "]" -%}
+{%- if comment.url is defined and comment.url -%}{{ hyperlink(comment.url, text) }}{%- else -%}{{ text }}{%- endif -%}'''
+"comment_id/app" = '''
+{%- set text = "[" ~ comment.id ~ "]" -%}
+{%- set url = (comment.url | comment_app_url) if comment.url is defined and comment.url else "" -%}
+{%- if url -%}{{ hyperlink(url, text) }}{%- else -%}{{ text }}{%- endif -%}'''

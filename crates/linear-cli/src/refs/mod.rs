@@ -16,6 +16,7 @@ mod workspace;
 
 pub use issue::{IssueReference, prepare_issue_reference};
 pub use url::{LinearUrlKind, LinearUrlRef};
+pub(crate) use url::{LinearUrlParse, parse_linear_url};
 pub use uuid::is_linear_uuid;
 pub use workspace::{
     WorkspaceScope, expect_url_kind, is_linear_url, reject_comment_url, reject_linear_url,

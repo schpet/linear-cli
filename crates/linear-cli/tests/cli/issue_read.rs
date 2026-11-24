@@ -2926,6 +2926,118 @@ fn view_default_layout_is_unchanged_when_experimental_templates_are_enabled() {
     stable.success();
     experimental.success();
     assert_eq!(experimental.stdout, stable.stdout);
+    let reply = stable
+        .stdout
+        .lines()
+        .find(|line| line.contains("replied"))
+        .expect("reply header");
+    assert!(!reply.contains('['), "{stable}");
+    stable.stdout_has("[root]\n\n  Root comment body");
+}
+
+#[test]
+fn view_comment_id_presets_link_each_visible_comment_to_its_canonical_url() {
+    for (preset, url_prefix, workspace) in [
+        ("web", "https://linear.app/", "workspace-one"),
+        ("app", "linear://linear.app/", "workspace-two"),
+    ] {
+        let root_path = format!("{workspace}/issue/ENG-1/widget?source=thread#comment-abcdef12");
+        let reply_path = format!("{workspace}/issue/ENG-1/widget?source=reply#comment-2345abcd");
+        let mut value = issue(true);
+        value["comments"]["nodes"][0]["url"] = json!(format!("https://linear.app/{root_path}"));
+        value["comments"]["nodes"][1]["url"] = json!(format!("https://linear.app/{reply_path}"));
+        let api = MockLinear::start();
+        for _ in 0..3 {
+            api.on("GetIssueDetailsWithComments", details(value.clone()));
+        }
+        let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+            "cwd/.linear.toml",
+            &format!(
+                "[experimental]\ntemplates = true\n[templates]\nformat_comment_id = '{{% include \"builtin/comment_id/{preset}\" %}}'\n"
+            ),
+        );
+        let args = ["issue", "view", "ENG-1", "--no-download", "--no-pager"];
+        let tty = cli.run_tty(&args, &[]);
+        tty.success();
+        for (verb, marker, path) in [
+            ("commented", "[root]", root_path),
+            ("replied", "[reply]", reply_path),
+        ] {
+            let destination = format!("{url_prefix}{path}");
+            let header = tty
+                .terminal
+                .lines()
+                .find(|line| line.contains(verb))
+                .expect("comment header");
+            let (_, link) = header
+                .split_once(&format!("\x1b]8;;{destination}\x1b\\"))
+                .unwrap_or_else(|| panic!("{verb} header lacks a link to {destination}\n{tty}"));
+            let (label, _) = link.split_once("\x1b]8;;\x1b\\").expect("link ends");
+            assert_eq!(plain_text(label.as_bytes()), marker, "{tty}");
+        }
+        let pipe = cli.run(&args);
+        let no_color = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
+        for run in [&tty, &pipe, &no_color] {
+            run.success()
+                .stdout_has("[root]")
+                .stdout_has("[reply]")
+                .stdout_has("Root comment body")
+                .stdout_has("Reply body")
+                .stdout_has("Resolved thread hidden: 1.");
+            assert!(!run.stdout.contains("[resolved]"), "{run}");
+            assert!(!run.stdout.contains("Resolved thread body"), "{run}");
+        }
+        assert!(!pipe.stdout.contains('\x1b'), "{pipe}");
+        assert!(!no_color.terminal.contains("\x1b]8;;"), "{no_color}");
+    }
+}
+
+#[test]
+fn view_comment_id_override_controls_labels_and_fallbacks_after_opt_in() {
+    let api = MockLinear::start();
+    for _ in 0..4 {
+        api.on("GetIssueDetailsWithComments", details(issue(true)));
+    }
+    let cli = Cli::for_api(&api)
+        .env_remove("NO_COLOR")
+        .file(
+            "home/.config/linear/linear.toml",
+            r#"[experimental]
+templates = true
+[templates]
+format_comment_id = '''{{ hyperlink(comment.url, "thread:" ~ comment.id, "copy:" ~ comment.id) }}'''
+"#,
+        )
+        .file("cwd/.linear.toml", "[experimental]\ntemplates = false");
+    let args = ["issue", "view", "ENG-1", "--no-download", "--no-pager"];
+    let off = cli.run(&args);
+    off.success().stdout_has("[root]\n\n  Root comment body");
+    assert!(!off.stdout.contains("copy:"), "{off}");
+    assert!(!off.stdout.contains("[reply]"), "{off}");
+
+    let enabled = [&["--experimental-templates"][..], &args].concat();
+    let tty = cli.run_tty(&enabled, &[]);
+    tty.success()
+        .stdout_has("thread:root")
+        .stdout_has("thread:reply");
+    for id in ["root", "reply"] {
+        assert!(
+            tty.terminal.contains(&format!(
+                "\x1b]8;;https://linear.app/acme/issue/ENG-1#comment-{id}\x1b\\thread:{id}\x1b]8;;\x1b\\"
+            )),
+            "{tty}"
+        );
+        assert!(!tty.stdout.contains(&format!("[thread:{id}]")), "{tty}");
+    }
+    let pipe = cli.run(&enabled);
+    let no_color = cli.env("NO_COLOR", "1").run_tty(&enabled, &[]);
+    for run in [&pipe, &no_color] {
+        run.success()
+            .stdout_has("copy:root")
+            .stdout_has("copy:reply");
+        assert!(!run.stdout.contains("[copy:"), "{run}");
+        assert!(!run.stdout.contains("thread:"), "{run}");
+    }
 }
 
 #[test]

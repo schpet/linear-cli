@@ -4,7 +4,7 @@ MiniJinja templates customize the agent guide, commit descriptions, and pull req
 
 ## Experimental templates
 
-Custom issue views (`issue_view` and its heading, metadata, description, and footer), issue ID templates (`format_issue_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
+Custom issue views (`issue_view` and its heading, metadata, description, and footer), issue and comment ID templates (`format_issue_id` and `format_comment_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
 
 Enable experimental templates for a single invocation with the global flag.
 
@@ -76,6 +76,7 @@ Use distinct names for partials and template slots. The `skill_` and `guide_` pr
 | `guide_targeted` | `linear skill show` with a command path | [Guide fields](#guide-fields) |
 | `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
 | `format_issue_id` (experimental override) | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
+| `format_comment_id` (experimental override) | Each visible comment or reply header in the built-in `issue view` thread layout | [`comment`, `issue: Issue ID`](#comment-identifiers-and-links) |
 | `issue_view`, `issue_view_heading`, `issue_view_metadata`, `issue_view_description`, `issue_view_footer` (experimental overrides) | Each issue in the Markdown or terminal view | [`issue`, `display`, `sections`, `terminal`](#issue-view) |
 | `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
 | `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
@@ -223,7 +224,7 @@ Ordinary `skill show` includes every nonempty effective command hook, including 
 - `guide` renders the full agent guide; `guide_targeted` renders a selected command's guide. `guide_*` section templates assemble those layouts.
 - `skill_<command_path>` adds guidance for a command. Use its canonical command names, join path segments with `_`, and preserve `-` within a command name. For example, `skill_project_update` describes `project update`, while `skill_project-update` describes the separate `project-update` command group. Aliases resolve to their canonical command path first.
 - `commit_description` names the generated commit text. The `pr_*` family contains pull request text: `pr_title`, `pr_body`, and the reusable `pr_issue_links` helper.
-- `[templates]` contains known overridable names. `[template-aliases]` contains reusable partials you name yourself; `guide_` and `skill_` are reserved prefixes.
+- `[templates]` contains known overridable names. `[template-aliases]` contains your reusable partials and, when enabled, the shipped experimental presets. The `guide_` and `skill_` prefixes are reserved.
 - `builtin/<name>` selects the immutable shipped definition of that name, using MiniJinja's include and inheritance syntax.
 
 ## Extend shipped defaults
@@ -276,6 +277,18 @@ A parent comment hook keeps that preference visible for both add and update guid
 
 On a styled terminal, the CLI links the identifier to the issue’s canonical URL. Enable [experimental templates](#experimental-templates) to override `format_issue_id` across issue tables, views, and relations. Each issue’s URL supplies its workspace key, so one global template can distinguish two workspaces that both have a `DEMO-42`. A missing URL or unknown workspace key is available as `none`.
 
+Choose a shipped link target with a single include. The web preset uses the canonical issue URL and is the default. The app preset uses the issue’s own workspace and prints the bare ID when the workspace is unavailable. Both print the ID when piped.
+
+```toml
+[experimental]
+templates = true
+
+[templates]
+format_issue_id = '{% include "builtin/issue_id/app" %}'
+```
+
+Use `builtin/issue_id/web` in the same expression to explicitly select the website. To inspect a preset, run `linear --experimental-templates config get template-aliases.issue_id/app --defaults`.
+
 This example opens one workspace’s issues in a custom application and uses the web URL elsewhere. The third argument qualifies that workspace’s IDs in plain-text handoffs.
 
 ```toml
@@ -292,6 +305,29 @@ format_issue_id = '''
 ```
 
 The table measures the visible text, including a custom fallback. To show a plain identifier everywhere this hook is used, set `format_issue_id = '{{ issue.identifier }}'`. The raw identifier is also available through `linear issue id` and in JSON. See [`hyperlink` and the other functions](#functions-and-filters) for call syntax.
+
+## Comment identifiers and links
+
+In the built-in `issue view` thread layout, a top-level comment has a bracketed ID that links to the comment on the web. Replies omit the ID by default. To put a clickable ID on both comments and replies, choose a preset:
+
+```toml
+[experimental]
+templates = true
+
+[templates]
+format_comment_id = '{% include "builtin/comment_id/app" %}'
+```
+
+Use `builtin/comment_id/web` for the URL supplied by Linear. The app preset uses Linear’s desktop URL form, `linear://linear.app/<workspace>/issue/…#comment-…`, preserving the path, query and anchor in the comment’s permalink. If it cannot derive an app link, it prints the bracketed ID. Both presets print the bracketed ID when piped or when styling is disabled. [Linear desktop link documentation](https://linear.app/docs/get-the-app)
+
+The hook controls the entire ID label, including brackets. Return an empty string to omit it. The thread layout still handles indentation, dates, quoted passages, the resolved marker, and `--show-resolved-threads`. The issue ID and comment ID settings are independent.
+
+| Value | Contents |
+|---|---|
+| `comment` | The current entry from `issue.comments` in `issue view --json`. `id`, `url`, `body`, and `createdAt` are strings. `parent` is `none` for a thread root and contains `id` for a reply. `user`, `externalUser`, `quotedText`, `resolvedAt`, `resolvingCommentId`, and `resolvingUser` can be `none`. |
+| `issue` | The enclosing [issue ID fields](#issue-id-fields). |
+
+You can also include either preset inside `{% for comment in issue.comments %}` in a custom issue view.
 
 ## Named rows and table columns
 
@@ -398,6 +434,7 @@ With [experimental templates](#experimental-templates) enabled, macros accept po
 
 | Filter | Result | Keyword arguments |
 |---|---|---|
+| `url \| comment_app_url` (experimental display templates) | Converts a canonical Linear issue-comment URL to its desktop URL, or returns `none` when there is no app target. Preserves the path, query, and comment anchor. | — |
 | `value \| trim([chars])` | String with leading and trailing whitespace removed, or the characters in `chars` removed from the ends. | — |
 | `value \| upper`, `value \| lower` | Uppercase or lowercase string. | — |
 | `items \| join([separator[, attribute]])` | String made by joining items or a field from each item. The separator defaults to `""`. `attribute` can be a dotted path. | `d` for the separator, `attribute` for the field or path. For example, `issues \| join(d=", ", attribute="identifier")`. |

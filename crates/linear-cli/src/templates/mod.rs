@@ -22,6 +22,7 @@ pub(crate) use display::{ViewPart, ViewSection, ViewSectionKind};
 const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";
 pub(crate) const FORMAT_ISSUE_ID: &str = "format_issue_id";
+pub(crate) const FORMAT_COMMENT_ID: &str = "format_comment_id";
 const ISSUE_VIEW: &str = "issue_view";
 fn is_view_slot(name: &str) -> bool {
     matches!(
@@ -35,10 +36,11 @@ fn is_view_slot(name: &str) -> bool {
 }
 
 pub(crate) fn experimental_slot(name: &str) -> bool {
-    name == FORMAT_ISSUE_ID || is_view_slot(name)
+    matches!(name, FORMAT_ISSUE_ID | FORMAT_COMMENT_ID) || is_view_slot(name)
 }
 
 const BUILTIN_FORMAT_ISSUE_ID: &str = "builtin/format_issue_id";
+const BUILTIN_FORMAT_COMMENT_ID: &str = "builtin/format_comment_id";
 pub(crate) const EXPERIMENTAL_TEMPLATES_HINT: &str = "Pass `--experimental-templates` or set `templates = true` under `[experimental]` in your global or project config.";
 // Empty hooks still expose the inheritance block used by shipped templates.
 const EMPTY_SKILL_HOOK: &str = "{% block content %}{% endblock %}";
@@ -299,10 +301,23 @@ impl TemplateConfig {
     fn builtin_from_source(source: &str, experimental: bool) -> Self {
         // Checkouts may use CRLF. Keep shipped literals portable without
         // changing explicit user templates or interpolated data.
-        let table = source
+        let mut table = source
             .replace("\r\n", "\n")
             .parse::<toml::Table>()
             .expect("shipped templates are valid TOML");
+        // Shipped aliases are opt-in presets. User aliases are loaded separately
+        // in either mode and may use the same unprefixed names.
+        let mut dormant_aliases = BTreeSet::new();
+        if !experimental && let Some(presets) = table.remove("template-aliases") {
+            for name in presets
+                .as_table()
+                .expect("shipped aliases are a table")
+                .keys()
+            {
+                dormant_aliases.insert(name.clone());
+                dormant_aliases.insert(format!("builtin/{name}"));
+            }
+        }
         let template_names = table
             .get("templates")
             .and_then(toml::Value::as_table)
@@ -316,7 +331,7 @@ impl TemplateConfig {
             builtins: BTreeMap::new(),
             template_names,
             environment: environment(experimental),
-            dormant_aliases: BTreeSet::new(),
+            dormant_aliases,
             slot_fallbacks: BTreeMap::new(),
             display_environment: Environment::empty(),
             experimental,
@@ -527,6 +542,9 @@ impl TemplateConfig {
         // Document templates retain MiniJinja's normal explicit autoescape.
         display_env.set_auto_escape_callback(|_| AutoEscape::Custom("linear".into()));
         display_env.set_formatter(display::format_value);
+        if self.experimental {
+            display_env.add_filter("comment_app_url", display::comment_app_url);
+        }
         for registry in [&mut env, &mut display_env] {
             for (name, entry) in &self.builtins {
                 registry
@@ -543,7 +561,7 @@ impl TemplateConfig {
         {
             env.add_template_owned(
                 name.clone(),
-                "{{ fail('experimental partial is disabled') }}".to_owned(),
+                "{{ fail('experimental partial is disabled; pass --experimental-templates to use it') }}".to_owned(),
             )
             .expect("fixed dormant-partial sentinel compiles");
         }
@@ -623,7 +641,7 @@ impl TemplateConfig {
                 Ok(text) => return Ok(text),
                 Err(error) => error,
             };
-            if self.dormant_aliases.is_empty() {
+            if self.dormant_aliases.is_empty() || self.slot_fallbacks.is_empty() {
                 return Err(engine_error(error, name, &self.entries));
             }
             // A saved override can import a dormant macro through several partials,
@@ -700,12 +718,43 @@ impl TemplateConfig {
             issue: &'a IssueReference<'reference>,
         }
 
-        let name = if self.experimental {
-            FORMAT_ISSUE_ID
-        } else {
-            BUILTIN_FORMAT_ISSUE_ID
-        };
-        let mut output = self.render_display(name, &Context { issue }, styled)?;
+        self.format_id(
+            FORMAT_ISSUE_ID,
+            BUILTIN_FORMAT_ISSUE_ID,
+            &Context { issue },
+            styled,
+        )
+    }
+
+    pub(crate) fn format_comment_id(
+        &self,
+        issue: &IssueReference<'_>,
+        comment: &impl Serialize,
+        styled: bool,
+    ) -> Result<DisplayText> {
+        #[derive(Serialize)]
+        struct Context<'a, 'reference, Comment> {
+            issue: &'a IssueReference<'reference>,
+            comment: &'a Comment,
+        }
+
+        self.format_id(
+            FORMAT_COMMENT_ID,
+            BUILTIN_FORMAT_COMMENT_ID,
+            &Context { issue, comment },
+            styled,
+        )
+    }
+
+    fn format_id(
+        &self,
+        slot: &str,
+        builtin: &str,
+        context: &impl Serialize,
+        styled: bool,
+    ) -> Result<DisplayText> {
+        let name = if self.experimental { slot } else { builtin };
+        let mut output = self.render_display(name, context, styled)?;
         for span in &mut output.spans {
             if let std::borrow::Cow::Owned(text) = terminal_text::single_line(&span.text) {
                 span.text = text;
@@ -731,6 +780,7 @@ fn valid_name(name: &str) -> bool {
 fn context_fields(name: &str) -> Option<&'static [&'static str]> {
     match name {
         FORMAT_ISSUE_ID => Some(&["issue"]),
+        FORMAT_COMMENT_ID => Some(&["issue", "comment"]),
         name if is_view_slot(name) => Some(&[
             "issue", "display", "sections", "terminal", "markdown", "label",
         ]),
@@ -761,7 +811,7 @@ fn known_issue_field(template: &str, root: &str, variable: &str) -> bool {
         return true;
     }
     match template {
-        FORMAT_ISSUE_ID => matches!(
+        FORMAT_ISSUE_ID | FORMAT_COMMENT_ID => matches!(
             variable,
             "issue.identifier" | "issue.url" | "issue.workspace_url_key"
         ),
