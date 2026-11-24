@@ -4,7 +4,6 @@ use crate::client::LinearClient;
 use crate::commands::comments;
 use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::platform::kitty::InlineImages;
-use crate::platform::view_footer::{self, Linked};
 use crate::refs::IssueReference;
 use crate::templates::markdown::{push_markdown_label, push_markdown_link};
 use crate::templates::{TemplateConfig, ViewPart, ViewSection, ViewSectionKind};
@@ -153,6 +152,7 @@ fn render(
     };
     let threads = threads(&issue.comments.nodes, args.show_resolved_threads)?;
     let context = View {
+        terminal: ctx.stdout_tty(),
         body: body_context(&issue, now, &issue_ids)?,
         sections: Sections {
             hierarchy: ViewSection::value(
@@ -175,11 +175,8 @@ fn render(
         .render_view(&context, issue_ids.styled)?;
     if !ctx.stdout_tty() {
         let mut markdown = String::new();
-        for part in parts {
-            match part {
-                ViewPart::Markdown(text) => markdown.push_str(&text),
-                ViewPart::Section(_, text) => markdown.push_str(&text),
-            }
+        for part in &parts {
+            part.write_plain(&mut markdown);
         }
         return Ok(markdown);
     }
@@ -194,9 +191,7 @@ fn render(
     );
     ctx.load_inline_images(images.map(Arc::as_ref), &bodies, &downloaded)?;
     render.images = images.cloned();
-    let rendered = terminal(parts, &threads, now, &render);
-    let footer = view_footer::footer(Linked::Issue, &issue.url, ctx.color());
-    Ok(view_footer::append(&rendered, &footer))
+    Ok(terminal(parts, &threads, now, &render))
 }
 
 pub type Issue = GetIssueDetailsWithCommentsIssue;
@@ -723,6 +718,7 @@ fn body_markdown(c: &Comment) -> String {
 struct View<'a> {
     #[serde(flatten)]
     body: Body<'a>,
+    terminal: bool,
     sections: Sections,
 }
 
@@ -776,7 +772,14 @@ fn terminal(
     let mut rendered_comments = None;
     for part in parts {
         match part {
-            ViewPart::Markdown(markdown) => append_terminal_markdown(&mut out, &markdown, options),
+            ViewPart::Markdown(markdown) => append_terminal_part(
+                &mut out,
+                &markdown_terminal::render_with_inlines(
+                    &markdown.source,
+                    &markdown.inlines,
+                    options,
+                ),
+            ),
             ViewPart::Section(ViewSectionKind::Comments, _) => {
                 let rendered = rendered_comments
                     .get_or_insert_with(|| terminal_comments(threads, now, options));
@@ -788,28 +791,29 @@ fn terminal(
                 out.push_str(rendered);
             }
             ViewPart::Section(_, markdown) => {
-                append_terminal_markdown(&mut out, &markdown, options)
+                append_terminal_part(&mut out, &markdown_terminal::render(&markdown, options))
             }
         }
+    }
+    if !out.is_empty() && !out.ends_with('\n') {
+        out.push('\n');
     }
     out
 }
 
-fn append_terminal_markdown(out: &mut String, markdown: &str, options: &RenderOptions) {
-    let rendered = markdown_terminal::render(markdown, options);
+fn append_terminal_part(out: &mut String, rendered: &str) {
     if rendered.is_empty() {
         return;
     }
     separate_terminal_part(out);
-    out.push_str(&rendered);
+    out.push_str(rendered);
 }
 
 fn separate_terminal_part(out: &mut String) {
-    if !out.is_empty() {
-        if !out.ends_with('\n') {
-            out.push('\n');
-        }
-        out.push('\n');
+    let end = out.trim_end_matches('\n').len();
+    out.truncate(end);
+    if end > 0 {
+        out.push_str("\n\n");
     }
 }
 

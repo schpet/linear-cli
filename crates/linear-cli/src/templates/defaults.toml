@@ -20,15 +20,17 @@ issue_view = '''
 {{ sections.hierarchy -}}
 {{ sections.attachments -}}
 {{ sections.documents -}}
-{{ sections.comments }}{% endblock %}'''
+{{ sections.comments }}{% if terminal %}
+
+{% include "issue_view_footer" %}{% endif %}{% endblock %}'''
 
 issue_view_heading = '''
 {% block content -%}
-# {{ display.identifier }}: {{ issue.title }}{% endblock %}'''
+# {{ markdown(display.identifier) }}: {{ issue.title }}{% endblock %}'''
 
 issue_view_metadata = '''
 {% block content -%}
-{% if display.lifecycle_banner %}{{ display.lifecycle_banner }}
+{% if display.lifecycle_banner %}{{ markdown(display.lifecycle_banner) }}
 {% endif %}**State:** {{ issue.state.name }}{{ display.lifecycle_state_suffix }}
 **Priority:** {{ display.priority }}
 **Assignee:** {% if issue.assignee %}@{{ issue.assignee.displayName }}{% else %}Unassigned{% endif %}
@@ -42,7 +44,12 @@ issue_view_metadata = '''
 
 issue_view_description = '''
 {% block content -%}
-{% if issue.description %}{{ issue.description }}{% endif %}{% endblock %}'''
+{% if issue.description %}{{ markdown(issue.description) }}{% endif %}{% endblock %}'''
+
+issue_view_footer = '''
+{% block content -%}
+{% set footer %}View this issue on Linear: {% if issue.url %}{{ hyperlink(issue.url, issue.url) }}{% endif %}{% endset -%}
+{{ label("footer", footer) }}{% endblock %}'''
 
 guide = '''
 {% block content -%}
@@ -196,8 +203,8 @@ linear issue url ENG-123           # print just the URL
 `issue view --json` prints an object for one issue and an array when several
 are named. If any of them cannot be fetched, the command fails and prints none.
 The human-readable view uses `issue_view`. With experimental templates enabled,
-customize its heading, metadata, description, or the entire layout. Inspect the
-shipped view with `linear config get templates.issue_view --defaults`.
+customize its heading, metadata, description, footer, or the entire layout.
+Inspect the shipped view with `linear config get templates.issue_view --defaults`.
 
 {% endblock %}'''
 

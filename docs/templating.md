@@ -4,7 +4,7 @@ MiniJinja templates customize the agent guide, commit descriptions, and pull req
 
 ## Experimental templates
 
-Custom issue views (`issue_view` and its three component templates), issue ID templates (`format_issue_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
+Custom issue views (`issue_view` and its heading, metadata, description, and footer), issue ID templates (`format_issue_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
 
 Enable experimental templates for a single invocation with the global flag.
 
@@ -76,7 +76,7 @@ Use distinct names for partials and template slots. The `skill_` and `guide_` pr
 | `guide_targeted` | `linear skill show` with a command path | [Guide fields](#guide-fields) |
 | `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
 | `format_issue_id` (experimental override) | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
-| `issue_view`, `issue_view_heading`, `issue_view_metadata`, `issue_view_description` (experimental overrides) | Each issue in the Markdown or terminal view | [`issue`, `display`, `sections`](#issue-view) |
+| `issue_view`, `issue_view_heading`, `issue_view_metadata`, `issue_view_description`, `issue_view_footer` (experimental overrides) | Each issue in the Markdown or terminal view | [`issue`, `display`, `sections`, `terminal`](#issue-view) |
 | `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
 | `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
 | A `[template-aliases]` entry selected with experimental `--format NAME` | Each result from `issue mine` or `issue query`, including `--search` | [`issue: Issue row`](#issue-row-fields) |
@@ -95,7 +95,18 @@ An included template uses the caller's values. With experimental templates enabl
 
 ### Issue view
 
-`issue_view` is the Markdown document for one issue. The shipped layout includes `issue_view_heading`, `issue_view_metadata`, and `issue_view_description`, then prints the hierarchy, attachments, documents, and comments. Read its exact layout with `linear config get templates.issue_view --defaults`. Each component can be included by name or extended using `builtin/<name>` and its `content` block. The CLI handles the pager, terminal footer, and separator between issues.
+The `issue_view` template owns one human-readable issue, including its footer. The shipped layout includes the heading, metadata, description and related sections. It includes `issue_view_footer` when writing to a terminal, including with `NO_COLOR`. Override that slot with an empty string to hide it, or include it elsewhere in a custom layout. The CLI handles paging and the separator between issues. Read the shipped layout with `linear config get templates.issue_view --defaults`. Components support includes and inheritance from `builtin/<name>`.
+
+Markdown written directly in the template supplies the layout. Interpolated values are literal text, so `# {{ issue.title }}` makes a heading whose title may itself contain asterisks or brackets. A whole-view template of `{{ issue.title }}` prints only the title. Use `markdown(value)` to interpret a string as Markdown. The shipped description uses this function. To display the original Markdown syntax in a terminal, set the description slot in your experimental config:
+
+```toml
+[templates]
+issue_view_description = '{{ issue.description or "" }}'
+```
+
+Pipes receive Markdown source and plain link fallbacks. The CLI replaces embedded control characters with U+FFFD, preserving tabs and line endings. In a terminal, `markdown()` uses the CLI’s normal Markdown renderer. Apply it to the source string before capturing or slicing formatted content.
+
+`label("footer", content)` applies the footer’s gray style on a styled terminal and keeps each line together, even at a narrow width. Use `issue_heading` for heading emphasis. Other label names currently pass their content through. Labels and hyperlinks compose in either order and lose their terminal styling in plain output. Their content may be inline text, another link, or a labeled value. A macro that returns formatted content retains its existing interpretation. An example footer is `{{ label("footer", hyperlink(issue.url, issue.identifier)) }}`.
 
 For example, to make the entire heading open the issue in the desktop app, using each issue’s own workspace:
 
@@ -121,16 +132,17 @@ issue_view = '''{% include "issue_view_heading" %}
 **State:** {{ issue.state.name }}'''
 ```
 
-All four templates receive the same context.
+All five templates receive the same context.
 
 | Value | Contents |
 |---|---|
 | `issue` | The issue detail fields from `issue view --json` in their original casing, plus `workspace_url_key: String?`. For example, `issue.title`, `issue.state.name`, `issue.assignee.displayName` when assigned, and `issue.children[0].identifier` when children exist. Description and comment image URLs reflect local downloads. `issue.comments` is empty with `--no-comments`. |
-| `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Use `issue.identifier` for the raw ID. |
+| `terminal` | Boolean. True when stdout is a terminal, independently of color or pager settings. |
+| `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Use `markdown(display.identifier)` to present it, or `issue.identifier` for the raw ID. |
 | `display.priority`, `display.created`, `display.updated` | The priority indicator used by the CLI and human-readable creation and update times. |
 | `display.lifecycle_banner`, `display.lifecycle_state_suffix` | The archived/deleted banner (or `none`) and the suffix for the state line (or an empty string). |
 | `display.cycle`, `display.creator` | The formatted cycle and creator name, each `none` when unavailable. |
-| `sections.hierarchy`, `sections.attachments`, `sections.documents`, `sections.comments` | Ready-to-print sections. Place them at block boundaries in the desired order. Each supplies its own spacing and is empty when there is nothing to show. Comments respect `--show-resolved-threads`. To write your own section layout, iterate over the corresponding fields on `issue`. |
+| `sections.hierarchy`, `sections.attachments`, `sections.documents`, `sections.comments` | Ready-to-print sections. Interpolate each section directly at a block boundary to retain its native formatting. Each supplies its own spacing and is empty when there is nothing to show. Comments respect `--show-resolved-threads`. To write your own section layout, iterate over the corresponding fields on `issue`. |
 
 The detail object includes `identifier`, `title`, `url`, `branchName`, `priority`, `state`, `team`, and `createdAt` / `updatedAt`. Nullable fields include `description`, `trashed`, `archivedAt`, `assignee`, `delegate`, `creator`, `project`, `projectMilestone`, `cycle`, and `parent`. Collections are direct lists: `labels`, `children`, `attachments`, `documents`, and `comments`. Use `linear issue view DEMO-42 --json` with an issue you can access to inspect the nested fields. In a custom loop, `issue.comments` contains the fetched comments including resolved threads. Use `sections.comments` for the command’s thread grouping and visibility rules.
 
@@ -367,6 +379,8 @@ With [experimental templates](#experimental-templates) enabled, macros accept po
 
 | Function | Result |
 |---|---|
+| `markdown(text: String) → Content` (issue views) | Interpret the supplied text as Markdown in a terminal. A pipe carries the source. When it occupies its own top-level paragraph, the fragment is a separate Markdown document, so an unclosed fence in an issue description ends at the section boundary. |
+| `label(name: String, content: Content) → Content` (issue views) | Apply a semantic style to inline content. The `footer` label is gray on styled terminals. Use inline text or link content as the argument. |
 | `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and guide, commit, and pull request templates use this fallback. The terminal decides which schemes it can open. |
 | `fail(message: String)` | Stops rendering with the given message. |
 

@@ -26,8 +26,8 @@ pub enum IssueCommand {
     /// Show one or more issues
     ///
     /// The issue_view template renders each issue as Markdown. With experimental
-    /// templates enabled, override issue_view or its heading, metadata, and
-    /// description. Inspect the shipped layout with
+    /// templates enabled, override issue_view or its heading, metadata,
+    /// description, and footer. Inspect the shipped layout with
     /// `linear config get templates.issue_view --defaults`.
     #[command(alias = "v", after_long_help = ISSUE_REFERENCES)]
     View(IssueView),
