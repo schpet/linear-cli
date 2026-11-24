@@ -28,17 +28,27 @@ pub(crate) enum ViewSectionKind {
 #[derive(Debug)]
 pub(crate) struct ViewSection {
     kind: ViewSectionKind,
-    markdown: Arc<str>,
+    markdown: Arc<ViewMarkdown>,
 }
 
 impl ViewSection {
     pub(crate) fn value(markdown: String, kind: ViewSectionKind) -> Value {
-        if markdown.is_empty() {
+        Self::from_markdown(
+            ViewMarkdown {
+                source: markdown,
+                inlines: Vec::new(),
+            },
+            kind,
+        )
+    }
+
+    pub(crate) fn from_markdown(markdown: ViewMarkdown, kind: ViewSectionKind) -> Value {
+        if markdown.source.is_empty() {
             Value::from("")
         } else {
             Value::from_object(Self {
                 kind,
-                markdown: markdown.into(),
+                markdown: Arc::new(markdown),
             })
         }
     }
@@ -50,21 +60,26 @@ impl Object for ViewSection {
     }
 
     fn render(self: &Arc<Self>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.markdown)
+        if self.markdown.inlines.is_empty() {
+            return f.write_str(&self.markdown.source);
+        }
+        let mut output = String::new();
+        self.markdown.write_plain(&mut output);
+        f.write_str(&output)
     }
 }
 
 #[derive(Debug)]
 pub(crate) enum ViewPart {
     Markdown(ViewMarkdown),
-    Section(ViewSectionKind, Arc<str>),
+    Section(ViewSectionKind, Arc<ViewMarkdown>),
 }
 
 impl ViewPart {
     pub(crate) fn write_plain(&self, out: &mut String) {
         match self {
             Self::Markdown(markdown) => markdown.write_plain(out),
-            Self::Section(_, markdown) => out.push_str(&safe_pipe_text(markdown)),
+            Self::Section(_, markdown) => markdown.write_plain(out),
         }
     }
 }
@@ -76,11 +91,19 @@ pub(crate) struct ViewMarkdown {
 }
 
 impl ViewMarkdown {
-    fn push_inline(&mut self, spans: Vec<InlineSpan>) {
+    pub(crate) fn push_inline(&mut self, spans: Vec<InlineSpan>) {
         self.inlines.push(InlineContent {
             source_range: markdown_terminal::push_inline_marker(&mut self.source),
             spans,
         });
+    }
+
+    fn expanded_bytes(&self) -> usize {
+        self.inlines
+            .iter()
+            .fold(self.source.len(), |total, inline| {
+                total.saturating_add(inline_bytes(&inline.spans))
+            })
     }
 
     fn write_plain(&self, out: &mut String) {
@@ -126,7 +149,7 @@ fn safe_pipe_text(text: &str) -> Cow<'_, str> {
 pub(super) enum Content {
     Inline(Vec<InlineSpan>),
     Markdown(Arc<str>),
-    Section(ViewSectionKind, Arc<str>),
+    Section(ViewSectionKind, Arc<ViewMarkdown>),
 }
 
 pub(super) fn is_view(state: &State) -> bool {
@@ -190,7 +213,7 @@ pub(in crate::templates) fn render_markdown(
             } => {
                 // The first copy of each fetched section fits at any size.
                 if !used_sections.insert(*kind) {
-                    charge_size(&mut expanded, source.len())?;
+                    charge_size(&mut expanded, source.expanded_bytes())?;
                 }
                 push_markdown_part(&mut parts, &mut markdown);
                 parts.push(ViewPart::Section(*kind, Arc::clone(source)));

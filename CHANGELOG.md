@@ -98,7 +98,9 @@
 
 ### Experimental
 
-- Set `format_project_name` to customize project labels across these commands. Include `builtin/project_name/app` to open the desktop app or `builtin/project_name/web` for the website. Custom issue views and named issue rows can reuse the same template.
+- Custom issue views and named rows can call `format_issue_id(issue)`, `format_comment_id(comment, issue)`, or `format_project_name(project)` to reuse the configured labels and links.
+
+- Set `format_project_name` to customize project labels across these commands. Include `builtin/project_name/app` to open the desktop app or `builtin/project_name/web` for the website.
 
 - `format_comment_id` customizes comment and reply IDs in the built-in `issue view` threads. Include `builtin/comment_id/web` or `builtin/comment_id/app` to link directly to each comment. Piped output and unstyled terminals show the plain label.
 

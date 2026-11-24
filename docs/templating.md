@@ -85,6 +85,8 @@ Use distinct names for partials and template slots. The `skill_` and `guide_` pr
 
 Use `issue.title` to read a field and `issues[0].title` to read it from the first item in a list. `T?` means a field is present but can be `none` (JSON `null`). Test `issue.assignee == none` for null specifically. An **undefined** field is absent, such as `issue.metadata` on a row from a query without `--search`. Check `issue.metadata is defined` before accessing its keys. An empty string `""` is a defined string, often used for missing description text. `value | default("fallback")` replaces an undefined value. Pass `true` as the second argument to also replace falsey values, including `none`, `""`, `false`, `0`, and empty lists.
 
+In an experimental issue view or named row, call the formatter for the value you are displaying. Each function uses the same single-line template as its built-in counterpart. For example, `{{ format_issue_id(issue.parent) }}` uses the parent’s own URL and your configured ID label. The result carries literal text and links. Print it directly, or wrap it in `label(...)` in an issue view to add styling. Define the label and destination in the single-line formatter template with a preset, `hyperlink(...)`, or a shared macro. The view or row controls placement and surrounding text.
+
 An included template uses the caller's values. With experimental templates enabled, an imported macro can take explicit parameters, as in the [named row example](#named-rows-and-table-columns).
 
 ### Issue ID fields
@@ -146,9 +148,9 @@ All five templates receive the same context.
 
 | Value | Contents |
 |---|---|
-| `issue` | The issue detail fields from `issue view --json` in their original casing, plus `workspace_url_key: String?` and `issue.project.url` when a project is assigned. For example, `issue.title`, `issue.state.name`, `issue.assignee.displayName` when assigned, and `issue.children[0].identifier` when children exist. Description and comment image URLs reflect local downloads. `issue.comments` is empty with `--no-comments`. |
+| `issue` | The issue detail fields from `issue view --json` in their original casing, plus `workspace_url_key: String?` and the assigned project’s `url`. Each parent or child issue also exposes its own `url` and `workspace_url_key`. For example, `issue.title`, `issue.state.name`, `issue.assignee.displayName` when assigned, and `issue.children[0].identifier` when children exist. Description and comment image URLs reflect local downloads. `issue.comments` is empty with `--no-comments`. |
 | `terminal` | Boolean. True when stdout is a terminal, independently of color or pager settings. |
-| `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Use `markdown(display.identifier)` to present it, or `issue.identifier` for the raw ID. |
+| `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Existing templates can use `markdown(display.identifier)`. Use `format_issue_id(issue)` for a composable label or `issue.identifier` for the raw ID. |
 | `display.priority`, `display.created`, `display.updated` | The priority indicator used by the CLI and human-readable creation and update times. |
 | `display.lifecycle.kind`, `display.lifecycle.date` | The lifecycle kind is `active`, `archived`, or `deleted`. The date is a UTC calendar date (`YYYY-MM-DD`) or `none` when unavailable. |
 | `display.cycle`, `display.creator` | The formatted cycle and creator name, each `none` when unavailable. |
@@ -329,7 +331,16 @@ The hook controls the entire ID label, including brackets. Return an empty strin
 | `comment` | The current entry from `issue.comments` in `issue view --json`. `id`, `url`, `body`, and `createdAt` are strings. `parent` is `none` for a thread root and contains `id` for a reply. `user`, `externalUser`, `quotedText`, `resolvedAt`, `resolvingCommentId`, and `resolvingUser` can be `none`. |
 | `issue` | The enclosing [issue ID fields](#issue-id-fields). |
 
-You can also include either preset inside `{% for comment in issue.comments %}` in a custom issue view.
+To use the configured label in your own comment layout, pass the comment and its enclosing issue. This example keeps the default reply-ID behavior or picks up any override you set.
+
+```jinja
+{% for comment in issue.comments %}
+{{ format_comment_id(comment, issue) }}
+
+{{ markdown(comment.body) }}
+
+{% endfor %}
+```
 
 ## Project names and links
 
@@ -350,7 +361,7 @@ Use `builtin/project_name/web` for the website or `{{ project.name }}` for a pla
 In a custom issue view or named issue row, call `format_project_name(issue.project)` to reuse that preference. It renders an empty label for an issue without a project. A name containing `**` or brackets stays literal even inside Markdown. For example, a row can show the issue ID followed by its project.
 
 ```jinja
-{% include "format_issue_id" %} {{ format_project_name(issue.project) }}
+{{ format_issue_id(issue) }} {{ format_project_name(issue.project) }}
 ```
 
 In an issue view, `{{ label("field_label", format_project_name(issue.project)) }}` emphasizes the same linked name.
@@ -368,7 +379,7 @@ On `issue mine` and `issue query`, `--columns id,priority,title` selects and ord
 
 "example/standup" = '''
 {%- from "example/people" import owner -%}
-- {% include "format_issue_id" %} {{ issue.title }} ({{ owner(person=issue.assignee, fallback="unassigned") }})'''
+- {{ format_issue_id(issue) }} {{ issue.title }} ({{ owner(person=issue.assignee, fallback="unassigned") }})'''
 
 "example/pick" = "{{ issue.url }}\t{{ issue.identifier }} {{ issue.title }}"
 ```
@@ -454,6 +465,8 @@ With [experimental templates](#experimental-templates) enabled, macros accept po
 | `markdown(text: String) → Content` (issue views) | Interpret the supplied text as Markdown in a terminal. A pipe carries the source. When it occupies its own top-level paragraph, the fragment is a separate Markdown document, so an unclosed fence in an issue description ends at the section boundary. |
 | `label(name: String, content: Content) → Content` (issue views) | Apply a role to inline text, labeled content, or a hyperlink. See the [issue view labels](#issue-view) for their default styles. |
 | `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and guide, commit, and pull request templates use this fallback. The terminal decides which schemes it can open. |
+| `format_issue_id(issue: Issue?) → Content` (experimental issue views and named rows) | Renders the [configured issue ID](#issue-identifiers-and-links). Pass an issue with `identifier` and optional `url`, or `none` for an empty label. |
+| `format_comment_id(comment: Comment?, issue: Issue?) → Content` (experimental issue views and named rows) | Renders the [configured comment ID](#comment-identifiers-and-links) from a comment and its enclosing issue. Issue views supply `issue.comments`. List rows do not fetch comments. Passing `none` for either argument gives an empty label. |
 | `format_project_name(project: Project?) → Content` (experimental issue views and named rows) | Renders the [configured project name](#project-names-and-links) with its hyperlinks. Pass a project with `name` and optional `url`, or `none` for an empty label. |
 | `fail(message: String)` | Stops rendering with the given message. |
 
