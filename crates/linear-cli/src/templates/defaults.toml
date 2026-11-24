@@ -5,6 +5,7 @@
 # Markdown rules and exit status remain canonical Rust-generated facts.
 
 [templates]
+format_issue_id = '''{% block content %}{% if issue.url %}{{ hyperlink(issue.url, issue.identifier) }}{% else %}{{ issue.identifier }}{% endif %}{% endblock %}'''
 guide = '''
 {% block content -%}
 {% include "guide_intro" -%}

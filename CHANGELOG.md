@@ -71,6 +71,8 @@
 
 ### Added
 
+- Issue views and relations link IDs to their canonical Linear URLs on styled terminals. Enable experimental templates to customize `format_issue_id`.
+
 - `linear skill setup` also installs `SessionStart` reminders for Claude Code and Codex to load the `linear-cli` skill or run `linear skill show` before using Linear, independently of the skill catalog. Setup, status, removal, agent selection and dry runs manage the hooks while preserving unrelated settings and hooks. Claude Code also supports project setup; Codex hooks are account-only, honor `CODEX_HOME`, and require review in Codex's `/hooks` menu.
 - `linear config check` validates loaded settings and template overlays offline, without credentials, API requests or file changes. It reports ignored legacy settings as informational notes with their sources, never their values. Harmless leftovers exit successfully; invalid active settings and malformed config still fail.
 - Layered MiniJinja templates for agent guidance, shared `issue describe` / `issue jj start` descriptions, and pull request titles and bodies. Configure `[templates]` and reusable `[template-aliases]` globally, per project, or with repeatable `--config-file` / `--config` overlays. Shipped defaults remain available through `builtin/<name>`. Explicit `--title` and gh arguments after `--` retain precedence; a custom template can generate a title for several issues.
@@ -88,6 +90,11 @@
 - in kitty, Ghostty and Rex, `issue view` and `document view` draw the PNG images in descriptions and comments under their links, with the kitty graphics protocol. Images use Unicode placeholders, so they still show inside `less`. Other formats, other terminals, tmux and screen, piped output and `NO_COLOR` keep the plain link. Turn it off with `inline_images = false` or `LINEAR_INLINE_IMAGES=false`
 - `linear skill status` reports what each of those directories holds, including an older copy that an agent would read instead, and `linear skill remove` deletes only what `setup` installed. All three take `--json`
 - `issue view` accepts multiple issue IDs or URLs, showing them in argument order with one pager session. `--json` returns an array for multiple issues and keeps the existing object for one issue. If an issue cannot be fetched, the command fails without printing partial results.
+
+### Experimental
+
+- Set `templates = false` under `[experimental]` globally or per project to turn off experimental templates while keeping their definitions for later.
+- Enable `--experimental-templates` or set `templates = true` under `[experimental]` in Linear config to try custom hyperlink fallbacks and native MiniJinja macros and call blocks. These features may change or be removed in a minor release.
 
 ### Changed
 

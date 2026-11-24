@@ -1,7 +1,7 @@
 //! Read-only `issue` commands: view, title, url, mine and query.
 use serde_json::{Value, json};
 
-use crate::support::{Cli, MockLinear, assert_json, nodes, png};
+use crate::support::{Cli, MockLinear, assert_json, nodes, plain_text, png};
 use crate::team::{resolve_vars, resolved};
 
 fn issue(comments: bool) -> Value {
@@ -25,12 +25,14 @@ fn issue(comments: bool) -> Value {
         "labels": { "nodes": [{ "id": "label-bug", "name": "Bug", "color": "#ff00ff" }] },
         "parent": {
             "trashed": null, "archivedAt": null,
-        "identifier": "ENG-99", "title": "Parent work",
+            "identifier": "ENG-99", "title": "Parent work",
+            "url": "https://linear.app/acme/issue/ENG-99/parent-work",
             "state": { "name": "Done", "color": "#123456" }
         },
         "children": { "nodes": [{
             "trashed": null, "archivedAt": null,
-        "identifier": "ENG-2", "title": "Child work",
+            "identifier": "ENG-2", "title": "Child work",
+            "url": "https://linear.app/acme/issue/ENG-2/child-work",
             "state": { "name": "Started", "color": "#112233" }
         }] },
         "attachments": { "nodes": [{
@@ -77,6 +79,14 @@ fn details(issue: Value) -> Value {
     json!({ "issue": issue })
 }
 
+fn view_json(mut issue: Value) -> Value {
+    issue["parent"].as_object_mut().unwrap().remove("url");
+    for child in issue["children"]["nodes"].as_array_mut().unwrap() {
+        child.as_object_mut().unwrap().remove("url");
+    }
+    issue
+}
+
 fn numbered_issue(number: u32, comments: bool) -> Value {
     let mut value = issue(comments);
     value["identifier"] = json!(format!("ENG-{number}"));
@@ -113,6 +123,7 @@ fn view_multiple_json_preserves_input_order_and_comment_selection() {
             args.push("--no-comments");
         }
         let run = Cli::for_api(&api).run(&args);
+        let expected: Vec<_> = expected.into_iter().map(view_json).collect();
         assert_json(&run.success().json(), &json!(expected));
         assert!(run.stderr.is_empty(), "{run}");
         assert_eq!(api.operations().len(), expected.len());
@@ -196,6 +207,7 @@ fn view_multiple_normalizes_mixed_references_and_retains_duplicates() {
         "--json",
         "--no-comments",
     ]);
+    let expected: Vec<_> = expected.into_iter().map(view_json).collect();
     assert_json(&run.success().json(), &json!(expected));
 }
 
@@ -417,7 +429,7 @@ fn view_json_prints_the_issue_with_comments() {
         .run(&["issue", "view", "eng-1", "--json"])
         .success()
         .json();
-    assert_json(&json, &issue(true));
+    assert_json(&json, &view_json(issue(true)));
     assert_eq!(
         api.variables("GetIssueDetailsWithComments"),
         json!({ "id": "ENG-1" })
@@ -433,7 +445,7 @@ fn view_bare_number_uses_the_configured_team() {
         .run(&["issue", "view", "1", "--json", "--no-comments"])
         .success()
         .json();
-    assert_json(&json, &issue(false));
+    assert_json(&json, &view_json(issue(false)));
     assert_eq!(api.variables("GetIssueDetails"), json!({ "id": "ENG-1" }));
 }
 
@@ -568,7 +580,7 @@ fn view_shows_the_delegate_only_when_there_is_one() {
             .run(&[args.as_slice(), &["--json"]].concat())
             .success()
             .json();
-        assert_json(&json, &delegated);
+        assert_json(&json, &view_json(delegated));
         cli.run(&args)
             .success()
             .stdout_has("**Assignee:** @Alice Example\n**Delegate:** @linear\n**Project:**");
@@ -1925,10 +1937,20 @@ fn view_tty_ends_with_the_issue_url_after_the_comments() {
             extra,
         ]
         .concat();
-        let run = Cli::for_api(&api).run_tty(&args, &[]);
+        let run = Cli::for_api(&api)
+            .env_remove("NO_COLOR")
+            .run_tty(&args, &[]);
         run.success().ends_with_footer(
             "View this issue on Linear: https://linear.app/acme/issue/ENG-1/fix-the-widget",
         );
+        let (_, heading) = run
+            .terminal
+            .split_once("\x1b]8;;https://linear.app/acme/issue/ENG-1/fix-the-widget\x1b\\")
+            .expect("the default heading links to the issue");
+        let (label, _) = heading
+            .split_once("\x1b]8;;\x1b\\")
+            .expect("the default issue link closes");
+        assert_eq!(plain_text(label.as_bytes()), "ENG-1");
         if comments {
             let footer = run.stdout.find("View this issue").expect("footer");
             let last_comment = run.stdout.find("Reply body").expect("reply");
@@ -2352,6 +2374,81 @@ fn view_marks_parent_and_paginated_child_lifecycle() {
         .success()
         .stdout_has("ENG-99 [deleted]")
         .stdout_has("ENG-2 [archived]");
+}
+
+#[test]
+fn view_formats_heading_and_hierarchy_issue_ids_for_each_output() {
+    let issue_url = "https://linear.app/workspace-one/issue/DEMO-42/example";
+    let parent_url = "https://linear.app/workspace-one/issue/DEMO-41/parent";
+    let child_url = "https://linear.app/workspace-one/issue/DEMO-43/child";
+    let mut value = issue(false);
+    value["identifier"] = json!("DEMO-42");
+    value["url"] = json!(issue_url);
+    value["parent"]["identifier"] = json!("DEMO-41");
+    value["parent"]["url"] = json!(parent_url);
+    value["parent"]["trashed"] = json!(true);
+    value["children"]["nodes"][0]["identifier"] = json!("DEMO-43");
+    value["children"]["nodes"][0]["url"] = json!(child_url);
+    let api = MockLinear::start();
+    for _ in 0..4 {
+        api.on("GetIssueDetails", details(value.clone()));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+format_issue_id = '''{{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">](" ~ issue.identifier ~ ")", issue.workspace_url_key ~ "/" ~ issue.identifier) }}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "view",
+        "DEMO-42",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let tty = cli.run_tty(&args, &[]);
+    tty.success()
+        .stdout_has("[<workspace-one>](DEMO-42): Fix the widget")
+        .stdout_has("[<workspace-one>](DEMO-41) [deleted]: Parent work")
+        .stdout_has("[<workspace-one>](DEMO-43): Child work");
+    for (url, identifier) in [
+        (issue_url, "DEMO-42"),
+        (parent_url, "DEMO-41"),
+        (child_url, "DEMO-43"),
+    ] {
+        let (_, link) = tty
+            .terminal
+            .split_once(&format!("\x1b]8;;{url}\x1b\\"))
+            .expect("the issue URL opens a link");
+        let (label, _) = link
+            .split_once("\x1b]8;;\x1b\\")
+            .expect("the issue link ends");
+        assert_eq!(
+            plain_text(label.as_bytes()),
+            format!("[<workspace-one>]({identifier})")
+        );
+    }
+    let piped = cli.run(&args);
+    piped
+        .success()
+        .stdout_has("# workspace-one/DEMO-42: Fix the widget")
+        .stdout_has("- **workspace-one/DEMO-41 [deleted]**: Parent work")
+        .stdout_has("- **workspace-one/DEMO-43**: Child work");
+    assert!(!piped.stdout.contains("\x1b]8;;"), "{piped}");
+    let args_json = [&args[..], &["--json"]].concat();
+    let json = cli.run(&args_json).success().json();
+    assert_json(&json, &view_json(value));
+    let plain = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
+    plain
+        .success()
+        .stdout_has("# workspace-one/DEMO-42: Fix the widget")
+        .stdout_has("workspace-one/DEMO-41 [deleted]: Parent work")
+        .stdout_has("workspace-one/DEMO-43: Child work");
+    assert!(!plain.terminal.contains("\x1b]8;;"), "{plain}");
+    assert_eq!(api.operations(), ["GetIssueDetails"; 4]);
 }
 
 #[test]

@@ -1,6 +1,27 @@
 # Templates
 
-Templates customize the agent guide, commit descriptions, and pull requests. Put them in your global Linear config for personal defaults, or the selected project config to share repository conventions. Templates are plain text rendered by MiniJinja; they are separate from Linear's issue and project templates.
+MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
+
+## Experimental templates
+
+Hyperlinks in user templates, native macros, and call blocks require an opt-in and may change or be removed in a minor release. Includes, inheritance, and imports of exported values also work by default.
+
+Enable experimental templates for a single invocation with the global flag.
+
+```bash
+linear --experimental-templates skill show
+```
+
+For persistent use, enable them in your global or project Linear config.
+
+```toml
+[experimental]
+templates = true
+```
+
+The project setting takes precedence over the global setting. The flag enables the experiment regardless of those settings. To use experimental templates from a `--config-file` or `--config` overlay, enable the experiment separately.
+
+Set `templates = false` to turn off the experiment and keep its definitions in your config. This works in either config file, including a project that opts out of a global `true`. Stable customizations still apply. If a saved guide or message needs a disabled macro, it falls back to the lower-priority template for that slot.
 
 ## Configuration
 
@@ -45,21 +66,54 @@ skill_issue_gh_pull-request = '''
 {% include "team/review_note" %}'''
 ```
 
-Partials cannot reuse a known template name, use the reserved `skill_` or `guide_` prefixes, or replace the immutable `builtin/` namespace. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
+Use distinct names for partials and template slots. The `skill_` and `guide_` prefixes and the immutable `builtin/` namespace are reserved. The name `format_issue_id` is reserved for the issue ID override when experimental templates are enabled. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
 
 ## Templates and data
 
-| Template | Rendered for | Data |
+| Template | Rendered for | Top-level values |
 |---|---|---|
-| `guide` | `linear skill show` | `version`, `commands`, `command_guidance`, `command_help`, `markdown_rules`, `exit_status` |
-| `guide_targeted` | A targeted guide such as `linear skill show issue comment add` | The same guide fields; `command_help` contains the selected command's help |
-| `skill_<command_path>` | Guidance for a visible command or command group | The same guide fields |
-| `commit_description` | `issue describe` and `issue jj start` | `issue`, `references`, `linkage` |
-| `pr_title` | The generated pull request title | `issues`, `description`, `references`, `linkage`, `issue_clause` |
-| `pr_body` | The complete generated pull request body | The same pull request fields |
-| `pr_issue_links` | The shipped reusable issue-link block | The same pull request fields |
+| `guide` | `linear skill show` | [Guide fields](#guide-fields) |
+| `guide_targeted` | `linear skill show` with a command path | [Guide fields](#guide-fields) |
+| `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
+| `format_issue_id` (experimental override) | Headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
+| `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
+| `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
 
-Every issue object has string fields `identifier`, `title`, `url`, and `description`. `issues` is an ordered list with repeated issues removed. `references` is a Boolean; `linkage` is `Fixes` or `References`. `issue_clause` is the complete generated clause, such as `Fixes ENG-123 and ENG-124`. Guide fields are strings. The issue object's `description` is the issue description; the pull request context's top-level `description` is the user-supplied body text.
+Use `issue.title` to read a field and `issues[0].title` to read it from the first item in a list. `T?` means a field can be `none` (JSON `null`).
+
+### Issue ID fields
+
+| Field | Type | Meaning |
+|---|---|---|
+| `issue.identifier` | `String` | Bare issue identifier, such as `DEMO-42` |
+| `issue.url` | `String?` | The issue's URL from Linear. An absent or empty URL is `none` in this context. |
+| `issue.workspace_url_key` | `String?` | Workspace key parsed from the issue's Linear URL, or `none` if the key is unavailable. |
+
+### Commit and pull request fields
+
+The `Issue` object contains `identifier`, `title`, `url`, and `description`, all strings. `description` is the issue's Markdown body and is `""` when Linear has no description. Use `issue.description` in a commit template and `issues[0].description` for the first issue in a pull request template.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `issue` | `Issue` | The issue being described or started in jj. |
+| `issues` | `List<Issue>` | The PR's issues, in first-mentioned order with duplicate identifiers removed. |
+| `description` | `String` | PR body input from `--body` or `--body-file`, with trailing whitespace removed. Defaults to `""`. |
+| `references` | `Boolean` | Whether `--references` was selected. `issue jj start` supplies `false`. |
+| `linkage` | `String` | `References` when `references` is true, otherwise `Fixes`. |
+| `issue_clause` | `String` | The complete PR clause, such as `Fixes DEMO-42 and DEMO-43`. |
+
+### Guide fields
+
+All guide values are strings. `guide` and `guide_targeted` render the full or targeted guide. Every `guide_*` section and `skill_<command_path>` hook receives the same fields, with `command_guidance` populated after the command hooks render.
+
+| Field | Meaning |
+|---|---|
+| `version` | Version of the installed `linear` binary. |
+| `commands` | Index of visible commands, with their paths and one-line descriptions. |
+| `command_guidance` | Joined text of the selected nonempty command hooks. It is `""` while rendering those hooks. |
+| `command_help` | Selected command's long help in a Markdown section. It is `""` for the full guide. |
+| `markdown_rules` | The Markdown body rules printed by `linear markdown`. |
+| `exit_status` | The CLI's exit status codes and their meanings, as text. |
 
 `skill_markdown` is the command hook for `linear markdown`; the full Markdown-reference section uses `guide_markdown_rules`. General guide pieces are `guide_intro`, `guide_how_to_work`, `guide_common_tasks`, `guide_markdown_rules`, `guide_exit_status`, `guide_help_notes`, `guide_commands`, and `guide_graphql`. Command hooks use canonical command names joined with underscores, preserving hyphens: `issue gh pr` selects `skill_issue_gh_pull-request` because `pr` is an alias for `pull-request`.
 
@@ -119,6 +173,26 @@ Before posting or editing a comment:
 
 A parent comment hook keeps that preference visible for both add and update guidance. Add a policy partial if several project hooks need to reuse it. Preview the effective result with `linear skill show issue comment add`.
 
+## Issue identifiers and links
+
+On a styled terminal, the CLI links the identifier to the issue’s canonical URL. Enable [experimental templates](#experimental-templates) to override `format_issue_id` across issue views and relations. Each issue’s URL supplies its workspace key, so one global template can distinguish two workspaces that both have a `DEMO-42`. A missing URL or unknown workspace key is available as `none`.
+
+This example opens one workspace’s issues in a custom application and uses the web URL elsewhere. The third argument qualifies that workspace’s IDs in plain-text handoffs.
+
+```toml
+[templates]
+format_issue_id = '''
+{%- if issue.workspace_url_key == "workspace-one" -%}
+  {{ hyperlink("example://" ~ issue.workspace_url_key ~ "/issue/" ~ issue.identifier,
+               issue.identifier, issue.workspace_url_key ~ "/" ~ issue.identifier) }}
+{%- elif issue.url -%}
+  {{ hyperlink(issue.url, issue.identifier) }}
+{%- else -%}
+  {{ issue.identifier }}
+{%- endif -%}'''
+```
+
+
 ## Commit conventions
 
 `issue describe` and `issue jj start` use the same template. Keep the `Linear-issue` trailer when using `@jj`: it is how the CLI finds the issue again. The URL trailer records the issue's canonical URL.
@@ -164,7 +238,8 @@ The retired PR file flags `--template`/`-T`, `--no-template`, and `pr_template` 
 linear config list                       # effective templates as TOML
 linear config list --show-origin         # include source comments
 linear config get templates.pr_body      # one template's raw source
-linear config list --defaults            # shipped defaults, ignoring configuration
+linear config list --defaults            # stable defaults, ignoring configuration
+linear --experimental-templates config list --defaults # include experimental defaults
 linear skill show --builtin              # shipped guide, ignoring configuration
 ```
 
@@ -174,11 +249,33 @@ Errors identify the source, template key, and line where available. Correct that
 
 ## Text and supported syntax
 
-Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and native `{% extends ... %}`/`{% block ... %}`/`{{ super() }}`. Unknown fields are errors. Field checking is strict during rendering; it does not guarantee every nested field in an unselected branch can be checked ahead of time.
+Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and native `{% extends ... %}`/`{% block ... %}`/`{{ super() }}`. Inside `for`, `loop.index` counts from one, `loop.index0` counts from zero, and `loop.first` and `loop.last` are booleans. Unknown fields generally error when evaluated. Configuration checks direct references in known templates, while nested lookups and fields used by partials are checked as they render.
 
-Available filters are `trim`, `upper`, `lower`, `join`, `length`, `indent`, and `default`. The `defined` test is available, and `fail("message")` stops rendering with a required-input error. Macros are disabled, as are filesystem loading, custom syntax, and extra filter libraries. Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits.
+Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits. Issue content and `description` are inert data. A body containing `{{ example }}` prints those characters literally. Templates have no access to environment variables, authentication, files, or processes.
 
-Templates produce plain text: Markdown and message bodies are not HTML-escaped. Issue content and `description` are inert data; a body containing `{{ example }}` is printed as text, not evaluated again. The context contains only the fields above, without access to environment variables, authentication, the full configuration, files, or process helpers.
+Guide, commit, and pull request templates preserve Markdown and newlines, including the final newline before any command-specific normalization. The issue ID template renders a single line. TOML literal strings keep backslashes as written. Use MiniJinja `-%}` and `-}}` to trim surrounding template whitespace.
 
-Newlines are preserved, including the final newline. TOML literal strings keep backslashes as written. MiniJinja `-%}` and `-}}` remove surrounding template whitespace; use them deliberately when joining blocks. The template controls output whitespace, while commands retain their documented input normalization. Preview the result before adopting a layout whose blank lines matter.
+### Functions and filters
+
+Use `function(...)` for a function, `value | filter(...)` for a filter, and `value is defined` for the availability test. Brackets in signatures mark optional arguments. Pass arguments by position unless a keyword is listed below.
+
+With [experimental templates](#experimental-templates) enabled, macros accept positional or named arguments and may define defaults, for example `{% macro owner(person, fallback="unassigned") %}`. Import a macro with `{% from "name" import owner %}` and call it as `owner(person=issue.assignee)`.
+
+| Function | Result |
+|---|---|
+| `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and document templates use this fallback. The terminal decides which schemes it can open. |
+| `fail(message: String)` | Stops rendering with the given message. |
+
+`Content` accepts a string or rendered template content, such as the result of a macro. Printing or concatenating that content preserves its links. Wrapping it in another `hyperlink` gives the whole visible label the outer destination. To measure or transform an identifier, operate on the string first, as in `hyperlink(issue.url, issue.identifier | lower)`.
+
+| Filter | Result | Keyword arguments |
+|---|---|---|
+| `value \| trim([chars])` | String with leading and trailing whitespace removed, or the characters in `chars` removed from the ends. | — |
+| `value \| upper`, `value \| lower` | Uppercase or lowercase string. | — |
+| `items \| join([separator[, attribute]])` | String made by joining items or a field from each item. The separator defaults to `""`. `attribute` can be a dotted path. | `d` for the separator, `attribute` for the field or path. For example, `issues \| join(d=", ", attribute="identifier")`. |
+| `value \| length` | Integer count of characters in a string or items in a list or object. | — |
+| `value \| indent([width[, first[, blank]]])` | String indented by `width` spaces (default `4`). `first` and `blank` also indent the first line and blank lines, respectively, and default to `false`. | `width`, `first`, and `blank`. For example, `description \| indent(width=2, first=true)`. |
+| `value \| default([fallback[, use_falsey]])` | Returns `fallback` (default `""`) for an undefined value. With a truthy second argument, it also replaces falsey values. | — |
+
+`value is defined` returns a Boolean. It is true for a present field whose value is `none` or `""`.
 

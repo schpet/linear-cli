@@ -35,6 +35,10 @@ pub enum ConfigCommand {
         show_origin: bool,
     },
     /// Print the raw body of a templates.NAME or template-aliases.NAME preference
+    #[command(after_long_help = concat!(
+        "Template variables and function signatures: ",
+        env!("CARGO_PKG_REPOSITORY"), "/blob/main/docs/templating.md#templates-and-data",
+    ))]
     Get {
         /// Preference key, including its templates. or template-aliases. prefix
         #[arg(value_name = "KEY")]

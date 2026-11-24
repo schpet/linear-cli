@@ -20,7 +20,7 @@ use super::source::{FileSource, OsFamily, ReadCandidate, read_config_candidate, 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DisplaySettings {
     pub debug: bool,
-    /// `NO_COLOR` is set to a nonempty value.
+    /// Terminal styling is disabled by `NO_COLOR` or `TERM=dumb`.
     pub no_color: bool,
 }
 
@@ -160,7 +160,8 @@ fn settings(process: &ProcessEnvSnapshot, dotenv: Option<&SelectedEnv>) -> Displ
     let no_color = process
         .inputs
         .env("NO_COLOR")
-        .is_some_and(|value| !value.is_empty());
+        .is_some_and(|value| !value.is_empty())
+        || process.inputs.env("TERM") == Some("dumb");
     let debug = match dotenv {
         Some(dotenv) => matches!(
             effective(process, dotenv, "LINEAR_DEBUG"),
@@ -238,7 +239,11 @@ fn fail(
 
 /// Reads and validates `.env` and all config tiers once, keeping warnings
 /// even on failure.
-pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> StartupReport {
+pub fn load_startup(
+    process: &ProcessEnvSnapshot,
+    files: &impl FileSource,
+    experimental_templates: bool,
+) -> StartupReport {
     let initial_settings = settings(process, None);
     let root = repo_root(&process.inputs.cwd, files);
     let dotenv = match load_env(&process.inputs, files, root.as_deref()) {
@@ -271,11 +276,14 @@ pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> St
         Ok(project) => project,
         Err(error) => return fail(display, diagnostics, error),
     };
-    let templates =
-        match crate::templates::TemplateConfig::from_tiers(global.iter().chain(project.iter())) {
-            Ok(templates) => templates,
-            Err(error) => return fail(display, diagnostics, error),
-        };
+    let templates = match super::templates::compile_templates(
+        global.as_ref(),
+        project.as_ref(),
+        experimental_templates,
+    ) {
+        Ok(templates) => templates,
+        Err(error) => return fail(display, diagnostics, error),
+    };
     let inputs = OptionInputs {
         env: &process.inputs,
         dotenv: &dotenv,

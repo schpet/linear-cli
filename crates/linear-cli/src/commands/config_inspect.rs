@@ -2,7 +2,7 @@
 use crate::cli::config::ConfigCommand;
 use crate::error::{Error, Result};
 use crate::platform::output::Stdout;
-use crate::templates::TemplateConfig;
+use crate::templates::{FORMAT_ISSUE_ID, TemplateConfig};
 
 pub fn run(command: &ConfigCommand, templates: &TemplateConfig) -> Result<()> {
     let rendered = match command {
@@ -28,6 +28,13 @@ pub fn run(command: &ConfigCommand, templates: &TemplateConfig) -> Result<()> {
             for namespace in ["templates", "template-aliases"] {
                 result.push_str(&format!("[{namespace}]\n"));
                 for (name, entry) in templates.entries() {
+                    // A listing can be loaded again as a template overlay.
+                    if namespace == "templates"
+                        && name == FORMAT_ISSUE_ID
+                        && !templates.experimental_enabled()
+                    {
+                        continue;
+                    }
                     if entry.origin.key != format!("{namespace}.{name}") {
                         continue;
                     }

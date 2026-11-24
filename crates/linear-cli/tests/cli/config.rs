@@ -198,6 +198,9 @@ custom_values = ["keep", "these"]
 [custom_table]
 enabled = true
 
+[experimental]
+templates = true
+
 [template-aliases]
 review_policy = "Preserved comment review policy"
 
@@ -500,6 +503,232 @@ fn defaults_inspection_bypasses_bad_config_and_overlays() {
     cli.run(&["config", "--team", "ENG", "list"]).usage_error();
     cli.run(&["config", "--sort", "priority", "get", "templates.guide"])
         .usage_error();
+}
+
+#[test]
+fn exported_templates_reload_in_the_same_feature_mode() {
+    for enabled in [false, true] {
+        let cli = Cli::new();
+        let mut args = Vec::new();
+        if enabled {
+            args.push("--experimental-templates");
+        }
+        args.extend(["config", "list", "--defaults"]);
+        let export = cli.run(&args);
+        export.success();
+        let listing: toml::Table = export.stdout.parse().expect("template preferences");
+        assert_eq!(
+            listing["templates"].get("format_issue_id").is_some(),
+            enabled
+        );
+
+        let cli = cli.file("cwd/export.toml", &export.stdout);
+        let mut reload = vec!["--config-file", "export.toml", "config", "check"];
+        if enabled {
+            reload.push("--experimental-templates");
+        }
+        cli.run(&reload).success();
+    }
+}
+
+#[test]
+fn experimental_mode_is_resolved_before_compiling_global_templates() {
+    let cli = Cli::new()
+        .file(
+            GLOBAL,
+            "[experimental]\ntemplates = false\n[templates]\nformat_issue_id = 'ISSUE DISPLAY'\nguide_intro = 'CUSTOM GUIDE'\n",
+        )
+        .file("cwd/.linear.toml", "[experimental]\ntemplates = true\n");
+    cli.run(&["config", "check"]).success();
+    cli.run(&["config", "list"])
+        .success()
+        .stdout_has("ISSUE DISPLAY");
+    assert_eq!(
+        stdout(&cli, &["config", "get", "templates.format_issue_id"]),
+        "ISSUE DISPLAY"
+    );
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("CUSTOM GUIDE");
+
+    let cli = cli
+        .file(GLOBAL, "[experimental]\ntemplates = true\n[templates]\nformat_issue_id = 'ISSUE DISPLAY'\nguide_intro = 'CUSTOM GUIDE'\n")
+        .file("cwd/.linear.toml", "[experimental]\ntemplates = false\n");
+    cli.run(&["config", "check"]).success();
+    let listed = stdout(&cli, &["config", "list"]);
+    assert!(!listed.contains("ISSUE DISPLAY"));
+    assert_eq!(
+        stdout(&cli, &["config", "get", "templates.format_issue_id"]),
+        stdout(
+            &cli,
+            &["config", "get", "templates.format_issue_id", "--defaults"]
+        )
+    );
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("CUSTOM GUIDE");
+    assert_eq!(
+        stdout(
+            &cli,
+            &[
+                "--experimental-templates",
+                "config",
+                "get",
+                "templates.format_issue_id"
+            ]
+        ),
+        "ISSUE DISPLAY"
+    );
+}
+
+#[test]
+fn explicit_global_opt_out_keeps_stable_templates_and_suspends_macro_consumers() {
+    let cli = Cli::new().file(
+        GLOBAL,
+        r#"
+[experimental]
+templates = false
+[templates]
+format_issue_id = "SAVED ID"
+guide_intro = "{% include 'wrapper' %}"
+guide_help_notes = "STABLE HELP"
+guide_exit_status = "{{ hyperlink('https://example.test/', 'SAVED LINK') }}"
+[template-aliases]
+wrapper = "{% from 'greeting' import greet %}{{ greet() }}"
+greeting = "{% macro greet() %}SAVED GREETING{% endmacro %}"
+"#,
+    );
+    cli.run(&["config", "check"]).success();
+    let off = stdout(&cli, &["skill", "show"]);
+    assert!(off.contains("# Linear CLI"));
+    assert!(off.contains("STABLE HELP"));
+    assert!(!off.contains("SAVED GREETING"));
+    assert!(!off.contains("SAVED LINK"));
+
+    cli.run(&["skill", "show", "--experimental-templates"])
+        .success()
+        .stdout_has("SAVED GREETING")
+        .stdout_has("SAVED LINK")
+        .stdout_has("STABLE HELP");
+    cli.run(&[
+        "skill",
+        "show",
+        "--config",
+        "templates.guide_intro=\"{% include 'greeting' %}\"",
+    ])
+    .failure()
+    .stderr_has("experimental partial is disabled");
+    cli.run(&[
+        "config",
+        "check",
+        "--config",
+        "templates.format_issue_id='explicit'",
+    ])
+    .failure()
+    .stderr_has("--experimental-templates");
+    let cli = cli.file(
+        "cwd/.linear.toml",
+        r#"
+[templates]
+guide_help_notes = "{% include 'wrapper' %}"
+"#,
+    );
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("STABLE HELP");
+}
+
+#[test]
+fn invalid_experimental_settings_are_reported_without_their_values() {
+    for config in [
+        "experimental = true",
+        "experimental = [true]",
+        "[[experimental]]\ntemplates = true",
+        "[experimental]\ntemplates = 'private wrong-type value'",
+        "[experimental]\ntemplates = 1",
+        "[experimental]\nunknown = true",
+    ] {
+        let cli = Cli::new()
+            .file(GLOBAL, config)
+            .file("cwd/.linear.toml", "[experimental]\ntemplates = true");
+        for args in [
+            &["config", "check", "--experimental-templates"][..],
+            &["config", "get", "templates.guide"],
+            &["skill", "show"],
+        ] {
+            let run = cli.run(args);
+            run.failure()
+                .stderr_has("linear.toml")
+                .stderr_has("[experimental]")
+                .stderr_has("templates = true")
+                .stderr_has("templates = false");
+            assert!(!run.stderr.contains("private wrong-type value"), "{run}");
+        }
+        cli.run(&[
+            "config",
+            "list",
+            "--defaults",
+            "--experimental-templates",
+            "--config-file",
+            "missing.toml",
+        ])
+        .success()
+        .stdout_has("format_issue_id");
+        cli.run(&[
+            "skill",
+            "show",
+            "--builtin",
+            "--config-file",
+            "missing.toml",
+        ])
+        .success();
+    }
+}
+
+#[test]
+fn experimental_template_overlays_use_the_mode_of_the_invocation() {
+    let cli = Cli::new()
+        .file(
+            "cwd/overlay.toml",
+            "[templates]\nformat_issue_id = 'FROM FILE'",
+        )
+        .file("cwd/enable.toml", "[experimental]\ntemplates = true");
+    cli.run(&["config", "check", "--config-file", "overlay.toml"])
+        .failure()
+        .stderr_has("format_issue_id")
+        .stderr_has("--experimental-templates");
+    assert_eq!(
+        stdout(
+            &cli,
+            &[
+                "--experimental-templates",
+                "config",
+                "get",
+                "templates.format_issue_id",
+                "--config-file",
+                "overlay.toml",
+                "--config",
+                "templates.format_issue_id='FROM SNIPPET'",
+            ]
+        ),
+        "FROM SNIPPET"
+    );
+    cli.run(&[
+        "config",
+        "check",
+        "--experimental-templates",
+        "--config-file",
+        "enable.toml",
+    ])
+    .failure()
+    .stderr_has("only templates and template-aliases");
+    cli.run(&["config", "check", "--config", "experimental.templates=true"])
+        .failure()
+        .stderr_has("--experimental-templates");
+
+    cli.file("cwd/.linear.toml", "[experimental]\ntemplates = true")
+        .run(&["config", "check", "--config-file", "overlay.toml"])
+        .success();
 }
 
 #[test]

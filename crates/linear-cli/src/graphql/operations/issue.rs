@@ -245,6 +245,7 @@ pub struct ListedIssue {
     pub id: cynic::Id,
     pub identifier: String,
     pub title: String,
+    pub url: String,
     #[arguments(first: 100)]
     pub relations: Outgoing,
     #[arguments(first: 100)]
@@ -290,6 +291,7 @@ pub struct DisplayIssue {
     pub archived_at: Option<DateTime>,
     pub identifier: String,
     pub title: String,
+    pub url: String,
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
