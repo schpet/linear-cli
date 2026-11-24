@@ -7,6 +7,43 @@
 [templates]
 format_issue_id = '''{% block content %}{% if issue.url %}{{ hyperlink(issue.url, issue.identifier) }}{% else %}{{ issue.identifier }}{% endif %}{% endblock %}'''
 
+issue_view = '''
+{% block content -%}
+{% set heading %}{% include "issue_view_heading" %}{% endset -%}
+{% set metadata %}{% include "issue_view_metadata" %}{% endset -%}
+{% set description %}{% include "issue_view_description" %}{% endset -%}
+{% for part in [heading, metadata, description] if part -%}
+{% if not loop.first %}
+
+{% endif %}{{ part -}}
+{% endfor -%}
+{{ sections.hierarchy -}}
+{{ sections.attachments -}}
+{{ sections.documents -}}
+{{ sections.comments }}{% endblock %}'''
+
+issue_view_heading = '''
+{% block content -%}
+# {{ display.identifier }}: {{ issue.title }}{% endblock %}'''
+
+issue_view_metadata = '''
+{% block content -%}
+{% if display.lifecycle_banner %}{{ display.lifecycle_banner }}
+{% endif %}**State:** {{ issue.state.name }}{{ display.lifecycle_state_suffix }}
+**Priority:** {{ display.priority }}
+**Assignee:** {% if issue.assignee %}@{{ issue.assignee.displayName }}{% else %}Unassigned{% endif %}
+{% if issue.delegate %}**Delegate:** @{{ issue.delegate.displayName }}
+{% endif %}{% if issue.project %}**Project:** {{ issue.project.name }}
+{% endif %}{% if issue.projectMilestone %}**Milestone:** {{ issue.projectMilestone.name }}
+{% endif %}{% if display.cycle %}**Cycle:** {{ display.cycle }}
+{% endif %}{% if display.creator %}**Creator:** @{{ display.creator }}
+{% endif %}**Created:** {{ display.created }}
+**Updated:** {{ display.updated }}{% endblock %}'''
+
+issue_view_description = '''
+{% block content -%}
+{% if issue.description %}{{ issue.description }}{% endif %}{% endblock %}'''
+
 guide = '''
 {% block content -%}
 {% include "guide_intro" -%}
@@ -158,6 +195,9 @@ linear issue url ENG-123           # print just the URL
 
 `issue view --json` prints an object for one issue and an array when several
 are named. If any of them cannot be fetched, the command fails and prints none.
+The human-readable view uses `issue_view`. With experimental templates enabled,
+customize its heading, metadata, description, or the entire layout. Inspect the
+shipped view with `linear config get templates.issue_view --defaults`.
 
 {% endblock %}'''
 

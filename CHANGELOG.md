@@ -92,8 +92,10 @@
 
 ### Experimental
 
-- Set `templates = false` under `[experimental]` globally or per project to turn off experimental templates while keeping their definitions for later.
+- `issue view` uses a built-in Markdown template for each issue. Override `issue_view_heading`, `issue_view_metadata`, or `issue_view_description` individually, or replace `issue_view` to reorder or omit sections. Enable these overrides with `--experimental-templates` or the persistent setting below.
+
 - Enable `--experimental-templates` or set `templates = true` under `[experimental]` in Linear config to try named `--format` rows, `format_issue_id` overrides, custom hyperlinks with plain-text fallbacks, and native MiniJinja macros and call blocks. These features may change or be removed in a minor release.
+- Set `templates = false` under `[experimental]` globally or per project to turn off experimental templates while keeping their definitions for later.
 
 ### Changed
 

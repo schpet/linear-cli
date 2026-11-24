@@ -2835,6 +2835,229 @@ format_issue_id = '''{{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">
 }
 
 #[test]
+fn view_default_layout_is_unchanged_when_experimental_templates_are_enabled() {
+    let api = MockLinear::start();
+    for _ in 0..2 {
+        api.on("GetIssueDetailsWithComments", details(issue(true)));
+    }
+    let cli = Cli::for_api(&api);
+    let args = ["issue", "view", "ENG-1", "--no-download"];
+    let stable = cli.run(&args);
+    let experimental = cli.run(&[&args[..], &["--experimental-templates"]].concat());
+    stable.success();
+    experimental.success();
+    assert_eq!(experimental.stdout, stable.stdout);
+}
+
+#[test]
+fn project_opt_out_restores_the_builtin_issue_view() {
+    let api = MockLinear::start();
+    for _ in 0..2 {
+        api.on("GetIssueDetails", details(issue(false)));
+    }
+    let cli = Cli::for_api(&api)
+        .file(
+            "home/.config/linear/linear.toml",
+            r#"
+[experimental]
+templates = true
+[templates]
+issue_view = "{% include 'issue_view_heading' %}"
+issue_view_heading = "Saved heading for {{ issue.identifier }}"
+"#,
+        )
+        .file("cwd/.linear.toml", "[experimental]\ntemplates = false");
+    let args = ["issue", "view", "ENG-1", "--no-comments", "--no-download"];
+    let off = cli.run(&args);
+    off.success().stdout_has("# ENG-1: Fix the widget");
+    assert!(!off.stdout.contains("Saved heading"));
+    let on = cli.run(&[&["--experimental-templates"][..], &args].concat());
+    on.success();
+    assert_eq!(on.stdout.trim_end(), "Saved heading for ENG-1");
+}
+
+#[test]
+fn view_preserves_stable_aliases_with_the_same_name_as_a_view_partial() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details(issue(false)));
+    let cli = Cli::for_api(&api).file(
+        "cwd/.linear.toml",
+        r#"[template-aliases]
+issue_view_heading = 'Existing heading helper'
+[templates]
+guide_intro = '{% include "issue_view_heading" %}'
+"#,
+    );
+    cli.run(&["skill", "show"])
+        .success()
+        .stdout_has("Existing heading helper");
+    let run = cli.run(&["issue", "view", "ENG-1", "--no-comments", "--no-download"]);
+    run.success().stdout_has("# ENG-1: Fix the widget");
+    assert!(!run.stdout.contains("Existing heading helper"), "{run}");
+}
+
+#[test]
+fn view_override_can_link_the_entire_heading_to_the_app_with_a_plain_fallback() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    value["title"] = json!("Fix [widget] *now*");
+    for _ in 0..3 {
+        api.on("GetIssueDetails", details(value.clone()));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+issue_view_heading = '''# {{ hyperlink(
+    "linear://" ~ issue.workspace_url_key ~ "/issue/" ~ issue.identifier,
+    issue.title ~ " (" ~ issue.identifier ~ ")",
+    issue.workspace_url_key ~ "/" ~ issue.identifier
+) }}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let tty = cli.run_tty(&args, &[]);
+    tty.success().stdout_has("Fix [widget] *now* (ENG-1)");
+    let (_, link) = tty
+        .terminal
+        .split_once("\x1b]8;;linear://acme/issue/ENG-1\x1b\\")
+        .expect("the desktop app URL opens a link");
+    let (label, _) = link
+        .split_once("\x1b]8;;\x1b\\")
+        .expect("the issue link ends");
+    assert_eq!(plain_text(label.as_bytes()), "Fix [widget] *now* (ENG-1)");
+
+    let piped = cli.run(&args);
+    piped
+        .success()
+        .stdout_has("# acme/ENG-1\n\n**State:** Started")
+        .stdout_has("## Body\n\nPlain **bold** text.");
+    assert!(!piped.stdout.contains('\x1b'), "{piped}");
+
+    let plain = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
+    plain.success().stdout_has("acme/ENG-1");
+    assert!(!plain.terminal.contains("\x1b]8;;"), "{plain}");
+}
+
+#[test]
+fn view_places_a_standalone_description_override_after_the_metadata() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details(issue(false)));
+    Cli::for_api(&api)
+        .file(
+            "cwd/.linear.toml",
+            "[templates]\nissue_view_description = '## Summary'\n",
+        )
+        .run(&[
+            "--experimental-templates",
+            "issue",
+            "view",
+            "ENG-1",
+            "--no-comments",
+            "--no-download",
+        ])
+        .success()
+        .stdout_has("**Updated:** 2024-01-02\n\n## Summary\n\n## Parent");
+}
+
+#[test]
+fn view_renders_custom_sections_for_each_issue_and_preserves_json() {
+    let api = MockLinear::start();
+    let mut expected = Vec::new();
+    for (number, workspace) in [(22, "workspace-two"), (21, "workspace-one")] {
+        let mut value = numbered_issue(number, true);
+        value["url"] = json!(format!("https://linear.app/{workspace}/issue/ENG-{number}"));
+        value["description"] = json!(format!("Description for {number}.\n\n- A detail"));
+        value["comments"]["nodes"][0]["body"] = json!(format!("Root comment for {number}."));
+        for _ in 0..3 {
+            api.on_variables(
+                "GetIssueDetailsWithComments",
+                json!({ "id": value["identifier"] }),
+                details(value.clone()),
+            );
+        }
+        expected.push(view_json(value));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+issue_view = '''{% include "issue_view_heading" %}
+
+{% if sections.comments %}{{ sections.comments }}{% endif %}
+
+{% include "issue_view_description" %}
+
+{% if issue.identifier == "ENG-21" %}{% include "issue_view_metadata" %}{% endif %}'''
+issue_view_heading = '# {{ issue.workspace_url_key }}/{{ issue.identifier }}'
+issue_view_description = '''## Work
+
+{{ issue.description }}'''
+issue_view_metadata = '**Owner:** {{ issue.assignee.displayName }}'
+"#,
+    );
+    let args = [
+        "issue",
+        "view",
+        "ENG-22",
+        "ENG-21",
+        "--no-download",
+        "--no-pager",
+    ];
+    let piped = cli.run(&args);
+    piped
+        .success()
+        .stdout_has("\n\n---\n\n# workspace-one/ENG-21")
+        .stdout_has("## Work\n\nDescription for 22.\n\n- A detail")
+        .stdout_has("## Work\n\nDescription for 21.\n\n- A detail");
+    let tty = cli.run_tty(&args, &[]);
+    tty.success()
+        .stdout_has("View this issue on Linear: https://linear.app/workspace-two/issue/ENG-22");
+    assert!(
+        tty.stdout.trim_end().ends_with(
+            "\n\nView this issue on Linear: https://linear.app/workspace-one/issue/ENG-21"
+        ),
+        "{tty}"
+    );
+    for run in [&piped, &tty] {
+        let mut remainder = run.stdout.as_str();
+        for text in [
+            "workspace-two/ENG-22",
+            "Root comment for 22.",
+            "Description for 22.",
+            "workspace-one/ENG-21",
+            "Root comment for 21.",
+            "Description for 21.",
+            "Owner:",
+            "Alice Example",
+        ] {
+            let (_, tail) = remainder
+                .split_once(text)
+                .unwrap_or_else(|| panic!("missing {text:?} after previous section\n{run}"));
+            remainder = tail;
+        }
+        assert_eq!(run.stdout.matches("Owner:").count(), 1, "{run}");
+        for omitted in ["State:", "Parent work", "Child work", "Design doc", "Spec"] {
+            assert!(
+                !run.stdout.contains(omitted),
+                "unexpected {omitted:?}\n{run}"
+            );
+        }
+    }
+    let json = cli.run(&[&args[..], &["--json"]].concat()).success().json();
+    assert_json(&json, &json!(expected));
+}
+
+#[test]
 fn terminal_view_shows_the_deleted_banner_and_state_suffix() {
     let api = MockLinear::start();
     let mut value = issue(false);

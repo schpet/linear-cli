@@ -1,10 +1,10 @@
 # Templates
 
-MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Experimental templates also customize issue identifiers and list rows. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
+MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Experimental templates also customize issue views, identifiers and list rows. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
 
 ## Experimental templates
 
-Custom issue ID templates (`format_issue_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
+Custom issue views (`issue_view` and its three component templates), issue ID templates (`format_issue_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
 
 Enable experimental templates for a single invocation with the global flag.
 
@@ -66,7 +66,7 @@ skill_issue_gh_pull-request = '''
 {% include "team/review_note" %}'''
 ```
 
-Use distinct names for partials and template slots. The `skill_` and `guide_` prefixes and the immutable `builtin/` namespace are reserved. The name `format_issue_id` is reserved for the issue ID override when experimental templates are enabled. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
+Use distinct names for partials and template slots. The `skill_` and `guide_` prefixes and the immutable `builtin/` namespace are reserved. The issue ID and issue view slot names are reserved when experimental templates are enabled. Names use ASCII letters, digits, `_`, `-`, `/`, and `.`.
 
 ## Templates and data
 
@@ -76,6 +76,7 @@ Use distinct names for partials and template slots. The `skill_` and `guide_` pr
 | `guide_targeted` | `linear skill show` with a command path | [Guide fields](#guide-fields) |
 | `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
 | `format_issue_id` (experimental override) | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
+| `issue_view`, `issue_view_heading`, `issue_view_metadata`, `issue_view_description` (experimental overrides) | Each issue in the Markdown or terminal view | [`issue`, `display`, `sections`](#issue-view) |
 | `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
 | `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
 | A `[template-aliases]` entry selected with experimental `--format NAME` | Each result from `issue mine` or `issue query`, including `--search` | [`issue: Issue row`](#issue-row-fields) |
@@ -91,6 +92,47 @@ An included template uses the caller's values. With experimental templates enabl
 | `issue.identifier` | `String` | Bare issue identifier, such as `DEMO-42` |
 | `issue.url` | `String?` | The issue's URL from Linear. An absent or empty URL is `none` in this context. |
 | `issue.workspace_url_key` | `String?` | Workspace key parsed from the issue's Linear URL, or `none` if the key is unavailable. |
+
+### Issue view
+
+`issue_view` is the Markdown document for one issue. The shipped layout includes `issue_view_heading`, `issue_view_metadata`, and `issue_view_description`, then prints the hierarchy, attachments, documents, and comments. Read its exact layout with `linear config get templates.issue_view --defaults`. Each component can be included by name or extended using `builtin/<name>` and its `content` block. The CLI handles the pager, terminal footer, and separator between issues.
+
+For example, to make the entire heading open the issue in the desktop app, using each issue’s own workspace:
+
+```toml
+[experimental]
+templates = true
+
+[templates]
+issue_view_heading = '''# {% if issue.workspace_url_key %}{{ hyperlink(
+    "linear://" ~ issue.workspace_url_key ~ "/issue/" ~ issue.identifier,
+    issue.title ~ " (" ~ issue.identifier ~ ")"
+) }}{% else %}{{ issue.title }} ({{ issue.identifier }}){% endif %}'''
+```
+
+A handoff view can reuse the configured heading, print the description first, and omit the rest:
+
+```toml
+[templates]
+issue_view = '''{% include "issue_view_heading" %}
+
+{% include "issue_view_description" %}
+
+**State:** {{ issue.state.name }}'''
+```
+
+All four templates receive the same context.
+
+| Value | Contents |
+|---|---|
+| `issue` | The issue detail fields from `issue view --json` in their original casing, plus `workspace_url_key: String?`. For example, `issue.title`, `issue.state.name`, `issue.assignee.displayName` when assigned, and `issue.children[0].identifier` when children exist. Description and comment image URLs reflect local downloads. `issue.comments` is empty with `--no-comments`. |
+| `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Use `issue.identifier` for the raw ID. |
+| `display.priority`, `display.created`, `display.updated` | The priority indicator used by the CLI and human-readable creation and update times. |
+| `display.lifecycle_banner`, `display.lifecycle_state_suffix` | The archived/deleted banner (or `none`) and the suffix for the state line (or an empty string). |
+| `display.cycle`, `display.creator` | The formatted cycle and creator name, each `none` when unavailable. |
+| `sections.hierarchy`, `sections.attachments`, `sections.documents`, `sections.comments` | Ready-to-print sections. Place them at block boundaries in the desired order. Each supplies its own spacing and is empty when there is nothing to show. Comments respect `--show-resolved-threads`. To write your own section layout, iterate over the corresponding fields on `issue`. |
+
+The detail object includes `identifier`, `title`, `url`, `branchName`, `priority`, `state`, `team`, and `createdAt` / `updatedAt`. Nullable fields include `description`, `trashed`, `archivedAt`, `assignee`, `delegate`, `creator`, `project`, `projectMilestone`, `cycle`, and `parent`. Collections are direct lists: `labels`, `children`, `attachments`, `documents`, and `comments`. Use `linear issue view DEMO-42 --json` with an issue you can access to inspect the nested fields. In a custom loop, `issue.comments` contains the fetched comments including resolved threads. Use `sections.comments` for the command’s thread grouping and visibility rules.
 
 ### Commit and pull request fields
 
@@ -325,7 +367,7 @@ With [experimental templates](#experimental-templates) enabled, macros accept po
 
 | Function | Result |
 |---|---|
-| `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and document templates use this fallback. The terminal decides which schemes it can open. |
+| `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and guide, commit, and pull request templates use this fallback. The terminal decides which schemes it can open. |
 | `fail(message: String)` | Stops rendering with the given message. |
 
 `Content` accepts a string or rendered template content, such as the result of a macro. Printing or concatenating that content preserves its links. Wrapping it in another `hyperlink` gives the whole visible label the outer destination. To measure or transform an identifier, operate on the string first, as in `hyperlink(issue.url, issue.identifier | lower)`.

@@ -13,13 +13,27 @@ use crate::platform::terminal_text;
 use crate::refs::IssueReference;
 
 mod display;
+pub(crate) mod markdown;
 #[cfg(test)]
 pub use display::DisplaySpan;
 pub use display::DisplayText;
+pub(crate) use display::{ViewPart, ViewSection, ViewSectionKind};
 
 const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";
 pub(crate) const FORMAT_ISSUE_ID: &str = "format_issue_id";
+const ISSUE_VIEW: &str = "issue_view";
+fn is_view_slot(name: &str) -> bool {
+    matches!(
+        name,
+        ISSUE_VIEW | "issue_view_heading" | "issue_view_metadata" | "issue_view_description"
+    )
+}
+
+pub(crate) fn experimental_slot(name: &str) -> bool {
+    name == FORMAT_ISSUE_ID || is_view_slot(name)
+}
+
 const BUILTIN_FORMAT_ISSUE_ID: &str = "builtin/format_issue_id";
 pub(crate) const EXPERIMENTAL_TEMPLATES_HINT: &str = "Pass `--experimental-templates` or set `templates = true` under `[experimental]` in your global or project config.";
 // Empty hooks still expose the inheritance block used by shipped templates.
@@ -143,6 +157,18 @@ fn command_hooks() -> BTreeSet<String> {
 
 fn environment(experimental: bool) -> Environment<'static> {
     let mut env = Environment::empty();
+    env.set_formatter(display::format_document_value);
+    if !experimental {
+        // A legacy partial can share a view slot's name. Resolve includes
+        // inside the shipped view to its shipped components in stable mode.
+        env.set_path_join_callback(|name, parent| {
+            if parent.strip_prefix("builtin/").is_some_and(is_view_slot) && is_view_slot(name) {
+                format!("builtin/{name}").into()
+            } else {
+                name.into()
+            }
+        });
+    }
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.set_recursion_limit(50);
     env.set_fuel(Some(1_000_000));
@@ -415,7 +441,7 @@ impl TemplateConfig {
                         "unknown template name; use template-aliases for a named partial",
                     ));
                 }
-                if name == FORMAT_ISSUE_ID {
+                if experimental_slot(name) {
                     if !builtin && !candidate.experimental && section == "templates" {
                         if layer == Layer::DisabledPreferences {
                             continue;
@@ -423,20 +449,20 @@ impl TemplateConfig {
                         return Err(experimental_error(
                             source,
                             &key,
-                            "format_issue_id overrides",
+                            &format!("{name} overrides"),
                         ));
                     }
                     if candidate.experimental && section == "template-aliases" {
                         return Err(config_error(
                             source,
                             &key,
-                            "format_issue_id is reserved when experimental templates are enabled",
+                            format!("{name} is reserved when experimental templates are enabled"),
                         )
                         .with_hint("Rename the alias and update any templates that refer to it."));
                     }
                 }
                 if section == "template-aliases"
-                    && ((candidate.template_names.contains(name) && name != FORMAT_ISSUE_ID)
+                    && ((candidate.template_names.contains(name) && !experimental_slot(name))
                         || name.starts_with("skill_")
                         || name.starts_with("guide_"))
                 {
@@ -629,6 +655,23 @@ impl TemplateConfig {
         }
     }
 
+    /// Render a Markdown document while preserving both block structure and link labels.
+    pub(crate) fn render_view(
+        &self,
+        context: &impl Serialize,
+        styled: bool,
+    ) -> Result<Vec<ViewPart>> {
+        let name = if self.experimental {
+            ISSUE_VIEW
+        } else {
+            "builtin/issue_view"
+        };
+        self.environment
+            .get_template(name)
+            .and_then(|template| display::render_markdown(&template, context, styled))
+            .map_err(|error| engine_error(error, name, &self.entries))
+    }
+
     pub fn render_display(
         &self,
         name: &str,
@@ -678,6 +721,7 @@ fn valid_name(name: &str) -> bool {
 fn context_fields(name: &str) -> Option<&'static [&'static str]> {
     match name {
         FORMAT_ISSUE_ID => Some(&["issue"]),
+        name if is_view_slot(name) => Some(&["issue", "display", "sections"]),
         "commit_description" => Some(&["issue", "linkage", "references"]),
         "pr_title" | "pr_body" | "pr_issue_links" => Some(&[
             "issues",
