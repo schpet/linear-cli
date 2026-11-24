@@ -10,7 +10,8 @@ use std::borrow::Cow;
 
 use crate::ctx::Ctx;
 use crate::platform::{style, terminal_text};
-use unicode_width::UnicodeWidthChar;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 /// Flexible columns keep at least this many terminal columns (or their full
 /// width when narrower) so their values stay recognizable.
@@ -257,11 +258,11 @@ pub fn stdout_width(ctx: &Ctx) -> Option<usize> {
 
 /// How many terminal columns `text` occupies.
 pub fn display_width(text: &str) -> usize {
-    text.chars().map(|ch| ch.width().unwrap_or(0)).sum()
+    text.width()
 }
 
 /// `text` shortened to at most `width` columns, ending in `…` when cut.
-/// Characters are never split.
+/// The cut falls between extended grapheme clusters.
 pub fn truncate(text: &str, width: usize) -> String {
     if display_width(text) <= width {
         return text.to_owned();
@@ -271,12 +272,18 @@ pub fn truncate(text: &str, width: usize) -> String {
     };
     let mut result = String::new();
     let mut used = 0;
-    for ch in text.chars() {
-        let next = used + ch.width().unwrap_or(0);
+    for cluster in text.graphemes(true) {
+        let mut next = used + cluster.width();
+        if next > room {
+            // Width can depend on adjoining clusters, for example Arabic
+            // lam-alef. Measure the prefix at a possible cut.
+            let end = result.len() + cluster.len();
+            next = text.get(..end).expect("end is a grapheme boundary").width();
+        }
         if next > room {
             break;
         }
-        result.push(ch);
+        result.push_str(cluster);
         used = next;
     }
     result.push('…');
@@ -326,6 +333,8 @@ mod tests {
         assert_eq!(display_width("ab"), 2);
         assert_eq!(display_width("界"), 2);
         assert_eq!(display_width("e\u{301}"), 1);
+        assert_eq!(display_width("👩‍💻"), 2);
+        assert_eq!(display_width("✈️"), 2);
     }
 
     #[test]
@@ -334,6 +343,10 @@ mod tests {
         assert_eq!(truncate("abcdefgh", 6), "abcde…");
         assert_eq!(truncate("界界界界", 6), "界界…");
         assert_eq!(truncate("界界", 2), "…");
+        assert_eq!(truncate("👩‍💻🧑‍💻abcdef", 5), "👩‍💻🧑‍💻…");
+        assert_eq!(truncate("ab✈️xyz", 4), "ab…");
+        assert_eq!(truncate("e\u{301}界界abc", 4), "e\u{301}界…");
+        assert_eq!(truncate("لاabxyz", 4), "لاab…");
         assert_eq!(truncate("abc", 0), "");
     }
 

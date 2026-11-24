@@ -1134,6 +1134,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "toml",
+ "unicode-segmentation",
  "unicode-width",
 ]
 
