@@ -5,6 +5,8 @@ use crate::commands::comments;
 use crate::graphql::pagination::{self, Page, PageInfo};
 use crate::platform::kitty::InlineImages;
 use crate::platform::view_footer::{self, Linked};
+use crate::refs::IssueReference;
+use crate::templates::TemplateConfig;
 use crate::{
     cli::issue::IssueView,
     ctx::Ctx,
@@ -21,6 +23,7 @@ use serde::Serialize;
 
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Write as _,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -143,8 +146,12 @@ fn render(
     } else {
         HashMap::new()
     };
+    let issue_ids = IssueIds {
+        templates: ctx.templates(),
+        styled: ctx.color(),
+    };
     if !ctx.stdout_tty() {
-        return markdown(&issue, &paths, args.show_resolved_threads, now);
+        return markdown(&issue, &paths, args.show_resolved_threads, now, &issue_ids);
     }
     let mut render = ctx.render_options();
     let mut bodies: Vec<&str> = issue.description.iter().map(String::as_str).collect();
@@ -163,7 +170,7 @@ fn render(
         args.show_resolved_threads,
         now,
         &render,
-        true,
+        &issue_ids,
     )?;
     let footer = view_footer::footer(Linked::Issue, &issue.url, ctx.color());
     Ok(view_footer::append(&rendered, &footer))
@@ -441,12 +448,70 @@ where
     }
     Ok(paths)
 }
-fn hierarchy(issue: &Issue) -> String {
+struct IssueIds<'a> {
+    templates: &'a TemplateConfig,
+    styled: bool,
+}
+
+impl IssueIds<'_> {
+    fn markdown(&self, identifier: &str, url: &str) -> Result<String> {
+        let display = self
+            .templates
+            .format_issue_id(&IssueReference::new(identifier, Some(url)), self.styled)?;
+        let mut markdown = String::new();
+        for span in display.spans {
+            if let Some(url) = span.url {
+                push_markdown_link(&mut markdown, &span.text, &url);
+            } else {
+                push_markdown_label(&mut markdown, &span.text);
+            }
+        }
+        Ok(markdown)
+    }
+}
+
+/// Keep display text literal and keep its destination inside one Markdown link.
+fn push_markdown_link(markdown: &mut String, label: &str, url: &str) {
+    markdown.push('[');
+    push_markdown_label(markdown, label);
+    markdown.push_str("](<");
+    for ch in url.chars() {
+        if matches!(ch, '&' | '<' | '>' | '\\') || ch.is_whitespace() {
+            push_entity(markdown, ch);
+        } else {
+            markdown.push(ch);
+        }
+    }
+    markdown.push_str(">)");
+}
+
+fn push_markdown_label(markdown: &mut String, label: &str) {
+    let content = label.trim_matches(' ');
+    let start = label.len() - label.trim_start_matches(' ').len();
+    let end = start + content.len();
+    for (index, ch) in label.char_indices() {
+        match ch {
+            // Keep padding inside the label or emphasis delimiters.
+            ' ' if index < start || index >= end => push_entity(markdown, ch),
+            '!' | '&' | '\\' | '[' | ']' | '<' | '>' | '*' | '_' | '~' | '`' => {
+                markdown.push('\\');
+                markdown.push(ch);
+            }
+            _ => markdown.push(ch),
+        }
+    }
+}
+
+fn push_entity(markdown: &mut String, ch: char) {
+    write!(markdown, "&#{};", u32::from(ch)).expect("writing to a String cannot fail");
+}
+
+fn hierarchy(issue: &Issue, issue_ids: &IssueIds<'_>) -> Result<String> {
     let mut out = String::new();
     if let Some(parent) = &issue.parent {
         out.push_str(&format!(
             "\n\n## Parent\n\n- **{}{}**: {} _[{}]_\n",
-            parent.identifier,
+            issue_ids.markdown(&parent.identifier, &parent.url)?,
             super::lifecycle::Lifecycle::of(parent.trashed, parent.archived_at).marker(),
             parent.title,
             parent.state.name
@@ -457,14 +522,14 @@ fn hierarchy(issue: &Issue) -> String {
         for child in &issue.children.nodes {
             out.push_str(&format!(
                 "- **{}{}**: {} _[{}]_\n",
-                child.identifier,
+                issue_ids.markdown(&child.identifier, &child.url)?,
                 super::lifecycle::Lifecycle::of(child.trashed, child.archived_at).marker(),
                 child.title,
                 child.state.name
             ));
         }
     }
-    out
+    Ok(out)
 }
 fn attachments(issue: &Issue, paths: &HashMap<String, String>) -> String {
     let mut out = String::new();
@@ -506,7 +571,7 @@ fn user_name(user: &GetIssueDetailsIssueAssignee) -> Option<&str> {
 }
 
 /// The title, one metadata field per line, and the description.
-fn body(issue: &Issue, now: DateTime<Utc>) -> Result<String, Error> {
+fn body(issue: &Issue, now: DateTime<Utc>, issue_ids: &IssueIds<'_>) -> Result<String> {
     let lifecycle = super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at);
     let mut parts = vec![
         format!(
@@ -568,7 +633,7 @@ fn body(issue: &Issue, now: DateTime<Utc>) -> Result<String, Error> {
     parts.push(format!("**Updated:** {}", ago(&issue.updated_at)));
     Ok(format!(
         "# {}: {}\n\n{}{}",
-        issue.identifier,
+        issue_ids.markdown(&issue.identifier, &issue.url)?,
         issue.title,
         parts.join("\n"),
         issue
@@ -674,14 +739,15 @@ fn body_markdown(c: &Comment) -> String {
     comments::quoted_body(c.quoted_text.as_deref(), &c.body)
 }
 
-pub fn markdown(
+fn markdown(
     issue: &Issue,
     paths: &HashMap<String, String>,
     show_resolved: bool,
     now: DateTime<Utc>,
-) -> Result<String, Error> {
-    let mut out = body(issue, now)?;
-    out.push_str(&hierarchy(issue));
+    issue_ids: &IssueIds<'_>,
+) -> Result<String> {
+    let mut out = body(issue, now, issue_ids)?;
+    out.push_str(&hierarchy(issue, issue_ids)?);
     out.push_str(&attachments(issue, paths));
     out.push_str(&documents(issue));
     let threads = threads(&issue.comments.nodes, show_resolved)?;
@@ -714,17 +780,17 @@ pub fn markdown(
     }
     Ok(out)
 }
-pub fn terminal(
+fn terminal(
     issue: &Issue,
     paths: &HashMap<String, String>,
     show_resolved: bool,
     now: DateTime<Utc>,
     options: &RenderOptions,
-    links: bool,
-) -> Result<String, Error> {
-    let mut out = markdown_terminal::render(&body(issue, now)?, options);
+    issue_ids: &IssueIds<'_>,
+) -> Result<String> {
+    let mut out = markdown_terminal::render(&body(issue, now, issue_ids)?, options);
     for section in [
-        hierarchy(issue),
+        hierarchy(issue, issue_ids)?,
         attachments(issue, paths),
         documents(issue),
     ] {
@@ -746,7 +812,7 @@ pub fn terminal(
             if index > 0 {
                 out.push('\n');
             }
-            out.push_str(&header(root, "commented", suffix(root, links), ""));
+            out.push_str(&header(root, "commented", suffix(root, true), ""));
             out.push('\n');
             out.push_str(&markdown_terminal::render(&body_markdown(root), options));
             for reply in threads.replies.get(root.id.inner()).into_iter().flatten() {

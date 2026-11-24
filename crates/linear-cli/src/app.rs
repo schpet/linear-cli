@@ -40,9 +40,13 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
         RootCommand::Markdown(_) => return markdown(),
         RootCommand::Skill(args) => {
             let templates = match &args.command {
-                cli::skill::SkillCommand::Show(show) => Some(offline_templates(show.builtin, &global)
-                    .map_err(|error| error.with_hint("Fix the template configuration, or run `linear skill show --builtin` for the shipped guide."))?),
-                cli::skill::SkillCommand::Setup(_) | cli::skill::SkillCommand::Status(_) | cli::skill::SkillCommand::Remove(_) | cli::skill::SkillCommand::SessionStart(_) => None,
+                cli::skill::SkillCommand::Show(show) => {
+                    Some(offline_templates(show.builtin, &global).map_err(skill_recovery_hint)?)
+                }
+                cli::skill::SkillCommand::Setup(_)
+                | cli::skill::SkillCommand::Status(_)
+                | cli::skill::SkillCommand::Remove(_)
+                | cli::skill::SkillCommand::SessionStart(_) => None,
             };
             return commands::skill::run(&args.command, templates.as_ref());
         }
@@ -65,7 +69,7 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     };
     let process = ProcessEnvSnapshot::capture(cwd.clone(), os)
         .map_err(|error| Error::new(format!("Invalid environment: {error}")))?;
-    let report = load_startup(&process, &RealFileSource);
+    let report = load_startup(&process, &RealFileSource, global.experimental_templates);
     *settings = report.settings;
     let terminal = Terminal::detect(report.settings.no_color);
     for diagnostic in &report.diagnostics {
@@ -115,7 +119,9 @@ fn offline_templates(
     global: &cli::GlobalArgs,
 ) -> Result<crate::templates::TemplateConfig> {
     if defaults {
-        return Ok(crate::templates::TemplateConfig::builtin());
+        return Ok(crate::templates::TemplateConfig::builtin_with_experimental(
+            global.experimental_templates,
+        ));
     }
     let cwd = std::env::current_dir().map_err(|error| {
         Error::new(format!("Failed to read the working directory: {error}")).with_source(error)
@@ -148,7 +154,18 @@ fn offline_templates(
         &RealFileSource,
         &global.config_file,
         &global.config,
+        global.experimental_templates,
     )
+}
+
+fn skill_recovery_hint(error: Error) -> Error {
+    let recovery = "Run `linear skill show --builtin` for the shipped guide.";
+    let hint = match error.hint() {
+        Some(hint) if hint.contains("--builtin") => return error,
+        Some(hint) => format!("{hint} {recovery}"),
+        None => recovery.to_owned(),
+    };
+    error.with_hint(hint)
 }
 
 /// Prints `error` to stderr: `✗ message`, an optional hint, and under

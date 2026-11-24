@@ -1,6 +1,33 @@
+use pulldown_cmark::{Event, Parser, Tag};
 use serde_json::json;
 
-use super::{Comment, threads};
+use super::{Comment, push_markdown_link, threads};
+
+#[test]
+fn issue_markup_keeps_a_literal_label_paired_with_its_destination() {
+    let label = " [label](https://example.com) <*literal*> &amp; `code` ";
+    let url = "https://linear.app/workspace-one/issue/DEMO-42?q=(\"a b\")&end=<>&entity=&amp;";
+    let mut markdown = "- **".to_owned();
+    push_markdown_link(&mut markdown, label, url);
+    markdown.push_str(" [archived]**: Work");
+    let mut parsed = Parser::new(&markdown);
+    let target = parsed.find_map(|event| match event {
+        Event::Start(Tag::Link { dest_url, .. }) => Some(dest_url),
+        _ => None,
+    });
+    assert_eq!(target.as_deref(), Some(url));
+    let text: String = parsed
+        .by_ref()
+        .take_while(|event| !matches!(event, Event::End(pulldown_cmark::TagEnd::Link)))
+        .map(|event| match event {
+            Event::Text(text) => text,
+            other => panic!("unexpected event inside link {other:?}"),
+        })
+        .map(|text| text.into_string())
+        .collect();
+    assert_eq!(text, label);
+    assert!(parsed.any(|event| matches!(event, Event::Text(text) if text.starts_with(" "))));
+}
 
 fn comment(id: &str, created_at: &str, parent: Option<&str>, resolved: bool) -> Comment {
     serde_json::from_value(json!({

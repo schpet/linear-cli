@@ -3,6 +3,21 @@ use crate::auth::ApiKeyInput;
 use crate::refs::WorkspaceScope;
 
 #[test]
+fn display_workspace_comes_from_each_issue_url() {
+    for workspace in ["workspace-one", "workspace-two"] {
+        let url = format!("https://linear.app/{workspace}/issue/DEMO-42/example");
+        let issue = IssueReference::new("DEMO-42", Some(&url));
+        assert_eq!(issue.workspace_url_key.as_deref(), Some(workspace));
+        assert_eq!(issue.url, Some(url.as_str()));
+    }
+    assert!(
+        IssueReference::new("DEMO-42", None)
+            .workspace_url_key
+            .is_none()
+    );
+}
+
+#[test]
 fn identifiers_numbers_and_urls_become_references() {
     let key = ApiKeyInput::Absent;
     let scope = WorkspaceScope::new(Some("acme"), key.clone());

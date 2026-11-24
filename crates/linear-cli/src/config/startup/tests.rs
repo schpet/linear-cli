@@ -108,7 +108,7 @@ fn env_beats_files_and_debug_output_hides_the_key() {
         )
         .file("/work/linear.toml", b"issue_sort = 'priority'\n")
         .file("/global/linear/linear.toml", b"issue_sort = 'manual'\n");
-    let report = load_startup(&process, &files);
+    let report = load_startup(&process, &files, false);
     assert!(!report.settings.no_color);
     assert!(report.settings.debug);
     let ready = report.result.as_ref().unwrap();
@@ -127,17 +127,23 @@ fn env_beats_files_and_debug_output_hides_the_key() {
 }
 
 #[test]
+fn dumb_terminals_use_plain_output() {
+    assert!(settings(&process(&[("TERM", "dumb")]), None).no_color);
+    assert!(!settings(&process(&[("TERM", "xterm-256color")]), None).no_color);
+}
+
+#[test]
 fn pager_is_captured_only_from_process_environment() {
     let files = MemFiles::default().file(
         "/work/.env",
         b"PAGER=dotenv-pager\nNO_COLOR=1\nLINEAR_DEBUG=1\n",
     );
-    let absent = load_startup(&process(&[]), &files);
+    let absent = load_startup(&process(&[]), &files, false);
     assert_eq!(absent.result.unwrap().pager, None);
     assert!(!absent.settings.no_color);
 
     for value in ["", "  ", "less -R"] {
-        let report = load_startup(&process(&[("PAGER", value)]), &files);
+        let report = load_startup(&process(&[("PAGER", value)]), &files, false);
         let ready = report.result.unwrap();
         assert_eq!(ready.pager.as_deref(), Some(std::ffi::OsStr::new(value)));
         assert_eq!(ready.child_env.get("PAGER"), None);
@@ -155,7 +161,9 @@ fn a_pager_that_is_not_utf8_is_kept_as_is() {
         [(OsString::from("PAGER"), invalid.clone())],
     )
     .unwrap();
-    let ready = load_startup(&process, &MemFiles::default()).result.unwrap();
+    let ready = load_startup(&process, &MemFiles::default(), false)
+        .result
+        .unwrap();
     assert_eq!(ready.pager, Some(invalid));
 }
 
@@ -168,7 +176,7 @@ fn windows_child_overlay_lookup_is_case_insensitive() {
     )
     .unwrap();
     let files = MemFiles::default().file("/work/.env", b"LINEAR_API_KEY=lin_api_fake_b3\n");
-    let ready = load_startup(&process, &files).result.unwrap();
+    let ready = load_startup(&process, &files, false).result.unwrap();
     assert_eq!(
         ready.child_env.get("linear_api_key"),
         Some("lin_api_fake_b3")
@@ -179,7 +187,7 @@ fn windows_child_overlay_lookup_is_case_insensitive() {
 fn lower_tier_poison_is_fatal_even_when_env_is_valid() {
     let process = process(&[("LINEAR_ISSUE_SORT", "manual")]);
     let files = MemFiles::default().file("/work/linear.toml", b"issue_sort = 12\n");
-    let report = load_startup(&process, &files);
+    let report = load_startup(&process, &files, false);
     let error = report.result.unwrap_err();
     assert_eq!(
         error.to_string(),
@@ -200,7 +208,7 @@ fn malformed_first_candidate_does_not_fall_through() {
     let files = MemFiles::default()
         .file("/work/linear.toml", b"issue_sort = [\n")
         .file("/work/.linear.toml", b"issue_sort = 'priority'\n");
-    let report = load_startup(&process(&[]), &files);
+    let report = load_startup(&process(&[]), &files, false);
     let message = report.result.unwrap_err().to_string();
     assert!(
         message.starts_with(&format!(
@@ -217,7 +225,7 @@ fn selected_config_is_read_once() {
         inner: MemFiles::default().file("/work/linear.toml", b"issue_sort = 'priority'\n"),
         reads: Cell::new(0),
     };
-    assert!(load_startup(&process(&[]), &files).result.is_ok());
+    assert!(load_startup(&process(&[]), &files, false).result.is_ok());
     assert_eq!(files.reads.get(), 1);
 }
 
@@ -228,7 +236,11 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
         .file("/work/.env", b"LINEAR_VCS=bad\n")
         .file("/global/linear/linear.toml", b"vcs = [\n")
         .file("/work/linear.toml", b"vcs = [\n");
-    let report = load_startup(&process(&[("XDG_CONFIG_HOME", global.as_str())]), &files);
+    let report = load_startup(
+        &process(&[("XDG_CONFIG_HOME", global.as_str())]),
+        &files,
+        false,
+    );
     assert!(
         report
             .result
@@ -240,7 +252,11 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
     let files = MemFiles::default()
         .file("/work/.env", b"LINEAR_VCS=bad\n")
         .file("/work/linear.toml", b"vcs = [\n");
-    let report = load_startup(&process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]), &files);
+    let report = load_startup(
+        &process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]),
+        &files,
+        false,
+    );
     assert!(
         report
             .result
@@ -250,7 +266,11 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
     );
 
     let files = MemFiles::default().file("/work/.env", b"LINEAR_VCS=bad\n");
-    let report = load_startup(&process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]), &files);
+    let report = load_startup(
+        &process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]),
+        &files,
+        false,
+    );
     assert!(
         report
             .result
@@ -265,7 +285,7 @@ fn dotenv_warning_survives_a_later_config_failure() {
     let files = MemFiles::default()
         .directory("/work/.env")
         .file("/work/linear.toml", b"vcs = [\n");
-    let report = load_startup(&process(&[]), &files);
+    let report = load_startup(&process(&[]), &files, false);
     let [StartupDiagnostic::Dotenv(diagnostic)] = report.diagnostics.as_slice() else {
         panic!("one dotenv warning: {:?}", report.diagnostics);
     };
@@ -279,7 +299,7 @@ fn repo_root_supplies_dotenv_and_config() {
         .directory("/repo/.git")
         .file("/repo/.env", b"LINEAR_TEAM_ID=ROOT\n")
         .file("/repo/.config/linear.toml", b"issue_sort = 'manual'\n");
-    let ready = load_startup(&process_in("/repo/sub", &[]), &files)
+    let ready = load_startup(&process_in("/repo/sub", &[]), &files, false)
         .result
         .unwrap();
     assert_eq!(ready.options.team_key(), Some("ROOT"));
@@ -294,7 +314,7 @@ fn repo_root_supplies_dotenv_and_config() {
 #[test]
 fn outside_a_repository_cwd_dot_config_is_not_a_candidate() {
     let files = MemFiles::default().file("/work/.config/linear.toml", b"issue_sort = 'manual'\n");
-    let ready = load_startup(&process(&[]), &files).result.unwrap();
+    let ready = load_startup(&process(&[]), &files, false).result.unwrap();
     assert!(ready.options.sourced_issue_sort().is_none());
 }
 
@@ -316,6 +336,7 @@ fn retired_settings_record_sources_without_validating_values_or_emitting_warning
             ("LINEAR_PR_TEMPLATE", ""),
         ]),
         &files,
+        false,
     );
     assert!(report.diagnostics.is_empty());
     let config = report.result.expect("retired values are ignored");
@@ -338,7 +359,7 @@ fn retired_settings_record_sources_without_validating_values_or_emitting_warning
             }),
         ]
     );
-    let report = load_startup(&process(&[]), &files);
+    let report = load_startup(&process(&[]), &files, false);
     assert!(report.diagnostics.is_empty());
     assert_eq!(
         report
@@ -367,6 +388,7 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
     let report = load_startup(
         &process(&[]),
         &MemFiles::default().unreadable("/work/linear.toml"),
+        false,
     );
     assert_eq!(
         report.result.unwrap_err().to_string(),
@@ -378,6 +400,7 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
     let report = load_startup(
         &process(&[]),
         &MemFiles::default().file("/work/linear.toml", &vec![b'x'; 1024 * 1024 + 1]),
+        false,
     );
     assert_eq!(
         report.result.unwrap_err().to_string(),
@@ -389,6 +412,7 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
     let report = load_startup(
         &process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]),
         &MemFiles::default(),
+        false,
     );
     let error = report.result.unwrap_err();
     assert_eq!(

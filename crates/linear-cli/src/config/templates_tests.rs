@@ -46,6 +46,7 @@ fn offline_layer_order_is_global_project_files_then_snippets() {
             "templates.commit_description='first snippet'".to_owned(),
             "templates.commit_description='{{ issue.identifier }} snippet'".to_owned(),
         ],
+        false,
     )
     .expect("offline config");
     assert_eq!(
@@ -78,7 +79,7 @@ fn offline_loading_does_not_read_dotenv() {
         b"[templates]\ncommit_description = 'works offline'",
     );
     let config =
-        load_template_config(&tree.inputs(), &RealFileSource, &[], &[]).expect("no dotenv");
+        load_template_config(&tree.inputs(), &RealFileSource, &[], &[], false).expect("no dotenv");
     assert_eq!(
         config
             .render(Slot::CommitDescription, &context())
@@ -96,9 +97,47 @@ fn overlays_reject_unrelated_roots_and_require_explicit_files() {
         (vec![tree.join("extra.toml")], vec![]),
         (vec![], vec!["api_key='secret'".to_owned()]),
     ] {
-        let error = load_template_config(&tree.inputs(), &RealFileSource, &files, &snippets)
+        let error = load_template_config(&tree.inputs(), &RealFileSource, &files, &snippets, false)
             .expect_err("invalid overlay");
         assert!(!format!("{error:?}").contains("secret"), "{error:?}");
+    }
+}
+
+#[test]
+fn experimental_mode_prefers_the_cli_then_project_then_global() {
+    let tree = TempTree::new();
+    let mut inputs = tree.inputs();
+    inputs.process_env.insert(
+        "XDG_CONFIG_HOME".to_owned(),
+        tree.join("config").to_string_lossy().into_owned(),
+    );
+    let process = ProcessEnvSnapshot {
+        inputs,
+        pager: None,
+    };
+    for (global, project, flag, expected) in [
+        ("", "", false, false),
+        ("templates = true", "", false, true),
+        ("templates = true", "templates = false", false, false),
+        ("templates = false", "templates = true", false, true),
+        ("templates = true", "templates = false", true, true),
+        ("", "", true, true),
+    ] {
+        tree.write(
+            "config/linear/linear.toml",
+            format!("[experimental]\n{global}\n").as_bytes(),
+        );
+        tree.write(
+            "linear.toml",
+            format!("[experimental]\n{project}\n").as_bytes(),
+        );
+        let offline = load_template_config(&process.inputs, &RealFileSource, &[], &[], flag)
+            .expect("offline config");
+        let startup = load_startup(&process, &RealFileSource, flag)
+            .result
+            .expect("startup config");
+        assert_eq!(offline.experimental_enabled(), expected);
+        assert_eq!(startup.templates.experimental_enabled(), expected);
     }
 }
 
@@ -130,7 +169,9 @@ fn startup_reads_selected_config_once_and_checks_lower_template_tiers() {
         inputs: tree.inputs(),
         pager: None,
     };
-    let config = load_startup(&process, &files).result.expect("startup");
+    let config = load_startup(&process, &files, false)
+        .result
+        .expect("startup");
     assert_eq!(files.reads.get(), 1);
     assert_eq!(
         config
@@ -153,7 +194,7 @@ fn startup_reads_selected_config_once_and_checks_lower_template_tiers() {
         inputs,
         pager: None,
     };
-    let error = load_startup(&process, &RealFileSource)
+    let error = load_startup(&process, &RealFileSource, false)
         .result
         .expect_err("bad lower layer");
     assert!(

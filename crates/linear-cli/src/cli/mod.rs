@@ -124,6 +124,12 @@ pub struct GlobalArgs {
         display_order = 1003
     )]
     pub config: Vec<String>,
+    /// Enable experimental template features for this invocation
+    ///
+    /// Set `templates = true` under [experimental] in your Linear config to
+    /// enable them persistently.
+    #[arg(long, global = true, display_order = 1004)]
+    pub experimental_templates: bool,
 }
 
 #[derive(Debug, Subcommand)]

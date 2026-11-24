@@ -567,6 +567,8 @@ pub struct GetIssueDetailsIssueParent {
     pub identifier: String,
     pub title: String,
     pub state: GetIssueDetailsIssueState,
+    #[serde(skip_serializing)]
+    pub url: String,
 }
 
 #[derive(cynic::QueryFragment, Serialize, Clone, Debug)]
