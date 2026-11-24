@@ -244,7 +244,7 @@ pub struct IssueListOutput {
         "Experimental. Enable with --experimental-templates or with templates = true under ",
         "[experimental] in Linear config. This option may change or be removed in a minor release.\n\n",
         "The issue object has the fields shown by --json plus issue.project.url and issue.workspace_url_key ",
-        "(from the issue URL, or none). Include format_issue_id for the configured ID display. ",
+        "(from the issue URL, or none). Use format_issue_id(issue) for the configured ID label. ",
         "Use format_project_name(issue.project) for the configured project label. ",
         "Use literal tabs for tab-delimited fields.\n\nField names and types: ",
         env!("CARGO_PKG_REPOSITORY"), "/blob/main/docs/templating.md#issue-row-fields",

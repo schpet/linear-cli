@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use clap::CommandFactory;
 use minijinja::machinery::{Instruction, get_compiled_template};
-use minijinja::{AutoEscape, Environment, State, Template, UndefinedBehavior, Value};
+use minijinja::value::Serde;
+use minijinja::{AutoEscape, Environment, Template, UndefinedBehavior, Value, context};
 use serde::Serialize;
 
 use crate::config::ConfigTier;
@@ -17,7 +18,8 @@ pub(crate) mod markdown;
 #[cfg(test)]
 pub use display::DisplaySpan;
 pub use display::DisplayText;
-pub(crate) use display::{ViewPart, ViewSection, ViewSectionKind};
+use display::{DisplayFormatter, DisplaySlot};
+pub(crate) use display::{ViewMarkdown, ViewPart, ViewSection, ViewSectionKind};
 
 const DEFAULTS: &str = include_str!("defaults.toml");
 const BUILTIN_SOURCE: &str = "compiled defaults";
@@ -123,7 +125,7 @@ pub struct TemplateConfig {
     builtins: BTreeMap<String, TemplateEntry>,
     template_names: BTreeSet<String>,
     environment: Environment<'static>,
-    display_environment: Environment<'static>,
+    display_formatter: DisplayFormatter,
     issue_display_environment: Environment<'static>,
     experimental: bool,
     dormant_aliases: BTreeSet<String>,
@@ -262,6 +264,17 @@ fn engine_error(
     {
         error = cause;
     }
+    // A native view section can return a CLI error that already identifies its
+    // failing formatter. Keep its diagnostic when it crosses back through Jinja.
+    if let Some(cause) =
+        std::error::Error::source(error).and_then(|source| source.downcast_ref::<Error>())
+    {
+        let diagnostic = Error::new(cause.to_string());
+        return match cause.hint() {
+            Some(hint) => diagnostic.with_hint(hint),
+            None => diagnostic,
+        };
+    }
     let name = error.name().unwrap_or(fallback);
     let normal = name.strip_prefix("builtin/").unwrap_or(name);
     let origin = entries
@@ -339,7 +352,7 @@ impl TemplateConfig {
             environment: environment(experimental),
             dormant_aliases,
             slot_fallbacks: BTreeMap::new(),
-            display_environment: Environment::empty(),
+            display_formatter: DisplayFormatter::new(Environment::empty(), experimental),
             issue_display_environment: Environment::empty(),
             experimental,
         };
@@ -630,23 +643,10 @@ impl TemplateConfig {
             }
         }
         let mut issue_display_env = display_env.clone();
-        let project_name_env = display_env.clone();
-        let project_name_slot = self.project_name_slot();
-        issue_display_env.add_function(
-            FORMAT_PROJECT_NAME,
-            move |state: &mut State, project: Value| {
-                display::project_name(state, project, |parent, name, url, styled| {
-                    // Bound the isolated label render by the calling template's budget.
-                    let mut env = project_name_env.clone();
-                    if let Some((_, remaining)) = parent.fuel_levels() {
-                        env.set_fuel(Some(remaining));
-                    }
-                    render_project_name(&env, project_name_slot, name, url, styled, Some(parent))
-                })
-            },
-        );
+        let display_formatter = DisplayFormatter::new(display_env, self.experimental);
+        display_formatter.add_helpers(&mut issue_display_env);
         self.environment = env;
-        self.display_environment = display_env;
+        self.display_formatter = display_formatter;
         self.issue_display_environment = issue_display_env;
         Ok(())
     }
@@ -733,40 +733,29 @@ impl TemplateConfig {
     ) -> Result<DisplayText> {
         self.issue_display_environment
             .get_template(name)
-            .and_then(|template| display::render(&template, context, styled, None))
+            .and_then(|template| {
+                display::render(&template, Value::from(Serde(context)), styled, None)
+            })
             .map_err(|error| engine_error(error, name, &self.entries))
     }
 
     pub fn format_issue_id(&self, issue: &IssueReference<'_>, styled: bool) -> Result<DisplayText> {
-        #[derive(Serialize)]
-        struct Context<'a, 'reference> {
-            issue: &'a IssueReference<'reference>,
-        }
-
-        self.format_single_line(
-            FORMAT_ISSUE_ID,
-            BUILTIN_FORMAT_ISSUE_ID,
-            &Context { issue },
+        self.format_display(
+            DisplaySlot::IssueId,
+            context! { issue => Serde(issue) },
             styled,
         )
     }
 
     pub(crate) fn format_comment_id(
         &self,
-        issue: &IssueReference<'_>,
         comment: &impl Serialize,
+        issue: &IssueReference<'_>,
         styled: bool,
     ) -> Result<DisplayText> {
-        #[derive(Serialize)]
-        struct Context<'a, 'reference, Comment> {
-            issue: &'a IssueReference<'reference>,
-            comment: &'a Comment,
-        }
-
-        self.format_single_line(
-            FORMAT_COMMENT_ID,
-            BUILTIN_FORMAT_COMMENT_ID,
-            &Context { issue, comment },
+        self.format_display(
+            DisplaySlot::CommentId,
+            context! { issue => Serde(issue), comment => Serde(comment) },
             styled,
         )
     }
@@ -777,80 +766,23 @@ impl TemplateConfig {
         url: Option<&str>,
         styled: bool,
     ) -> Result<DisplayText> {
-        let slot = self.project_name_slot();
-        render_project_name(&self.display_environment, slot, name, url, styled, None)
-            .map_err(|error| engine_error(error, slot, &self.entries))
+        self.format_display(
+            DisplaySlot::ProjectName,
+            display::project_context(name, url),
+            styled,
+        )
     }
 
-    fn project_name_slot(&self) -> &'static str {
-        if self.experimental {
-            FORMAT_PROJECT_NAME
-        } else {
-            BUILTIN_FORMAT_PROJECT_NAME
-        }
-    }
-
-    fn format_single_line(
+    fn format_display(
         &self,
-        slot: &str,
-        builtin: &str,
-        context: &impl Serialize,
+        slot: DisplaySlot,
+        context: Value,
         styled: bool,
     ) -> Result<DisplayText> {
-        let name = if self.experimental { slot } else { builtin };
-        render_single_line(&self.display_environment, name, context, styled, None)
-            .map_err(|error| engine_error(error, name, &self.entries))
+        self.display_formatter
+            .render(slot, context, styled, None)
+            .map_err(|error| engine_error(error, slot.name(self.experimental), &self.entries))
     }
-}
-
-fn render_project_name(
-    env: &Environment<'static>,
-    slot: &str,
-    name: &str,
-    url: Option<&str>,
-    styled: bool,
-    parent: Option<&State>,
-) -> std::result::Result<DisplayText, minijinja::Error> {
-    #[derive(Serialize)]
-    struct Project<'a> {
-        name: &'a str,
-        url: Option<&'a str>,
-    }
-
-    #[derive(Serialize)]
-    struct Context<'a> {
-        project: Project<'a>,
-    }
-
-    let mut display = render_single_line(
-        env,
-        slot,
-        &Context {
-            project: Project { name, url },
-        },
-        styled,
-        parent,
-    )?;
-    if display.spans.iter().all(|span| span.text.trim().is_empty()) {
-        display.spans.clear();
-    }
-    Ok(display)
-}
-
-fn render_single_line(
-    env: &Environment<'static>,
-    name: &str,
-    context: &impl Serialize,
-    styled: bool,
-    parent: Option<&State>,
-) -> std::result::Result<DisplayText, minijinja::Error> {
-    let mut output = display::render(&env.get_template(name)?, context, styled, parent)?;
-    for span in &mut output.spans {
-        if let std::borrow::Cow::Owned(text) = terminal_text::single_line(&span.text) {
-            span.text = text;
-        }
-    }
-    Ok(output)
 }
 
 impl TemplateEntry {
@@ -878,6 +810,8 @@ fn context_fields(name: &str) -> Option<&'static [&'static str]> {
             "terminal",
             "markdown",
             "label",
+            FORMAT_ISSUE_ID,
+            FORMAT_COMMENT_ID,
             FORMAT_PROJECT_NAME,
         ]),
         "commit_description" => Some(&["issue", "linkage", "references"]),

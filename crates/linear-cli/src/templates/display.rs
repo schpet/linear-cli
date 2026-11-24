@@ -5,13 +5,18 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::BuildHasher;
 
 use minijinja::value::{
-    Kwargs, Object, Rest, Serde, StringInput, Value, ValueOrKwargs, from_args, merge_maps,
+    Kwargs, Object, Rest, Serde, StringInput, Value, ValueKind, ValueOrKwargs, from_args,
+    merge_maps,
 };
-use minijinja::{AutoEscape, Error, ErrorKind, Output, State, Template};
-use serde::Serialize;
+use minijinja::{AutoEscape, Environment, Error, ErrorKind, Output, State, Template, context};
 
-use crate::platform::markdown_terminal;
-use crate::refs::{LinearUrlParse, LinearUrlRef, parse_linear_url};
+use crate::platform::{markdown_terminal, terminal_text};
+use crate::refs::{IssueReference, LinearUrlParse, LinearUrlRef, parse_linear_url};
+
+use super::{
+    BUILTIN_FORMAT_COMMENT_ID, BUILTIN_FORMAT_ISSUE_ID, BUILTIN_FORMAT_PROJECT_NAME,
+    FORMAT_COMMENT_ID, FORMAT_ISSUE_ID, FORMAT_PROJECT_NAME,
+};
 
 const MAX_DISPLAY_BYTES: usize = 4 * 1024 * 1024;
 const STYLED_KEY: &str = "\0linear-display-styled";
@@ -22,8 +27,181 @@ const TOKEN_END: char = '\u{1e}';
 const TOKEN_BYTES: usize = 52;
 
 mod view;
-pub(crate) use view::{ViewPart, ViewSection, ViewSectionKind};
+pub(crate) use view::{ViewMarkdown, ViewPart, ViewSection, ViewSectionKind};
 pub(super) use view::{format_view_value, label, markdown, render_markdown};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum DisplaySlot {
+    IssueId,
+    CommentId,
+    ProjectName,
+}
+
+impl DisplaySlot {
+    pub(super) const fn name(self, experimental: bool) -> &'static str {
+        match (self, experimental) {
+            (Self::IssueId, true) => FORMAT_ISSUE_ID,
+            (Self::IssueId, false) => BUILTIN_FORMAT_ISSUE_ID,
+            (Self::CommentId, true) => FORMAT_COMMENT_ID,
+            (Self::CommentId, false) => BUILTIN_FORMAT_COMMENT_ID,
+            (Self::ProjectName, true) => FORMAT_PROJECT_NAME,
+            (Self::ProjectName, false) => BUILTIN_FORMAT_PROJECT_NAME,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct DisplayFormatter {
+    environment: Environment<'static>,
+    experimental: bool,
+}
+
+impl DisplayFormatter {
+    pub(super) fn new(environment: Environment<'static>, experimental: bool) -> Self {
+        Self {
+            environment,
+            experimental,
+        }
+    }
+
+    pub(super) fn add_helpers(&self, env: &mut Environment<'static>) {
+        let formatter = self.clone();
+        env.add_function(FORMAT_ISSUE_ID, move |state: &mut State, issue: Value| {
+            let Some(issue) = issue_reference(state, &issue, FORMAT_ISSUE_ID)? else {
+                return Ok(Value::from(""));
+            };
+            formatter.call(state, DisplaySlot::IssueId, context! { issue })
+        });
+
+        let formatter = self.clone();
+        env.add_function(
+            FORMAT_COMMENT_ID,
+            move |state: &mut State, comment: Value, issue: Value| {
+                let issue = issue_reference(state, &issue, FORMAT_COMMENT_ID)?;
+                if !is_resource(&comment, "format_comment_id expects a comment object")? {
+                    return Ok(Value::from(""));
+                }
+                required_string(
+                    &comment.get_attr("id")?,
+                    "format_comment_id expects a comment with a string ID",
+                )?;
+                optional_string(
+                    &comment.get_attr("url")?,
+                    "format_comment_id expects a comment URL to be a string",
+                )?;
+                let Some(issue) = issue else {
+                    return Ok(Value::from(""));
+                };
+                formatter.call(state, DisplaySlot::CommentId, context! { issue, comment })
+            },
+        );
+
+        let formatter = self.clone();
+        env.add_function(
+            FORMAT_PROJECT_NAME,
+            move |state: &mut State, project: Value| {
+                if !is_resource(&project, "format_project_name expects a project object")? {
+                    return Ok(Value::from(""));
+                }
+                let name = project.get_attr("name")?;
+                let name = required_string(
+                    &name,
+                    "format_project_name expects a project with a string name",
+                )?;
+                let url = project.get_attr("url")?;
+                let url = optional_string(
+                    &url,
+                    "format_project_name expects a project URL to be a string",
+                )?;
+                formatter.call(state, DisplaySlot::ProjectName, project_context(name, url))
+            },
+        );
+    }
+
+    fn call(&self, state: &mut State, slot: DisplaySlot, context: Value) -> Result<Value, Error> {
+        let display = self.render(slot, context, styled(state), Some(state))?;
+        register_display_text(state, display)
+    }
+
+    pub(super) fn render(
+        &self,
+        slot: DisplaySlot,
+        context: Value,
+        styled: bool,
+        parent: Option<&State>,
+    ) -> Result<DisplayText, Error> {
+        // Render the label using its own context and limit it to the caller's
+        // remaining fuel when invoked as a helper.
+        let mut env = Cow::Borrowed(&self.environment);
+        if let Some((_, remaining)) = parent.and_then(State::fuel_levels) {
+            env.to_mut().set_fuel(Some(remaining));
+        }
+        let template = env.get_template(slot.name(self.experimental))?;
+        let mut output = render(&template, context, styled, parent)?;
+        for span in &mut output.spans {
+            if let Cow::Owned(text) = terminal_text::single_line(&span.text) {
+                span.text = text;
+            }
+        }
+        if slot == DisplaySlot::ProjectName
+            && output.spans.iter().all(|span| span.text.trim().is_empty())
+        {
+            output.spans.clear();
+        }
+        Ok(output)
+    }
+}
+
+pub(super) fn project_context(name: &str, url: Option<&str>) -> Value {
+    context! { project => context! { name, url } }
+}
+
+fn is_resource(value: &Value, error: impl Into<Cow<'static, str>>) -> Result<bool, Error> {
+    match value.kind() {
+        ValueKind::None => Ok(false),
+        ValueKind::Map => Ok(true),
+        _ => Err(Error::new(ErrorKind::InvalidOperation, error)),
+    }
+}
+
+fn required_string(value: &Value, error: impl Into<Cow<'static, str>>) -> Result<&str, Error> {
+    value
+        .as_str()
+        .ok_or_else(|| Error::new(ErrorKind::InvalidOperation, error))
+}
+
+fn optional_string(
+    value: &Value,
+    error: impl Into<Cow<'static, str>>,
+) -> Result<Option<&str>, Error> {
+    if value.is_undefined() || value.is_none() {
+        Ok(None)
+    } else {
+        required_string(value, error).map(Some)
+    }
+}
+
+fn issue_reference(state: &State, issue: &Value, helper: &str) -> Result<Option<Value>, Error> {
+    if !is_resource(issue, format!("{helper} expects an issue object"))? {
+        return Ok(None);
+    }
+    let identifier = issue.get_attr("identifier")?;
+    let identifier = required_string(
+        &identifier,
+        format!("{helper} expects an issue with a string identifier"),
+    )?;
+    let url = issue.get_attr("url")?;
+    let url = optional_string(
+        &url,
+        format!("{helper} expects an issue URL to be a string"),
+    )?;
+    if let Some(url) = url {
+        state.consume_fuel(u64::try_from(url.len() / 16 + 1).expect("byte count fits in u64"))?;
+    }
+    Ok(Some(Value::from(Serde(IssueReference::new(
+        identifier, url,
+    )))))
+}
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct DisplayText {
@@ -127,11 +305,10 @@ impl Fragments {
 
 pub(super) fn render(
     template: &Template<'_, '_>,
-    context: &impl Serialize,
+    root: Value,
     styled: bool,
     parent: Option<&State>,
 ) -> Result<DisplayText, Error> {
-    let root = Value::from(Serde(context));
     let mut local = BTreeMap::new();
     if styled {
         // A NUL is outside MiniJinja's identifier syntax. The private render
@@ -216,36 +393,6 @@ fn inline(text: &str, tabs: bool, pending_tokens: bool) -> Cow<'_, str> {
             })
             .collect(),
     )
-}
-
-pub(super) fn project_name(
-    state: &mut State,
-    project: Value,
-    format: impl FnOnce(&State, &str, Option<&str>, bool) -> Result<DisplayText, Error>,
-) -> Result<Value, Error> {
-    if project.is_none() {
-        return Ok(Value::from(""));
-    }
-    let name = project.get_attr("name")?;
-    let name = name.as_str().ok_or_else(|| {
-        Error::new(
-            ErrorKind::InvalidOperation,
-            "format_project_name expects a project with a string name",
-        )
-    })?;
-    let url = project.get_attr("url")?;
-    let url = if url.is_none() || url.is_undefined() {
-        None
-    } else {
-        Some(url.as_str().ok_or_else(|| {
-            Error::new(
-                ErrorKind::InvalidOperation,
-                "format_project_name expects a project URL to be a string",
-            )
-        })?)
-    };
-    let display = format(state, name, url, styled(state))?;
-    register_display_text(state, display)
 }
 
 fn register_display_text(state: &mut State, display: DisplayText) -> Result<Value, Error> {

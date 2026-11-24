@@ -37,7 +37,7 @@ issue_view = '''
 
 issue_view_heading = '''
 {% block content -%}
-# {{ markdown(display.identifier) }}: {{ issue.title }}{% endblock %}'''
+# {{ format_issue_id(issue) }}: {{ issue.title }}{% endblock %}'''
 
 issue_view_metadata = '''
 {% block content -%}

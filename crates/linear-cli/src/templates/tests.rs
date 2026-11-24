@@ -381,7 +381,7 @@ fn shipped_comment_id_links_roots_and_omits_replies() {
     for experimental in [false, true] {
         let config = TemplateConfig::builtin_with_experimental(experimental);
         assert_eq!(
-            config.format_comment_id(&issue, &root, true).expect("root"),
+            config.format_comment_id(&root, &issue, true).expect("root"),
             DisplayText {
                 spans: vec![DisplaySpan {
                     text: "[root]".to_owned(),
@@ -391,14 +391,14 @@ fn shipped_comment_id_links_roots_and_omits_replies() {
         );
         assert_eq!(
             config
-                .format_comment_id(&issue, &root, false)
+                .format_comment_id(&root, &issue, false)
                 .expect("plain root")
                 .terminal(),
             "[root]"
         );
         assert_eq!(
             config
-                .format_comment_id(&issue, &reply, true)
+                .format_comment_id(&reply, &issue, true)
                 .expect("reply"),
             DisplayText::default(),
         );
@@ -562,7 +562,7 @@ format_project_name = '''{{ note | upper }}'''
     let comment_url = "https://linear.app/workspace-one/issue/DEMO-42#comment-01234567";
     let comment = serde_json::json!({ "id": "abc", "url": comment_url, "parent": null });
     let display = config
-        .format_comment_id(&issue, &comment, true)
+        .format_comment_id(&comment, &issue, true)
         .expect("shipped comment display");
     assert_eq!(display.plain(), "[abc]");
     assert_eq!(
@@ -733,21 +733,21 @@ format_comment_id = '{{% include "builtin/comment_id/{preset}" %}}'
         ] {
             let comment = serde_json::json!({ "id": "api-id", "url": web, "parent": parent });
             let styled = config
-                .format_comment_id(&issue, &comment, true)
+                .format_comment_id(&comment, &issue, true)
                 .expect("styled");
             assert_eq!(
                 styled.spans.first().and_then(|span| span.url.as_ref()),
                 Some(target)
             );
             let plain = config
-                .format_comment_id(&issue, &comment, false)
+                .format_comment_id(&comment, &issue, false)
                 .expect("plain");
             assert_eq!(plain.terminal(), "[api-id]");
         }
         let comment = serde_json::json!({ "id": "api-id" });
         assert_eq!(
             config
-                .format_comment_id(&issue, &comment, true)
+                .format_comment_id(&comment, &issue, true)
                 .expect("missing URL")
                 .terminal(),
             "[api-id]"
@@ -970,6 +970,124 @@ row = '{{ format_project_name(issue.project) }}'
         config
             .render_issue_row("row", &serde_json::json!({"issue": issue}), true)
             .expect_err("invalid project argument");
+    }
+}
+
+#[test]
+fn issue_and_comment_callables_reuse_native_formats() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+format_issue_id = 'Issue {% include "builtin/issue_id/app" %}'
+format_comment_id = '{% if comment.parent %}Reply to {{ comment.parent.id }}: {% endif %}{% include "builtin/comment_id/app" %} {{ comment.body | upper }} ({{ issue.workspace_url_key }})'
+[template-aliases]
+row = '{{ format_issue_id(issue) }} / {{ format_comment_id(issue.comments[0], issue) }}'
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("formats");
+    let url = "https://linear.app/acme/issue/ENG-1/slug";
+    let comment_url = format!("{url}#comment-ba5ed001");
+    let comment = serde_json::json!({
+        "id": "ba5ed001",
+        "url": comment_url,
+        "parent": {"id": "root"},
+        "body": "hello\tthere"
+    });
+    let context = serde_json::json!({
+        "issue": {"identifier": "ENG-1", "url": url, "workspace_url_key": "ignored", "comments": [&comment]}
+    });
+    let issue = IssueReference::new("ENG-1", Some(url));
+    let issue_display = config.format_issue_id(&issue, true).expect("native issue");
+    let comment_display = config
+        .format_comment_id(&comment, &issue, true)
+        .expect("native comment");
+    let row = config
+        .render_issue_row("row", &context, true)
+        .expect("callable formats");
+    assert_eq!(
+        row.terminal(),
+        format!(
+            "{} / {}",
+            issue_display.terminal(),
+            comment_display.terminal()
+        )
+    );
+    assert_eq!(
+        row.plain(),
+        "Issue ENG-1 / Reply to root: [ba5ed001] HELLO THERE (acme)"
+    );
+}
+
+#[test]
+fn issue_and_comment_callables_distinguish_null_from_invalid_arguments() {
+    let layer = tier(
+        "project.toml",
+        r#"[templates]
+format_issue_id = '{% include "builtin/issue_id/app" %}'
+[template-aliases]
+issue_row = '{{ format_issue_id(issue) }}'
+comment_row = '{{ format_comment_id(comment, issue) }}'
+"#,
+    );
+    let config = TemplateConfig::from_tiers_with_experimental([&layer], true).expect("format");
+    let issue = serde_json::json!({"identifier": "ENG-1"});
+    let comment = serde_json::json!({"id": "comment"});
+    for (row, context) in [
+        ("issue_row", serde_json::json!({"issue": null})),
+        (
+            "comment_row",
+            serde_json::json!({"comment": null, "issue": &issue}),
+        ),
+        (
+            "comment_row",
+            serde_json::json!({"comment": &comment, "issue": null}),
+        ),
+    ] {
+        assert_eq!(
+            config
+                .render_issue_row(row, &context, true)
+                .expect("null resource"),
+            DisplayText::default()
+        );
+    }
+    for context in [
+        serde_json::json!({"issue": &issue}),
+        serde_json::json!({"issue": {"identifier": "ENG-1", "url": null}}),
+        serde_json::json!({"issue": {"identifier": "ENG-1", "url": ""}}),
+        serde_json::json!({"issue": {"identifier": "ENG-1", "url": "https://example.test/acme/issue/ENG-1", "workspace_url_key": "ignored"}}),
+    ] {
+        let row = config
+            .render_issue_row("issue_row", &context, true)
+            .expect("optional issue URL");
+        assert_eq!(row.terminal(), "ENG-1");
+    }
+    for context in [
+        serde_json::json!({}),
+        serde_json::json!({"issue": []}),
+        serde_json::json!({"issue": {}}),
+        serde_json::json!({"issue": {"identifier": 7}}),
+        serde_json::json!({"issue": {"identifier": "ENG-1", "url": 7}}),
+    ] {
+        let error = config
+            .render_issue_row("issue_row", &context, true)
+            .expect_err("invalid issue argument");
+        assert!(error.message().contains("format_issue_id"), "{error}");
+    }
+    for context in [
+        serde_json::json!({"issue": &issue}),
+        serde_json::json!({"comment": &comment}),
+        serde_json::json!({"comment": true, "issue": &issue}),
+        serde_json::json!({"comment": {}, "issue": &issue}),
+        serde_json::json!({"comment": {"id": 7}, "issue": &issue}),
+        serde_json::json!({"comment": {"id": "comment", "url": 7}, "issue": &issue}),
+        serde_json::json!({"comment": &issue, "issue": &comment}),
+        serde_json::json!({"comment": null, "issue": 7}),
+        serde_json::json!({"comment": true, "issue": null}),
+    ] {
+        let error = config
+            .render_issue_row("comment_row", &context, true)
+            .expect_err("invalid comment arguments");
+        assert!(error.message().contains("format_comment_id"), "{error}");
     }
 }
 

@@ -1781,6 +1781,61 @@ fn query_format_includes_the_id_template_and_preserves_configured_tabs() {
 }
 
 #[test]
+fn query_format_calls_issue_id_with_the_workspace_from_each_row_url() {
+    const FIRST_URL: &str = "https://linear.app/workspace-one/issue/DEMO-42/one";
+    const SECOND_URL: &str = "https://linear.app/workspace-two/issue/DEMO-42/two";
+    let api = MockLinear::start();
+    let mut first = list_issue(42, "DEMO", "started");
+    first["url"] = json!(FIRST_URL);
+    first["project"] = json!({ "id": "project-1", "name": "Launch", "url": PROJECT_URL });
+    let mut second = list_issue(42, "DEMO", "started");
+    second["url"] = json!(SECOND_URL);
+    let mut without_url = list_issue(43, "DEMO", "started");
+    without_url["url"] = json!("");
+    let response = issues(vec![first, second, without_url], None);
+    for _ in 0..3 {
+        api.on("GetIssuesForQuery", response.clone());
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[templates]
+format_issue_id = '''**ID** {% if issue.url %}{{ hyperlink(issue.url, "[" ~ issue.workspace_url_key ~ "](" ~ issue.identifier ~ ")", issue.workspace_url_key ~ "/" ~ issue.identifier) }}{% else %}{{ issue.identifier }}{% endif %}'''
+[template-aliases]
+row = '{{ format_issue_id(issue) }} / {{ format_project_name(issue.project) or "Unassigned" }}'
+"#,
+    );
+    let args = [
+        "--experimental-templates",
+        "issue",
+        "query",
+        "--all-teams",
+        "--format",
+        "row",
+        "--no-pager",
+    ];
+    let styled = cli.run_tty(&args, &[]);
+    assert_eq!(
+        styled.success().stdout,
+        "**ID** [workspace-one](DEMO-42) / Launch\n\
+         **ID** [workspace-two](DEMO-42) / Unassigned\n\
+         **ID** DEMO-43 / Unassigned\n"
+    );
+    styled.assert_link_label(FIRST_URL, "[workspace-one](DEMO-42)");
+    styled.assert_link_label(SECOND_URL, "[workspace-two](DEMO-42)");
+    styled.assert_link_label(PROJECT_URL, "Launch");
+
+    for run in [cli.run(&args), cli.env("NO_COLOR", "1").run_tty(&args, &[])] {
+        assert_eq!(
+            run.success().stdout,
+            "**ID** workspace-one/DEMO-42 / Launch\n\
+             **ID** workspace-two/DEMO-42 / Unassigned\n\
+             **ID** DEMO-43 / Unassigned\n"
+        );
+        assert!(!run.terminal.contains("\x1b]8;;"), "{run}");
+    }
+}
+
+#[test]
 fn query_format_links_macro_fragments_with_an_outer_destination_and_fallback() {
     let api = MockLinear::start();
     let response = issues(vec![list_issue(42, "DEMO", "started")], None);
@@ -3003,7 +3058,7 @@ fn view_formats_heading_and_hierarchy_issue_ids_for_each_output() {
         r#"[experimental]
 templates = true
 [templates]
-format_issue_id = '''{{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">](" ~ issue.identifier ~ ")", issue.workspace_url_key ~ "/" ~ issue.identifier) }}'''
+format_issue_id = '''**ref** {{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">](" ~ issue.identifier ~ ")", issue.workspace_url_key ~ "/[" ~ issue.identifier ~ "]") }}'''
 "#,
     );
     let args = [
@@ -3016,32 +3071,22 @@ format_issue_id = '''{{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">
     ];
     let tty = cli.run_tty(&args, &[]);
     tty.success()
-        .stdout_has("[<workspace-one>](DEMO-42): Fix the widget")
-        .stdout_has("[<workspace-one>](DEMO-41) [deleted]: Parent work")
-        .stdout_has("[<workspace-one>](DEMO-43): Child work");
+        .stdout_has("**ref** [<workspace-one>](DEMO-42): Fix the widget")
+        .stdout_has("**ref** [<workspace-one>](DEMO-41) [deleted]: Parent work")
+        .stdout_has("**ref** [<workspace-one>](DEMO-43): Child work");
     for (url, identifier) in [
         (issue_url, "DEMO-42"),
         (parent_url, "DEMO-41"),
         (child_url, "DEMO-43"),
     ] {
-        let (_, link) = tty
-            .terminal
-            .split_once(&format!("\x1b]8;;{url}\x1b\\"))
-            .expect("the issue URL opens a link");
-        let (label, _) = link
-            .split_once("\x1b]8;;\x1b\\")
-            .expect("the issue link ends");
-        assert_eq!(
-            plain_text(label.as_bytes()),
-            format!("[<workspace-one>]({identifier})")
-        );
+        tty.assert_link_label(url, &format!("[<workspace-one>]({identifier})"));
     }
     let piped = cli.run(&args);
     piped
         .success()
-        .stdout_has("# workspace-one/DEMO-42: Fix the widget")
-        .stdout_has("- **workspace-one/DEMO-41 [deleted]**: Parent work")
-        .stdout_has("- **workspace-one/DEMO-43**: Child work");
+        .stdout_has("# **ref** workspace-one/[DEMO-42]: Fix the widget")
+        .stdout_has("- ****ref** workspace-one/[DEMO-41] [deleted]**: Parent work")
+        .stdout_has("- ****ref** workspace-one/[DEMO-43]**: Child work");
     assert!(!piped.stdout.contains("\x1b]8;;"), "{piped}");
     let args_json = [&args[..], &["--json"]].concat();
     let json = cli.run(&args_json).success().json();
@@ -3049,9 +3094,9 @@ format_issue_id = '''{{ hyperlink(issue.url, "[<" ~ issue.workspace_url_key ~ ">
     let plain = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
     plain
         .success()
-        .stdout_has("# workspace-one/DEMO-42: Fix the widget")
-        .stdout_has("workspace-one/DEMO-41 [deleted]: Parent work")
-        .stdout_has("workspace-one/DEMO-43: Child work");
+        .stdout_has("# **ref** workspace-one/[DEMO-42]: Fix the widget")
+        .stdout_has("**ref** workspace-one/[DEMO-41] [deleted]: Parent work")
+        .stdout_has("**ref** workspace-one/[DEMO-43]: Child work");
     assert!(!plain.terminal.contains("\x1b]8;;"), "{plain}");
     assert_eq!(api.operations(), ["GetIssueDetails"; 4]);
 }
@@ -3180,6 +3225,101 @@ format_comment_id = '''{{ hyperlink(comment.url, "thread:" ~ comment.id, "copy:"
             .stdout_has("copy:reply");
         assert!(!run.stdout.contains("[copy:"), "{run}");
         assert!(!run.stdout.contains("thread:"), "{run}");
+    }
+}
+
+#[test]
+fn custom_issue_view_calls_issue_and_comment_formatters_as_literal_inline_content() {
+    const ISSUE_URL: &str = "https://linear.app/workspace-view/issue/ENG-1/fix-the-widget";
+    const ROOT_URL: &str = "https://linear.app/acme/issue/ENG-1#comment-root";
+    const OUTER_URL: &str = "https://example.test/thread";
+    let api = MockLinear::start();
+    let mut value = issue(true);
+    value["url"] = json!(ISSUE_URL);
+    for _ in 0..5 {
+        api.on("GetIssueDetailsWithComments", details(value.clone()));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = false
+[templates]
+format_issue_id = '''**key** {{ hyperlink(issue.url, "[" ~ issue.identifier ~ "]", issue.workspace_url_key ~ "/[" ~ issue.identifier ~ "]") }}'''
+issue_view = '''{{ label("issue_heading", format_issue_id(issue)) }}
+
+Legacy {{ markdown(display.identifier) }}
+
+Parent {{ format_issue_id(issue.parent) }}
+
+Child {{ format_issue_id(issue.children[0]) }}
+
+Project {{ format_project_name(issue.project) }}
+
+{% for comment in issue.comments if not comment.resolvedAt -%}
+{% set id = format_comment_id(comment, issue) -%}
+{{ comment.id }}:{% if id %} {{ label("footer", id) }}{% endif %}
+
+{% endfor -%}
+Outer {{ hyperlink("https://example.test/thread", label("footer", format_comment_id(issue.comments[0], issue))) }}'''
+"#,
+    );
+    let args = ["issue", "view", "ENG-1", "--no-download", "--no-pager"];
+    let off = cli.run(&args);
+    off.success()
+        .stdout_has("# ENG-1: Fix the widget")
+        .stdout_has("[root]\n\n  Root comment body");
+    assert!(!off.stdout.contains("**key**"), "{off}");
+    assert!(!off.stdout.contains("[reply]"), "{off}");
+
+    let enabled = [&args[..], &["--experimental-templates"]].concat();
+    let default = cli.run_tty(&enabled, &[]);
+    default
+        .success()
+        .stdout_has("**key** [ENG-1]\n")
+        .stdout_has("Legacy **key** [ENG-1]\n")
+        .stdout_has("root: [root]\n")
+        .stdout_has("\nreply:\n")
+        .stdout_has("Outer [root]\n");
+    default.assert_link_label(ISSUE_URL, "[ENG-1]");
+    default.assert_link_label(
+        "https://linear.app/acme/issue/ENG-99/parent-work",
+        "[ENG-99]",
+    );
+    default.assert_link_label("https://linear.app/acme/issue/ENG-2/child-work", "[ENG-2]");
+    default.assert_link_label(PROJECT_URL, "Launch");
+    default.assert_link_label(ROOT_URL, "[root]");
+    default.assert_link_label(OUTER_URL, "[root]");
+
+    let args = [
+        enabled.as_slice(),
+        &[
+            "--config",
+            r#"templates.format_comment_id = '''{{ hyperlink(comment.url, "[*" ~ comment.id ~ "*]", issue.workspace_url_key ~ "/[*" ~ comment.id ~ "*]") }}'''"#,
+        ],
+    ]
+    .concat();
+    let styled = cli.run_tty(&args, &[]);
+    styled
+        .success()
+        .stdout_has("root: [*root*]\n")
+        .stdout_has("reply: [*reply*]\n")
+        .stdout_has("Outer [*root*]\n");
+    styled.assert_link_label(ROOT_URL, "[*root*]");
+    styled.assert_link_label(
+        "https://linear.app/acme/issue/ENG-1#comment-reply",
+        "[*reply*]",
+    );
+    styled.assert_link_label(OUTER_URL, "[*root*]");
+
+    for run in [cli.run(&args), cli.env("NO_COLOR", "1").run_tty(&args, &[])] {
+        run.success()
+            .stdout_has("**key** workspace-view/[ENG-1]\n")
+            .stdout_has("Parent **key** acme/[ENG-99]\n")
+            .stdout_has("Child **key** acme/[ENG-2]\n")
+            .stdout_has("root: workspace-view/[*root*]\n")
+            .stdout_has("reply: workspace-view/[*reply*]\n")
+            .stdout_has("Outer workspace-view/[*root*]\n");
+        assert!(!run.terminal.contains("\x1b]8;;"), "{run}");
     }
 }
 
@@ -3667,4 +3807,46 @@ issue_view = '''{{ label("footer", label("field_label", hyperlink(issue.url, iss
         assert_eq!(run.success().stdout, expected, "{run}");
         assert!(!run.terminal.contains('\x1b'), "{run}");
     }
+}
+
+#[test]
+fn view_does_not_evaluate_formatters_for_omitted_sections() {
+    let api = MockLinear::start();
+    for _ in 0..3 {
+        api.on("GetIssueDetailsWithComments", details(issue(true)));
+    }
+    let cli = Cli::for_api(&api).file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+issue_view = '{{ issue.title }}'
+format_issue_id = '{{ fail("issue formatter was called") }}'
+format_comment_id = '{{ fail("comment formatter was called") }}'
+"#,
+    );
+    let args = ["issue", "view", "ENG-1", "--no-download"];
+    let run = cli.run(&args);
+    assert_eq!(run.success().stdout, "Fix the widget\n");
+    for (section, error) in [
+        (
+            "hierarchy",
+            "templates.format_issue_id: issue formatter was called",
+        ),
+        (
+            "comments",
+            "templates.format_comment_id: comment formatter was called",
+        ),
+    ] {
+        let overlay = format!("templates.issue_view = '{{{{ sections.{section} }}}}'");
+        let run = cli.run(&[args.as_slice(), &["--config", &overlay]].concat());
+        run.failure().stderr_has(error);
+        assert_eq!(
+            run.stderr.matches("invalid template configuration").count(),
+            1,
+            "{run}"
+        );
+        assert!(run.stdout.is_empty(), "{run}");
+    }
+    assert_eq!(api.operations(), ["GetIssueDetailsWithComments"; 3]);
 }
