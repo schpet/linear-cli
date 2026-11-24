@@ -3,6 +3,7 @@
 use crate::client::LinearClient;
 use crate::commands::comments;
 use crate::graphql::pagination::{self, Page, PageInfo};
+use crate::graphql::scalars::TimelessDate;
 use crate::platform::kitty::InlineImages;
 use crate::refs::IssueReference;
 use crate::templates::markdown::{push_markdown_label, push_markdown_link};
@@ -27,6 +28,9 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use super::lifecycle::Lifecycle;
+
 pub fn run(ctx: &Ctx, args: &IssueView) -> Result<()> {
     view(ctx, args).context("Failed to view issue")
 }
@@ -494,7 +498,7 @@ fn hierarchy(issue: &Issue, issue_ids: &IssueIds<'_>) -> Result<String> {
         out.push_str(&format!(
             "\n\n## Parent\n\n- **{}{}**: {} _[{}]_\n",
             issue_ids.markdown(&parent.identifier, &parent.url)?,
-            super::lifecycle::Lifecycle::of(parent.trashed, parent.archived_at).marker(),
+            Lifecycle::of(parent.trashed, parent.archived_at).marker(),
             parent.title,
             parent.state.name
         ));
@@ -505,7 +509,7 @@ fn hierarchy(issue: &Issue, issue_ids: &IssueIds<'_>) -> Result<String> {
             out.push_str(&format!(
                 "- **{}{}**: {} _[{}]_\n",
                 issue_ids.markdown(&child.identifier, &child.url)?,
-                super::lifecycle::Lifecycle::of(child.trashed, child.archived_at).marker(),
+                Lifecycle::of(child.trashed, child.archived_at).marker(),
                 child.title,
                 child.state.name
             ));
@@ -568,8 +572,7 @@ struct IssueViewData<'a> {
 #[derive(Serialize)]
 struct BodyDisplay<'a> {
     identifier: String,
-    lifecycle_banner: Option<String>,
-    lifecycle_state_suffix: &'static str,
+    lifecycle: LifecycleDisplay,
     priority: String,
     cycle: Option<String>,
     creator: Option<&'a str>,
@@ -577,12 +580,40 @@ struct BodyDisplay<'a> {
     updated: String,
 }
 
+#[derive(Serialize)]
+struct LifecycleDisplay {
+    kind: LifecycleKind,
+    date: Option<TimelessDate>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum LifecycleKind {
+    Active,
+    Archived,
+    Deleted,
+}
+
+impl From<Lifecycle> for LifecycleDisplay {
+    fn from(lifecycle: Lifecycle) -> Self {
+        let (kind, timestamp) = match lifecycle {
+            Lifecycle::Active => (LifecycleKind::Active, None),
+            Lifecycle::Archived(at) => (LifecycleKind::Archived, Some(at)),
+            Lifecycle::Deleted(at) => (LifecycleKind::Deleted, at),
+        };
+        Self {
+            kind,
+            date: timestamp.map(|at| TimelessDate::from(at.0.date_naive())),
+        }
+    }
+}
+
 fn body_context<'a>(
     issue: &'a Issue,
     now: DateTime<Utc>,
     issue_ids: &IssueIds<'_>,
 ) -> Result<Body<'a>> {
-    let lifecycle = super::lifecycle::Lifecycle::of(issue.trashed, issue.archived_at);
+    let lifecycle = Lifecycle::of(issue.trashed, issue.archived_at);
     let ago = |at: &crate::graphql::scalars::DateTime| {
         crate::commands::relative_time::ago(at.0, now, &chrono::Local)
     };
@@ -594,8 +625,7 @@ fn body_context<'a>(
         },
         display: BodyDisplay {
             identifier: issue_ids.markdown(&issue.identifier, &issue.url)?,
-            lifecycle_banner: lifecycle.banner(),
-            lifecycle_state_suffix: lifecycle.state_suffix(),
+            lifecycle: lifecycle.into(),
             priority: super::list_view::priority(issue.priority),
             cycle: issue.cycle.as_ref().map(|cycle| cycle_label(issue, cycle)),
             creator: issue.creator.as_ref().and_then(user_name),

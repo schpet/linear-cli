@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Issue metadata captions such as `State:` and `Archived:` are bold on styled terminals and plain text in pipes. Custom issue views can combine `field_label`, `issue_heading`, and `footer` on the same text or hyperlink.
+
 - Deleted (trashed) and archived issues are marked in issue views, lists and references; issue JSON includes `trashed` and `archivedAt`. Comment lists and commit descriptions warn about inactive issues, rejected writes explain confirmed deletion, and VCS starts and pull request creation refuse known deleted issues before making changes.
 
 - Retired `vcs` / `LINEAR_VCS` settings are ignored quietly, including values older versions rejected. Retired `pr_template` / `LINEAR_PR_TEMPLATE` values are also ignored without validation, with migration guidance only during pull request creation. Both settings are safe to leave in place.

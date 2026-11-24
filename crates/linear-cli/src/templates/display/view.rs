@@ -386,13 +386,18 @@ pub(in crate::templates) fn label(state: &mut State, args: &[Value]) -> Result<V
     let name = view_string(name, "label name must be a string")?;
     let text = view_string(value, "label content must be a string")?;
     let style = match name {
+        "field_label" => LabelStyle::FieldLabel,
         "footer" => LabelStyle::Footer,
         "issue_heading" => LabelStyle::IssueHeading,
         _ => return Ok(value.clone()),
     };
     let mut spans = compose(state, text, "label content")?;
     for span in &mut spans {
-        span.label = Some(style);
+        // These styles are idempotent. Keep the innermost occurrence of a
+        // repeated label and bound the path by the number of known labels.
+        if !span.labels.contains(&style) {
+            span.labels.push(style);
+        }
     }
     register_inline(state, spans)
 }
@@ -433,7 +438,7 @@ fn register_inline(state: &mut State, spans: Vec<InlineSpan>) -> Result<Value, E
 fn literal(text: &str) -> InlineSpan {
     InlineSpan {
         text: Arc::from(text),
-        label: None,
+        labels: Vec::new(),
         url: None,
     }
 }

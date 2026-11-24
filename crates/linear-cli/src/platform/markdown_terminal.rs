@@ -82,6 +82,7 @@ pub fn render(markdown: &str, options: &RenderOptions) -> String {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum LabelStyle {
+    FieldLabel,
     Footer,
     IssueHeading,
 }
@@ -89,8 +90,15 @@ pub(crate) enum LabelStyle {
 #[derive(Clone, Debug)]
 pub(crate) struct InlineSpan {
     pub text: Arc<str>,
-    pub label: Option<LabelStyle>,
+    /// Semantic labels, with the innermost label first.
+    pub labels: Vec<LabelStyle>,
     pub url: Option<Arc<str>>,
+}
+
+impl InlineSpan {
+    fn is_footer(&self) -> bool {
+        self.labels.contains(&LabelStyle::Footer)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -472,17 +480,14 @@ impl<'o> Renderer<'o> {
         for spans in marker
             .content
             .spans
-            .chunk_by(|left, right| left.label == right.label)
+            .chunk_by(|left, right| left.is_footer() == right.is_footer())
         {
-            let base = match spans.first().and_then(|span| span.label) {
-                Some(LabelStyle::Footer) => {
-                    self.footer_label(spans);
-                    continue;
-                }
-                Some(LabelStyle::IssueHeading) => self.style().bold().underlined(),
-                None => self.style(),
-            };
+            if spans.first().is_some_and(InlineSpan::is_footer) {
+                self.footer_label(spans);
+                continue;
+            }
             for span in spans {
+                let base = self.labeled_style(&span.labels);
                 let text = terminal_text::multiline(&span.text);
                 let link = span.url.as_deref().filter(|_| {
                     self.options.styled && self.links.is_empty() && self.image.is_none()
@@ -566,34 +571,40 @@ impl<'o> Renderer<'o> {
         let mut plain = String::new();
         let mut painted = String::new();
         let multiline = self.table.is_none() && self.links.is_empty() && self.image.is_none();
-        for span in spans {
-            let text = terminal_text::multiline(&span.text);
-            let text = if !multiline && text.contains('\n') {
-                Cow::Owned(text.replace('\n', " "))
-            } else {
-                text
-            };
-            plain.push_str(&text);
-            match &span.url {
-                Some(url)
-                    if self.options.styled && self.links.is_empty() && self.image.is_none() =>
-                {
-                    for (index, line) in text.split('\n').enumerate() {
-                        if index > 0 {
-                            painted.push('\n');
-                        }
-                        if !line.is_empty() {
-                            painted.push_str(&hyperlink(line, url));
-                        }
+        let styled_links = self.options.styled && self.links.is_empty() && self.image.is_none();
+        // Adjacent footer text stays together for wrapping, even when a
+        // nested label changes the style for part of the line.
+        for group in spans.chunk_by(|left, right| left.labels == right.labels) {
+            let first = group.first().expect("a run of labels is nonempty");
+            let style = self.labeled_style(&first.labels);
+            let mut run = String::new();
+            for span in group {
+                let text = terminal_text::multiline(&span.text);
+                let text = if !multiline && text.contains('\n') {
+                    Cow::Owned(text.replace('\n', " "))
+                } else {
+                    text
+                };
+                plain.push_str(&text);
+                let url = span.url.as_deref().filter(|_| styled_links);
+                for (index, line) in text.split('\n').enumerate() {
+                    if index > 0 {
+                        painted.push_str(&self.paint(&run, &style));
+                        run.clear();
+                        painted.push('\n');
+                    }
+                    if let Some(url) = url.filter(|_| !line.is_empty()) {
+                        run.push_str(&hyperlink(line, url));
+                    } else {
+                        run.push_str(line);
                     }
                 }
-                _ => painted.push_str(&text),
             }
+            painted.push_str(&self.paint(&run, &style));
         }
         if self.track_inline(&plain) {
             return;
         }
-        let style = self.style().black().bright();
         for (index, (text, line)) in plain.split('\n').zip(painted.split('\n')).enumerate() {
             if index > 0 {
                 self.literal_line_break();
@@ -602,7 +613,7 @@ impl<'o> Renderer<'o> {
                 continue;
             }
             self.span(Span::FixedText {
-                painted: self.paint(line, &style),
+                painted: line.to_owned(),
                 width: text.width(),
             });
         }
@@ -838,6 +849,17 @@ impl<'o> Renderer<'o> {
             style = style.blue().underlined();
         }
         style
+    }
+
+    fn labeled_style(&self, labels: &[LabelStyle]) -> Style {
+        labels
+            .iter()
+            .rev()
+            .fold(self.style(), |style, label| match label {
+                LabelStyle::FieldLabel => style.bold(),
+                LabelStyle::Footer => style.black().bright(),
+                LabelStyle::IssueHeading => style.bold().underlined(),
+            })
     }
 
     fn paint(&self, text: &str, style: &Style) -> String {
@@ -1521,7 +1543,7 @@ mod tests {
                 source_range,
                 spans: vec![InlineSpan {
                     text: Arc::from(value),
-                    label: None,
+                    labels: Vec::new(),
                     url: None,
                 }],
             },
@@ -1590,10 +1612,52 @@ mod tests {
 
         let footer = "  the\tfooter\n\nwith another line  ";
         let (source, mut inline) = with_interpolation("", footer, "");
-        inline.spans.first_mut().unwrap().label = Some(LabelStyle::Footer);
+        inline.spans.first_mut().unwrap().labels = vec![LabelStyle::Footer];
         assert_eq!(
             render_with_inlines(&source, &[inline], &options(false)),
             format!("{footer}\n")
+        );
+    }
+
+    #[test]
+    fn nested_footer_labels_keep_hyperlink_style_local_and_wrap_as_one_unit() {
+        let url = "https://example.test/issues/ENG-1";
+        let (source, mut inline) = with_interpolation("*Before ", "View ", " after*");
+        inline.spans.first_mut().unwrap().labels = vec![LabelStyle::Footer];
+        inline.spans.extend([
+            InlineSpan {
+                text: Arc::from("ENG-1"),
+                labels: vec![LabelStyle::FieldLabel, LabelStyle::Footer],
+                url: Some(Arc::from(url)),
+            },
+            InlineSpan {
+                text: Arc::from(" now"),
+                labels: vec![LabelStyle::Footer],
+                url: None,
+            },
+        ]);
+
+        let columns = NonZeroU16::new(12).unwrap();
+        let plain = RenderOptions::for_terminal(columns, false, None);
+        assert_eq!(
+            render_with_inlines(&source, std::slice::from_ref(&inline), &plain),
+            "Before\nView ENG-1 now\nafter\n",
+        );
+
+        let styled = render_with_inlines(&source, &[inline], &options(true));
+        let italic = Style::new().italic().force_styling(true);
+        let gray = italic.clone().black().bright();
+        let linked = hyperlink("ENG-1", url);
+        let footer = format!(
+            "{}{}{}",
+            gray.apply_to("View "),
+            gray.clone().bold().apply_to(linked),
+            gray.apply_to(" now"),
+        );
+        assert!(styled.contains(&footer), "{styled:?}");
+        assert!(
+            styled.contains(&italic.apply_to("after").to_string()),
+            "{styled:?}",
         );
     }
 

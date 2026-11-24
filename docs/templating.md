@@ -106,7 +106,15 @@ issue_view_description = '{{ issue.description or "" }}'
 
 Pipes receive Markdown source and plain link fallbacks. The CLI replaces embedded control characters with U+FFFD, preserving tabs and line endings. In a terminal, `markdown()` uses the CLI’s normal Markdown renderer. Apply it to the source string before capturing or slicing formatted content.
 
-`label("footer", content)` applies the footer’s gray style on a styled terminal and keeps each line together, even at a narrow width. Use `issue_heading` for heading emphasis. Other label names currently pass their content through. Labels and hyperlinks compose in either order and lose their terminal styling in plain output. Their content may be inline text, another link, or a labeled value. A macro that returns formatted content retains its existing interpretation. An example footer is `{{ label("footer", hyperlink(issue.url, issue.identifier)) }}`.
+Use `label(name, content)` to style inline text by its role. The built-in metadata uses `{{ label("field_label", "State:") }} {{ issue.state.name }}`. In a styled terminal the caption is bold. In a pipe it reads `State: Started`, and punctuation in the state name stays literal.
+
+| Label | Default terminal appearance |
+|---|---|
+| `field_label` | Bold |
+| `issue_heading` | Bold and underlined |
+| `footer` | Gray, with each line kept together |
+
+Labels nest and can wrap hyperlinks or sit inside them. For example, `{{ label("footer", label("field_label", hyperlink(issue.url, issue.identifier))) }}` prints a bold gray link on a styled terminal and the plain identifier in a pipe. Unrecognized labels pass their content through. A macro can return labeled or linked content for another template to use.
 
 For example, to make the entire heading open the issue in the desktop app, using each issue’s own workspace:
 
@@ -129,7 +137,7 @@ issue_view = '''{% include "issue_view_heading" %}
 
 {% include "issue_view_description" %}
 
-**State:** {{ issue.state.name }}'''
+{{ label("field_label", "State:") }} {{ issue.state.name }}'''
 ```
 
 All five templates receive the same context.
@@ -140,9 +148,11 @@ All five templates receive the same context.
 | `terminal` | Boolean. True when stdout is a terminal, independently of color or pager settings. |
 | `display.identifier` | The configured `format_issue_id` rendered as inline Markdown, including the link on styled terminals. Use `markdown(display.identifier)` to present it, or `issue.identifier` for the raw ID. |
 | `display.priority`, `display.created`, `display.updated` | The priority indicator used by the CLI and human-readable creation and update times. |
-| `display.lifecycle_banner`, `display.lifecycle_state_suffix` | The archived/deleted banner (or `none`) and the suffix for the state line (or an empty string). |
+| `display.lifecycle.kind`, `display.lifecycle.date` | The lifecycle kind is `active`, `archived`, or `deleted`. The date is a UTC calendar date (`YYYY-MM-DD`) or `none` when unavailable. |
 | `display.cycle`, `display.creator` | The formatted cycle and creator name, each `none` when unavailable. |
 | `sections.hierarchy`, `sections.attachments`, `sections.documents`, `sections.comments` | Ready-to-print sections. Interpolate each section directly at a block boundary to retain its native formatting. Each supplies its own spacing and is empty when there is nothing to show. Comments respect `--show-resolved-threads`. To write your own section layout, iterate over the corresponding fields on `issue`. |
+
+If you customized an earlier experimental issue view, replace `display.lifecycle_banner` and `display.lifecycle_state_suffix` with conditions on `display.lifecycle.kind`. The built-in `issue_view_metadata` shows both forms and handles deleted issues with no date.
 
 The detail object includes `identifier`, `title`, `url`, `branchName`, `priority`, `state`, `team`, and `createdAt` / `updatedAt`. Nullable fields include `description`, `trashed`, `archivedAt`, `assignee`, `delegate`, `creator`, `project`, `projectMilestone`, `cycle`, and `parent`. Collections are direct lists: `labels`, `children`, `attachments`, `documents`, and `comments`. Use `linear issue view DEMO-42 --json` with an issue you can access to inspect the nested fields. In a custom loop, `issue.comments` contains the fetched comments including resolved threads. Use `sections.comments` for the command’s thread grouping and visibility rules.
 
@@ -380,7 +390,7 @@ With [experimental templates](#experimental-templates) enabled, macros accept po
 | Function | Result |
 |---|---|
 | `markdown(text: String) → Content` (issue views) | Interpret the supplied text as Markdown in a terminal. A pipe carries the source. When it occupies its own top-level paragraph, the fragment is a separate Markdown document, so an unclosed fence in an issue description ends at the section boundary. |
-| `label(name: String, content: Content) → Content` (issue views) | Apply a semantic style to inline content. The `footer` label is gray on styled terminals. Use inline text or link content as the argument. |
+| `label(name: String, content: Content) → Content` (issue views) | Apply a role to inline text, labeled content, or a hyperlink. See the [issue view labels](#issue-view) for their default styles. |
 | `hyperlink(url: String, text: Content[, fallback: Content]) → Content` (experimental) | Links `text` to an absolute URI when terminal links are enabled. Otherwise it displays `fallback`, which defaults to `text`. Pipes, `TERM=dumb`, nonempty `NO_COLOR`, and guide, commit, and pull request templates use this fallback. The terminal decides which schemes it can open. |
 | `fail(message: String)` | Stops rendering with the given message. |
 

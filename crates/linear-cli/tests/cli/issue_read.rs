@@ -583,7 +583,7 @@ fn view_shows_the_delegate_only_when_there_is_one() {
         assert_json(&json, &view_json(delegated));
         cli.run(&args)
             .success()
-            .stdout_has("**Assignee:** @Alice Example\n**Delegate:** @linear\n**Project:**");
+            .stdout_has("Assignee: @Alice Example\nDelegate: @linear\nProject:");
         let plain = cli.run(&args);
         assert!(!plain.success().stdout.contains("Delegate"), "{plain}");
         for request in api.requests() {
@@ -607,15 +607,15 @@ fn view_puts_each_metadata_field_on_its_own_line() {
         let run = Cli::for_api(&api).run(&args);
         run.success().stdout_has(
             "# ENG-1: Fix the widget\n\n\
-             **State:** Started\n\
-             **Priority:** ▄▆█\n\
-             **Assignee:** @Alice Example\n\
-             **Project:** Launch\n\
-             **Milestone:** Beta\n\
-             **Cycle:** #7 Sprint 7 (now)\n\
-             **Creator:** @Sam Example\n\
-             **Created:** 2024-01-01\n\
-             **Updated:** 2024-01-02\n\n\
+             State: Started\n\
+             Priority: ▄▆█\n\
+             Assignee: @Alice Example\n\
+             Project: Launch\n\
+             Milestone: Beta\n\
+             Cycle: #7 Sprint 7 (now)\n\
+             Creator: @Sam Example\n\
+             Created: 2024-01-01\n\
+             Updated: 2024-01-02\n\n\
              ## Body",
         );
         let query = &api.requests()[0].query;
@@ -626,11 +626,57 @@ fn view_puts_each_metadata_field_on_its_own_line() {
 }
 
 #[test]
+fn view_keeps_metadata_values_literal_in_pipes_and_on_terminals() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    value["state"]["name"] = json!("_Started_");
+    value["assignee"]["displayName"] = json!("**Alice**");
+    value["delegate"] =
+        json!({ "name": "Linear", "displayName": "[linear](https://example.test)" });
+    value["project"]["name"] = json!("`Launch`");
+    value["projectMilestone"]["name"] = json!("**Beta**");
+    value["cycle"]["name"] = json!("_Sprint 7_");
+    value["creator"]["displayName"] = json!("**Sam**");
+    api.on("GetIssueDetails", details(value.clone()))
+        .on("GetIssueDetails", details(value));
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR");
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let pipe = cli.run(&args);
+    pipe.success().stdout_has("## Body\n\nPlain **bold** text.");
+    let tty = cli.run_tty(&args, &[]);
+    tty.success().stdout_has("Plain bold text.");
+    assert!(
+        !tty.terminal.contains("\x1b]8;;https://example.test"),
+        "{tty}"
+    );
+    for run in [pipe, tty] {
+        for line in [
+            "State: _Started_",
+            "Assignee: @**Alice**",
+            "Delegate: @[linear](https://example.test)",
+            "Project: `Launch`",
+            "Milestone: **Beta**",
+            "Cycle: #7 _Sprint 7_ (now)",
+            "Creator: @**Sam**",
+        ] {
+            run.stdout_has(line);
+        }
+    }
+}
+
+#[test]
 fn view_names_the_creator_by_display_name_then_name() {
     for (creator, line) in [
         (
             json!({ "name": "sam", "displayName": "" }),
-            Some("**Creator:** @sam\n"),
+            Some("Creator: @sam\n"),
         ),
         (json!({ "name": "", "displayName": "" }), None),
         (Value::Null, None),
@@ -644,7 +690,7 @@ fn view_names_the_creator_by_display_name_then_name() {
             Some(line) => run.success().stdout_has(line),
             None => {
                 run.success()
-                    .stdout_has("**Cycle:** #7 Sprint 7 (now)\n**Created:** 2024-01-01\n");
+                    .stdout_has("Cycle: #7 Sprint 7 (now)\nCreated: 2024-01-01\n");
                 assert!(!run.stdout.contains("Creator"), "{run}");
                 &run
             }
@@ -2660,25 +2706,25 @@ fn view_surfaces_lifecycle_without_replacing_workflow_state() {
             (
                 json!(true),
                 at.clone(),
-                "**Deleted:** 2026-11-09 (in trash; restore it in Linear to edit or comment)",
+                "Deleted: 2026-11-09 (in trash; restore it in Linear to edit or comment)",
                 "Started (deleted)",
             ),
             (
                 json!(true),
                 Value::Null,
-                "**Deleted:** In trash; restore it in Linear to edit or comment",
+                "Deleted: In trash; restore it in Linear to edit or comment",
                 "Started (deleted)",
             ),
             (
                 json!(false),
                 at.clone(),
-                "**Archived:** 2026-11-09",
+                "Archived: 2026-11-09",
                 "Started (archived)",
             ),
             (
                 Value::Null,
                 at.clone(),
-                "**Archived:** 2026-11-09",
+                "Archived: 2026-11-09",
                 "Started (archived)",
             ),
             (Value::Null, Value::Null, "", "Started"),
@@ -2701,10 +2747,10 @@ fn view_surfaces_lifecycle_without_replacing_workflow_state() {
                 args.push("--no-comments");
             }
             let text = cli.run(&args);
-            text.success().stdout_has(&format!("**State:** {state}\n"));
+            text.success().stdout_has(&format!("State: {state}\n"));
             if banner.is_empty() {
-                assert!(!text.stdout.contains("**Deleted:**"), "{text}");
-                assert!(!text.stdout.contains("**Archived:**"), "{text}");
+                assert!(!text.stdout.contains("Deleted:"), "{text}");
+                assert!(!text.stdout.contains("Archived:"), "{text}");
             } else {
                 text.stdout_has(&format!("# ENG-1: Fix the widget\n\n{banner}\n"));
             }
@@ -2971,7 +3017,7 @@ issue_view_heading = '''# {{ hyperlink(
     let piped = cli.run(&args);
     piped
         .success()
-        .stdout_has("# acme/ENG-1\n\n**State:** Started")
+        .stdout_has("# acme/ENG-1\n\nState: Started")
         .stdout_has("## Body\n\nPlain **bold** text.");
     assert!(!piped.stdout.contains('\x1b'), "{piped}");
 
@@ -2998,7 +3044,7 @@ fn view_places_a_standalone_description_override_after_the_metadata() {
             "--no-download",
         ])
         .success()
-        .stdout_has("**Updated:** 2024-01-02\n\n## Summary\n\n## Parent");
+        .stdout_has("Updated: 2024-01-02\n\n## Summary\n\n## Parent");
 }
 
 #[test]
@@ -3289,4 +3335,81 @@ fn issue_view_footer_can_be_replaced_removed_or_placed_in_a_pipe() {
     let pipe = cli.run(&[&args[..], &[footer, "--config", layout]].concat());
     pipe.success();
     assert_eq!(pipe.stdout, "See ENG-1 / Fix the widget\n");
+}
+
+#[test]
+fn nested_issue_view_labels_and_links_keep_styles_targets_and_plain_fallbacks() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    let title = "**[widget](https://example.test/literal)**";
+    let description = "## Notes\n\n**Keep this Markdown.**";
+    value["title"] = json!(title);
+    value["description"] = json!(description);
+    for _ in 0..3 {
+        api.on("GetIssueDetails", details(value.clone()));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+issue_view = '''{{ label("footer", label("field_label", hyperlink(issue.url, issue.title, "Outer " ~ issue.identifier))) }}
+
+{{ hyperlink(issue.url, label("field_label", label("footer", issue.title)), "Inner " ~ issue.identifier) }}
+
+{{ label("issue_heading", hyperlink(issue.url, issue.title, "Heading " ~ issue.identifier)) }}
+
+{{ hyperlink(issue.url, label("issue_heading", issue.title), "Link " ~ issue.identifier) }}
+
+{{ issue.description }}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let styled = cli.run_tty(&args, &[]);
+    styled.success();
+    let styled_labels: Vec<_> = styled
+        .terminal
+        .lines()
+        .filter(|line| line.contains(title))
+        .collect();
+    assert_eq!(styled_labels.len(), 4, "{styled}");
+    let open = "\x1b]8;;https://linear.app/acme/issue/ENG-1/fix-the-widget\x1b\\";
+    let close = "\x1b]8;;\x1b\\";
+    for (line, effect) in
+        styled_labels
+            .into_iter()
+            .zip(["\x1b[38;5;8m", "\x1b[38;5;8m", "\x1b[4m", "\x1b[4m"])
+    {
+        let (before, linked) = line.split_once(open).expect("one issue hyperlink");
+        let (linked, after) = linked.split_once(close).expect("balanced issue hyperlink");
+        assert_eq!(plain_text(linked.as_bytes()), title, "{styled}");
+        assert!(!after.contains(open), "{styled}");
+        let prefix = format!(
+            "{before}{}",
+            linked.split_once(title).expect("literal title").0
+        );
+        assert!(prefix.contains("\x1b[1m"), "{styled}");
+        assert!(prefix.contains(effect), "{styled}");
+    }
+    assert!(styled.stdout.contains(description), "{styled}");
+    assert!(
+        !styled
+            .terminal
+            .contains("\x1b]8;;https://example.test/literal"),
+        "{styled}"
+    );
+
+    let expected =
+        format!("Outer ENG-1\n\nInner ENG-1\n\nHeading ENG-1\n\nLink ENG-1\n\n{description}\n");
+    for run in [cli.run(&args), cli.env("NO_COLOR", "1").run_tty(&args, &[])] {
+        assert_eq!(run.success().stdout, expected, "{run}");
+        assert!(!run.terminal.contains('\x1b'), "{run}");
+    }
 }
