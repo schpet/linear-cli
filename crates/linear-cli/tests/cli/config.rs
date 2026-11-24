@@ -523,6 +523,7 @@ fn exported_templates_reload_in_the_same_feature_mode() {
             "issue_view_heading",
             "issue_view_metadata",
             "issue_view_description",
+            "issue_view_footer",
         ] {
             assert_eq!(listing["templates"].get(name).is_some(), enabled, "{name}");
         }
@@ -543,6 +544,7 @@ fn issue_view_template_overrides_require_an_explicit_opt_in() {
         "issue_view_heading",
         "issue_view_metadata",
         "issue_view_description",
+        "issue_view_footer",
     ] {
         let cli = Cli::new().file(
             "cwd/.linear.toml",

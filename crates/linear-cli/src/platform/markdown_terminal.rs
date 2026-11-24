@@ -9,7 +9,12 @@
 //! OSC-8 hyperlinks; with it off the output is plain text that keeps the
 //! Markdown cues (`#` headings, backticks, link URLs) needed to read it.
 
+use std::borrow::Cow;
+use std::collections::hash_map::RandomState;
+use std::fmt::Write as _;
+use std::hash::BuildHasher;
 use std::num::NonZeroU16;
+use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -72,11 +77,146 @@ impl RenderOptions {
 /// Renders Markdown for a terminal. Nonempty output ends with a line feed.
 pub fn render(markdown: &str, options: &RenderOptions) -> String {
     let markdown = terminal_text::multiline(markdown);
+    render_source(&markdown, options, None)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LabelStyle {
+    Footer,
+    IssueHeading,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct InlineSpan {
+    pub text: Arc<str>,
+    pub label: Option<LabelStyle>,
+    pub url: Option<Arc<str>>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct InlineContent {
+    pub source_range: Range<usize>,
+    pub spans: Vec<InlineSpan>,
+}
+
+/// Marks where literal or styled inline content belongs in a Markdown source.
+/// The recorded byte range distinguishes it from any matching source text.
+pub(crate) fn push_inline_marker(source: &mut String) -> Range<usize> {
+    let start = source.len();
+    source.push('\u{e000}');
+    start..source.len()
+}
+
+/// Parses the Markdown around inline values before rendering those values.
+/// The parser sees ordinary text where an interpolation appears, so a value
+/// can neither add Markdown syntax nor change its surrounding structure.
+pub(crate) fn render_with_inlines(
+    source: &str,
+    inlines: &[InlineContent],
+    options: &RenderOptions,
+) -> String {
+    if inlines.is_empty() {
+        return render(source, options);
+    }
+    let salt = RandomState::new();
+    let prefix = (0..)
+        .map(|attempt| format!("\u{e000}{:016x}", salt.hash_one(attempt)))
+        .find(|prefix| !source.contains(prefix))
+        .expect("a marker prefix absent from the source exists");
+    let mut markdown = String::with_capacity(source.len());
+    let mut markers = Vec::with_capacity(inlines.len());
+    let mut next = 0;
+    for (index, content) in inlines.iter().enumerate() {
+        let raw = source
+            .get(next..content.source_range.start)
+            .expect("inline ranges are ordered and on character boundaries");
+        markdown.push_str(&terminal_text::multiline(raw));
+        write!(markdown, "{prefix}{index:x}\u{e001}").expect("writing to a String cannot fail");
+        markers.push(InlineMarker {
+            content,
+            standalone: standalone_inline(source, &content.source_range),
+        });
+        next = content.source_range.end;
+    }
+    let raw = source
+        .get(next..)
+        .expect("inline ranges are within the Markdown source");
+    markdown.push_str(&terminal_text::multiline(raw));
+    let markers = InlineMarkers { prefix, markers };
+    render_source(&markdown, options, Some(&markers))
+}
+
+fn standalone_inline(source: &str, range: &Range<usize>) -> bool {
+    fn line_edge(mut chars: impl Iterator<Item = char>) -> bool {
+        chars
+            .find(|ch| !matches!(ch, ' ' | '\t'))
+            .is_none_or(|ch| matches!(ch, '\r' | '\n'))
+    }
+    let before = source
+        .get(..range.start)
+        .expect("inline ranges are on character boundaries");
+    let after = source
+        .get(range.end..)
+        .expect("inline ranges are on character boundaries");
+    line_edge(before.chars().rev()) && line_edge(after.chars())
+}
+
+struct InlineMarker<'a> {
+    content: &'a InlineContent,
+    standalone: bool,
+}
+
+struct InlineMarkers<'a> {
+    prefix: String,
+    markers: Vec<InlineMarker<'a>>,
+}
+
+impl InlineMarkers<'_> {
+    fn expand(&self, mut text: &str, mut push: impl FnMut(&str, Option<&InlineMarker<'_>>)) {
+        while let Some((before, after)) = text.split_once(&self.prefix) {
+            let Some((index, rest)) = after.split_once('\u{e001}') else {
+                break;
+            };
+            let Some(marker) = usize::from_str_radix(index, 16)
+                .ok()
+                .and_then(|index| self.markers.get(index))
+            else {
+                break;
+            };
+            push(before, Some(marker));
+            text = rest;
+        }
+        push(text, None);
+    }
+
+    /// For code, HTML, and Markdown destinations, expand the visible text.
+    fn plain<'a>(&self, text: &'a str) -> Cow<'a, str> {
+        if !text.contains(&self.prefix) {
+            return Cow::Borrowed(text);
+        }
+        let mut plain = String::new();
+        self.expand(text, |source, marker| {
+            plain.push_str(source);
+            if let Some(marker) = marker {
+                for span in &marker.content.spans {
+                    plain.push_str(&span.text);
+                }
+            }
+        });
+        Cow::Owned(plain)
+    }
+}
+
+fn render_source(
+    markdown: &str,
+    options: &RenderOptions,
+    markers: Option<&InlineMarkers<'_>>,
+) -> String {
     let parser = Parser::new_ext(
-        &markdown,
+        markdown,
         Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS,
     );
-    let mut renderer = Renderer::new(options);
+    let mut renderer = Renderer::new(options, markers);
     for event in parser {
         renderer.event(event);
     }
@@ -86,6 +226,37 @@ pub fn render(markdown: &str, options: &RenderOptions) -> String {
 /// An OSC-8 terminal hyperlink.
 pub fn hyperlink(text: &str, url: &str) -> String {
     format!("\x1b]8;;{}\x1b\\{text}\x1b]8;;\x1b\\", sanitize(url))
+}
+
+pub(crate) fn valid_absolute_url(url: &str) -> bool {
+    let Some((scheme, rest)) = url.split_once(':') else {
+        return false;
+    };
+    if url
+        .chars()
+        .any(|ch| ch.is_whitespace() || ch.is_control() || "\"<>\\^\x60{|}".contains(ch))
+    {
+        return false;
+    }
+    // The URL parser also accepts forms such as `https:/host`.
+    // Require an explicit authority for HTTP and HTTPS.
+    if (scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https"))
+        && !rest.strip_prefix("//").is_some_and(|rest| {
+            rest.split(['/', '?', '#'])
+                .next()
+                .is_some_and(|authority| !authority.is_empty() && !authority.ends_with(':'))
+        })
+    {
+        return false;
+    }
+    if url.split('%').skip(1).any(|part| {
+        !part
+            .get(..2)
+            .is_some_and(|pair| pair.bytes().all(|b| b.is_ascii_hexdigit()))
+    }) {
+        return false;
+    }
+    Url::parse(url).is_ok()
 }
 
 /// Document text with terminal control characters (other than tab and line
@@ -123,13 +294,13 @@ struct List {
 }
 
 struct Link {
-    url: String,
+    url: Option<String>,
     /// Visible text, to tell whether the URL must be printed after it.
     text: String,
 }
 
 struct Image {
-    url: String,
+    url: Option<String>,
     alt: String,
 }
 
@@ -139,6 +310,11 @@ enum Span {
     Text {
         text: String,
         style: Style,
+    },
+    /// Literal whitespace or a footer label, kept together during wrapping.
+    FixedText {
+        painted: String,
+        width: usize,
     },
     /// Starts an OSC-8 hyperlink (styled output only).
     LinkStart(String),
@@ -164,6 +340,7 @@ struct Table {
 
 struct Renderer<'o> {
     options: &'o RenderOptions,
+    markers: Option<&'o InlineMarkers<'o>>,
     out: String,
     containers: Vec<Container>,
     lists: Vec<List>,
@@ -183,9 +360,10 @@ struct Renderer<'o> {
 }
 
 impl<'o> Renderer<'o> {
-    fn new(options: &'o RenderOptions) -> Self {
+    fn new(options: &'o RenderOptions, markers: Option<&'o InlineMarkers<'o>>) -> Self {
         Self {
             options,
+            markers,
             out: String::new(),
             containers: Vec::new(),
             lists: Vec::new(),
@@ -207,16 +385,9 @@ impl<'o> Renderer<'o> {
         match event {
             Event::Start(tag) => self.start(tag),
             Event::End(tag) => self.end(tag),
-            Event::Text(text) => {
-                if matches!(self.containers.last(), Some(Container::Code)) {
-                    let code = self.style().cyan();
-                    self.lines(&sanitize(&text), &code);
-                } else {
-                    self.inline(&sanitize(&text), &self.style());
-                }
-            }
+            Event::Text(text) => self.text(&text),
             Event::Code(code) => {
-                let code = sanitize(&code);
+                let code = self.resolve_single_line(&code);
                 if self.options.styled {
                     self.inline(&code, &self.style().cyan());
                 } else {
@@ -225,10 +396,11 @@ impl<'o> Renderer<'o> {
             }
             Event::Html(html) => {
                 let gray = Style::new().black().bright();
-                self.lines(&sanitize(&html), &gray);
+                self.lines(&sanitize(&self.resolve_inline_text(&html)), &gray);
             }
             Event::InlineHtml(html) => {
-                self.inline(&sanitize(&html), &self.style().black().bright())
+                let html = self.resolve_single_line(&html);
+                self.inline(&html, &self.style().black().bright());
             }
             Event::SoftBreak | Event::HardBreak => {
                 if let Some(cell) = self.table.as_mut().and_then(|table| table.cell()) {
@@ -258,6 +430,184 @@ impl<'o> Renderer<'o> {
         }
     }
 
+    fn resolve_inline_text<'a>(&self, text: &'a str) -> Cow<'a, str> {
+        self.markers
+            .map_or(Cow::Borrowed(text), |markers| markers.plain(text))
+    }
+
+    fn destination(&self, url: &str) -> Option<String> {
+        let url = self.resolve_inline_text(url);
+        if matches!(&url, Cow::Owned(_)) && !valid_absolute_url(&url) {
+            return None;
+        }
+        Some(sanitize(&url))
+    }
+
+    fn resolve_single_line(&self, text: &str) -> String {
+        match self.resolve_inline_text(text) {
+            Cow::Borrowed(text) => sanitize(text),
+            Cow::Owned(text) => terminal_text::single_line(&text).into_owned(),
+        }
+    }
+
+    fn text(&mut self, text: &str) {
+        if matches!(self.containers.last(), Some(Container::Code)) {
+            let code = sanitize(&self.resolve_inline_text(text));
+            self.lines(&code, &self.style().cyan());
+        } else if let Some(markers) = self.markers {
+            markers.expand(text, |source, marker| {
+                if !source.is_empty() {
+                    self.inline(&sanitize(source), &self.style());
+                }
+                if let Some(marker) = marker {
+                    self.literal(marker);
+                }
+            });
+        } else {
+            self.inline(&sanitize(text), &self.style());
+        }
+    }
+
+    fn literal(&mut self, marker: &InlineMarker<'_>) {
+        for spans in marker
+            .content
+            .spans
+            .chunk_by(|left, right| left.label == right.label)
+        {
+            let base = match spans.first().and_then(|span| span.label) {
+                Some(LabelStyle::Footer) => {
+                    self.footer_label(spans);
+                    continue;
+                }
+                Some(LabelStyle::IssueHeading) => self.style().bold().underlined(),
+                None => self.style(),
+            };
+            for span in spans {
+                let text = terminal_text::multiline(&span.text);
+                let link = span.url.as_deref().filter(|_| {
+                    self.options.styled && self.links.is_empty() && self.image.is_none()
+                });
+                if let Some(url) = link {
+                    self.span(Span::LinkStart(url.to_owned()));
+                    self.literal_inline(
+                        &terminal_text::single_line(&text),
+                        &base.clone().blue().underlined(),
+                        marker.standalone,
+                    );
+                    self.span(Span::LinkEnd);
+                } else if text.contains('\n') {
+                    if self.table.is_some() || self.image.is_some() || !self.links.is_empty() {
+                        self.literal_inline(
+                            &terminal_text::single_line(&text),
+                            &base,
+                            marker.standalone,
+                        );
+                    } else if marker.standalone && marker.content.spans.len() == 1 {
+                        self.lines(&text, &base);
+                    } else {
+                        // Keep the first and last lines in the same inline
+                        // layout as the Markdown surrounding the value.
+                        for (index, line) in text.split('\n').enumerate() {
+                            if index > 0 {
+                                self.literal_line_break();
+                            }
+                            self.literal_inline(line, &base, true);
+                        }
+                    }
+                } else {
+                    self.literal_inline(&text, &base, marker.standalone);
+                }
+            }
+        }
+    }
+
+    fn literal_inline(&mut self, text: &str, style: &Style, preserve_spaces: bool) {
+        if !preserve_spaces {
+            self.inline(text, style);
+            return;
+        }
+        if self.track_inline(text) {
+            return;
+        }
+        // The wrapping algorithm can drop spaces between words. Leading and
+        // trailing whitespace that belongs to a literal value is content.
+        let rest = text.trim_start_matches([' ', '\t']);
+        let (leading, rest) = text.split_at(text.len() - rest.len());
+        let end = rest.trim_end_matches([' ', '\t']).len();
+        let (content, trailing) = rest.split_at(end);
+        for (text, keep_spaces) in [(leading, true), (content, false), (trailing, true)] {
+            if text.is_empty() {
+                continue;
+            }
+            let span = if keep_spaces {
+                Span::FixedText {
+                    painted: self.paint(text, style),
+                    width: text.width(),
+                }
+            } else {
+                Span::Text {
+                    text: text.to_owned(),
+                    style: style.clone(),
+                }
+            };
+            self.span(span);
+        }
+    }
+
+    fn literal_line_break(&mut self) {
+        if self.pending.is_empty() && self.at_line_start {
+            self.blank_line();
+        } else {
+            self.newline();
+        }
+    }
+
+    fn footer_label(&mut self, spans: &[InlineSpan]) {
+        let mut plain = String::new();
+        let mut painted = String::new();
+        let multiline = self.table.is_none() && self.links.is_empty() && self.image.is_none();
+        for span in spans {
+            let text = terminal_text::multiline(&span.text);
+            let text = if !multiline && text.contains('\n') {
+                Cow::Owned(text.replace('\n', " "))
+            } else {
+                text
+            };
+            plain.push_str(&text);
+            match &span.url {
+                Some(url)
+                    if self.options.styled && self.links.is_empty() && self.image.is_none() =>
+                {
+                    for (index, line) in text.split('\n').enumerate() {
+                        if index > 0 {
+                            painted.push('\n');
+                        }
+                        if !line.is_empty() {
+                            painted.push_str(&hyperlink(line, url));
+                        }
+                    }
+                }
+                _ => painted.push_str(&text),
+            }
+        }
+        if self.track_inline(&plain) {
+            return;
+        }
+        let style = self.style().black().bright();
+        for (index, (text, line)) in plain.split('\n').zip(painted.split('\n')).enumerate() {
+            if index > 0 {
+                self.literal_line_break();
+            }
+            if text.is_empty() {
+                continue;
+            }
+            self.span(Span::FixedText {
+                painted: self.paint(line, &style),
+                width: text.width(),
+            });
+        }
+    }
+
     fn start(&mut self, tag: Tag<'_>) {
         match tag {
             Tag::Paragraph => {
@@ -283,6 +633,7 @@ impl<'o> Renderer<'o> {
             Tag::CodeBlock(kind) => {
                 self.start_block();
                 if let CodeBlockKind::Fenced(info) = kind {
+                    let info = self.resolve_inline_text(&info);
                     let lang = info.split_whitespace().next().unwrap_or_default();
                     if !lang.is_empty() {
                         let label = self.paint(&sanitize(lang), &Style::new().black().bright());
@@ -357,8 +708,8 @@ impl<'o> Renderer<'o> {
                     LinkType::Email => format!("mailto:{dest_url}"),
                     _ => dest_url.into_string(),
                 };
-                let url = sanitize(&url);
-                if self.options.styled {
+                let url = self.destination(&url);
+                if let Some(url) = url.as_ref().filter(|_| self.options.styled) {
                     self.span(Span::LinkStart(url.clone()));
                 }
                 self.links.push(Link {
@@ -368,7 +719,7 @@ impl<'o> Renderer<'o> {
             }
             Tag::Image { dest_url, .. } => {
                 self.image = Some(Image {
-                    url: sanitize(&dest_url),
+                    url: self.destination(&dest_url),
                     alt: String::new(),
                 });
             }
@@ -439,10 +790,12 @@ impl<'o> Renderer<'o> {
             TagEnd::Strikethrough => self.strikethrough -= 1,
             TagEnd::Link => {
                 let link = self.links.pop().expect("a link ends after it starts");
-                if self.options.styled {
-                    self.span(Span::LinkEnd);
-                } else if link.text != link.url && !link.url.is_empty() {
-                    self.inline(&format!(" ({})", link.url), &self.style());
+                if let Some(url) = link.url {
+                    if self.options.styled {
+                        self.span(Span::LinkEnd);
+                    } else if link.text != url && !url.is_empty() {
+                        self.inline(&format!(" ({url})"), &self.style());
+                    }
                 }
             }
             TagEnd::Image => {
@@ -481,7 +834,7 @@ impl<'o> Renderer<'o> {
         if self.strikethrough > 0 {
             style = style.strikethrough();
         }
-        if !self.links.is_empty() {
+        if self.links.iter().any(|link| link.url.is_some()) {
             style = style.blue().underlined();
         }
         style
@@ -497,17 +850,25 @@ impl<'o> Renderer<'o> {
 
     /// Inline text without line breaks, to wherever inline content goes.
     fn inline(&mut self, text: &str, style: &Style) {
+        if !self.track_inline(text) {
+            self.span(Span::Text {
+                text: text.to_owned(),
+                style: style.clone(),
+            });
+        }
+    }
+
+    /// Record visible text for a wrapping link or an image. An image consumes
+    /// the text as its alt text.
+    fn track_inline(&mut self, text: &str) -> bool {
         for link in &mut self.links {
             link.text.push_str(text);
         }
         if let Some(image) = &mut self.image {
             image.alt.push_str(text);
-            return;
+            return true;
         }
-        self.span(Span::Text {
-            text: text.to_owned(),
-            style: style.clone(),
-        });
+        false
     }
 
     /// Inline content for the table cell being filled or the current line.
@@ -677,8 +1038,12 @@ impl<'o> Renderer<'o> {
     }
 
     fn image(&mut self, image: &Image) {
+        let Some(url) = &image.url else {
+            self.inline(&image.alt, &self.style());
+            return;
+        };
         let spans = if self.options.styled {
-            let target = self.image_target(&image.url);
+            let target = self.image_target(url);
             let gray = Style::new().black().bright();
             vec![
                 Span::Text {
@@ -687,14 +1052,14 @@ impl<'o> Renderer<'o> {
                 },
                 Span::LinkStart(target),
                 Span::Text {
-                    text: image.url.clone(),
+                    text: url.clone(),
                     style: gray.underlined(),
                 },
                 Span::LinkEnd,
             ]
         } else {
             vec![Span::Text {
-                text: format!("![{}]({})", image.alt, image.url),
+                text: format!("![{}]({url})", image.alt),
                 style: Style::new(),
             }]
         };
@@ -703,7 +1068,7 @@ impl<'o> Renderer<'o> {
             return;
         }
         self.pending.extend(spans);
-        if let Some(grid) = self.picture(&image.url) {
+        if let Some(grid) = self.picture(url) {
             self.newline();
             for line in grid {
                 self.emit(&line);
@@ -877,16 +1242,22 @@ fn longest_word(spans: &[Span]) -> usize {
     let mut longest = 0;
     let mut current = 0;
     for span in spans {
-        let Span::Text { text, .. } = span else {
-            continue;
-        };
-        for ch in text.chars() {
-            if ch == ' ' || ch == '\t' {
-                current = 0;
-            } else {
-                current += ch.width().unwrap_or(0);
+        match span {
+            Span::Text { text, .. } => {
+                for ch in text.chars() {
+                    if ch == ' ' || ch == '\t' {
+                        current = 0;
+                    } else {
+                        current += ch.width().unwrap_or(0);
+                        longest = longest.max(current);
+                    }
+                }
+            }
+            Span::FixedText { width, .. } => {
+                current += width;
                 longest = longest.max(current);
             }
+            Span::LinkStart(_) | Span::LinkEnd => {}
         }
     }
     longest
@@ -903,6 +1274,7 @@ fn spans_width(spans: &[Span]) -> usize {
         .iter()
         .map(|span| match span {
             Span::Text { text, .. } => text.width(),
+            Span::FixedText { width, .. } => *width,
             Span::LinkStart(_) | Span::LinkEnd => 0,
         })
         .sum()
@@ -944,6 +1316,7 @@ fn layout(spans: &[Span], width: usize, split_words: bool, styled: bool) -> Vec<
                         painted.push_str(&style.apply_to(text).to_string());
                     }
                     Span::Text { text, .. } => painted.push_str(text),
+                    Span::FixedText { painted: text, .. } => painted.push_str(text),
                     Span::LinkStart(url) => {
                         painted.push_str(&link_start(url));
                         open_link = Some(url);
@@ -983,6 +1356,9 @@ struct Lines {
 impl Lines {
     fn push(&mut self, span: &Span) {
         let Span::Text { text, style } = span else {
+            if let Span::FixedText { width, .. } = span {
+                self.word_width += width;
+            }
             self.word.push(span.clone());
             return;
         };
@@ -1023,6 +1399,12 @@ impl Lines {
         }
         for span in word {
             let Span::Text { text, style } = span else {
+                if let Span::FixedText { width, .. } = &span {
+                    if self.line_width > 0 && self.line_width + width > self.width {
+                        self.break_line();
+                    }
+                    self.line_width += width;
+                }
                 self.line.push(span);
                 continue;
             };
@@ -1127,6 +1509,103 @@ mod tests {
 
     fn plain(markdown: &str) -> String {
         render(markdown, &options(false))
+    }
+
+    fn with_interpolation(before: &str, value: &str, after: &str) -> (String, InlineContent) {
+        let mut source = before.to_owned();
+        let source_range = push_inline_marker(&mut source);
+        source.push_str(after);
+        (
+            source,
+            InlineContent {
+                source_range,
+                spans: vec![InlineSpan {
+                    text: Arc::from(value),
+                    label: None,
+                    url: None,
+                }],
+            },
+        )
+    }
+
+    #[test]
+    fn interpolations_keep_their_text_in_parsed_markdown() {
+        for (before, value, after, expected) in [
+            ("# \u{e000} ", "*title*", "", "# \u{e000} *title*"),
+            ("`", "ENG-1", "`", "`ENG-1`"),
+            ("~~~", "text", "\nraw\n~~~", "text\n    raw"),
+            ("~~~text\n", "foo\n  bar", "\n~~~", "    foo\n      bar"),
+            ("<div>\n", "*body*", "\n</div>", "<div>\n*body*\n</div>"),
+            ("| head |\n|---|\n|", "a | b", "|", "│ a | b │"),
+            (
+                "[",
+                "[literal]",
+                "](https://a.example)",
+                "[literal] (https://a.example)",
+            ),
+            (
+                "[target](",
+                "https://a.example",
+                ")",
+                "target (https://a.example)",
+            ),
+            (
+                "![",
+                "*literal*",
+                "](https://a.example)",
+                "![*literal*](https://a.example)",
+            ),
+            (
+                "![image](",
+                "https://a.example",
+                ")",
+                "![image](https://a.example)",
+            ),
+        ] {
+            let (source, inline) = with_interpolation(before, value, after);
+            let text = render_with_inlines(&source, &[inline], &options(false));
+            assert!(text.contains(expected), "{source:?}: {text:?}");
+            assert!(!text.contains('\u{e001}'), "{source:?}: {text:?}");
+        }
+    }
+
+    #[test]
+    fn invalid_interpolated_destinations_have_no_terminal_link() {
+        let (source, inline) =
+            with_interpolation("[target](", "https://a.example/\x1b\\\x1b[2J", ")");
+        let text = render_with_inlines(&source, &[inline], &options(true));
+        assert!(!text.contains("\x1b]8;"), "{text:?}");
+        assert!(!text.contains("\x1b[2J"), "{text:?}");
+        assert!(text.contains("target"), "{text:?}");
+    }
+
+    #[test]
+    fn literal_and_labeled_values_keep_spaces_tabs_and_line_breaks() {
+        let literal = "  spaces   and\ttabs  ";
+        let (source, inline) = with_interpolation("", literal, "");
+        assert_eq!(
+            render_with_inlines(&source, &[inline], &options(false)),
+            format!("{literal}\n")
+        );
+
+        let footer = "  the\tfooter\n\nwith another line  ";
+        let (source, mut inline) = with_interpolation("", footer, "");
+        inline.spans.first_mut().unwrap().label = Some(LabelStyle::Footer);
+        assert_eq!(
+            render_with_inlines(&source, &[inline], &options(false)),
+            format!("{footer}\n")
+        );
+    }
+
+    #[test]
+    fn surrounding_markdown_keeps_space_as_a_wrap_opportunity() {
+        let (source, inline) = with_interpolation("**State:** Started", " (archived)", "");
+        let columns = NonZeroU16::new(22).unwrap();
+        let options = RenderOptions::for_terminal(columns, false, None);
+        assert_eq!(
+            render_with_inlines(&source, &[inline], &options),
+            "State: Started\n(archived)\n"
+        );
     }
 
     #[test]

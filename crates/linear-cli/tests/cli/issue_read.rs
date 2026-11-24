@@ -2343,6 +2343,39 @@ fn view_tty_ends_with_the_issue_url_after_the_comments() {
 }
 
 #[test]
+fn view_keeps_the_footer_outside_an_unclosed_description_fence() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    value["description"] = json!("~~~sh\necho open");
+    value["parent"] = Value::Null;
+    for connection in ["children", "attachments", "documents"] {
+        value[connection]["nodes"] = json!([]);
+    }
+    let url = value["url"].as_str().expect("fixture has a URL").to_owned();
+    api.on("GetIssueDetails", details(value));
+    let run = Cli::for_api(&api).env_remove("NO_COLOR").run_tty(
+        &[
+            "issue",
+            "view",
+            "ENG-1",
+            "--no-comments",
+            "--no-download",
+            "--no-pager",
+        ],
+        &[],
+    );
+    run.success()
+        .stdout_has("    echo open")
+        .ends_with_footer(&format!("View this issue on Linear: {url}"));
+    assert!(
+        run.terminal.contains(&format!(
+            "\x1b[38;5;8mView this issue on Linear: \x1b]8;;{url}\x1b\\{url}\x1b]8;;\x1b\\\x1b[0m"
+        )),
+        "{run}"
+    );
+}
+
+#[test]
 fn view_piped_has_no_footer() {
     let api = MockLinear::start();
     api.on("GetIssueDetailsWithComments", details(issue(true)));
@@ -3020,14 +3053,8 @@ issue_view_metadata = '**Owner:** {{ issue.assignee.displayName }}'
         .stdout_has("## Work\n\nDescription for 22.\n\n- A detail")
         .stdout_has("## Work\n\nDescription for 21.\n\n- A detail");
     let tty = cli.run_tty(&args, &[]);
-    tty.success()
-        .stdout_has("View this issue on Linear: https://linear.app/workspace-two/issue/ENG-22");
-    assert!(
-        tty.stdout.trim_end().ends_with(
-            "\n\nView this issue on Linear: https://linear.app/workspace-one/issue/ENG-21"
-        ),
-        "{tty}"
-    );
+    tty.success();
+    assert!(!tty.stdout.contains("View this issue on Linear"), "{tty}");
     for run in [&piped, &tty] {
         let mut remainder = run.stdout.as_str();
         for text in [
@@ -3079,4 +3106,187 @@ fn terminal_view_shows_the_deleted_banner_and_state_suffix() {
         .success()
         .stdout_has("Deleted: 2026-11-09")
         .stdout_has("State: Started (deleted)");
+}
+
+#[test]
+fn issue_view_owns_the_footer_and_keeps_data_literal() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    let title = "**[widget](https://example.test)**";
+    let description = "# Header\n\n\n```sh\n  a | b\n```\n**bold**";
+    value["title"] = json!(title);
+    value["description"] = json!(description);
+    for _ in 0..5 {
+        api.on("GetIssueDetails", details(value.clone()));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR");
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+        "--experimental-templates",
+        "--config",
+    ];
+    let render = |template: &str, tty| {
+        let overlay = format!("templates.issue_view = '{template}'");
+        let args = [args.as_slice(), &[overlay.as_str()]].concat();
+        if tty {
+            cli.run_tty(&args, &[])
+        } else {
+            cli.run(&args)
+        }
+    };
+    let title_run = render("{{ issue.title }}", true);
+    title_run.success().stdout_has(title);
+    assert!(!title_run.stdout.contains("View this issue on Linear"));
+    assert!(!title_run.terminal.contains("\x1b]8;;https://example.test"));
+    for tty in [false, true] {
+        let literal = render("{{ issue.description }}", tty);
+        literal.success().stdout_has(description);
+        let markdown = render("{{ markdown(issue.description) }}", tty);
+        markdown.success();
+        if tty {
+            assert!(!markdown.stdout.contains("**bold**"), "{markdown}");
+            assert!(markdown.stdout.contains("bold"), "{markdown}");
+        } else {
+            assert_eq!(markdown.stdout, format!("{description}\n"));
+        }
+    }
+}
+
+#[test]
+fn issue_view_reports_transformed_captures_passed_to_markdown() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetails", details(issue(false)));
+    let run = Cli::for_api(&api).run(&[
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--experimental-templates",
+        "--config",
+        "templates.issue_view = '{% set captured %}{{ issue.title }}{% endset %}{{ markdown(captured[0:]) }}'",
+    ]);
+    run.failure()
+        .stderr_has("templates.issue_view")
+        .stderr_has("Apply markdown() to the source value before capturing it");
+    assert!(run.stdout.is_empty(), "{run}");
+}
+
+#[test]
+fn issue_view_keeps_spaces_around_a_multiline_literal_in_a_paragraph() {
+    let api = MockLinear::start();
+    let mut value = issue(false);
+    value["description"] = json!("first\nsecond");
+    for _ in 0..6 {
+        api.on("GetIssueDetails", details(value.clone()));
+    }
+    for layout in [
+        "templates.issue_view = 'Before {{ issue.description }} after'",
+        r#"templates.issue_view = 'Before {{ label("footer", issue.description) }} after'"#,
+    ] {
+        let cli = Cli::for_api(&api);
+        let args = [
+            "issue",
+            "view",
+            "ENG-1",
+            "--no-comments",
+            "--no-download",
+            "--no-pager",
+            "--experimental-templates",
+            "--config",
+            layout,
+        ];
+        for run in [
+            cli.run(&args),
+            cli.run_tty(&args, &[]),
+            cli.env_remove("NO_COLOR").run_tty(&args, &[]),
+        ] {
+            assert_eq!(run.success().stdout, "Before first\nsecond after\n");
+        }
+    }
+}
+
+#[test]
+fn nested_label_and_hyperlink_preserve_target_and_style_in_either_order() {
+    let api = MockLinear::start();
+    for _ in 0..3 {
+        api.on("GetIssueDetails", details(issue(false)));
+    }
+    let cli = Cli::for_api(&api).env_remove("NO_COLOR").file(
+        "cwd/.linear.toml",
+        r#"[experimental]
+templates = true
+[templates]
+issue_view = '''{% macro linked(text) %}{{ hyperlink(issue.url, text) }}{% endmacro %}{{ label("footer", linked(issue.identifier)) }} {{ hyperlink(issue.url, label("footer", issue.identifier)) }}'''
+"#,
+    );
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+    ];
+    let tty = cli.run_tty(&args, &[]);
+    tty.success().stdout_has("ENG-1 ENG-1");
+    assert_eq!(
+        tty.terminal
+            .matches("\x1b]8;;https://linear.app/acme/issue/ENG-1/fix-the-widget\x1b\\")
+            .count(),
+        2,
+        "{tty}"
+    );
+    assert!(tty.terminal.contains("38;5;8m"), "{tty}");
+    let pipe = cli.run(&args);
+    pipe.success();
+    assert_eq!(pipe.stdout, "ENG-1 ENG-1\n");
+    let plain = cli.env("NO_COLOR", "1").run_tty(&args, &[]);
+    plain.success().stdout_has("ENG-1 ENG-1");
+    assert!(!plain.terminal.contains("\x1b]8;;"), "{plain}");
+}
+
+#[test]
+fn issue_view_footer_can_be_replaced_removed_or_placed_in_a_pipe() {
+    let api = MockLinear::start();
+    for _ in 0..3 {
+        api.on("GetIssueDetails", details(issue(false)));
+    }
+    let cli = Cli::for_api(&api);
+    let args = [
+        "issue",
+        "view",
+        "ENG-1",
+        "--no-comments",
+        "--no-download",
+        "--no-pager",
+        "--experimental-templates",
+        "--config",
+    ];
+    let footer = "templates.issue_view_footer = 'See {{ issue.identifier }}'";
+    let replace = cli.run_tty(&[&args[..], &[footer]].concat(), &[]);
+    replace.success();
+    assert!(
+        replace.stdout.trim_end().ends_with("See ENG-1"),
+        "{replace}"
+    );
+    let remove = cli.run_tty(
+        &[&args[..], &["templates.issue_view_footer = ''"]].concat(),
+        &[],
+    );
+    remove.success();
+    assert!(
+        !remove.stdout.contains("View this issue on Linear"),
+        "{remove}"
+    );
+    let layout =
+        r#"templates.issue_view = '{% include "issue_view_footer" %} / {{ issue.title }}'"#;
+    let pipe = cli.run(&[&args[..], &[footer, "--config", layout]].concat());
+    pipe.success();
+    assert_eq!(pipe.stdout, "See ENG-1 / Fix the widget\n");
 }

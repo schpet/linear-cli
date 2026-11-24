@@ -26,7 +26,11 @@ const ISSUE_VIEW: &str = "issue_view";
 fn is_view_slot(name: &str) -> bool {
     matches!(
         name,
-        ISSUE_VIEW | "issue_view_heading" | "issue_view_metadata" | "issue_view_description"
+        ISSUE_VIEW
+            | "issue_view_heading"
+            | "issue_view_metadata"
+            | "issue_view_description"
+            | "issue_view_footer"
     )
 }
 
@@ -157,7 +161,6 @@ fn command_hooks() -> BTreeSet<String> {
 
 fn environment(experimental: bool) -> Environment<'static> {
     let mut env = Environment::empty();
-    env.set_formatter(display::format_document_value);
     if !experimental {
         // A legacy partial can share a view slot's name. Resolve includes
         // inside the shipped view to its shipped components in stable mode.
@@ -666,8 +669,15 @@ impl TemplateConfig {
         } else {
             "builtin/issue_view"
         };
-        self.environment
-            .get_template(name)
+        // Both display modes mark macro and block captures as safe. Reuse the
+        // compiled templates, giving only this view the document formatter and
+        // its presentation functions. Ordinary row and guide scopes stay distinct.
+        let mut view = self.display_environment.clone();
+        view.set_formatter(display::format_view_value);
+        view.add_function("markdown", display::markdown);
+        view.add_function("label", display::label);
+        view.add_function("hyperlink", display::hyperlink);
+        view.get_template(name)
             .and_then(|template| display::render_markdown(&template, context, styled))
             .map_err(|error| engine_error(error, name, &self.entries))
     }
@@ -721,7 +731,9 @@ fn valid_name(name: &str) -> bool {
 fn context_fields(name: &str) -> Option<&'static [&'static str]> {
     match name {
         FORMAT_ISSUE_ID => Some(&["issue"]),
-        name if is_view_slot(name) => Some(&["issue", "display", "sections"]),
+        name if is_view_slot(name) => Some(&[
+            "issue", "display", "sections", "terminal", "markdown", "label",
+        ]),
         "commit_description" => Some(&["issue", "linkage", "references"]),
         "pr_title" | "pr_body" | "pr_issue_links" => Some(&[
             "issues",
