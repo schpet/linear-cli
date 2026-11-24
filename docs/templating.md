@@ -1,15 +1,15 @@
 # Templates
 
-MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
+MiniJinja templates customize the agent guide, commit descriptions, and pull requests. Experimental templates also customize issue identifiers and list rows. Put templates in your global Linear config for personal defaults, or the selected project config to share repository conventions.
 
 ## Experimental templates
 
-Hyperlinks in user templates, native macros, and call blocks require an opt-in and may change or be removed in a minor release. Includes, inheritance, and imports of exported values also work by default.
+Custom issue ID templates (`format_issue_id`), named rows (`--format`), `hyperlink` in user templates, and native macros and call blocks are experimental. They require an opt-in and may change or be removed in a minor release. Built-in issue links, `--columns`, and existing guide, commit, and pull request templates are available by default. Includes, inheritance, and imports of exported values also work by default.
 
 Enable experimental templates for a single invocation with the global flag.
 
 ```bash
-linear --experimental-templates skill show
+linear --experimental-templates issue mine --format example/standup
 ```
 
 For persistent use, enable them in your global or project Linear config.
@@ -21,7 +21,7 @@ templates = true
 
 The project setting takes precedence over the global setting. The flag enables the experiment regardless of those settings. To use experimental templates from a `--config-file` or `--config` overlay, enable the experiment separately.
 
-Set `templates = false` to turn off the experiment and keep its definitions in your config. This works in either config file, including a project that opts out of a global `true`. Stable customizations still apply. If a saved guide or message needs a disabled macro, it falls back to the lower-priority template for that slot.
+Set `templates = false` to turn off the experiment and keep its definitions in your config. This works in either config file, including a project that opts out of a global `true`. Stable customizations still apply. If a saved guide or message needs a disabled macro, it falls back to the lower-priority template for that slot. Explicit requests such as `--format` still require the opt-in.
 
 ## Configuration
 
@@ -75,11 +75,14 @@ Use distinct names for partials and template slots. The `skill_` and `guide_` pr
 | `guide` | `linear skill show` | [Guide fields](#guide-fields) |
 | `guide_targeted` | `linear skill show` with a command path | [Guide fields](#guide-fields) |
 | `guide_*`, `skill_<command_path>` | Guide sections and command guidance | [Guide fields](#guide-fields) |
-| `format_issue_id` (experimental override) | Headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
+| `format_issue_id` (experimental override) | ID cells in `issue mine` and `issue query`, headings and hierarchy in `issue view`, and IDs in `issue relation list` | [`issue: Issue ID`](#issue-id-fields) |
 | `commit_description` | `issue describe` and `issue jj start` | [`issue: Issue`, `references: Boolean`, `linkage: String`](#commit-and-pull-request-fields) |
 | `pr_title`, `pr_body`, `pr_issue_links` | Generated PR title and body, including the reusable issue-link block | [`issues: List<Issue>`, `description: String`, `references: Boolean`, `linkage: String`, `issue_clause: String`](#commit-and-pull-request-fields) |
+| A `[template-aliases]` entry selected with experimental `--format NAME` | Each result from `issue mine` or `issue query`, including `--search` | [`issue: Issue row`](#issue-row-fields) |
 
-Use `issue.title` to read a field and `issues[0].title` to read it from the first item in a list. `T?` means a field can be `none` (JSON `null`).
+Use `issue.title` to read a field and `issues[0].title` to read it from the first item in a list. `T?` means a field is present but can be `none` (JSON `null`). Test `issue.assignee == none` for null specifically. An **undefined** field is absent, such as `issue.metadata` on a row from a query without `--search`. Check `issue.metadata is defined` before accessing its keys. An empty string `""` is a defined string, often used for missing description text. `value | default("fallback")` replaces an undefined value. Pass `true` as the second argument to also replace falsey values, including `none`, `""`, `false`, `0`, and empty lists.
+
+An included template uses the caller's values. With experimental templates enabled, an imported macro can take explicit parameters, as in the [named row example](#named-rows-and-table-columns).
 
 ### Issue ID fields
 
@@ -101,6 +104,38 @@ The `Issue` object contains `identifier`, `title`, `url`, and `description`, all
 | `references` | `Boolean` | Whether `--references` was selected. `issue jj start` supplies `false`. |
 | `linkage` | `String` | `References` when `references` is true, otherwise `Fixes`. |
 | `issue_clause` | `String` | The complete PR clause, such as `Fixes DEMO-42 and DEMO-43`. |
+
+### Issue row fields
+
+`issue mine --format` and `issue query --format` expose the same fields and casing as each result from the corresponding `--json` command, with `workspace_url_key` added. Lists such as `labels` and `inverseRelations` are direct lists. Read a label as `issue.labels[0].name` when the list has an item.
+
+| Fields on `issue` | Type | Meaning |
+|---|---|---|
+| `id`, `identifier`, `title`, `url` | `String` | Internal ID, bare issue identifier, title, and URL from Linear. |
+| `workspace_url_key` | `String?` | Workspace key parsed from `url`. |
+| `priority`, `priorityLabel` | `Integer`, `String` | Linear's priority number and its label. |
+| `estimate` | `Number?` | Estimated points, which can have a fractional part. |
+| `trashed` | `Boolean?` | Whether Linear reports the issue as deleted (in trash). |
+| `createdAt`, `updatedAt`, `archivedAt` | `String`, `String`, `String?` | UTC RFC 3339 timestamps with milliseconds. |
+| `state`, `team` | Object | Workflow state and team. |
+| `assignee`, `project`, `projectMilestone`, `cycle` | Nullable object | Related records when assigned. |
+| `labels`, `inverseRelations` | List of objects | Issue labels and incoming relations. |
+| `metadata` | Object, search only | Search metadata returned by Linear. Its keys depend on the result. This field is undefined for `issue mine` and `issue query` without `--search`. |
+
+The nested objects have these fields. `[]` denotes an item in a list.
+
+| Path under `issue` | Fields and types |
+|---|---|
+| `state` | `id: String`, `name: String`, `color: String`, `type: String`, `position: Number` |
+| `team` | `id: String`, `key: String`, `name: String`, `cyclesEnabled: Boolean`, `activeCycle: Object?` |
+| `team.activeCycle` | `number: Integer` |
+| `assignee` | `id: String`, `name: String`, `displayName: String`, `initials: String` |
+| `project`, `projectMilestone` | `id: String`, `name: String` |
+| `cycle` | `id: String`, `number: Integer`, `name: String?`, `isActive: Boolean`, `isNext: Boolean`, `isPrevious: Boolean`, `isFuture: Boolean`, `isPast: Boolean` |
+| `labels[]` | `id: String`, `name: String`, `color: String` |
+| `inverseRelations[]` | `id: String`, `type: String`, `issue: Object` |
+| `inverseRelations[].issue` | `id: String`, `identifier: String`, `state: Object` |
+| `inverseRelations[].issue.state` | `type: String` |
 
 ### Guide fields
 
@@ -175,7 +210,7 @@ A parent comment hook keeps that preference visible for both add and update guid
 
 ## Issue identifiers and links
 
-On a styled terminal, the CLI links the identifier to the issue’s canonical URL. Enable [experimental templates](#experimental-templates) to override `format_issue_id` across issue views and relations. Each issue’s URL supplies its workspace key, so one global template can distinguish two workspaces that both have a `DEMO-42`. A missing URL or unknown workspace key is available as `none`.
+On a styled terminal, the CLI links the identifier to the issue’s canonical URL. Enable [experimental templates](#experimental-templates) to override `format_issue_id` across issue tables, views, and relations. Each issue’s URL supplies its workspace key, so one global template can distinguish two workspaces that both have a `DEMO-42`. A missing URL or unknown workspace key is available as `none`.
 
 This example opens one workspace’s issues in a custom application and uses the web URL elsewhere. The third argument qualifies that workspace’s IDs in plain-text handoffs.
 
@@ -192,6 +227,33 @@ format_issue_id = '''
 {%- endif -%}'''
 ```
 
+The table measures the visible text, including a custom fallback. To show a plain identifier everywhere this hook is used, set `format_issue_id = '{{ issue.identifier }}'`. The raw identifier is also available through `linear issue id` and in JSON. See [`hyperlink` and the other functions](#functions-and-filters) for call syntax.
+
+## Named rows and table columns
+
+On `issue mine` and `issue query`, `--columns id,priority,title` selects and orders built-in table columns. See command help for all column names. With [experimental templates](#experimental-templates) enabled, use `--format NAME` for a custom row and define the name in `[template-aliases]`. Each render receives one [`issue` row](#issue-row-fields). The command supplies the newline between records.
+
+```toml
+[template-aliases]
+"example/people" = '''
+{% macro owner(person, fallback) -%}
+{{ person.displayName if person else fallback }}
+{%- endmacro %}'''
+
+"example/standup" = '''
+{%- from "example/people" import owner -%}
+- {% include "format_issue_id" %} {{ issue.title }} ({{ owner(person=issue.assignee, fallback="unassigned") }})'''
+
+"example/pick" = "{{ issue.url }}\t{{ issue.identifier }} {{ issue.title }}"
+```
+
+```bash
+linear --experimental-templates issue mine --format example/standup
+linear issue query --all-teams --columns id,priority,title
+linear --experimental-templates issue mine --format example/pick | fzf | cut -f1
+```
+
+The standup row inherits the effective ID template and names both arguments to `owner`. The picker puts the canonical URL first, so the selected line yields a workspace-specific URL even when identifiers overlap. Use `{{ issue.identifier }}` when the row needs a bare command argument.
 
 ## Commit conventions
 
@@ -253,7 +315,7 @@ Use `{{ value }}`, `{% if ... %}`, `{% for ... %}`, `{% include "name" %}`, and 
 
 Only templates registered from defaults and selected configuration are loadable. Recursive includes and long loops have recursion and execution limits. Issue content and `description` are inert data. A body containing `{{ example }}` prints those characters literally. Templates have no access to environment variables, authentication, files, or processes.
 
-Guide, commit, and pull request templates preserve Markdown and newlines, including the final newline before any command-specific normalization. The issue ID template renders a single line. TOML literal strings keep backslashes as written. Use MiniJinja `-%}` and `-}}` to trim surrounding template whitespace.
+Guide, commit, and pull request templates preserve Markdown and newlines, including the final newline before any command-specific normalization. Display templates render identifiers and individual rows without embedded newlines. Row templates preserve literal tabs from the template and replace tabs and line breaks from issue fields with spaces. TOML literal strings keep backslashes as written. Use MiniJinja `-%}` and `-}}` to trim surrounding template whitespace.
 
 ### Functions and filters
 

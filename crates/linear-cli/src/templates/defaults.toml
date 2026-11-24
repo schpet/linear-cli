@@ -1,4 +1,4 @@
-# Shipped guide prose and message templates, evaluated as plain text.
+# Shipped guide prose, message templates and display templates.
 # Shipped names are registered as immutable builtin/<name> aliases by Rust.
 # Facts: version, markdown_rules, exit_status, commands, command_guidance, command_help.
 # Rust assembles command_guidance by discovering all effective command hooks.
@@ -6,6 +6,7 @@
 
 [templates]
 format_issue_id = '''{% block content %}{% if issue.url %}{{ hyperlink(issue.url, issue.identifier) }}{% else %}{{ issue.identifier }}{% endif %}{% endblock %}'''
+
 guide = '''
 {% block content -%}
 {% include "guide_intro" -%}
@@ -120,6 +121,11 @@ linear issue query --project "Mobile App" --state backlog --state triage --unass
 linear issue query --assignee sam --label bug --updated-after 2026-01-01
 ```
 
+For human-readable output, `--columns` selects table columns. The experimental
+`--format` option selects a named row template from `[template-aliases]`.
+Enable it with `--experimental-templates` or `templates = true` under
+`[experimental]` in Linear config. It may change or be removed in a minor release.
+
 {% endblock %}'''
 
 skill_issue_mine = '''
@@ -134,6 +140,9 @@ linear issue mine --state started --sort priority
 - `issue mine` sorts by priority unless `--sort` (`manual` or `priority`), the
   `issue_sort` setting or `LINEAR_ISSUE_SORT` says otherwise, and it needs
   `--team` when no team is configured.
+- Use `--columns` to choose table columns. Enable experimental templates with
+  `--experimental-templates` or `templates = true` under `[experimental]`
+  in Linear config to use a named row with `--format`.
 {% endblock %}'''
 
 skill_issue_view = '''

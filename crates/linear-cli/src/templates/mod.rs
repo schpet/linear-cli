@@ -354,6 +354,18 @@ impl TemplateConfig {
         &self.entries
     }
 
+    pub fn validate_alias(&self, name: &str) -> Result<()> {
+        if self.entries.get(name).is_some_and(TemplateEntry::is_alias) {
+            Ok(())
+        } else {
+            Err(Error::invalid(format!(
+                "No template alias named {:?}",
+                terminal_text::single_line(name)
+            ))
+            .with_hint("Define the name in [template-aliases], or choose a name shown by `linear config list`."))
+        }
+    }
+
     /// Whether an output still uses the shipped definition. A layer that
     /// repeats the same body retains the same behavior regardless of its source.
     pub fn is_builtin(&self, slot: Slot) -> bool {
