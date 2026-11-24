@@ -30,17 +30,19 @@ issue_view_heading = '''
 
 issue_view_metadata = '''
 {% block content -%}
-{% if display.lifecycle_banner %}{{ markdown(display.lifecycle_banner) }}
-{% endif %}**State:** {{ issue.state.name }}{{ display.lifecycle_state_suffix }}
-**Priority:** {{ display.priority }}
-**Assignee:** {% if issue.assignee %}@{{ issue.assignee.displayName }}{% else %}Unassigned{% endif %}
-{% if issue.delegate %}**Delegate:** @{{ issue.delegate.displayName }}
-{% endif %}{% if issue.project %}**Project:** {{ issue.project.name }}
-{% endif %}{% if issue.projectMilestone %}**Milestone:** {{ issue.projectMilestone.name }}
-{% endif %}{% if display.cycle %}**Cycle:** {{ display.cycle }}
-{% endif %}{% if display.creator %}**Creator:** @{{ display.creator }}
-{% endif %}**Created:** {{ display.created }}
-**Updated:** {{ display.updated }}{% endblock %}'''
+{% set lifecycle = display.lifecycle -%}
+{% if lifecycle.kind == "deleted" %}{{ label("field_label", "Deleted:") }} {% if lifecycle.date %}{{ lifecycle.date }} (in trash; restore it in Linear to edit or comment){% else %}In trash; restore it in Linear to edit or comment{% endif %}
+{% elif lifecycle.kind == "archived" %}{{ label("field_label", "Archived:") }} {{ lifecycle.date }}
+{% endif %}{{ label("field_label", "State:") }} {{ issue.state.name }}{% if lifecycle.kind != "active" %} ({{ lifecycle.kind }}){% endif %}
+{{ label("field_label", "Priority:") }} {{ display.priority }}
+{{ label("field_label", "Assignee:") }} {% if issue.assignee %}@{{ issue.assignee.displayName }}{% else %}Unassigned{% endif %}
+{% if issue.delegate %}{{ label("field_label", "Delegate:") }} @{{ issue.delegate.displayName }}
+{% endif %}{% if issue.project %}{{ label("field_label", "Project:") }} {{ issue.project.name }}
+{% endif %}{% if issue.projectMilestone %}{{ label("field_label", "Milestone:") }} {{ issue.projectMilestone.name }}
+{% endif %}{% if display.cycle %}{{ label("field_label", "Cycle:") }} {{ display.cycle }}
+{% endif %}{% if display.creator %}{{ label("field_label", "Creator:") }} @{{ display.creator }}
+{% endif %}{{ label("field_label", "Created:") }} {{ display.created }}
+{{ label("field_label", "Updated:") }} {{ display.updated }}{% endblock %}'''
 
 issue_view_description = '''
 {% block content -%}

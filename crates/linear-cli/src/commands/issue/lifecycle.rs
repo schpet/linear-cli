@@ -31,28 +31,6 @@ impl Lifecycle {
         }
     }
 
-    pub fn state_suffix(self) -> &'static str {
-        match self {
-            Self::Active => "",
-            Self::Archived(_) => " (archived)",
-            Self::Deleted(_) => " (deleted)",
-        }
-    }
-
-    pub fn banner(self) -> Option<String> {
-        match self {
-            Self::Active => None,
-            Self::Archived(at) => Some(format!("**Archived:** {}", at.0.date_naive())),
-            Self::Deleted(at) => Some(match at {
-                Some(at) => format!(
-                    "**Deleted:** {} (in trash; restore it in Linear to edit or comment)",
-                    at.0.date_naive()
-                ),
-                None => "**Deleted:** In trash; restore it in Linear to edit or comment".to_owned(),
-            }),
-        }
-    }
-
     fn description(self, identifier: &str) -> Option<String> {
         let identifier = single_line(identifier);
         match self {
